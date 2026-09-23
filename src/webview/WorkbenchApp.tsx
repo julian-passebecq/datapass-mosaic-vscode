@@ -17,9 +17,12 @@ import type {
   WebviewToHostMessage,
   WorkbenchViewState
 } from "./contracts";
+import { MosaicSurface } from "./MosaicSurface";
 
 export interface VsCodeApi {
   postMessage(message: WebviewToHostMessage): void;
+  getState(): unknown;
+  setState(state: unknown): void;
 }
 
 export function WorkbenchApp({ vscode }: { vscode: VsCodeApi }) {
@@ -108,23 +111,29 @@ export function WorkbenchApp({ vscode }: { vscode: VsCodeApi }) {
               <Badge appearance="outline">{selected.execution}</Badge>
             </div>
 
-            <div className="feature-grid">
-              {selected.highlights.map(highlight => (
-                <Card key={highlight}>
-                  <CardHeader header={<Text weight="semibold">{highlight}</Text>} />
-                </Card>
-              ))}
-            </div>
+            {selected.id === "mosaic" ? (
+              <MosaicSurface vscode={vscode} runtime={state.runtime} />
+            ) : (
+              <>
+                <div className="feature-grid">
+                  {selected.highlights.map(highlight => (
+                    <Card key={highlight}>
+                      <CardHeader header={<Text weight="semibold">{highlight}</Text>} />
+                    </Card>
+                  ))}
+                </div>
 
-            <Card className="surface-card">
-              <CardHeader
-                header={<Text size={500} weight="semibold">VS Code-native boundary</Text>}
-                description={<Text>Files, editors, terminals, Git and Jupyter stay native. Datapass adds the teaching surface and local execution services.</Text>}
-              />
-              <div className="button-row">
-                <Button appearance="secondary" onClick={() => vscode.postMessage({ type: "openTerminal" })}>Open terminal</Button>
-              </div>
-            </Card>
+                <Card className="surface-card">
+                  <CardHeader
+                    header={<Text size={500} weight="semibold">VS Code-native boundary</Text>}
+                    description={<Text>Files, editors, terminals, Git and Jupyter stay native. Datapass adds the teaching surface and local execution services.</Text>}
+                  />
+                  <div className="button-row">
+                    <Button appearance="secondary" onClick={() => vscode.postMessage({ type: "openTerminal" })}>Open terminal</Button>
+                  </div>
+                </Card>
+              </>
+            )}
           </section>
 
           <aside className="side-column">
