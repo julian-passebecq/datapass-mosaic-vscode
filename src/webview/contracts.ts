@@ -1,6 +1,7 @@
 import type { ModuleId, WorkbenchModule } from "../modules";
 
 export type RuntimeStatus = "stopped" | "starting" | "running" | "error";
+export type ScratchKind = "sql" | "python" | "notes";
 
 export interface RuntimeViewState {
   status: RuntimeStatus;
@@ -35,4 +36,5 @@ export type WebviewToHostMessage =
   | { type: "openManifest" }
   | { type: "startRuntime" }
   | { type: "stopRuntime" }
-  | { type: "openTerminal" };
+  | { type: "openTerminal" }
+  | { type: "openScratch"; kind: ScratchKind };
