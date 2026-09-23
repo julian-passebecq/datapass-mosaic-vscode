@@ -7,6 +7,7 @@ import * as esbuild from "esbuild";
 
 const dir = await mkdtemp(path.join(tmpdir(), "datapass-scaffold-"));
 const outfile = path.join(dir, "retail-demo.mjs");
+const dbtOutfile = path.join(dir, "dbt-version.mjs");
 
 try {
   await esbuild.build({
@@ -19,7 +20,18 @@ try {
     logLevel: "silent"
   });
 
+  await esbuild.build({
+    entryPoints: ["src/platform/dbtVersion.ts"],
+    bundle: true,
+    platform: "node",
+    format: "esm",
+    target: "node20",
+    outfile: dbtOutfile,
+    logLevel: "silent"
+  });
+
   const mod = await import(pathToFileURL(outfile).href + `?v=${Date.now()}`);
+  const dbtMod = await import(pathToFileURL(dbtOutfile).href + `?v=${Date.now()}`);
 
   const customDataset = "assets/raw/retail_orders.csv";
   const sql = mod.retailSqlStarter(customDataset);
@@ -58,7 +70,21 @@ try {
   assert.ok(rows.some(row => row.includes("refund")));
   assert.ok(rows.some(row => row.includes("cancelled")));
 
-  console.log("Retail scaffold smoke tests passed.");
+  const parsedDbt = dbtMod.parseDbtVersionOutput([
+    "Core:",
+    "  - installed: 1.10.2",
+    "  - latest:    1.10.2 - Up to date!",
+    "Plugins:",
+    "  - duckdb: 1.9.6 - Up to date!"
+  ].join("\n"));
+  assert.equal(parsedDbt.coreVersion, "1.10.2");
+  assert.equal(parsedDbt.duckdbAdapterVersion, "1.9.6");
+
+  const coreOnly = dbtMod.parseDbtVersionOutput("dbt Core v1.10.2");
+  assert.equal(coreOnly.coreVersion, "1.10.2");
+  assert.equal(coreOnly.duckdbAdapterVersion, undefined);
+
+  console.log("Retail scaffold and dbt detection smoke tests passed.");
 } finally {
   await rm(dir, { recursive: true, force: true });
 }
