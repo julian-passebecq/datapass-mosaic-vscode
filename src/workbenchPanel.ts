@@ -4,7 +4,7 @@ import { createDefaultProjectManifest, readProjectManifest, writeProjectManifest
 import type { RuntimeManager } from "./runtimeManager";
 import { collectWorkbenchState } from "./workbenchState";
 import { contentSecurityPolicy, makeNonce } from "./webview/security";
-import type { WebviewToHostMessage } from "./webview/contracts";
+import type { ScratchKind, WebviewToHostMessage } from "./webview/contracts";
 
 export class WorkbenchPanel {
   private static current?: WorkbenchPanel;
@@ -92,6 +92,9 @@ export class WorkbenchPanel {
       case "openTerminal":
         await vscode.commands.executeCommand("workbench.action.terminal.new");
         return;
+      case "openScratch":
+        await this.openScratch(message.kind);
+        return;
     }
   }
 
@@ -120,6 +123,27 @@ export class WorkbenchPanel {
       return;
     }
     await openTextDocument(manifest.uri);
+  }
+
+  private async openScratch(kind: ScratchKind): Promise<void> {
+    const root = vscode.workspace.workspaceFolders?.[0]?.uri;
+    if (!root) {
+      void vscode.window.showWarningMessage("Open a workspace folder before creating Mosaic scratch files.");
+      return;
+    }
+
+    const manifest = await readProjectManifest();
+    const notebooks = safeRelativeParts(manifest.manifest?.assets?.notebooks, "notebooks");
+    const spec = scratchSpec(kind);
+    const directoryParts = kind === "notes" ? ["notes"] : notebooks;
+    const directory = vscode.Uri.joinPath(root, ...directoryParts);
+    const uri = vscode.Uri.joinPath(directory, spec.fileName);
+
+    await vscode.workspace.fs.createDirectory(directory);
+    if (!(await exists(uri))) {
+      await vscode.workspace.fs.writeFile(uri, new TextEncoder().encode(spec.content));
+    }
+    await openTextDocument(uri);
   }
 
   private async refresh(): Promise<void> {
@@ -159,6 +183,47 @@ export class WorkbenchPanel {
     while (this.disposables.length) {
       this.disposables.pop()?.dispose();
     }
+  }
+}
+
+function scratchSpec(kind: ScratchKind): { fileName: string; content: string } {
+  switch (kind) {
+    case "sql":
+      return {
+        fileName: "mosaic.sql",
+        content: "-- Datapass Mosaic SQL scratch\n-- Run locally with DuckDB / DuckLake.\n\nselect 1 as datapass_ready;\n"
+      };
+    case "python":
+      return {
+        fileName: "mosaic.py",
+        content: "import polars as pl\n\ndf = pl.DataFrame({\"value\": [1, 2, 3]})\nprint(df)\n"
+      };
+    case "notes":
+      return {
+        fileName: "mosaic.md",
+        content: "# Mosaic notes\n\nUse this file for dataset grain, assumptions, checks and observations.\n"
+      };
+  }
+}
+
+function safeRelativeParts(value: string | undefined, fallback: string): string[] {
+  const normalized = (value ?? fallback).replaceAll("\\", "/");
+  const parts = normalized.split("/").filter(Boolean);
+  if (
+    parts.length === 0 ||
+    parts.some(part => part === "." || part === ".." || part.includes(":"))
+  ) {
+    return [fallback];
+  }
+  return parts;
+}
+
+async function exists(uri: vscode.Uri): Promise<boolean> {
+  try {
+    await vscode.workspace.fs.stat(uri);
+    return true;
+  } catch {
+    return false;
   }
 }
 
