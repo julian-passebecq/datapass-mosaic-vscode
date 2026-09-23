@@ -350,10 +350,23 @@ h2 { margin-bottom: 8px; font-size: 28px; }
 }
 .airflow-log > div + div { margin-top: 4px; }
 
+.dbt-surface {
+  min-width: 0;
+  border-top: 1px solid var(--vscode-panel-border);
+  padding-top: 14px;
+}
+.dbt-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 12px;
+}
+
 @media (max-width: 900px) {
   .content-grid { grid-template-columns: 1fr; }
   .feature-grid { grid-template-columns: 1fr; }
-  .topbar, .module-heading, .mosaic-toolbar, .practice-toolbar, .pipeline-toolbar, .airflow-toolbar, .airflow-runbar { align-items: flex-start; flex-direction: column; }
+  .topbar, .module-heading, .mosaic-toolbar, .practice-toolbar, .pipeline-toolbar, .airflow-toolbar, .airflow-runbar, .dbt-toolbar { align-items: flex-start; flex-direction: column; }
   .side-column { grid-template-columns: 1fr; }
   .datapass-graph-host { height: 390px; }
   .airflow-lower { grid-template-columns: 1fr; }
