@@ -1,0 +1,300 @@
+{
+  "schema_version": 1,
+  "trust": "Developer-authored source only; never load user submissions into this external oracle",
+  "fixtures": [
+    {
+      "id": "null-comparison",
+      "tables": {
+        "facts": {
+          "rows": [
+            {
+              "key": 1,
+              "amount": 10.0
+            },
+            {
+              "key": 1,
+              "amount": 20.0
+            },
+            {
+              "key": null,
+              "amount": null
+            },
+            {
+              "key": 2,
+              "amount": -5.0
+            }
+          ],
+          "spark_schema": "key INT, amount DOUBLE"
+        },
+        "dims": {
+          "rows": [
+            {
+              "key": 1,
+              "label": "a"
+            },
+            {
+              "key": 1,
+              "label": "b"
+            },
+            {
+              "key": 3,
+              "label": "c"
+            },
+            {
+              "key": null,
+              "label": "n"
+            }
+          ],
+          "spark_schema": "key INT, label STRING"
+        }
+      },
+      "source": "result = spark.table(\"facts\").filter(F.col(\"key\").eqNullSafe(None))",
+      "ordered": false
+    },
+    {
+      "id": "duplicate-outer-join",
+      "tables": {
+        "facts": {
+          "rows": [
+            {
+              "key": 1,
+              "amount": 10.0
+            },
+            {
+              "key": 1,
+              "amount": 20.0
+            },
+            {
+              "key": null,
+              "amount": null
+            },
+            {
+              "key": 2,
+              "amount": -5.0
+            }
+          ],
+          "spark_schema": "key INT, amount DOUBLE"
+        },
+        "dims": {
+          "rows": [
+            {
+              "key": 1,
+              "label": "a"
+            },
+            {
+              "key": 1,
+              "label": "b"
+            },
+            {
+              "key": 3,
+              "label": "c"
+            },
+            {
+              "key": null,
+              "label": "n"
+            }
+          ],
+          "spark_schema": "key INT, label STRING"
+        }
+      },
+      "source": "result = spark.table(\"facts\").join(spark.table(\"dims\"),\"key\",\"full\")",
+      "ordered": false
+    },
+    {
+      "id": "group-aggregate",
+      "tables": {
+        "facts": {
+          "rows": [
+            {
+              "key": 1,
+              "amount": 10.0
+            },
+            {
+              "key": 1,
+              "amount": 20.0
+            },
+            {
+              "key": null,
+              "amount": null
+            },
+            {
+              "key": 2,
+              "amount": -5.0
+            }
+          ],
+          "spark_schema": "key INT, amount DOUBLE"
+        },
+        "dims": {
+          "rows": [
+            {
+              "key": 1,
+              "label": "a"
+            },
+            {
+              "key": 1,
+              "label": "b"
+            },
+            {
+              "key": 3,
+              "label": "c"
+            },
+            {
+              "key": null,
+              "label": "n"
+            }
+          ],
+          "spark_schema": "key INT, label STRING"
+        }
+      },
+      "source": "result = spark.table(\"facts\").groupBy(\"key\").agg(F.sum(\"amount\").alias(\"total\"),F.count(\"amount\").alias(\"n\"),F.avg(\"amount\").alias(\"mean\"))",
+      "ordered": false
+    },
+    {
+      "id": "null-ordering",
+      "tables": {
+        "facts": {
+          "rows": [
+            {
+              "key": 1,
+              "amount": 10.0
+            },
+            {
+              "key": 1,
+              "amount": 20.0
+            },
+            {
+              "key": null,
+              "amount": null
+            },
+            {
+              "key": 2,
+              "amount": -5.0
+            }
+          ],
+          "spark_schema": "key INT, amount DOUBLE"
+        },
+        "dims": {
+          "rows": [
+            {
+              "key": 1,
+              "label": "a"
+            },
+            {
+              "key": 1,
+              "label": "b"
+            },
+            {
+              "key": 3,
+              "label": "c"
+            },
+            {
+              "key": null,
+              "label": "n"
+            }
+          ],
+          "spark_schema": "key INT, label STRING"
+        }
+      },
+      "source": "result = spark.table(\"facts\").sort(\"key\", \"amount\")",
+      "ordered": true
+    },
+    {
+      "id": "window",
+      "tables": {
+        "facts": {
+          "rows": [
+            {
+              "key": 1,
+              "amount": 10.0
+            },
+            {
+              "key": 1,
+              "amount": 20.0
+            },
+            {
+              "key": null,
+              "amount": null
+            },
+            {
+              "key": 2,
+              "amount": -5.0
+            }
+          ],
+          "spark_schema": "key INT, amount DOUBLE"
+        },
+        "dims": {
+          "rows": [
+            {
+              "key": 1,
+              "label": "a"
+            },
+            {
+              "key": 1,
+              "label": "b"
+            },
+            {
+              "key": 3,
+              "label": "c"
+            },
+            {
+              "key": null,
+              "label": "n"
+            }
+          ],
+          "spark_schema": "key INT, label STRING"
+        }
+      },
+      "source": "w = Window.partitionBy(\"key\").orderBy(\"amount\")\nresult = spark.table(\"facts\").withColumn(\"rn\",F.row_number().over(w)).withColumn(\"running\",F.sum(\"amount\").over(w.rowsBetween(Window.unboundedPreceding,Window.currentRow)))",
+      "ordered": false
+    },
+    {
+      "id": "renamed-duplicate-columns",
+      "tables": {
+        "facts": {
+          "rows": [
+            {
+              "key": 1,
+              "amount": 10.0
+            },
+            {
+              "key": 1,
+              "amount": 20.0
+            },
+            {
+              "key": null,
+              "amount": null
+            },
+            {
+              "key": 2,
+              "amount": -5.0
+            }
+          ],
+          "spark_schema": "key INT, amount DOUBLE"
+        },
+        "dims": {
+          "rows": [
+            {
+              "key": 1,
+              "label": "a"
+            },
+            {
+              "key": 1,
+              "label": "b"
+            },
+            {
+              "key": 3,
+              "label": "c"
+            },
+            {
+              "key": null,
+              "label": "n"
+            }
+          ],
+          "spark_schema": "key INT, label STRING"
+        }
+      },
+      "source": "right = spark.table(\"facts\").withColumnRenamed(\"amount\",\"right_amount\")\nresult = spark.table(\"facts\").join(right,\"key\")",
+      "ordered": false
+    }
+  ]
+}
