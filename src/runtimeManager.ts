@@ -136,3 +136,43 @@ export class RuntimeManager implements vscode.Disposable {
   }
 }
 
+
+
+function requestJson<T>(
+  url: string,
+  method: "POST",
+  body: unknown
+): Promise<T> {
+  return new Promise((resolve, reject) => {
+    const payload = Buffer.from(JSON.stringify(body), "utf8");
+    const request = require("node:http").request(
+      url,
+      {
+        method,
+        headers: {
+          "content-type": "application/json",
+          "content-length": String(payload.length)
+        }
+      },
+      (response: import("node:http").IncomingMessage) => {
+        const chunks: Buffer[] = [];
+        response.on("data", chunk => chunks.push(Buffer.from(chunk)));
+        response.on("end", () => {
+          const text = Buffer.concat(chunks).toString("utf8");
+          if ((response.statusCode ?? 500) < 200 || (response.statusCode ?? 500) >= 300) {
+            reject(new Error(`Runtime request failed with HTTP ${response.statusCode}: ${text.slice(0, 500)}`));
+            return;
+          }
+          try {
+            resolve(JSON.parse(text) as T);
+          } catch (error) {
+            reject(error);
+          }
+        });
+      }
+    );
+    request.setTimeout(2500, () => request.destroy(new Error("Runtime request timed out.")));
+    request.on("error", reject);
+    request.end(payload);
+  });
+}
