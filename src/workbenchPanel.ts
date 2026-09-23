@@ -1,6 +1,6 @@
 import * as vscode from "vscode";
 import { loadExerciseCatalog } from "./exerciseCatalog";
-import { detectCli } from "./platform/detection";
+import { probeDbtCli } from "./dbtState";
 import { MODULES, type ModuleId } from "./modules";
 import { createDefaultProjectManifest, readProjectManifest, writeProjectManifest } from "./project/projectManifest";
 import type { RuntimeManager } from "./runtimeManager";
@@ -385,9 +385,13 @@ export class WorkbenchPanel {
       return;
     }
 
-    const probe = await detectCli({ id: "dbt", label: "dbt Core", command: "dbt" });
-    if (!probe.available) {
-      void vscode.window.showWarningMessage("dbt CLI was not detected. Install dbt-core and dbt-duckdb first.");
+    const probe = await probeDbtCli();
+    if (!probe.available || !probe.adapterAvailable) {
+      void vscode.window.showWarningMessage(
+        probe.available
+          ? "dbt Core is installed, but dbt-duckdb was not detected. Install dbt-duckdb before running this project."
+          : "dbt CLI was not detected. Install dbt-core and dbt-duckdb first."
+      );
       return;
     }
 
