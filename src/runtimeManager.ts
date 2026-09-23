@@ -7,6 +7,24 @@ import type { RuntimeViewState } from "./webview/contracts";
 const HOST = "127.0.0.1";
 const PORT = 8765;
 
+export interface PipelineCompileResponse {
+  valid: boolean;
+  source_hash: string;
+  truth: string;
+  diagnostics: Array<{ line: number; column: number; message: string }>;
+  ir: null | {
+    id: string;
+    schedule: string | null;
+    tasks: Array<{
+      id: string;
+      kind: string;
+      retries: number;
+      retry_delay: number;
+    }>;
+    edges: Array<{ source: string; target: string }>;
+  };
+}
+
 export class RuntimeManager implements vscode.Disposable {
   private child?: ChildProcess;
   private state: RuntimeViewState = { status: "stopped" };
@@ -85,6 +103,16 @@ export class RuntimeManager implements vscode.Disposable {
     }
   }
 
+  async compilePipeline(source: string): Promise<PipelineCompileResponse> {
+    const url = this.state.status === "running" ? this.state.url : undefined;
+    if (!url) throw new Error("Start the Datapass runtime before compiling a pipeline.");
+    return requestJson<PipelineCompileResponse>(
+      `${url}/api/pipeline/compile`,
+      "POST",
+      { source }
+    );
+  }
+
   stop(): void {
     if (!this.child) {
       this.setState({ status: "stopped" });
@@ -136,6 +164,45 @@ function requestStatus(url: string): Promise<number> {
     });
     request.setTimeout(900, () => request.destroy(new Error("Health request timed out.")));
     request.on("error", reject);
+  });
+}
+
+function requestJson<T>(
+  url: string,
+  method: "POST",
+  body: unknown
+): Promise<T> {
+  return new Promise((resolve, reject) => {
+    const payload = Buffer.from(JSON.stringify(body), "utf8");
+    const request = http.request(
+      url,
+      {
+        method,
+        headers: {
+          "content-type": "application/json",
+          "content-length": String(payload.length)
+        }
+      },
+      response => {
+        const chunks: Buffer[] = [];
+        response.on("data", chunk => chunks.push(Buffer.from(chunk)));
+        response.on("end", () => {
+          const text = Buffer.concat(chunks).toString("utf8");
+          if ((response.statusCode ?? 500) < 200 || (response.statusCode ?? 500) >= 300) {
+            reject(new Error(`Runtime request failed with HTTP ${response.statusCode}: ${text.slice(0, 500)}`));
+            return;
+          }
+          try {
+            resolve(JSON.parse(text) as T);
+          } catch (error) {
+            reject(error);
+          }
+        });
+      }
+    );
+    request.setTimeout(2500, () => request.destroy(new Error("Runtime request timed out.")));
+    request.on("error", reject);
+    request.end(payload);
   });
 }
 
