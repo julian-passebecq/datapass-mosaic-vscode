@@ -1,0 +1,84 @@
+{
+  "id": "warehouse-sql",
+  "title": "SQL-only warehouse",
+  "subtitle": "The shortest correct path",
+  "domain": "Retail",
+  "difficulty": "Foundation",
+  "minutes": 12,
+  "modules": [
+    "warehouse"
+  ],
+  "description": "A complete, useful case without Spark, notebooks-as-compute, orchestration or cloud services. Build and reconcile a warehouse table with SQL.",
+  "physical_data": "12 physical orders",
+  "steps": [
+    {
+      "id": "warehouse",
+      "title": "Create a customer revenue warehouse table",
+      "module": "warehouse",
+      "language": "sql",
+      "code": "SELECT customer_id, SUM(net_amount) AS revenue, COUNT(*) AS orders\nFROM source.orders\nWHERE net_amount > 0\nGROUP BY customer_id",
+      "solution": "SELECT customer_id, SUM(net_amount) AS revenue, COUNT(*) AS orders\nFROM source.orders\nWHERE net_amount > 0\nGROUP BY customer_id",
+      "output_asset": "warehouse.customer_revenue",
+      "depends_on": [],
+      "concept": "A warehouse is a data store and modeling surface. Data Factory can load it, but is not the warehouse itself.",
+      "task": "Create a customer revenue warehouse table",
+      "hint": "",
+      "check": {
+        "sql": "SELECT customer_id, revenue, orders FROM warehouse.customer_revenue ORDER BY customer_id",
+        "expected": [
+          {
+            "customer_id": "C001",
+            "revenue": 150.0,
+            "orders": 2
+          },
+          {
+            "customer_id": "C002",
+            "revenue": 225.0,
+            "orders": 2
+          },
+          {
+            "customer_id": "C005",
+            "revenue": 100.0,
+            "orders": 2
+          },
+          {
+            "customer_id": "C006",
+            "revenue": 10.0,
+            "orders": 1
+          },
+          {
+            "customer_id": "CORPORATE_ACCOUNT_01",
+            "revenue": 4500.0,
+            "orders": 3
+          }
+        ]
+      }
+    },
+    {
+      "id": "reconcile",
+      "title": "Reconcile the warehouse",
+      "module": "warehouse",
+      "language": "sql",
+      "code": "SELECT SUM(revenue) AS revenue FROM warehouse.customer_revenue",
+      "solution": "SELECT SUM(revenue) AS revenue FROM warehouse.customer_revenue",
+      "output_asset": null,
+      "depends_on": [
+        "warehouse"
+      ],
+      "concept": "Reconciliation checks the result, not whether the code contains a particular keyword.",
+      "task": "Reconcile the warehouse",
+      "hint": "",
+      "check": {
+        "sql": "SELECT SUM(revenue) AS revenue FROM warehouse.customer_revenue",
+        "expected": [
+          {
+            "revenue": 4985.0
+          }
+        ]
+      }
+    }
+  ],
+  "schema_version": 1,
+  "version": "2026-09-17",
+  "status": "foundation"
+}

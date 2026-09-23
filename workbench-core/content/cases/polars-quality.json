@@ -1,0 +1,61 @@
+{
+  "id": "polars-quality",
+  "title": "Polars quality check",
+  "subtitle": "A small-data alternative",
+  "domain": "Retail",
+  "difficulty": "Foundation",
+  "minutes": 10,
+  "modules": [
+    "polars-notebook"
+  ],
+  "description": "Use real Polars in the trusted local Python worker when the optional package is installed. It never pretends to be Spark.",
+  "physical_data": "12 physical orders",
+  "steps": [
+    {
+      "id": "polars",
+      "title": "Filter and aggregate with Polars",
+      "module": "polars-notebook",
+      "language": "polars",
+      "code": "import polars as pl\norders = pl.DataFrame(query(\"SELECT * FROM source.orders\"))\nresult = orders.filter(pl.col(\"net_amount\") > 0).group_by(\"customer_id\").agg(pl.col(\"net_amount\").sum().alias(\"revenue\"), pl.len().alias(\"orders\"))\ndisplay(result)",
+      "solution": "import polars as pl\norders = pl.DataFrame(query(\"SELECT * FROM source.orders\"))\nresult = orders.filter(pl.col(\"net_amount\") > 0).group_by(\"customer_id\").agg(pl.col(\"net_amount\").sum().alias(\"revenue\"), pl.len().alias(\"orders\"))\ndisplay(result)",
+      "output_asset": "gold.customer_revenue",
+      "depends_on": [],
+      "concept": "Polars is an actual local execution engine, not a simulated distributed cluster.",
+      "task": "Filter and aggregate with Polars",
+      "hint": "",
+      "check": {
+        "sql": "SELECT customer_id, revenue, orders FROM gold.customer_revenue ORDER BY customer_id",
+        "expected": [
+          {
+            "customer_id": "C001",
+            "revenue": 150.0,
+            "orders": 2
+          },
+          {
+            "customer_id": "C002",
+            "revenue": 225.0,
+            "orders": 2
+          },
+          {
+            "customer_id": "C005",
+            "revenue": 100.0,
+            "orders": 2
+          },
+          {
+            "customer_id": "C006",
+            "revenue": 10.0,
+            "orders": 1
+          },
+          {
+            "customer_id": "CORPORATE_ACCOUNT_01",
+            "revenue": 4500.0,
+            "orders": 3
+          }
+        ]
+      }
+    }
+  ],
+  "schema_version": 1,
+  "version": "2026-09-17",
+  "status": "foundation"
+}
