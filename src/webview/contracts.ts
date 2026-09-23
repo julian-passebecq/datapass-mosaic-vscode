@@ -35,12 +35,48 @@ export interface PracticeViewState {
   exercises: readonly ExerciseSummary[];
 }
 
+export interface GraphNodeView {
+  id: string;
+  label: string;
+  detail: string;
+  truth?: string;
+}
+
+export interface GraphEdgeView {
+  id: string;
+  source: string;
+  target: string;
+  label: string;
+}
+
+export interface GraphView {
+  nodes: readonly GraphNodeView[];
+  edges: readonly GraphEdgeView[];
+}
+
+export interface PipelineDiagnostic {
+  line: number;
+  column: number;
+  message: string;
+}
+
+export interface PipelineViewState {
+  exists: boolean;
+  path: string;
+  compileStatus: "missing" | "runtime-required" | "valid" | "invalid" | "error";
+  diagnostics: readonly PipelineDiagnostic[];
+  graph: GraphView;
+  truth?: string;
+  schedule?: string | null;
+}
+
 export interface WorkbenchViewState {
   selectedModule: ModuleId;
   modules: readonly WorkbenchModule[];
   workspace: WorkspaceViewState;
   runtime: RuntimeViewState;
   practice?: PracticeViewState;
+  pipeline?: PipelineViewState;
 }
 
 export type HostToWebviewMessage = {
@@ -57,4 +93,6 @@ export type WebviewToHostMessage =
   | { type: "stopRuntime" }
   | { type: "openTerminal" }
   | { type: "openScratch"; kind: ScratchKind }
-  | { type: "openExercise"; exerciseKey: string };
+  | { type: "openExercise"; exerciseKey: string }
+  | { type: "openPipelineSource" }
+  | { type: "refreshPipeline" };
