@@ -301,10 +301,60 @@ h2 { margin-bottom: 8px; font-size: 28px; }
   stroke: var(--vscode-descriptionForeground);
 }
 
+.airflow-surface {
+  min-width: 0;
+  border-top: 1px solid var(--vscode-panel-border);
+  padding-top: 14px;
+}
+.airflow-toolbar,
+.airflow-runbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+}
+.airflow-toolbar { margin-bottom: 12px; }
+.airflow-runbar {
+  margin-bottom: 10px;
+  padding: 8px 0;
+}
+.airflow-lower {
+  display: grid;
+  grid-template-columns: minmax(280px, .8fr) minmax(320px, 1.2fr);
+  gap: 12px;
+  margin-top: 12px;
+}
+.airflow-task-table,
+.airflow-log {
+  border: 1px solid var(--vscode-panel-border);
+  border-radius: 7px;
+  background: var(--vscode-editorWidget-background);
+  overflow: hidden;
+}
+.airflow-task-row {
+  display: grid;
+  grid-template-columns: 1.3fr .8fr .9fr 1fr;
+  gap: 8px;
+  padding: 8px 10px;
+  border-bottom: 1px solid var(--vscode-panel-border);
+  font-size: 11px;
+}
+.airflow-task-row:last-child { border-bottom: 0; }
+.airflow-log {
+  max-height: 230px;
+  overflow: auto;
+  padding: 9px 11px;
+  font-family: var(--vscode-editor-font-family);
+  font-size: 10px;
+  line-height: 1.5;
+}
+.airflow-log > div + div { margin-top: 4px; }
+
 @media (max-width: 900px) {
   .content-grid { grid-template-columns: 1fr; }
   .feature-grid { grid-template-columns: 1fr; }
-  .topbar, .module-heading, .mosaic-toolbar, .practice-toolbar, .pipeline-toolbar { align-items: flex-start; flex-direction: column; }
+  .topbar, .module-heading, .mosaic-toolbar, .practice-toolbar, .pipeline-toolbar, .airflow-toolbar, .airflow-runbar { align-items: flex-start; flex-direction: column; }
   .side-column { grid-template-columns: 1fr; }
   .datapass-graph-host { height: 390px; }
+  .airflow-lower { grid-template-columns: 1fr; }
 }
