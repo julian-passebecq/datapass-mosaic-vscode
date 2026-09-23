@@ -23,6 +23,16 @@ export function FabricSurface({
         </Badge>
       </div>
 
+      <div className="demo-banner">
+        <div>
+          <strong>Start with a connected sample</strong>
+          <span>Create a small retail project spanning source data, SQL/Polars, pipeline, Airflow and dbt.</span>
+        </div>
+        <Button appearance="primary" onClick={() => vscode.postMessage({ type: "createRetailDemo" })}>
+          Create retail end-to-end demo
+        </Button>
+      </div>
+
       <div className="lab-flow" aria-label="Fabric Lab learning flow">
         <FlowStep index="1" title="Lakehouse" detail="DuckDB / DuckLake files and tables" truth="Real local" />
         <FlowArrow />
