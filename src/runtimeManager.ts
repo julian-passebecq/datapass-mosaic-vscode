@@ -65,7 +65,11 @@ export class RuntimeManager implements vscode.Disposable {
       {
         cwd: runtimeRoot,
         windowsHide: true,
-        stdio: ["ignore", "pipe", "pipe"]
+        stdio: ["ignore", "pipe", "pipe"],
+        env: {
+          ...process.env,
+          DATAPASS_CONTENT_ROOT: path.join(this.extensionUri.fsPath, "content")
+        }
       }
     );
 
