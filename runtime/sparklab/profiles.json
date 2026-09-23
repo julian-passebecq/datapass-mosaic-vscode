@@ -1,0 +1,142 @@
+{
+  "mobility": {
+    "tables": {
+      "bronze.trips": {
+        "rows": 15709991,
+        "bytes": 1954210112,
+        "partitions": 41,
+        "key": "trip_id",
+        "median_partition_mb": 43,
+        "largest_partition_mb": 118,
+        "columns": [
+          "trip_id",
+          "pickup_datetime",
+          "dropoff_datetime",
+          "pickup_zone_id",
+          "fare_amount",
+          "loaded_at"
+        ]
+      },
+      "silver.trips": {
+        "rows": 15184402,
+        "bytes": 1760936591,
+        "partitions": 32,
+        "key": "trip_id",
+        "median_partition_mb": 48,
+        "largest_partition_mb": 102,
+        "columns": [
+          "trip_id",
+          "pickup_datetime",
+          "dropoff_datetime",
+          "pickup_zone_id",
+          "fare_amount",
+          "loaded_at"
+        ]
+      }
+    },
+    "broadcast_threshold_mb": 10,
+    "executor_memory_mb": 4096,
+    "catalog_statistics_available": true
+  },
+  "retail": {
+    "tables": {
+      "silver.orders": {
+        "rows": 184229821,
+        "bytes": 28346784153,
+        "partitions": 200,
+        "key": "customer_id",
+        "median_partition_mb": 91,
+        "largest_partition_mb": 1656,
+        "columns": [
+          "order_id",
+          "customer_id",
+          "segment_id",
+          "net_amount",
+          "loaded_at"
+        ]
+      },
+      "silver.customers": {
+        "rows": 3128114,
+        "bytes": 171966464,
+        "partitions": 32,
+        "key": "customer_id",
+        "columns": [
+          "customer_id",
+          "segment_id",
+          "customer_name",
+          "loaded_at"
+        ]
+      },
+      "silver.dim_customer_segment": {
+        "rows": 43281,
+        "bytes": 6710886,
+        "partitions": 1,
+        "key": "segment_id",
+        "columns": [
+          "segment_id",
+          "segment_name"
+        ]
+      }
+    },
+    "broadcast_threshold_mb": 10,
+    "executor_memory_mb": 4096,
+    "catalog_statistics_available": false
+  },
+  "energy": {
+    "tables": {
+      "silver.telemetry": {
+        "rows": 92401184,
+        "bytes": 15247133900,
+        "partitions": 128,
+        "key": "turbine_id",
+        "median_partition_mb": 108,
+        "largest_partition_mb": 186,
+        "columns": [
+          "event_ts",
+          "turbine_id",
+          "sensor_id",
+          "power_kw",
+          "temperature_c",
+          "loaded_at"
+        ]
+      },
+      "silver.dim_sensor": {
+        "rows": 18642,
+        "bytes": 3250586,
+        "partitions": 1,
+        "key": "sensor_id",
+        "columns": [
+          "sensor_id",
+          "sensor_name",
+          "sensor_type"
+        ]
+      }
+    },
+    "broadcast_threshold_mb": 10,
+    "executor_memory_mb": 4096,
+    "catalog_statistics_available": true
+  },
+  "finance": {
+    "tables": {
+      "silver.transactions": {
+        "rows": 61840000,
+        "bytes": 10415295692,
+        "partitions": 365,
+        "key": "account_id",
+        "median_partition_mb": 24,
+        "largest_partition_mb": 163,
+        "columns": [
+          "transaction_id",
+          "account_id",
+          "transaction_ts",
+          "amount",
+          "balance",
+          "loaded_at"
+        ]
+      }
+    },
+    "broadcast_threshold_mb": 10,
+    "executor_memory_mb": 4096,
+    "catalog_statistics_available": true
+  }
+}
