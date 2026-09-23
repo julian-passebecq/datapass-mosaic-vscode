@@ -20,13 +20,17 @@ export function DbtSurface({
           <Text size={500} weight="semibold">{dbt.path}</Text>
         </div>
         <div className="button-row">
-          <Badge appearance="tint" color={dbt.cli.available ? "success" : "warning"}>
-            {dbt.cli.available ? "dbt CLI detected" : "dbt CLI missing"}
+          <Badge appearance="tint" color={dbt.cli.available && dbt.cli.adapterAvailable ? "success" : "warning"}>
+            {!dbt.cli.available
+              ? "dbt CLI missing"
+              : dbt.cli.adapterAvailable
+                ? "dbt + DuckDB ready"
+                : "dbt-duckdb missing"}
           </Badge>
           <Button appearance="secondary" size="small" onClick={() => vscode.postMessage({ type: "openDbtProject" })}>
             {dbt.exists ? "Open project" : "Create retail sample"}
           </Button>
-          <Button appearance="primary" size="small" disabled={!dbt.exists || !dbt.cli.available} onClick={() => vscode.postMessage({ type: "runDbtBuild" })}>
+          <Button appearance="primary" size="small" disabled={!dbt.exists || !dbt.cli.available || !dbt.cli.adapterAvailable} onClick={() => vscode.postMessage({ type: "runDbtBuild" })}>
             Run dbt build
           </Button>
           <Button appearance="secondary" size="small" onClick={() => vscode.postMessage({ type: "refreshDbt" })}>
@@ -40,7 +44,8 @@ export function DbtSurface({
         <span><strong>Models:</strong> {dbt.modelCount}</span>
         <span><strong>Seeds:</strong> {dbt.seedCount}</span>
         <span><strong>Lineage:</strong> {dbt.lineageSource}</span>
-        {dbt.cli.version && <span><strong>CLI:</strong> {dbt.cli.version}</span>}
+        {dbt.cli.version && <span><strong>Core:</strong> {dbt.cli.version}</span>}
+        {dbt.cli.adapterVersion && <span><strong>DuckDB:</strong> {dbt.cli.adapterVersion}</span>}
       </div>
 
       {dbt.errors.length > 0 && (
@@ -49,9 +54,10 @@ export function DbtSurface({
         </div>
       )}
 
-      {!dbt.cli.available && dbt.exists && (
+      {(!dbt.cli.available || !dbt.cli.adapterAvailable) && dbt.exists && (
         <div className="pipeline-notice">
-          Static lineage works without dbt. Install dbt Core + dbt-duckdb to execute the project; Datapass will then prefer target/manifest.json.
+          Static lineage works without execution. Install both dbt Core and dbt-duckdb to run this DuckDB project; Datapass will then prefer target/manifest.json.
+          {dbt.cli.detail ? ` ${dbt.cli.detail}` : ""}
         </div>
       )}
 
