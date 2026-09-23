@@ -1,0 +1,5 @@
+sources:
+  db:
+    type: dbt_profile
+    profile: datapass_retail
+    target: dev
