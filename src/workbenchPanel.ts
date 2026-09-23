@@ -1,10 +1,11 @@
 import * as vscode from "vscode";
+import { loadExerciseCatalog } from "./exerciseCatalog";
 import { MODULES, type ModuleId } from "./modules";
 import { createDefaultProjectManifest, readProjectManifest, writeProjectManifest } from "./project/projectManifest";
 import type { RuntimeManager } from "./runtimeManager";
 import { collectWorkbenchState } from "./workbenchState";
 import { contentSecurityPolicy, makeNonce } from "./webview/security";
-import type { ScratchKind, WebviewToHostMessage } from "./webview/contracts";
+import type { ExerciseSummary, ScratchKind, WebviewToHostMessage } from "./webview/contracts";
 
 export class WorkbenchPanel {
   private static current?: WorkbenchPanel;
@@ -95,6 +96,9 @@ export class WorkbenchPanel {
       case "openScratch":
         await this.openScratch(message.kind);
         return;
+      case "openExercise":
+        await this.openExercise(message.exerciseKey);
+        return;
     }
   }
 
@@ -146,8 +150,54 @@ export class WorkbenchPanel {
     await openTextDocument(uri);
   }
 
+  private async openExercise(exerciseKey: string): Promise<void> {
+    const root = vscode.workspace.workspaceFolders?.[0]?.uri;
+    if (!root) {
+      void vscode.window.showWarningMessage("Open a workspace folder before opening a Datapass exercise.");
+      return;
+    }
+
+    const catalog = await loadExerciseCatalog(this.context.extensionUri);
+    const exercise = catalog.find(item => item.key === exerciseKey);
+    if (!exercise) {
+      void vscode.window.showErrorMessage(`Exercise not found: ${exerciseKey}`);
+      return;
+    }
+
+    const manifest = await readProjectManifest();
+    const exerciseRoot = safeRelativeParts(manifest.manifest?.assets?.exercises, "exercises");
+    const directory = vscode.Uri.joinPath(
+      root,
+      ...exerciseRoot,
+      slug(exercise.id),
+      slug(exercise.language)
+    );
+    const starterUri = vscode.Uri.joinPath(directory, `solution.${extensionFor(exercise.language)}`);
+    const readmeUri = vscode.Uri.joinPath(directory, "README.md");
+
+    await vscode.workspace.fs.createDirectory(directory);
+    if (!(await exists(starterUri))) {
+      await vscode.workspace.fs.writeFile(
+        starterUri,
+        new TextEncoder().encode(ensureTrailingNewline(exercise.starterSource))
+      );
+    }
+    if (!(await exists(readmeUri))) {
+      await vscode.workspace.fs.writeFile(
+        readmeUri,
+        new TextEncoder().encode(exerciseReadme(exercise))
+      );
+    }
+
+    await openTextDocument(starterUri);
+  }
+
   private async refresh(): Promise<void> {
-    const state = await collectWorkbenchState(this.selectedModule, this.runtimeManager);
+    const state = await collectWorkbenchState(
+      this.selectedModule,
+      this.runtimeManager,
+      this.context.extensionUri
+    );
     await this.panel.webview.postMessage({ type: "state", state });
   }
 
@@ -204,6 +254,61 @@ function scratchSpec(kind: ScratchKind): { fileName: string; content: string } {
         content: "# Mosaic notes\n\nUse this file for dataset grain, assumptions, checks and observations.\n"
       };
   }
+}
+
+function exerciseReadme(exercise: ExerciseSummary): string {
+  const topics = exercise.topics.length ? exercise.topics.join(", ") : "—";
+  return [
+    `# ${exercise.title}`,
+    "",
+    `- Pack: ${exercise.packTitle}`,
+    `- Language: ${exercise.language}`,
+    `- Difficulty: ${exercise.difficulty}`,
+    `- Truth: ${exercise.truth ?? "not specified"}`,
+    `- Topics: ${topics}`,
+    "",
+    "## Task",
+    "",
+    exercise.prompt,
+    "",
+    "## Workspace rule",
+    "",
+    "Edit the solution file next to this brief. Datapass will not overwrite an existing learner solution.",
+    ""
+  ].join("\n");
+}
+
+function extensionFor(language: string): string {
+  switch (language.toLowerCase()) {
+    case "sql":
+    case "dbt":
+      return "sql";
+    case "python":
+    case "pandas":
+    case "polars":
+    case "sparklab":
+    case "pyspark":
+      return "py";
+    case "powershell":
+      return "ps1";
+    case "yaml":
+    case "yml":
+      return "yml";
+    default:
+      return "txt";
+  }
+}
+
+function slug(value: string): string {
+  return value
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9._-]+/g, "-")
+    .replace(/^-+|-+$/g, "") || "exercise";
+}
+
+function ensureTrailingNewline(value: string): string {
+  return value.endsWith("\n") ? value : value + "\n";
 }
 
 function safeRelativeParts(value: string | undefined, fallback: string): string[] {
