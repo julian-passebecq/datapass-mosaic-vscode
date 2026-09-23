@@ -28,8 +28,4 @@ jobs:
       - run: python -m pip install --upgrade pip
       - run: python -m pip install -e runtime
       - run: python -m compileall -q runtime/datapass_runtime runtime/sparklab
-      - run: python -c "from datapass_runtime.main import app; assert app.title == 'Datapass Runtime'"
-      - run: >-
-          python -c "from datapass_runtime.pipeline_compiler import compile_response;
-          r=compile_response('pipeline("ci")\na=sql("a","SELECT 1")\nb=quality("b","SELECT 1 WHERE FALSE")\na >> b\n');
-          assert r['valid'] and len(r['ir']['tasks']) == 2 and len(r['ir']['edges']) == 1"
+      - run: python scripts/runtime_smoke.py
