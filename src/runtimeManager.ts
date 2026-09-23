@@ -78,12 +78,14 @@ export class RuntimeManager implements vscode.Disposable {
     child.stderr?.on("data", chunk => this.output.append(String(chunk)));
 
     child.once("error", error => {
+      if (this.child !== child) return;
       this.child = undefined;
       this.setState({ status: "error", url, detail: error.message });
     });
 
     child.once("exit", (code, signal) => {
-      if (this.child === child) this.child = undefined;
+      if (this.child !== child) return;
+      this.child = undefined;
       if (this.state.status !== "error") {
         this.setState({
           status: "stopped",
