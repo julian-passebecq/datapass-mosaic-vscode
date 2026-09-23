@@ -17,6 +17,7 @@ import type {
   WebviewToHostMessage,
   WorkbenchViewState
 } from "./contracts";
+import { AirflowSurface } from "./AirflowSurface";
 import { MosaicSurface } from "./MosaicSurface";
 import { PipelineSurface } from "./PipelineSurface";
 import { PracticeSurface } from "./PracticeSurface";
@@ -119,6 +120,8 @@ export function WorkbenchApp({ vscode }: { vscode: VsCodeApi }) {
               <PracticeSurface vscode={vscode} exercises={state.practice?.exercises ?? []} />
             ) : selected.id === "pipeline" ? (
               <PipelineSurface vscode={vscode} pipeline={state.pipeline} />
+            ) : selected.id === "airflow" ? (
+              <AirflowSurface vscode={vscode} airflow={state.airflow} />
             ) : (
               <>
                 <div className="feature-grid">
