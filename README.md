@@ -48,3 +48,9 @@ The branch already preserves the useful parts of the previous Datapass work rath
 - `src/webview/` — VS Code webview security helpers.
 
 See `docs/ARCHITECTURE.md` for the target architecture and `docs/HARVEST_AUDIT.md` for exactly what was reused or deliberately excluded.
+
+## Try the connected demo
+
+Open **Fabric Lab** and choose **Create retail end-to-end demo** to scaffold a small connected project across CSV, SQL/Polars, Pipeline Lab, Airflow Lab and dbt Lab.
+
+See `docs/QUICKSTART.md` for the exact local test flow.
