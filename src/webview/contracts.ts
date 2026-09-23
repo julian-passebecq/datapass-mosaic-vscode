@@ -102,7 +102,9 @@ export interface AirflowViewState {
 
 export interface DbtCliView {
   available: boolean;
+  adapterAvailable: boolean;
   version?: string;
+  adapterVersion?: string;
   detail?: string;
 }
 
