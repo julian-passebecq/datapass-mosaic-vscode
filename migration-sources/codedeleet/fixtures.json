@@ -1,0 +1,255 @@
+{
+  "customers": {
+    "columns": [
+      {
+        "name": "customer_id",
+        "type": "INTEGER"
+      },
+      {
+        "name": "name",
+        "type": "TEXT"
+      },
+      {
+        "name": "country",
+        "type": "TEXT"
+      }
+    ],
+    "rows": [
+      {
+        "customer_id": 1,
+        "name": "Ada",
+        "country": "Norway"
+      },
+      {
+        "customer_id": 2,
+        "name": "Bo",
+        "country": "Sweden"
+      },
+      {
+        "customer_id": 3,
+        "name": "Cleo",
+        "country": "Norway"
+      },
+      {
+        "customer_id": 4,
+        "name": "Dan",
+        "country": "Denmark"
+      }
+    ]
+  },
+  "orders": {
+    "columns": [
+      {
+        "name": "order_id",
+        "type": "INTEGER"
+      },
+      {
+        "name": "customer_id",
+        "type": "INTEGER"
+      },
+      {
+        "name": "order_date",
+        "type": "TEXT"
+      },
+      {
+        "name": "amount",
+        "type": "REAL"
+      },
+      {
+        "name": "status",
+        "type": "TEXT"
+      }
+    ],
+    "rows": [
+      {
+        "order_id": 101,
+        "customer_id": 1,
+        "order_date": "2026-01-02",
+        "amount": 120,
+        "status": "paid"
+      },
+      {
+        "order_id": 102,
+        "customer_id": 1,
+        "order_date": "2026-01-05",
+        "amount": 80,
+        "status": "paid"
+      },
+      {
+        "order_id": 103,
+        "customer_id": 2,
+        "order_date": "2026-01-03",
+        "amount": 60,
+        "status": "paid"
+      },
+      {
+        "order_id": 104,
+        "customer_id": 2,
+        "order_date": "2026-01-06",
+        "amount": 40,
+        "status": "cancelled"
+      },
+      {
+        "order_id": 105,
+        "customer_id": 3,
+        "order_date": "2026-01-07",
+        "amount": 90,
+        "status": "pending"
+      }
+    ]
+  },
+  "Sales": {
+    "columns": [
+      {
+        "name": "SaleKey",
+        "type": "INTEGER"
+      },
+      {
+        "name": "OrderKey",
+        "type": "INTEGER"
+      },
+      {
+        "name": "CustomerKey",
+        "type": "INTEGER"
+      },
+      {
+        "name": "ProductKey",
+        "type": "INTEGER"
+      },
+      {
+        "name": "Quantity",
+        "type": "INTEGER"
+      },
+      {
+        "name": "UnitPrice",
+        "type": "REAL"
+      },
+      {
+        "name": "UnitCost",
+        "type": "REAL"
+      }
+    ],
+    "rows": [
+      {
+        "SaleKey": 1,
+        "OrderKey": 101,
+        "CustomerKey": 1,
+        "ProductKey": 11,
+        "Quantity": 2,
+        "UnitPrice": 50,
+        "UnitCost": 30
+      },
+      {
+        "SaleKey": 2,
+        "OrderKey": 101,
+        "CustomerKey": 1,
+        "ProductKey": 12,
+        "Quantity": 1,
+        "UnitPrice": 20,
+        "UnitCost": 8
+      },
+      {
+        "SaleKey": 3,
+        "OrderKey": 102,
+        "CustomerKey": 1,
+        "ProductKey": 12,
+        "Quantity": 4,
+        "UnitPrice": 20,
+        "UnitCost": 8
+      },
+      {
+        "SaleKey": 4,
+        "OrderKey": 103,
+        "CustomerKey": 2,
+        "ProductKey": 12,
+        "Quantity": 3,
+        "UnitPrice": 20,
+        "UnitCost": 8
+      },
+      {
+        "SaleKey": 5,
+        "OrderKey": 104,
+        "CustomerKey": 2,
+        "ProductKey": 11,
+        "Quantity": 1,
+        "UnitPrice": 50,
+        "UnitCost": 30
+      },
+      {
+        "SaleKey": 6,
+        "OrderKey": 105,
+        "CustomerKey": 3,
+        "ProductKey": 11,
+        "Quantity": 2,
+        "UnitPrice": 50,
+        "UnitCost": 30
+      }
+    ]
+  },
+  "DimCustomer": {
+    "columns": [
+      {
+        "name": "CustomerKey",
+        "type": "INTEGER"
+      },
+      {
+        "name": "Name",
+        "type": "TEXT"
+      },
+      {
+        "name": "Country",
+        "type": "TEXT"
+      }
+    ],
+    "rows": [
+      {
+        "CustomerKey": 1,
+        "Name": "Ada",
+        "Country": "Norway"
+      },
+      {
+        "CustomerKey": 2,
+        "Name": "Bo",
+        "Country": "Sweden"
+      },
+      {
+        "CustomerKey": 3,
+        "Name": "Cleo",
+        "Country": "Norway"
+      },
+      {
+        "CustomerKey": 4,
+        "Name": "Dan",
+        "Country": "Denmark"
+      }
+    ]
+  },
+  "DimProduct": {
+    "columns": [
+      {
+        "name": "ProductKey",
+        "type": "INTEGER"
+      },
+      {
+        "name": "Product",
+        "type": "TEXT"
+      },
+      {
+        "name": "Category",
+        "type": "TEXT"
+      }
+    ],
+    "rows": [
+      {
+        "ProductKey": 11,
+        "Product": "Sensor",
+        "Category": "Hardware"
+      },
+      {
+        "ProductKey": 12,
+        "Product": "Cable",
+        "Category": "Accessories"
+      }
+    ]
+  }
+}

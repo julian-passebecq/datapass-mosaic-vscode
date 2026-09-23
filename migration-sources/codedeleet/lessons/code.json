@@ -1,0 +1,1004 @@
+[
+  {
+    "id": "code-sql-grain-joins",
+    "version": 1,
+    "workspace": "code",
+    "categoryId": "sql-patterns",
+    "title": "Joins and aggregation start with grain",
+    "summary": "Predict the rows a join creates before deciding what to sum. Avoid plausible totals that count the same event twice.",
+    "minutes": 7,
+    "objectives": [
+      "Describe the grain of each input and the intended output.",
+      "Identify a fan-out before it corrupts an aggregate.",
+      "Choose a pre-aggregation or a many-to-one join deliberately."
+    ],
+    "prerequisites": [
+      "Comfort reading a small table; no running cloud service is required."
+    ],
+    "blocks": [
+      {
+        "kind": "intro",
+        "id": "start",
+        "title": "The problem this solves",
+        "text": "A revenue query can execute successfully and still answer the wrong question. Suppose orders contain one row per order, while payments contain one row per payment attempt. Joining them on order_id does not keep one row per order: an order with three attempts becomes three joined rows. Summing the order amount then counts the same sale three times. The first debugging question is therefore not which SQL function to use, but what one row means at every stage."
+      },
+      {
+        "kind": "concept",
+        "id": "mental-model",
+        "title": "A useful mental model",
+        "text": "Grain is the business meaning of one row. A key identifies that row; a foreign key points to a related entity. A join forms matching row combinations. Aggregation then collapses those combinations into groups. If the join changes the grain, a later SUM cannot know which repeated values were accidental. Write the desired grain in a comment, and verify the uniqueness you rely on with a small count query.",
+        "mentalModel": "A join is a matching machine, not a lookup guarantee. First decide how many matches each input row is allowed to have; then decide what a result row represents."
+      },
+      {
+        "kind": "diagram",
+        "id": "flow",
+        "title": "Follow the flow",
+        "diagram": {
+          "label": "Joins and aggregation start with grain - a simplified teaching flow",
+          "nodes": [
+            {
+              "id": "n0",
+              "label": "Paid payments",
+              "detail": "one row per paid payment"
+            },
+            {
+              "id": "n1",
+              "label": "Paid totals",
+              "detail": "one row per order"
+            },
+            {
+              "id": "n2",
+              "label": "Join orders and sum",
+              "detail": "one row per customer"
+            }
+          ],
+          "edges": [
+            {
+              "from": "n0",
+              "to": "n1"
+            },
+            {
+              "from": "n1",
+              "to": "n2"
+            }
+          ]
+        },
+        "caption": "Read each box as a responsibility or state, not as a mandatory product. The arrows show the order of reasoning; a real implementation can have additional checks and branches."
+      },
+      {
+        "kind": "steps",
+        "id": "method",
+        "title": "Work through it deliberately",
+        "steps": [
+          {
+            "title": "Name the output",
+            "text": "Here the question is collected revenue per customer, so payment amounts are the measure and customer_id is the output key."
+          },
+          {
+            "title": "Reduce the many side",
+            "text": "Filter to paid payments and aggregate them by order_id before joining. That gives each order at most one payment-total match."
+          },
+          {
+            "title": "Check unmatched rows",
+            "text": "Use LEFT JOIN when customers or orders with no payment should remain. Decide explicitly whether no matching amount should be reported as zero or left unknown."
+          }
+        ]
+      },
+      {
+        "kind": "code",
+        "id": "example-code",
+        "title": "A small concrete example",
+        "language": "SQL",
+        "code": "WITH paid AS (\n  SELECT order_id, SUM(amount) AS collected\n  FROM payments\n  WHERE status = 'paid'\n  GROUP BY order_id\n)\nSELECT o.customer_id,\n       SUM(COALESCE(p.collected, 0)) AS revenue\nFROM orders AS o\nLEFT JOIN paid AS p ON p.order_id = o.order_id\nGROUP BY o.customer_id;",
+        "caption": "The example assumes orders.order_id is unique and payment amounts are additive in one currency. Currency conversion and refunds would need explicit business rules."
+      },
+      {
+        "kind": "table",
+        "id": "compare",
+        "title": "Keep these distinctions clear",
+        "columns": [
+          "Input",
+          "Grain",
+          "Safe question"
+        ],
+        "rows": [
+          [
+            "orders",
+            "One order",
+            "Who placed the order?"
+          ],
+          [
+            "payments",
+            "One payment attempt",
+            "Which attempts actually collected money?"
+          ],
+          [
+            "paid CTE",
+            "One order",
+            "How much was collected for this order?"
+          ]
+        ]
+      },
+      {
+        "kind": "workedExample",
+        "id": "worked-example",
+        "title": "Reason through the example",
+        "steps": [
+          "Order 10 belongs to customer A and has paid payments of 40 and 60; order 11 belongs to A and has only a failed payment of 20.",
+          "The paid CTE contains (10, 100). It has no row for order 11 because the failed attempt is not collected revenue.",
+          "The LEFT JOIN produces one result row per order: order 10 has 100 and order 11 has NULL. COALESCE makes the latter zero under our chosen reporting rule.",
+          "Grouping those rows by customer produces A = 100. Compare that total with the paid-payment source total as a reconciliation check."
+        ],
+        "result": "Customer A has collected revenue of 100, not an order total repeated for each payment attempt."
+      },
+      {
+        "kind": "whenToUse",
+        "id": "when-to-use",
+        "title": "When this approach fits",
+        "items": [
+          {
+            "signal": "A detail table repeats a parent amount",
+            "choice": "Aggregate the detail side first, or sum the detail measure instead of the parent measure."
+          },
+          {
+            "signal": "You must retain entities with no activity",
+            "choice": "Start from the full entity set and use a left join with an explicit missing-value rule."
+          }
+        ]
+      },
+      {
+        "kind": "pitfall",
+        "id": "pitfall",
+        "title": "A mistake worth catching",
+        "text": "Adding DISTINCT after a join can hide duplicates without preserving the intended measure. Two genuine payments can have the same amount and must not be collapsed simply because their displayed values match.",
+        "correction": "Test key uniqueness and compare row counts before and after each join. Deduplicate only with an explicit identity and survivor rule."
+      },
+      {
+        "kind": "checkpoint",
+        "id": "checkpoint",
+        "title": "Check your understanding",
+        "question": "An order for 100 has two paid payments of 50. What is SUM(order_amount) after directly joining the two tables?",
+        "answer": "It is 200; the correct collected payment total is 100.",
+        "explanation": "The joined table contains two copies of the parent amount. This is a grain error, not a rounding error. Pre-aggregating payments restores the intended many-to-one relationship."
+      },
+      {
+        "kind": "keyTakeaways",
+        "id": "takeaways",
+        "title": "Key takeaways",
+        "items": [
+          "State the grain before writing the join.",
+          "Check both key uniqueness and expected match counts.",
+          "Aggregate the measure at its own grain, then reconcile the result."
+        ]
+      },
+      {
+        "kind": "relatedPractice",
+        "id": "practice",
+        "title": "Put it into practice",
+        "exerciseIds": [
+          "sql-paid-revenue",
+          "v2-sql-cte"
+        ]
+      }
+    ],
+    "sources": [
+      {
+        "label": "PostgreSQL: joins and relational queries",
+        "url": "https://www.postgresql.org/docs/current/tutorial-join.html"
+      },
+      {
+        "label": "Microsoft: star schema guidance",
+        "url": "https://learn.microsoft.com/en-us/power-bi/guidance/star-schema"
+      }
+    ]
+  },
+  {
+    "id": "code-python-collections-dataframes",
+    "version": 1,
+    "workspace": "code",
+    "categoryId": "python-dataframes",
+    "title": "From Python collections to grouped dataframes",
+    "summary": "Move from a loop over records to a grouped table without losing the key, null or output-grain assumptions.",
+    "minutes": 7,
+    "objectives": [
+      "Choose between a list, dictionary and set.",
+      "Explain what groupby changes about row grain.",
+      "Test a small aggregation before translating it to a dataframe."
+    ],
+    "prerequisites": [
+      "Comfort reading a small table; no running cloud service is required."
+    ],
+    "blocks": [
+      {
+        "kind": "intro",
+        "id": "start",
+        "title": "The problem this solves",
+        "text": "Many data tasks begin with a list of records received from a file or API. Each record describes an event, but the requested result is often one row per customer, day or device. A reliable approach is to first write the transformation in ordinary Python, using a dictionary to accumulate totals. Once the rule is clear, the same idea can be expressed with a dataframe groupby. Changing tools should not change the business meaning."
+      },
+      {
+        "kind": "concept",
+        "id": "mental-model",
+        "title": "A useful mental model",
+        "text": "A list preserves a sequence of items. A dictionary associates each unique key with a value, such as the current total for a customer. A set answers whether a distinct value has been seen, but is not a place to retain repeated events. A dataframe adds named columns and column-oriented operations. Grouping partitions rows by key and aggregation reduces each partition to a result.",
+        "mentalModel": "Think of a dictionary as labeled trays. Each incoming record goes into the tray named by its key; an aggregate describes everything placed in that tray."
+      },
+      {
+        "kind": "diagram",
+        "id": "flow",
+        "title": "Follow the flow",
+        "diagram": {
+          "label": "From Python collections to grouped dataframes - a simplified teaching flow",
+          "nodes": [
+            {
+              "id": "n0",
+              "label": "Event records",
+              "detail": "customer and amount"
+            },
+            {
+              "id": "n1",
+              "label": "Keyed groups",
+              "detail": "one bucket per customer"
+            },
+            {
+              "id": "n2",
+              "label": "Summary rows",
+              "detail": "one result per key"
+            }
+          ],
+          "edges": [
+            {
+              "from": "n0",
+              "to": "n1"
+            },
+            {
+              "from": "n1",
+              "to": "n2"
+            }
+          ]
+        },
+        "caption": "Read each box as a responsibility or state, not as a mandatory product. The arrows show the order of reasoning; a real implementation can have additional checks and branches."
+      },
+      {
+        "kind": "steps",
+        "id": "method",
+        "title": "Work through it deliberately",
+        "steps": [
+          {
+            "title": "Define a valid record",
+            "text": "Choose how to handle missing customer IDs, null amounts and invalid numeric strings. Do not let a convenient default silently turn bad input into good revenue."
+          },
+          {
+            "title": "Accumulate by key",
+            "text": "Use the customer key for lookup and update only that customer's total. The accumulator holds results, not a second copy of every source record."
+          },
+          {
+            "title": "Check the result shape",
+            "text": "A summary should have one row per distinct valid customer. Compare its total with the total of the accepted input records."
+          }
+        ]
+      },
+      {
+        "kind": "code",
+        "id": "example-code",
+        "title": "A small concrete example",
+        "language": "Python",
+        "code": "rows = [\n    {'customer': 'A', 'amount': 12},\n    {'customer': 'B', 'amount': 7},\n    {'customer': 'A', 'amount': 3},\n]\ntotals = {}\nfor row in rows:\n    key = row['customer']\n    totals[key] = totals.get(key, 0) + row['amount']\nassert totals == {'A': 15, 'B': 7}\n\n# Equivalent intent with a dataframe:\n# df.groupby('customer', dropna=False, as_index=False)['amount'].sum()",
+        "caption": "The runnable loop uses integers and fully populated records. For money in production, choose a deliberate decimal or minor-unit representation. The dataframe line is an illustration, not an implicit dependency."
+      },
+      {
+        "kind": "table",
+        "id": "compare",
+        "title": "Keep these distinctions clear",
+        "columns": [
+          "Structure",
+          "Useful for",
+          "Watch out for"
+        ],
+        "rows": [
+          [
+            "List",
+            "Ordered records, including duplicates",
+            "Index position is not a business identifier"
+          ],
+          [
+            "Dictionary",
+            "Lookups or accumulated values by key",
+            "Assigning the same key replaces its previous value"
+          ],
+          [
+            "Set",
+            "Membership and distinct keys",
+            "Repeated events disappear"
+          ],
+          [
+            "Dataframe groupby",
+            "Tabular summaries by key",
+            "Null-key handling and aggregation semantics"
+          ]
+        ]
+      },
+      {
+        "kind": "workedExample",
+        "id": "worked-example",
+        "title": "Reason through the example",
+        "steps": [
+          "Start with an empty dictionary. The first A record initializes A to 12 because get returns zero for a missing key.",
+          "The B record initializes a separate entry with 7. A remains unchanged.",
+          "The final A record updates A from 12 to 15. There are now two output keys from three source events.",
+          "The output totals sum to 22, the same as 12 + 7 + 3. This checks the aggregation, but not whether the source events were valid or duplicated."
+        ],
+        "result": "The algorithm changes event grain to customer grain and preserves the accepted amount total."
+      },
+      {
+        "kind": "whenToUse",
+        "id": "when-to-use",
+        "title": "When this approach fits",
+        "items": [
+          {
+            "signal": "The input is small or you are explaining an interview solution",
+            "choice": "Use an explicit loop to make the invariant easy to inspect."
+          },
+          {
+            "signal": "The transformation is tabular and repeated across many columns",
+            "choice": "Use dataframe operations while retaining tests for nulls, keys and expected grain."
+          }
+        ]
+      },
+      {
+        "kind": "pitfall",
+        "id": "pitfall",
+        "title": "A mistake worth catching",
+        "text": "Writing totals[key] = row[\"amount\"] keeps only the last amount for each customer. It looks like a valid dictionary but implements replacement, not aggregation. Likewise, converting entire records to a set is not a general deduplication policy.",
+        "correction": "Say the invariant aloud: after each row, totals[key] equals the sum of accepted amounts seen so far for that key."
+      },
+      {
+        "kind": "checkpoint",
+        "id": "checkpoint",
+        "title": "Check your understanding",
+        "question": "A, 12 and A, 3 appear in two different batches. Should the final summary contain one A row or two?",
+        "answer": "One A row with 15, if the requested output is a full-period customer summary.",
+        "explanation": "Batch boundaries are processing details, not business grouping keys. Combine partial summaries by customer or use an accumulator that spans the intended period."
+      },
+      {
+        "kind": "keyTakeaways",
+        "id": "takeaways",
+        "title": "Key takeaways",
+        "items": [
+          "A key identifies the group; the accumulator implements the rule.",
+          "Groupby changes grain, so test the new key uniqueness.",
+          "Null policy and repeated-event policy are separate decisions."
+        ]
+      },
+      {
+        "kind": "relatedPractice",
+        "id": "practice",
+        "title": "Put it into practice",
+        "exerciseIds": [
+          "python-aggregate",
+          "pandas-grain",
+          "v2-python-batches"
+        ]
+      }
+    ],
+    "sources": [
+      {
+        "label": "Python: data structures",
+        "url": "https://docs.python.org/3/tutorial/datastructures.html"
+      },
+      {
+        "label": "pandas: group-by operations",
+        "url": "https://pandas.pydata.org/docs/user_guide/groupby.html"
+      }
+    ]
+  },
+  {
+    "id": "code-spark-transformations-shuffles",
+    "version": 1,
+    "workspace": "code",
+    "categoryId": "spark-distributed",
+    "title": "Spark transformations, actions and shuffles",
+    "summary": "Explain why a short dataframe expression can cause substantial data movement, and why building a plan is different from running it.",
+    "minutes": 7,
+    "objectives": [
+      "Distinguish a transformation from an action.",
+      "Identify an operation that may require a shuffle.",
+      "Describe a safe order for filtering, joining and aggregating."
+    ],
+    "prerequisites": [
+      "Comfort reading a small table; no running cloud service is required."
+    ],
+    "blocks": [
+      {
+        "kind": "intro",
+        "id": "start",
+        "title": "The problem this solves",
+        "text": "In Spark, writing a transformation usually describes work rather than completing it immediately. A dataframe can represent a plan over files without loading every row into the driver. When an action needs a result, Spark executes the required work across partitions. This distinction matters in interviews and troubleshooting: timing the line that builds a dataframe is not the same as timing the job that materializes its result."
+      },
+      {
+        "kind": "concept",
+        "id": "mental-model",
+        "title": "A useful mental model",
+        "text": "A partition is a portion of the distributed dataset processed by a task. Some transformations can operate largely within an existing partition; others need rows with the same key to meet, which can require redistribution across workers. That redistribution is a shuffle. The exact physical plan depends on the optimizer, statistics, partitioning and runtime settings, so confirm with an explain plan rather than treating every join as identical.",
+        "mentalModel": "Transformations write a recipe. An action asks the kitchen to cook. A shuffle moves ingredients between workstations so the right pieces can be processed together."
+      },
+      {
+        "kind": "diagram",
+        "id": "flow",
+        "title": "Follow the flow",
+        "diagram": {
+          "label": "Spark transformations, actions and shuffles - a simplified teaching flow",
+          "nodes": [
+            {
+              "id": "n0",
+              "label": "Source partitions",
+              "detail": "read only needed data"
+            },
+            {
+              "id": "n1",
+              "label": "Key exchange",
+              "detail": "bring matching keys together"
+            },
+            {
+              "id": "n2",
+              "label": "Aggregate result",
+              "detail": "materialize on action"
+            }
+          ],
+          "edges": [
+            {
+              "from": "n0",
+              "to": "n1"
+            },
+            {
+              "from": "n1",
+              "to": "n2"
+            }
+          ]
+        },
+        "caption": "Read each box as a responsibility or state, not as a mandatory product. The arrows show the order of reasoning; a real implementation can have additional checks and branches."
+      },
+      {
+        "kind": "steps",
+        "id": "method",
+        "title": "Work through it deliberately",
+        "steps": [
+          {
+            "title": "Reduce unnecessary input",
+            "text": "Select required columns and filter irrelevant records before expensive operations when semantics allow it. The optimizer may push some work toward the source."
+          },
+          {
+            "title": "Locate the exchange",
+            "text": "Inspect the physical plan for exchanges and join strategies. A large groupBy often needs keys redistributed; a small broadcast side can change the join strategy."
+          },
+          {
+            "title": "Materialize safely",
+            "text": "Use an appropriate write or bounded inspection. Do not collect a large distributed result into the driver just to see whether the transformation worked."
+          }
+        ]
+      },
+      {
+        "kind": "code",
+        "id": "example-code",
+        "title": "A small concrete example",
+        "language": "PySpark",
+        "code": "from pyspark.sql import functions as F\n\npaid = orders.filter(F.col('status') == 'paid')\nsummary = (paid\n    .select('customer_id', 'amount')\n    .groupBy('customer_id')\n    .agg(F.sum('amount').alias('revenue')))\n\nsummary.explain(mode='formatted')\n# Materializes the result; requires a real Spark environment:\n# summary.write.mode('overwrite').parquet(output_path)",
+        "caption": "This is a guided Spark example, not a claim that this browser runs a Spark cluster. The Practice lab preserves its existing guided-review execution model."
+      },
+      {
+        "kind": "table",
+        "id": "compare",
+        "title": "Keep these distinctions clear",
+        "columns": [
+          "Operation",
+          "Primary meaning",
+          "Potential concern"
+        ],
+        "rows": [
+          [
+            "filter / select",
+            "Describe a narrower dataframe",
+            "Predicate and projection pushdown depend on the source"
+          ],
+          [
+            "groupBy + aggregate",
+            "Produce one result per grouping key",
+            "Exchange traffic and skew"
+          ],
+          [
+            "write / count",
+            "Request materialized output or a scalar result",
+            "Triggers work; repeated actions can repeat computation"
+          ],
+          [
+            "collect",
+            "Return all result rows to the driver",
+            "Driver memory can be exhausted"
+          ]
+        ]
+      },
+      {
+        "kind": "workedExample",
+        "id": "worked-example",
+        "title": "Reason through the example",
+        "steps": [
+          "Four input partitions each contain orders for customer A. A per-partition sum can create four partial A totals.",
+          "To produce one final A total, Spark must combine those partial values. This requires coordination by the grouping key, even though the final table may be small.",
+          "Filtering failed orders earlier reduces the data eligible for aggregation. It does not remove the need to combine A across partitions.",
+          "Compare an explain plan with measured stage metrics: shuffled bytes, task duration distribution and spill. A plan predicts work; metrics reveal what actually happened."
+        ],
+        "result": "A small final answer can still require a large distributed exchange. Optimize the path to the answer, not only its row count."
+      },
+      {
+        "kind": "whenToUse",
+        "id": "when-to-use",
+        "title": "When this approach fits",
+        "items": [
+          {
+            "signal": "The same transformed dataset feeds several expensive actions",
+            "choice": "Consider persistence after measuring reuse and memory pressure; release it when no longer needed."
+          },
+          {
+            "signal": "A join has a genuinely small reference side",
+            "choice": "Investigate a broadcast strategy, but validate its size and the actual selected plan."
+          }
+        ]
+      },
+      {
+        "kind": "pitfall",
+        "id": "pitfall",
+        "title": "A mistake worth catching",
+        "text": "Calling cache does not instantly compute everything, and caching every intermediate dataframe can waste memory. Adding workers also does not guarantee that one hot key will be evenly processed.",
+        "correction": "Find the expensive repeated boundary, materialize when needed, and measure whether caching or repartitioning solves that specific bottleneck."
+      },
+      {
+        "kind": "checkpoint",
+        "id": "checkpoint",
+        "title": "Check your understanding",
+        "question": "Does defining summary above prove that all orders have already been read and grouped?",
+        "answer": "No. The transformations build a plan; an action that needs the result causes execution.",
+        "explanation": "Plan construction may involve metadata work, but it should not be confused with fully materializing the transformed dataset. Use a relevant action and runtime metrics to measure the job."
+      },
+      {
+        "kind": "keyTakeaways",
+        "id": "takeaways",
+        "title": "Key takeaways",
+        "items": [
+          "A dataframe can be a lazy plan rather than a materialized table.",
+          "Shuffles move data to satisfy grouping or join requirements.",
+          "Inspect plans and metrics before adding cache, partitions or workers."
+        ]
+      },
+      {
+        "kind": "relatedPractice",
+        "id": "practice",
+        "title": "Put it into practice",
+        "exerciseIds": [
+          "v2-concept-shuffle",
+          "v2-spark-aggregate",
+          "v2-spark-join"
+        ]
+      }
+    ],
+    "sources": [
+      {
+        "label": "Apache Spark: RDD programming and shuffles",
+        "url": "https://spark.apache.org/docs/4.1.1/rdd-programming-guide.html"
+      },
+      {
+        "label": "Apache Spark: SQL performance tuning",
+        "url": "https://spark.apache.org/docs/latest/sql-performance-tuning.html"
+      }
+    ]
+  },
+  {
+    "id": "code-git-working-tree-index-head",
+    "version": 1,
+    "workspace": "code",
+    "categoryId": "developer-workflow",
+    "title": "Git: working tree, index and HEAD",
+    "summary": "Use three snapshots to explain exactly what will be committed and how to unstage changes without deleting your work.",
+    "minutes": 7,
+    "objectives": [
+      "Distinguish edited files, staged content and the current commit.",
+      "Explain why editing after git add changes what a commit contains.",
+      "Choose a non-destructive way to unstage a file."
+    ],
+    "prerequisites": [
+      "Comfort reading a small table; no running cloud service is required."
+    ],
+    "blocks": [
+      {
+        "kind": "intro",
+        "id": "start",
+        "title": "The problem this solves",
+        "text": "A common Git mistake is assuming that a commit automatically includes everything currently visible in the editor. Git instead records the staged snapshot. You can edit a file, stage it, then edit it again: the staged version and the visible file are now different. Understanding this small separation makes it easier to review a change, split work into coherent commits and avoid committing an unfinished experiment."
+      },
+      {
+        "kind": "concept",
+        "id": "mental-model",
+        "title": "A useful mental model",
+        "text": "The working tree is the checked-out file content you edit. The index, also called the staging area, describes the next snapshot to commit. HEAD normally points to the current branch, which points to a commit; in a detached state it points directly to a commit. For day-to-day review, compare working tree to index, and index to HEAD, rather than speaking vaguely about all changes.",
+        "mentalModel": "Your desk holds ongoing edits, an envelope holds the selected snapshot, and the archive holds completed commits. Editing the desk after filling the envelope does not update the envelope automatically."
+      },
+      {
+        "kind": "diagram",
+        "id": "flow",
+        "title": "Follow the flow",
+        "diagram": {
+          "label": "Git: working tree, index and HEAD - a simplified teaching flow",
+          "nodes": [
+            {
+              "id": "n0",
+              "label": "Working tree",
+              "detail": "what is on disk"
+            },
+            {
+              "id": "n1",
+              "label": "Index",
+              "detail": "what the next commit records"
+            },
+            {
+              "id": "n2",
+              "label": "HEAD commit",
+              "detail": "last recorded snapshot"
+            }
+          ],
+          "edges": [
+            {
+              "from": "n0",
+              "to": "n1"
+            },
+            {
+              "from": "n1",
+              "to": "n2"
+            }
+          ]
+        },
+        "caption": "Read each box as a responsibility or state, not as a mandatory product. The arrows show the order of reasoning; a real implementation can have additional checks and branches."
+      },
+      {
+        "kind": "steps",
+        "id": "method",
+        "title": "Work through it deliberately",
+        "steps": [
+          {
+            "title": "Inspect before staging",
+            "text": "Use git status and git diff to see unstaged changes. Confirm you are on the intended branch and that no secret or generated artifact is included."
+          },
+          {
+            "title": "Stage a coherent change",
+            "text": "Use git add with explicit paths or an interactive selection. Staging copies the chosen content into the index; it is not a subscription to future edits."
+          },
+          {
+            "title": "Review the envelope",
+            "text": "Use git diff --staged before committing. To remove a path from the next commit while preserving its edits, use git restore --staged on that path."
+          }
+        ]
+      },
+      {
+        "kind": "code",
+        "id": "example-code",
+        "title": "A small concrete example",
+        "language": "Shell",
+        "code": "git status --short\ngit diff\ngit add transform.py\ngit diff --staged\n\n# Keep the edits, but remove this path from the staged snapshot:\ngit restore --staged transform.py\n\n# Review again before creating a commit:\ngit status --short",
+        "caption": "Commands are teaching examples for an ordinary existing repository. No command in this lesson runs against your machine. The related lab uses its existing virtual Git model."
+      },
+      {
+        "kind": "table",
+        "id": "compare",
+        "title": "Keep these distinctions clear",
+        "columns": [
+          "Command",
+          "Comparison or change",
+          "Does it discard edited file content?"
+        ],
+        "rows": [
+          [
+            "git diff",
+            "Working tree versus index",
+            "No"
+          ],
+          [
+            "git diff --staged",
+            "Index versus HEAD",
+            "No"
+          ],
+          [
+            "git add file",
+            "Update the staged content for a path",
+            "No"
+          ],
+          [
+            "git restore --staged file",
+            "Reset the staged path from HEAD by default",
+            "No; the working tree is left alone"
+          ]
+        ]
+      },
+      {
+        "kind": "comparison",
+        "id": "alternatives",
+        "title": "Compare two approaches",
+        "left": {
+          "title": "Unstage",
+          "items": [
+            "Change what will enter the next commit.",
+            "Keep useful working-tree edits."
+          ]
+        },
+        "right": {
+          "title": "Discard",
+          "items": [
+            "Change the working-tree content.",
+            "Potentially remove local edits; inspect and protect work first."
+          ]
+        }
+      },
+      {
+        "kind": "workedExample",
+        "id": "worked-example",
+        "title": "Reason through the example",
+        "steps": [
+          "HEAD contains version A of transform.py. You edit it to version B and run git add transform.py. Both working tree and index now hold B.",
+          "You continue editing to version C without staging again. The working tree holds C while the index still holds B.",
+          "A commit at this point records B for that file. The B-to-C change remains uncommitted in the working tree.",
+          "To commit C instead, inspect the additional change and stage the file again. To keep everything uncommitted, unstage it rather than restoring the working tree."
+        ],
+        "result": "The staged snapshot, not the latest editor buffer, determines the next commit."
+      },
+      {
+        "kind": "whenToUse",
+        "id": "when-to-use",
+        "title": "When this approach fits",
+        "items": [
+          {
+            "signal": "One file contains a finished fix and an unrelated experiment",
+            "choice": "Stage only the intended part and review the staged diff."
+          },
+          {
+            "signal": "A file was staged by mistake but its edits are useful",
+            "choice": "Unstage it. Do not choose a command that resets the working tree."
+          }
+        ]
+      },
+      {
+        "kind": "pitfall",
+        "id": "pitfall",
+        "title": "A mistake worth catching",
+        "text": "Confusing unstage with discard can destroy local work. git restore file without --staged targets the working tree, which is a different operation. Broad add commands also make it easier to include unrelated files.",
+        "correction": "Name the state you intend to change before choosing a command: index, working tree, branch pointer or remote reference."
+      },
+      {
+        "kind": "checkpoint",
+        "id": "checkpoint",
+        "title": "Check your understanding",
+        "question": "You stage a corrected SQL query, then add a debug print without staging again. Will the debug print be in the next commit?",
+        "answer": "No, unless you stage the later edit or use a commit option that stages it.",
+        "explanation": "The index still contains the earlier corrected version. A staged diff is the reliable review of the next snapshot; the editor shows the working tree instead."
+      },
+      {
+        "kind": "keyTakeaways",
+        "id": "takeaways",
+        "title": "Key takeaways",
+        "items": [
+          "Working tree, index and HEAD are different states.",
+          "git add selects content for the next snapshot.",
+          "Review the staged diff and distinguish unstage from discard."
+        ]
+      },
+      {
+        "kind": "relatedPractice",
+        "id": "practice",
+        "title": "Put it into practice",
+        "exerciseIds": [
+          "git-safe-undo"
+        ]
+      }
+    ],
+    "sources": [
+      {
+        "label": "Git: recording changes",
+        "url": "https://git-scm.com/book/en/v2/Git-Basics-Recording-Changes-to-the-Repository"
+      }
+    ]
+  },
+  {
+    "id": "code-interview-dedup-latest-row",
+    "version": 1,
+    "workspace": "code",
+    "categoryId": "interview-patterns",
+    "title": "Latest-row problems: key, order and tie-breaker",
+    "summary": "Turn an ambiguous deduplication request into a deterministic rule that survives ties, nulls and out-of-order input.",
+    "minutes": 7,
+    "objectives": [
+      "Ask what identifies an entity and what defines latest.",
+      "Use a complete ordering to choose a reproducible survivor.",
+      "Separate event deduplication from latest-state selection."
+    ],
+    "prerequisites": [
+      "Comfort reading a small table; no running cloud service is required."
+    ],
+    "blocks": [
+      {
+        "kind": "intro",
+        "id": "start",
+        "title": "The problem this solves",
+        "text": "“Remove duplicates” can mean several different tasks. It might mean removing repeated copies of the same event, selecting the most recent version of each customer, or detecting an invalid duplicate business key. These are not interchangeable. Before writing code, ask what one output row represents and why one input row should survive. A good interview answer states these assumptions and tests the cases that challenge them."
+      },
+      {
+        "kind": "concept",
+        "id": "mental-model",
+        "title": "A useful mental model",
+        "text": "A latest-state problem needs an entity key, an ordering field and a tie-breaker. The entity key defines which rows compete. The timestamp or version defines precedence. A stable secondary ordering resolves ties; it must reflect a valid business rule or an agreed arbitrary but reproducible rule. If two conflicting rows have exactly the same complete ordering key, flag the conflict rather than quietly depending on file order.",
+        "mentalModel": "Run a small tournament inside each entity group. Every candidate must be comparable, and the winner must be the same even when the input arrives in a different order."
+      },
+      {
+        "kind": "diagram",
+        "id": "flow",
+        "title": "Follow the flow",
+        "diagram": {
+          "label": "Latest-row problems: key, order and tie-breaker - a simplified teaching flow",
+          "nodes": [
+            {
+              "id": "n0",
+              "label": "Identify entity",
+              "detail": "group competing versions"
+            },
+            {
+              "id": "n1",
+              "label": "Order candidates",
+              "detail": "timestamp plus tie-breaker"
+            },
+            {
+              "id": "n2",
+              "label": "Select survivor",
+              "detail": "one deterministic row"
+            }
+          ],
+          "edges": [
+            {
+              "from": "n0",
+              "to": "n1"
+            },
+            {
+              "from": "n1",
+              "to": "n2"
+            }
+          ]
+        },
+        "caption": "Read each box as a responsibility or state, not as a mandatory product. The arrows show the order of reasoning; a real implementation can have additional checks and branches."
+      },
+      {
+        "kind": "steps",
+        "id": "method",
+        "title": "Work through it deliberately",
+        "steps": [
+          {
+            "title": "Clarify identity",
+            "text": "Distinguish event_id from customer_id. Repeated copies of one event are not the same as several legitimate updates to one customer."
+          },
+          {
+            "title": "Specify precedence",
+            "text": "Choose event time, source revision or ingestion time deliberately. Decide how missing timestamps and deleted records affect the current state."
+          },
+          {
+            "title": "Test invariance",
+            "text": "Shuffle the input and rerun the selection. The output should not change merely because the file or partition order changed."
+          }
+        ]
+      },
+      {
+        "kind": "code",
+        "id": "example-code",
+        "title": "A small concrete example",
+        "language": "SQL",
+        "code": "WITH ranked AS (\n  SELECT customer_id, status, updated_at, source_seq,\n         ROW_NUMBER() OVER (\n           PARTITION BY customer_id\n           ORDER BY updated_at DESC, source_seq DESC\n         ) AS rn\n  FROM customer_changes\n  WHERE updated_at IS NOT NULL\n)\nSELECT customer_id, status, updated_at\nFROM ranked\nWHERE rn = 1;",
+        "caption": "Assume source_seq uniquely orders conflicting changes with the same timestamp. Null timestamps are excluded here under an explicit policy; production code should also record or quarantine them."
+      },
+      {
+        "kind": "table",
+        "id": "compare",
+        "title": "Keep these distinctions clear",
+        "columns": [
+          "Question",
+          "Rule to specify",
+          "Useful test"
+        ],
+        "rows": [
+          [
+            "Which rows compete?",
+            "Business entity key",
+            "Two entities with identical values"
+          ],
+          [
+            "What is newer?",
+            "Timestamp or source revision",
+            "Late-arriving older update"
+          ],
+          [
+            "What breaks a tie?",
+            "Stable secondary ordering",
+            "Same timestamp, different status"
+          ],
+          [
+            "What is invalid?",
+            "Null or contradictory ordering data",
+            "Conflicting rows with identical complete keys"
+          ]
+        ]
+      },
+      {
+        "kind": "workedExample",
+        "id": "worked-example",
+        "title": "Reason through the example",
+        "steps": [
+          "Customer A has an active row at 10:00 with source sequence 4 and an inactive row at 10:00 with sequence 5.",
+          "The timestamp alone ties. The agreed sequence rule makes the inactive row the survivor.",
+          "An older 09:50 row arrives later. Event-time ordering keeps the 10:00 sequence-5 row; ingestion order alone would choose differently.",
+          "Customer B has a null timestamp. Our example excludes it from selection, but a monitoring or quarantine count must make that loss visible."
+        ],
+        "result": "The selected current state is deterministic under the stated precedence rule, not under an accidental input ordering."
+      },
+      {
+        "kind": "whenToUse",
+        "id": "when-to-use",
+        "title": "When this approach fits",
+        "items": [
+          {
+            "signal": "You need the current row from a change history",
+            "choice": "Use a per-entity ranking with a complete survivor rule."
+          },
+          {
+            "signal": "You need to remove duplicate deliveries of the same event",
+            "choice": "Use event identity and preserve all distinct legitimate changes."
+          }
+        ]
+      },
+      {
+        "kind": "pitfall",
+        "id": "pitfall",
+        "title": "A mistake worth catching",
+        "text": "Taking MAX(updated_at) and then joining back can return multiple rows when the maximum timestamp ties. Dropping duplicates without specifying a survivor can also produce an arbitrary result.",
+        "correction": "Define a full ordering and test ties explicitly. Use RANK when multiple top-ranked rows are genuinely desired; use ROW_NUMBER only when exactly one survivor is intended."
+      },
+      {
+        "kind": "checkpoint",
+        "id": "checkpoint",
+        "title": "Check your understanding",
+        "question": "Two rows have the same customer and timestamp but different statuses. Is ORDER BY updated_at DESC enough?",
+        "answer": "No. It does not determine which tied row should win.",
+        "explanation": "Add a justified stable tie-breaker or surface the conflict. Deterministic code is not automatically correct business logic, so explain why the tie-breaker is acceptable."
+      },
+      {
+        "kind": "keyTakeaways",
+        "id": "takeaways",
+        "title": "Key takeaways",
+        "items": [
+          "Deduplication starts with identity, not a library method.",
+          "Latest needs an ordering field and a tie policy.",
+          "Input-order changes should not alter a deterministic survivor."
+        ]
+      },
+      {
+        "kind": "relatedPractice",
+        "id": "practice",
+        "title": "Put it into practice",
+        "exerciseIds": [
+          "sql-latest-order",
+          "v2-python-latest",
+          "v2-sql-quality"
+        ]
+      }
+    ],
+    "sources": [
+      {
+        "label": "PostgreSQL: window functions",
+        "url": "https://www.postgresql.org/docs/current/tutorial-window.html"
+      },
+      {
+        "label": "Python: data structures",
+        "url": "https://docs.python.org/3/tutorial/datastructures.html"
+      }
+    ]
+  }
+]

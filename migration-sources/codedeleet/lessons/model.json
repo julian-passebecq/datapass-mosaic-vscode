@@ -1,0 +1,989 @@
+[
+  {
+    "id": "model-grain-star-schema",
+    "version": 1,
+    "workspace": "model",
+    "categoryId": "dimensional-grain",
+    "title": "Facts, dimensions and the grain of a star schema",
+    "summary": "Design a model around measurable events and reusable descriptive dimensions rather than around whichever tables arrive first.",
+    "minutes": 7,
+    "objectives": [
+      "State a fact table's grain in one sentence.",
+      "Separate numeric measures from descriptive attributes.",
+      "Explain why historical dimensions need a deliberate lookup rule."
+    ],
+    "prerequisites": [
+      "Comfort reading a small table; no running cloud service is required."
+    ],
+    "blocks": [
+      {
+        "kind": "intro",
+        "id": "start",
+        "title": "The problem this solves",
+        "text": "A star schema is not simply a diagram with one large table in the middle. Its value comes from a clear agreement about what a fact row represents and how dimensions describe that event. For example, one order line is different from one order, one shipment or one daily inventory snapshot. Mixing those meanings in the same fact table can produce totals that look plausible while double-counting events or adding values that should not be added."
+      },
+      {
+        "kind": "concept",
+        "id": "mental-model",
+        "title": "A useful mental model",
+        "text": "Facts record measurements at an explicit grain and refer to dimensions through keys. Dimensions provide descriptive attributes used to filter or group the facts, such as product category, customer segment and calendar month. A dimension key should identify one dimension row. With a slowly changing dimension, the business entity may have several historical rows, so a fact needs the appropriate historical surrogate key rather than an ambiguous business-key match.",
+        "mentalModel": "The fact table is an event ledger. Dimensions are labeled catalogs that explain who, what, where and when each ledger entry refers to."
+      },
+      {
+        "kind": "diagram",
+        "id": "flow",
+        "title": "Follow the flow",
+        "diagram": {
+          "label": "Facts, dimensions and the grain of a star schema - a simplified teaching flow",
+          "nodes": [
+            {
+              "id": "n0",
+              "label": "Dimensions",
+              "detail": "unique descriptive keys"
+            },
+            {
+              "id": "n1",
+              "label": "Fact order line",
+              "detail": "one sold line per row"
+            },
+            {
+              "id": "n2",
+              "label": "Report grouping",
+              "detail": "sum at chosen context"
+            }
+          ],
+          "edges": [
+            {
+              "from": "n0",
+              "to": "n1"
+            },
+            {
+              "from": "n1",
+              "to": "n2"
+            }
+          ]
+        },
+        "caption": "Read each box as a responsibility or state, not as a mandatory product. The arrows show the order of reasoning; a real implementation can have additional checks and branches."
+      },
+      {
+        "kind": "steps",
+        "id": "method",
+        "title": "Work through it deliberately",
+        "steps": [
+          {
+            "title": "Write the grain first",
+            "text": "For this example: one row per order_id and line_number. Put that sentence beside the schema before selecting columns."
+          },
+          {
+            "title": "Assign each attribute a home",
+            "text": "Store quantity and line revenue as event measures. Put product category in a product dimension instead of repeating its free-text value on every fact row."
+          },
+          {
+            "title": "Verify relationship assumptions",
+            "text": "Check uniqueness on dimension keys and referential coverage from facts. Define an unknown member or quarantine policy for facts whose dimension cannot yet be resolved."
+          }
+        ]
+      },
+      {
+        "kind": "code",
+        "id": "example-code",
+        "title": "A small concrete example",
+        "language": "SQL",
+        "code": "-- Grain: one row per order line.\nSELECT order_id, line_number, COUNT(*) AS rows_found\nFROM fact_order_line\nGROUP BY order_id, line_number\nHAVING COUNT(*) > 1;\n\n-- A dimension relationship needs a unique target key.\nSELECT product_key, COUNT(*) AS rows_found\nFROM dim_product\nGROUP BY product_key\nHAVING COUNT(*) > 1;",
+        "caption": "These checks should return no rows under the stated contracts. A clean check is necessary but not sufficient: measure definitions and historical-key assignment must also be correct."
+      },
+      {
+        "kind": "table",
+        "id": "compare",
+        "title": "Keep these distinctions clear",
+        "columns": [
+          "Table",
+          "One row means",
+          "Typical content"
+        ],
+        "rows": [
+          [
+            "fact_order_line",
+            "One sold order line",
+            "Quantity, revenue, product_key, date_key"
+          ],
+          [
+            "dim_product",
+            "One product version",
+            "Product name, category, effective dates"
+          ],
+          [
+            "dim_date",
+            "One calendar date",
+            "Month, quarter, business-day attributes"
+          ],
+          [
+            "daily_inventory",
+            "One product-location-day snapshot",
+            "Closing stock, not order-line revenue"
+          ]
+        ]
+      },
+      {
+        "kind": "workedExample",
+        "id": "worked-example",
+        "title": "Reason through the example",
+        "steps": [
+          "Order 20 has two lines: product X with revenue 30 and product Y with revenue 70. The order-line fact contains two rows, not two copies of an order-level total of 100.",
+          "Product X and Y both belong to category Tools, so a category grouping sums the line measures to 100.",
+          "If the fact also repeats order shipping cost of 10 on each line, a simple sum reports 20. Allocate the cost deliberately or model it at order grain.",
+          "If product X changes category next month, decide whether past revenue should use the historical category or today's category. That is a business requirement, not a default visual setting."
+        ],
+        "result": "A model with a declared grain can explain both its correct totals and the totals that must not be computed by a simple sum."
+      },
+      {
+        "kind": "whenToUse",
+        "id": "when-to-use",
+        "title": "When this approach fits",
+        "items": [
+          {
+            "signal": "Reports repeatedly group the same events by shared attributes",
+            "choice": "Use conformed dimensions and an explicitly grained fact table."
+          },
+          {
+            "signal": "A measure describes a balance at a point in time",
+            "choice": "Model snapshot grain and define which time aggregations are meaningful."
+          }
+        ]
+      },
+      {
+        "kind": "pitfall",
+        "id": "pitfall",
+        "title": "A mistake worth catching",
+        "text": "Connecting a fact to a dimension by a non-unique business key can multiply matches. A type-2 dimension deliberately has multiple rows per business entity, so it needs a valid historical lookup and a unique surrogate row key.",
+        "correction": "Resolve the correct dimension version during preparation, then relate the fact foreign key to that unique version key."
+      },
+      {
+        "kind": "checkpoint",
+        "id": "checkpoint",
+        "title": "Check your understanding",
+        "question": "An order has three lines and an order total of 90 repeated on every line. Can you safely SUM that order total in the line fact?",
+        "answer": "No. It would return 270 for that order.",
+        "explanation": "The total belongs to order grain, not line grain. Use actual line measures, an explicit allocation, or a separate order-grain fact according to the reporting need."
+      },
+      {
+        "kind": "keyTakeaways",
+        "id": "takeaways",
+        "title": "Key takeaways",
+        "items": [
+          "Grain is the model's first contract.",
+          "Dimensions describe; facts measure events or snapshots.",
+          "Relationship uniqueness and historical lookup rules protect meaning."
+        ]
+      },
+      {
+        "kind": "relatedPractice",
+        "id": "practice",
+        "title": "Put it into practice",
+        "exerciseIds": [
+          "bi-star-schema",
+          "bi-scd"
+        ]
+      }
+    ],
+    "sources": [
+      {
+        "label": "Microsoft: star schema guidance",
+        "url": "https://learn.microsoft.com/en-us/power-bi/guidance/star-schema"
+      },
+      {
+        "label": "Microsoft: model relationships",
+        "url": "https://learn.microsoft.com/en-us/power-bi/transform-model/desktop-relationships-understand"
+      }
+    ]
+  },
+  {
+    "id": "model-relationships-filter-context",
+    "version": 1,
+    "workspace": "model",
+    "categoryId": "relationships-context",
+    "title": "Relationships explain where filters travel",
+    "summary": "Trace a slicer through a semantic model and distinguish filter propagation from a physical table merge.",
+    "minutes": 7,
+    "objectives": [
+      "Describe the one and many sides of a relationship.",
+      "Trace a filter from a dimension to a fact.",
+      "Investigate an unchanged total without making every relationship bidirectional."
+    ],
+    "prerequisites": [
+      "Comfort reading a small table; no running cloud service is required."
+    ],
+    "blocks": [
+      {
+        "kind": "intro",
+        "id": "start",
+        "title": "The problem this solves",
+        "text": "A report slicer can change a measure without physically editing or copying the underlying fact table. It establishes a filter context, and model relationships determine how relevant filters can propagate. If a sales total does not change when you select a product category, the problem may be an inactive relationship, the wrong key, an unexpected filter direction or a measure that removes the filter. Start by tracing the path rather than adding more visual-level conditions."
+      },
+      {
+        "kind": "concept",
+        "id": "mental-model",
+        "title": "A useful mental model",
+        "text": "In a common star model, a unique dimension key is on the one side and repeated fact foreign keys are on the many side. A single-direction relationship commonly allows the dimension selection to filter matching fact rows. Relationships are semantic rules used during query evaluation, not permanent SQL joins that materialize another table. Active state, direction and key integrity all influence the result.",
+        "mentalModel": "A slicer opens a gate on a dimension. A relationship is a permitted corridor for that restriction to reach the fact rows. A disconnected table has no corridor unless a measure deliberately supplies one."
+      },
+      {
+        "kind": "diagram",
+        "id": "flow",
+        "title": "Follow the flow",
+        "diagram": {
+          "label": "Relationships explain where filters travel - a simplified teaching flow",
+          "nodes": [
+            {
+              "id": "n0",
+              "label": "Category selection",
+              "detail": "dimension rows survive"
+            },
+            {
+              "id": "n1",
+              "label": "Active relationship",
+              "detail": "matching product keys"
+            },
+            {
+              "id": "n2",
+              "label": "Revenue measure",
+              "detail": "sum eligible fact rows"
+            }
+          ],
+          "edges": [
+            {
+              "from": "n0",
+              "to": "n1"
+            },
+            {
+              "from": "n1",
+              "to": "n2"
+            }
+          ]
+        },
+        "caption": "Read each box as a responsibility or state, not as a mandatory product. The arrows show the order of reasoning; a real implementation can have additional checks and branches."
+      },
+      {
+        "kind": "steps",
+        "id": "method",
+        "title": "Work through it deliberately",
+        "steps": [
+          {
+            "title": "Inspect the selected dimension rows",
+            "text": "Check that the slicer uses the intended dimension, not a similarly named column in a disconnected table."
+          },
+          {
+            "title": "Follow the relationship path",
+            "text": "Verify active status, column types, uniqueness on the one side and the configured direction. Look for ambiguous alternate paths."
+          },
+          {
+            "title": "Inspect the measure",
+            "text": "A measure using REMOVEFILTERS or another context modifier can intentionally override part of the current selection. Test a plain base measure before diagnosing a complex one."
+          }
+        ]
+      },
+      {
+        "kind": "code",
+        "id": "example-code",
+        "title": "A small concrete example",
+        "language": "DAX",
+        "code": "Revenue = SUM ( Sales[Amount] )\n\n-- A diagnostic measure, not a replacement for relationship checks:\nVisible Sales Rows = COUNTROWS ( Sales )\n\n-- Compare these measures while selecting Product[Category].\n-- Both should reflect the allowed filter path in the model.",
+        "caption": "Assume Product[ProductKey] has an active one-to-many relationship to Sales[ProductKey]. This browser teaches a DAX subset; a full semantic engine has additional relationship and context behavior."
+      },
+      {
+        "kind": "table",
+        "id": "compare",
+        "title": "Keep these distinctions clear",
+        "columns": [
+          "Element",
+          "Question to ask",
+          "Example symptom"
+        ],
+        "rows": [
+          [
+            "Key",
+            "Does the dimension side identify unique rows?",
+            "Relationship cannot represent the intended one side"
+          ],
+          [
+            "Active state",
+            "Is this the path used by default?",
+            "A date slicer affects order date but not ship date"
+          ],
+          [
+            "Direction",
+            "Can the selected restriction reach the fact?",
+            "A fact-side filter does not flow back as expected"
+          ],
+          [
+            "Measure logic",
+            "Does the formula remove or replace the filter?",
+            "Base revenue changes, but an all-category total does not"
+          ]
+        ]
+      },
+      {
+        "kind": "workedExample",
+        "id": "worked-example",
+        "title": "Reason through the example",
+        "steps": [
+          "Product contains P1 in Tools and P2 in Books. Sales contains P1 amounts 20 and 30, and a P2 amount of 40.",
+          "Without a category selection, Revenue is 90 and Visible Sales Rows is 3.",
+          "Selecting Tools leaves P1 eligible in Product. The active relationship restricts Sales to its two P1 rows, so Revenue is 50 and the row count is 2.",
+          "A disconnected CategoryPicker table does not have that automatic effect. It needs a modeled relationship or deliberate measure logic; matching column names alone do nothing."
+        ],
+        "result": "Filter propagation changes the rows eligible for evaluation while leaving the stored fact data unchanged."
+      },
+      {
+        "kind": "whenToUse",
+        "id": "when-to-use",
+        "title": "When this approach fits",
+        "items": [
+          {
+            "signal": "You want consistent filtering across many report pages",
+            "choice": "Model a clear dimension-to-fact path rather than repeating ad hoc filters in each visual."
+          },
+          {
+            "signal": "Two date roles must be analyzed independently",
+            "choice": "Use an explicit role-playing-date or inactive-relationship strategy and document which measure uses which path."
+          }
+        ]
+      },
+      {
+        "kind": "pitfall",
+        "id": "pitfall",
+        "title": "A mistake worth catching",
+        "text": "Turning on bidirectional filtering everywhere can create unexpected paths and harder-to-explain results. It is not a general fix for missing or incorrect keys.",
+        "correction": "Prefer the simplest valid model. Add a bidirectional path only for a demonstrated requirement and test its effect on other dimensions and measures."
+      },
+      {
+        "kind": "checkpoint",
+        "id": "checkpoint",
+        "title": "Check your understanding",
+        "question": "A slicer column has the same values and name as Product[Category], but lives in a disconnected table. Should it automatically filter Sales?",
+        "answer": "No. Matching text values or column names do not create a relationship.",
+        "explanation": "The model needs an explicit filter path or a measure that deliberately interprets the selection. Trace modeled relationships rather than guessing from visual labels."
+      },
+      {
+        "kind": "keyTakeaways",
+        "id": "takeaways",
+        "title": "Key takeaways",
+        "items": [
+          "Relationships control allowed filter propagation.",
+          "Check keys, active state, direction and measure logic separately.",
+          "Use the simplest valid filter paths and test intentional exceptions."
+        ]
+      },
+      {
+        "kind": "relatedPractice",
+        "id": "practice",
+        "title": "Put it into practice",
+        "exerciseIds": [
+          "bi-filter-context"
+        ]
+      }
+    ],
+    "sources": [
+      {
+        "label": "Microsoft: model relationships",
+        "url": "https://learn.microsoft.com/en-us/power-bi/transform-model/desktop-relationships-understand"
+      },
+      {
+        "label": "Microsoft: CALCULATE",
+        "url": "https://learn.microsoft.com/en-us/dax/calculate-function-dax"
+      }
+    ]
+  },
+  {
+    "id": "model-dax-measure-context",
+    "version": 1,
+    "workspace": "model",
+    "categoryId": "measures-dax",
+    "title": "Measures, CALCULATE and meaningful ratios",
+    "summary": "Explain a measure as a calculation under the current filters, and avoid totals that average incompatible percentages.",
+    "minutes": 7,
+    "objectives": [
+      "Distinguish a measure from a stored calculated column.",
+      "Explain CALCULATE as evaluation under modified filter context.",
+      "Build a weighted ratio from additive components."
+    ],
+    "prerequisites": [
+      "Comfort reading a small table; no running cloud service is required."
+    ],
+    "blocks": [
+      {
+        "kind": "intro",
+        "id": "start",
+        "title": "The problem this solves",
+        "text": "A measure is not a value permanently written onto every source row. It is evaluated for the filter context requested by a visual or query. The same Revenue measure can therefore return a value for one product, one month or the entire selected dataset. This is especially important for ratios: a grand total usually needs to recalculate the numerator and denominator, not simply average the percentages shown on the individual rows."
+      },
+      {
+        "kind": "concept",
+        "id": "mental-model",
+        "title": "A useful mental model",
+        "text": "Start with additive base measures such as revenue and cost. Derive margin amount from those measures, then derive margin percentage by dividing the aggregated margin by aggregated revenue. CALCULATE evaluates an expression under modified filters; it is not merely another arithmetic function. Whether it adds, replaces or preserves a particular filter depends on the filter arguments and modifiers used.",
+        "mentalModel": "A measure is a question asked of the currently visible slice of data. CALCULATE asks the same question after deliberately changing part of that slice."
+      },
+      {
+        "kind": "diagram",
+        "id": "flow",
+        "title": "Follow the flow",
+        "diagram": {
+          "label": "Measures, CALCULATE and meaningful ratios - a simplified teaching flow",
+          "nodes": [
+            {
+              "id": "n0",
+              "label": "Filter context",
+              "detail": "which rows are eligible"
+            },
+            {
+              "id": "n1",
+              "label": "Base measures",
+              "detail": "revenue and cost totals"
+            },
+            {
+              "id": "n2",
+              "label": "Derived ratio",
+              "detail": "margin / revenue"
+            }
+          ],
+          "edges": [
+            {
+              "from": "n0",
+              "to": "n1"
+            },
+            {
+              "from": "n1",
+              "to": "n2"
+            }
+          ]
+        },
+        "caption": "Read each box as a responsibility or state, not as a mandatory product. The arrows show the order of reasoning; a real implementation can have additional checks and branches."
+      },
+      {
+        "kind": "steps",
+        "id": "method",
+        "title": "Work through it deliberately",
+        "steps": [
+          {
+            "title": "Build reusable components",
+            "text": "Define Revenue and Cost once. Reuse them in Margin so that the business definition is visible and testable."
+          },
+          {
+            "title": "Choose the denominator",
+            "text": "Ask whether the ratio is per item, per customer or across the selected period. A total ratio should be calculated at that requested context."
+          },
+          {
+            "title": "State filter changes",
+            "text": "When using CALCULATE, say which filter is being introduced or replaced. Test the result with both an empty selection and a conflicting existing selection."
+          }
+        ]
+      },
+      {
+        "kind": "code",
+        "id": "example-code",
+        "title": "A small concrete example",
+        "language": "DAX",
+        "code": "Revenue = SUM ( Sales[Amount] )\nCost = SUM ( Sales[Cost] )\nMargin = [Revenue] - [Cost]\nMargin % = DIVIDE ( [Margin], [Revenue] )\n\nPaid Revenue =\n    CALCULATE ( [Revenue], Sales[Status] = \"Paid\" )",
+        "caption": "DIVIDE returns BLANK by default when its denominator is zero or blank. Choose an alternate result only when the reporting meaning justifies it. The app's teaching evaluator supports a bounded DAX subset."
+      },
+      {
+        "kind": "table",
+        "id": "compare",
+        "title": "Keep these distinctions clear",
+        "columns": [
+          "Calculation",
+          "Evaluated when",
+          "Important distinction"
+        ],
+        "rows": [
+          [
+            "Calculated column",
+            "During model processing for stored rows",
+            "Adds row-level data; not a context-responsive measure"
+          ],
+          [
+            "Measure",
+            "When a query requests a result",
+            "Responds to filter context"
+          ],
+          [
+            "CALCULATE",
+            "During expression evaluation",
+            "Modifies context for the expression"
+          ],
+          [
+            "Ratio of totals",
+            "At the requested visual context",
+            "Not generally equal to an unweighted average of row ratios"
+          ]
+        ]
+      },
+      {
+        "kind": "workedExample",
+        "id": "worked-example",
+        "title": "Reason through the example",
+        "steps": [
+          "Product A has revenue 100 and cost 60, so its margin is 40 and margin percentage is 40%.",
+          "Product B has revenue 900 and cost 810, so its margin is 90 and margin percentage is 10%.",
+          "The total margin is 130 and total revenue is 1,000. The overall margin percentage is therefore 13%.",
+          "An unweighted average of 40% and 10% gives 25%, answering a different question. It treats the two products as equally weighted despite their very different revenue."
+        ],
+        "result": "The overall business ratio is 13% under the stated definition, because the denominator determines the weighting."
+      },
+      {
+        "kind": "whenToUse",
+        "id": "when-to-use",
+        "title": "When this approach fits",
+        "items": [
+          {
+            "signal": "A report needs the same calculation at many grouping levels",
+            "choice": "Use a measure built from well-defined base measures."
+          },
+          {
+            "signal": "A metric needs a specific status or date interpretation",
+            "choice": "Use explicit context modification and test interaction with report filters."
+          }
+        ]
+      },
+      {
+        "kind": "pitfall",
+        "id": "pitfall",
+        "title": "A mistake worth catching",
+        "text": "A measure that forces Status = Paid can replace an existing filter on that same column. Users may be surprised when choosing Failed still shows paid revenue. A formula can be technically valid yet confusing without a clear name and description.",
+        "correction": "Label intentional context overrides and use an intersection-preserving pattern when that is the actual business requirement. Test the measure against a tiny table before relying on a visual total."
+      },
+      {
+        "kind": "checkpoint",
+        "id": "checkpoint",
+        "title": "Check your understanding",
+        "question": "Why is 25% not the overall margin percentage in the example?",
+        "answer": "It averages two percentages without weighting them by their revenue denominators.",
+        "explanation": "The aggregate question is total margin divided by total revenue: 130 / 1,000 = 13%. An average-product margin percentage is a separate metric and needs a different name."
+      },
+      {
+        "kind": "keyTakeaways",
+        "id": "takeaways",
+        "title": "Key takeaways",
+        "items": [
+          "Measures are evaluated under filter context.",
+          "Build ratios from meaningful numerator and denominator measures.",
+          "Explain which filters CALCULATE changes and why."
+        ]
+      },
+      {
+        "kind": "relatedPractice",
+        "id": "practice",
+        "title": "Put it into practice",
+        "exerciseIds": [
+          "bi-revenue",
+          "bi-margin"
+        ]
+      }
+    ],
+    "sources": [
+      {
+        "label": "Microsoft: CALCULATE",
+        "url": "https://learn.microsoft.com/en-us/dax/calculate-function-dax"
+      },
+      {
+        "label": "Microsoft: DIVIDE",
+        "url": "https://learn.microsoft.com/en-us/dax/divide-function-dax"
+      }
+    ]
+  },
+  {
+    "id": "model-performance-cardinality",
+    "version": 1,
+    "workspace": "model",
+    "categoryId": "model-performance",
+    "title": "Model performance begins with useful data",
+    "summary": "Use cardinality, column selection and measured query behavior to improve a semantic model without changing its answers.",
+    "minutes": 7,
+    "objectives": [
+      "Explain why distinct-value counts matter for a columnar model.",
+      "Identify columns that are expensive but not analytically useful.",
+      "Separate a measured improvement from a guessed optimization."
+    ],
+    "prerequisites": [
+      "Comfort reading a small table; no running cloud service is required."
+    ],
+    "blocks": [
+      {
+        "kind": "intro",
+        "id": "start",
+        "title": "The problem this solves",
+        "text": "A slow model is not automatically a DAX problem. It may carry millions of distinct text values that no report uses, excessive historical detail, redundant calculated columns or a grain finer than the reporting requirement. A useful first pass is to identify what consumers actually need, then compare the model before and after removing unnecessary data. Performance work must preserve required detail and correct measures, not simply make the file smaller."
+      },
+      {
+        "kind": "concept",
+        "id": "mental-model",
+        "title": "A useful mental model",
+        "text": "Columnar storage benefits from patterns and repetition, although actual compression depends on data type, encoding and distribution. High-cardinality columns contain many distinct values, such as transaction IDs or full timestamps. They can be essential for drill-through but unnecessary for summary reporting. Reducing columns, rows or precision can help, but only when the lost detail is not part of a valid requirement.",
+        "mentalModel": "A model is a suitcase for analytical questions. Pack what the trip needs, but do not throw away the passport merely because it is inconvenient to store."
+      },
+      {
+        "kind": "diagram",
+        "id": "flow",
+        "title": "Follow the flow",
+        "diagram": {
+          "label": "Model performance begins with useful data - a simplified teaching flow",
+          "nodes": [
+            {
+              "id": "n0",
+              "label": "Usage evidence",
+              "detail": "which questions matter"
+            },
+            {
+              "id": "n1",
+              "label": "Model inspection",
+              "detail": "rows, columns, distincts"
+            },
+            {
+              "id": "n2",
+              "label": "Measured change",
+              "detail": "same answers, less work"
+            }
+          ],
+          "edges": [
+            {
+              "from": "n0",
+              "to": "n1"
+            },
+            {
+              "from": "n1",
+              "to": "n2"
+            }
+          ]
+        },
+        "caption": "Read each box as a responsibility or state, not as a mandatory product. The arrows show the order of reasoning; a real implementation can have additional checks and branches."
+      },
+      {
+        "kind": "steps",
+        "id": "method",
+        "title": "Work through it deliberately",
+        "steps": [
+          {
+            "title": "Establish a baseline",
+            "text": "Record refresh duration, model size and a representative set of query timings. Include both summary pages and important drill-through scenarios."
+          },
+          {
+            "title": "Find expensive unused detail",
+            "text": "Review unused columns, long text, unique identifiers and timestamp precision. Keep keys required for relationships, security or correct grain."
+          },
+          {
+            "title": "Change one lever at a time",
+            "text": "Remove or reshape a candidate in a controlled version, refresh, and compare both performance and business answers. A smaller model is not a success if a required reconciliation no longer works."
+          }
+        ]
+      },
+      {
+        "kind": "code",
+        "id": "example-code",
+        "title": "A small concrete example",
+        "language": "SQL",
+        "code": "-- Source-side profiling before choosing what to import.\nSELECT\n    COUNT(*) AS row_count,\n    COUNT(DISTINCT transaction_id) AS transaction_ids,\n    COUNT(DISTINCT product_key) AS product_keys,\n    COUNT(DISTINCT event_timestamp) AS timestamps\nFROM fact_sales;\n\n-- Compare this profile with actual report and drill-through usage.",
+        "caption": "Distinct counts identify candidates for investigation, not automatic deletion. The performance impact must be measured in the target engine and workload."
+      },
+      {
+        "kind": "table",
+        "id": "compare",
+        "title": "Keep these distinctions clear",
+        "columns": [
+          "Candidate",
+          "Possible benefit",
+          "Required guardrail"
+        ],
+        "rows": [
+          [
+            "Unused free-text comment",
+            "Avoid importing expensive, irrelevant values",
+            "Verify no report, export or audit workflow needs it"
+          ],
+          [
+            "Full timestamp",
+            "Use date or rounded time if sufficient",
+            "Preserve precision required for ordering and investigation"
+          ],
+          [
+            "Unused historical rows",
+            "Reduce processing and storage",
+            "Respect reporting, retention and reconciliation needs"
+          ],
+          [
+            "Relationship key",
+            "Often high cardinality but structurally necessary",
+            "Do not remove or round it to improve compression"
+          ]
+        ]
+      },
+      {
+        "kind": "workedExample",
+        "id": "worked-example",
+        "title": "Reason through the example",
+        "steps": [
+          "A sales model has 5 million rows. ProductKey has 8,000 distinct values, while TraceMessage is almost unique for every row.",
+          "No semantic measure, report, security rule or approved export uses TraceMessage. Detailed operational investigation already uses a separate governed log store.",
+          "Create a model variant without that column and compare refresh time and memory footprint. Run the same report queries and reconcile totals by month and product.",
+          "Retain TransactionId for a required drill-through even if it is also highly distinct. The goal is useful efficiency, not indiscriminate removal of every expensive column."
+        ],
+        "result": "The optimization has a clear reason, a measured result and explicit evidence that required analytical behavior was preserved."
+      },
+      {
+        "kind": "whenToUse",
+        "id": "when-to-use",
+        "title": "When this approach fits",
+        "items": [
+          {
+            "signal": "Model refresh or memory usage is unexpectedly high",
+            "choice": "Inspect imported columns, grain and cardinality before rewriting every measure."
+          },
+          {
+            "signal": "Only a few visuals are slow",
+            "choice": "Measure those queries and interactions separately; a global model-size fix may not address their execution path."
+          }
+        ]
+      },
+      {
+        "kind": "pitfall",
+        "id": "pitfall",
+        "title": "A mistake worth catching",
+        "text": "Removing a key because it has many distinct values can break relationships or eliminate the ability to identify an event. Aggregating to daily totals can also destroy a legitimate transaction-level use case.",
+        "correction": "Document the consumer requirement and the retained grain. Keep a detailed serving path when summary optimization would otherwise remove required capabilities."
+      },
+      {
+        "kind": "checkpoint",
+        "id": "checkpoint",
+        "title": "Check your understanding",
+        "question": "Should every nearly unique column be removed from an Import model?",
+        "answer": "No. Its analytical, structural and security purpose matters.",
+        "explanation": "An unused diagnostic string and a required fact identifier may have similar cardinality but very different value. Optimize against actual requirements, then verify correctness and performance."
+      },
+      {
+        "kind": "keyTakeaways",
+        "id": "takeaways",
+        "title": "Key takeaways",
+        "items": [
+          "Cardinality is a signal for investigation, not a deletion rule.",
+          "Remove unused detail before adding complexity.",
+          "Benchmark representative queries and preserve required answers."
+        ]
+      },
+      {
+        "kind": "relatedPractice",
+        "id": "practice",
+        "title": "Put it into practice",
+        "exerciseIds": [
+          "bi-csharp"
+        ]
+      }
+    ],
+    "sources": [
+      {
+        "label": "Microsoft: data reduction for Import models",
+        "url": "https://learn.microsoft.com/en-us/power-bi/guidance/import-modeling-data-reduction"
+      },
+      {
+        "label": "Microsoft: star schema guidance",
+        "url": "https://learn.microsoft.com/en-us/power-bi/guidance/star-schema"
+      }
+    ]
+  },
+  {
+    "id": "model-fabric-serving-path",
+    "version": 1,
+    "workspace": "model",
+    "categoryId": "bi-serving",
+    "title": "From trusted tables to a Fabric / BI serving path",
+    "summary": "Separate data preparation, semantic meaning and report consumption when choosing how a BI model serves its data.",
+    "minutes": 7,
+    "objectives": [
+      "Identify the responsibilities of storage, semantic model and report.",
+      "Compare Import, DirectQuery and Direct Lake at a conceptual level.",
+      "Name freshness, security and capacity questions before choosing a mode."
+    ],
+    "prerequisites": [
+      "Comfort reading a small table; no running cloud service is required."
+    ],
+    "blocks": [
+      {
+        "kind": "intro",
+        "id": "start",
+        "title": "The problem this solves",
+        "text": "A report is the last step in a chain of responsibilities. Source data must be prepared and made trustworthy, a semantic model must define relationships and measures, and the report must present a useful question. Choosing a storage mode does not replace those responsibilities. A direct path to a table is not automatically a complete business model, and a visually correct report is not proof that all data access is appropriately governed."
+      },
+      {
+        "kind": "concept",
+        "id": "mental-model",
+        "title": "A useful mental model",
+        "text": "Import loads data into the semantic model for query use and requires a refresh strategy. DirectQuery sends queries to a source at report-query time, with behavior influenced by that source and the model. Direct Lake is a Fabric-specific approach that uses supported OneLake data for semantic analysis without the ordinary full Import copy workflow. Its prerequisites, limitations and fallback behavior depend on the particular Direct Lake implementation and current configuration; do not treat all variants as interchangeable.",
+        "mentalModel": "Storage keeps the records, the semantic model explains their meaning, and the report asks a question. The serving mode chooses part of the path between those responsibilities."
+      },
+      {
+        "kind": "diagram",
+        "id": "flow",
+        "title": "Follow the flow",
+        "diagram": {
+          "label": "From trusted tables to a Fabric / BI serving path - a simplified teaching flow",
+          "nodes": [
+            {
+              "id": "n0",
+              "label": "Prepared tables",
+              "detail": "quality and business grain"
+            },
+            {
+              "id": "n1",
+              "label": "Semantic model",
+              "detail": "relationships and measures"
+            },
+            {
+              "id": "n2",
+              "label": "Report consumers",
+              "detail": "governed questions"
+            }
+          ],
+          "edges": [
+            {
+              "from": "n0",
+              "to": "n1"
+            },
+            {
+              "from": "n1",
+              "to": "n2"
+            }
+          ]
+        },
+        "caption": "Read each box as a responsibility or state, not as a mandatory product. The arrows show the order of reasoning; a real implementation can have additional checks and branches."
+      },
+      {
+        "kind": "steps",
+        "id": "method",
+        "title": "Work through it deliberately",
+        "steps": [
+          {
+            "title": "Start with consumer constraints",
+            "text": "Specify acceptable data age, expected concurrency, required detail and who is allowed to see which rows. These are requirements, not product preferences."
+          },
+          {
+            "title": "Choose a serving path",
+            "text": "Compare the supported modes against source location, transformation needs, capacity and operational support. Verify current platform documentation for the exact implementation."
+          },
+          {
+            "title": "Test the whole path",
+            "text": "Measure a representative report, refresh or freshness behavior, and access with realistic identities. A fast administrator query does not prove a good reader experience."
+          }
+        ]
+      },
+      {
+        "kind": "code",
+        "id": "example-code",
+        "title": "A small concrete example",
+        "language": "Architecture sketch",
+        "code": "Source records\n  -> validated business tables\n  -> semantic relationships + reusable measures\n  -> report pages / governed self-service\n\nFor each boundary, record:\n  owner | freshness expectation | access rule | failure signal",
+        "caption": "This is a responsibility sketch, not a deployable Fabric configuration. The right mode depends on the actual data estate and tested workload."
+      },
+      {
+        "kind": "table",
+        "id": "compare",
+        "title": "Keep these distinctions clear",
+        "columns": [
+          "Mode",
+          "Conceptual data path",
+          "Question to validate"
+        ],
+        "rows": [
+          [
+            "Import",
+            "Data loaded into the semantic model",
+            "Is refresh latency acceptable and capacity sufficient?"
+          ],
+          [
+            "DirectQuery",
+            "Queries reach the source during analysis",
+            "Can the source sustain the expected report workload?"
+          ],
+          [
+            "Direct Lake",
+            "Supported OneLake data serves a Fabric semantic path",
+            "Which Direct Lake variant, limits and access behavior apply?"
+          ]
+        ]
+      },
+      {
+        "kind": "workedExample",
+        "id": "worked-example",
+        "title": "Reason through the example",
+        "steps": [
+          "A finance report needs certified daily figures at 08:00, shared margin measures and access restricted by legal entity.",
+          "A preparation job publishes reconciled daily tables. The semantic model defines the company relationships and approved measures. The report does not reimplement those definitions in every page.",
+          "Because daily freshness is sufficient, the team can evaluate Import without dismissing it as obsolete. A supported Direct Lake path may also be a candidate when the tables and capacity fit.",
+          "They test the chosen mode with a restricted reader identity and a busy reporting scenario. They also document what users see when preparation or refresh fails."
+        ],
+        "result": "The architecture decision connects a serving mode to a measurable business and operational requirement, rather than to a product slogan."
+      },
+      {
+        "kind": "whenToUse",
+        "id": "when-to-use",
+        "title": "When this approach fits",
+        "items": [
+          {
+            "signal": "You need reusable definitions across several reports",
+            "choice": "Put relationships and certified measures in a governed semantic layer."
+          },
+          {
+            "signal": "Freshness or concurrency changes materially",
+            "choice": "Re-evaluate the serving path with a representative workload instead of assuming the current mode scales unchanged."
+          }
+        ]
+      },
+      {
+        "kind": "pitfall",
+        "id": "pitfall",
+        "title": "A mistake worth catching",
+        "text": "Saying “Direct Lake never falls back” or “Direct Lake always falls back to DirectQuery” ignores implementation differences. Likewise, saying “live data” without a freshness definition hides preparation and visibility delays.",
+        "correction": "Name the exact mode and variant, check current documentation, and measure the end-to-end age of the values a reader can actually see."
+      },
+      {
+        "kind": "checkpoint",
+        "id": "checkpoint",
+        "title": "Check your understanding",
+        "question": "A report points directly at a trusted table. Does that remove the need for a semantic model and access tests?",
+        "answer": "No. Table quality does not define all business measures, relationships or reader permissions.",
+        "explanation": "The data may be reliable while a measure, filter path or access boundary is still wrong. Test each responsibility independently and then verify the complete user journey."
+      },
+      {
+        "kind": "keyTakeaways",
+        "id": "takeaways",
+        "title": "Key takeaways",
+        "items": [
+          "Storage, semantics and presentation solve different problems.",
+          "Serving modes are choices within a larger governed path.",
+          "Verify freshness, capacity and permissions for the exact implementation."
+        ]
+      },
+      {
+        "kind": "bullets",
+        "id": "apply-it",
+        "title": "Try it on your next model",
+        "items": [
+          "Choose one report you know. Sketch the path from source rows to a visual, and label where transformations, permissions and refresh take effect.",
+          "There is no dedicated Practice exercise for this category yet. Use the neighboring modeling lessons to test the grain and filter assumptions; no unrelated exercise has been relabeled."
+        ]
+      }
+    ],
+    "sources": [
+      {
+        "label": "Microsoft: Direct Lake overview",
+        "url": "https://learn.microsoft.com/en-us/fabric/fundamentals/direct-lake-overview"
+      },
+      {
+        "label": "Microsoft: star schema guidance",
+        "url": "https://learn.microsoft.com/en-us/power-bi/guidance/star-schema"
+      },
+      {
+        "label": "Microsoft: model relationships",
+        "url": "https://learn.microsoft.com/en-us/power-bi/transform-model/desktop-relationships-understand"
+      }
+    ]
+  }
+]
