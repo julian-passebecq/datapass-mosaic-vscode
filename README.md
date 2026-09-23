@@ -32,4 +32,19 @@ VS Code
    └─ workflow/scheduler simulation
 ```
 
-See `docs/ARCHITECTURE.md`.
+## Harvested foundation
+
+The branch already preserves the useful parts of the previous Datapass work rather than restarting them:
+
+- `workbench-core/` — consolidated prior Workbench implementation/reference.
+- `packages/notebook-core/` — Mosaic notebook/layout + ipynb/project contracts.
+- `packages/contracts/` — shared case/workbench contracts.
+- `runtime/sparklab/` — SparkLab/ZilaCode training runtime.
+- `content/` — connected cases and exercise packs.
+- `migration-sources/` — Fabric, Airflow/dbt and previous Workbench UI donors.
+- `legacy-donors/` — selected unique curriculum/visual logic that should be promoted deliberately.
+- `src/platform/` — VS Code tool/status/detection patterns.
+- `src/project/` — portable local `.datapass/project.json` workspace contract.
+- `src/webview/` — VS Code webview security helpers.
+
+See `docs/ARCHITECTURE.md` for the target architecture and `docs/HARVEST_AUDIT.md` for exactly what was reused or deliberately excluded.
