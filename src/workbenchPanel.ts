@@ -4,6 +4,7 @@ import { detectCli } from "./platform/detection";
 import { MODULES, type ModuleId } from "./modules";
 import { createDefaultProjectManifest, readProjectManifest, writeProjectManifest } from "./project/projectManifest";
 import type { RuntimeManager } from "./runtimeManager";
+import { retailDemoReadme, retailOrdersCsv, retailPythonStarter, retailSqlStarter } from "./scaffold/retailDemo";
 import { collectWorkbenchState } from "./workbenchState";
 import { contentSecurityPolicy, makeNonce } from "./webview/security";
 import type { ExerciseSummary, ScratchKind, WebviewToHostMessage } from "./webview/contracts";
@@ -178,9 +179,15 @@ export class WorkbenchPanel {
     const manifest = await readProjectManifest();
     const datasetRoot = safeRelativeParts(manifest.manifest?.assets?.datasets, "datasets");
     const notebookRoot = safeRelativeParts(manifest.manifest?.assets?.notebooks, "notebooks");
+    const pipelineRoot = safeRelativeParts(manifest.manifest?.assets?.pipelines, "pipelines");
+    const airflowRoot = safeRelativeParts(manifest.manifest?.assets?.airflow, "airflow");
+    const dbtRoot = safeRelativeParts(manifest.manifest?.assets?.dbt, "dbt");
 
     const datasetDir = vscode.Uri.joinPath(root, ...datasetRoot);
     const notebookDir = vscode.Uri.joinPath(root, ...notebookRoot);
+    const datasetPath = [...datasetRoot, "retail_orders.csv"].join("/");
+    const sqlNotebookPath = [...notebookRoot, "retail_medallion.sql"].join("/");
+    const pythonNotebookPath = [...notebookRoot, "retail_quality.py"].join("/");
     await vscode.workspace.fs.createDirectory(datasetDir);
     await vscode.workspace.fs.createDirectory(notebookDir);
 
@@ -190,15 +197,22 @@ export class WorkbenchPanel {
     );
     await writeIfMissing(
       vscode.Uri.joinPath(notebookDir, "retail_medallion.sql"),
-      retailSqlStarter()
+      retailSqlStarter(datasetPath)
     );
     await writeIfMissing(
       vscode.Uri.joinPath(notebookDir, "retail_quality.py"),
-      retailPythonStarter()
+      retailPythonStarter(datasetPath)
     );
     await writeIfMissing(
       vscode.Uri.joinPath(root, "README_DATAPASS_RETAIL.md"),
-      retailDemoReadme()
+      retailDemoReadme({
+        dataset: datasetPath,
+        sqlNotebook: sqlNotebookPath,
+        pythonNotebook: pythonNotebookPath,
+        pipeline: [...pipelineRoot, "main.pipeline.py"].join("/"),
+        airflow: [...airflowRoot, "main.dag.json"].join("/"),
+        dbtProject: [...dbtRoot, "retail-dbt"].join("/")
+      })
     );
 
     await this.openPipelineSource();
@@ -345,15 +359,18 @@ export class WorkbenchPanel {
     const projectRoot = vscode.Uri.joinPath(root, ...dbtRoot, "retail-dbt");
     const projectFile = vscode.Uri.joinPath(projectRoot, "dbt_project.yml");
 
+    const donor = vscode.Uri.joinPath(
+      this.context.extensionUri,
+      "workbench-core",
+      "examples",
+      "analytics-m2",
+      "retail-dbt"
+    );
+    await copyDirectoryWithoutOverwrite(donor, projectRoot);
+
     if (!(await exists(projectFile))) {
-      const donor = vscode.Uri.joinPath(
-        this.context.extensionUri,
-        "workbench-core",
-        "examples",
-        "analytics-m2",
-        "retail-dbt"
-      );
-      await copyDirectoryWithoutOverwrite(donor, projectRoot);
+      void vscode.window.showErrorMessage("The bundled dbt retail sample is incomplete: dbt_project.yml was not found.");
+      return;
     }
 
     await ensureDbtProfile(root);
@@ -619,85 +636,6 @@ async function writeIfMissing(uri: vscode.Uri, content: string): Promise<void> {
   if (!(await exists(uri))) {
     await vscode.workspace.fs.writeFile(uri, new TextEncoder().encode(content));
   }
-}
-
-function retailOrdersCsv(): string {
-  return [
-    "order_id,customer_id,order_date,amount,status",
-    "1001,C001,2026-09-01,420.00,completed",
-    "1002,C002,2026-09-01,275.00,completed",
-    "1003,C001,2026-09-02,-10.00,refund",
-    "1004,C003,2026-09-02,980.00,completed",
-    "1005,C004,2026-09-03,0.00,cancelled",
-    "1006,C002,2026-09-03,315.00,completed",
-    "1007,C005,2026-09-04,1250.00,completed",
-    "1008,C003,2026-09-04,640.00,completed",
-    "1009,C004,2026-09-05,310.00,completed",
-    "1010,C005,2026-09-05,795.00,completed",
-    ""
-  ].join("\n");
-}
-
-function retailSqlStarter(): string {
-  return [
-    "-- Datapass retail medallion starter",
-    "-- Goal: raw CSV -> bronze -> silver -> gold using DuckDB/DuckLake concepts.",
-    "",
-    "create or replace table bronze_orders as",
-    "select * from read_csv_auto('datasets/retail_orders.csv');",
-    "",
-    "create or replace table silver_orders as",
-    "select *",
-    "from bronze_orders",
-    "where amount > 0 and status = 'completed';",
-    "",
-    "create or replace table gold_customer_revenue as",
-    "select customer_id, count(*) as orders, sum(amount) as revenue",
-    "from silver_orders",
-    "group by customer_id",
-    "order by revenue desc;",
-    "",
-    "select * from gold_customer_revenue;",
-    ""
-  ].join("\n");
-}
-
-function retailPythonStarter(): string {
-  return [
-    "import polars as pl",
-    "",
-    "orders = pl.read_csv('datasets/retail_orders.csv')",
-    "silver = orders.filter((pl.col('amount') > 0) & (pl.col('status') == 'completed'))",
-    "quality = silver.select(",
-    "    pl.len().alias('rows'),",
-    "    pl.col('customer_id').n_unique().alias('customers'),",
-    "    pl.col('amount').sum().alias('revenue'),",
-    ")",
-    "print(quality)",
-    ""
-  ].join("\n");
-}
-
-function retailDemoReadme(): string {
-  return [
-    "# Datapass Retail End-to-End Demo",
-    "",
-    "This workspace is intentionally small but connected.",
-    "",
-    "## Flow",
-    "",
-    "1. datasets/retail_orders.csv — raw source rows.",
-    "2. notebooks/retail_medallion.sql — Bronze/Silver/Gold SQL transformations.",
-    "3. notebooks/retail_quality.py — Polars quality/KPI check.",
-    "4. pipelines/main.pipeline.py — local orchestration design.",
-    "5. airflow/main.dag.json — deterministic scheduling/retry simulation.",
-    "6. dbt/retail-dbt — real dbt + DuckDB sample when dbt is installed.",
-    "",
-    "Use Fabric Lab to understand the overall workflow, then move into Mosaic, SparkLab, Pipeline Lab, Airflow Lab and dbt Lab for the specialist views.",
-    "",
-    "Truth boundary: DuckDB/Polars/dbt are real local execution where available; Fabric orchestration, Airflow scheduling and Spark distributed behavior are explicitly simulated.",
-    ""
-  ].join("\n");
 }
 
 async function copyDirectoryWithoutOverwrite(source: vscode.Uri, target: vscode.Uri): Promise<void> {
