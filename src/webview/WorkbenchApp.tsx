@@ -18,6 +18,7 @@ import type {
   WorkbenchViewState
 } from "./contracts";
 import { AirflowSurface } from "./AirflowSurface";
+import { DbtSurface } from "./DbtSurface";
 import { MosaicSurface } from "./MosaicSurface";
 import { PipelineSurface } from "./PipelineSurface";
 import { PracticeSurface } from "./PracticeSurface";
@@ -122,6 +123,8 @@ export function WorkbenchApp({ vscode }: { vscode: VsCodeApi }) {
               <PipelineSurface vscode={vscode} pipeline={state.pipeline} />
             ) : selected.id === "airflow" ? (
               <AirflowSurface vscode={vscode} airflow={state.airflow} />
+            ) : selected.id === "dbt" ? (
+              <DbtSurface vscode={vscode} dbt={state.dbt} />
             ) : (
               <>
                 <div className="feature-grid">
