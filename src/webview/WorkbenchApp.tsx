@@ -19,9 +19,11 @@ import type {
 } from "./contracts";
 import { AirflowSurface } from "./AirflowSurface";
 import { DbtSurface } from "./DbtSurface";
+import { FabricSurface } from "./FabricSurface";
 import { MosaicSurface } from "./MosaicSurface";
 import { PipelineSurface } from "./PipelineSurface";
 import { PracticeSurface } from "./PracticeSurface";
+import { SparkLabSurface } from "./SparkLabSurface";
 
 export interface VsCodeApi {
   postMessage(message: WebviewToHostMessage): void;
@@ -119,6 +121,10 @@ export function WorkbenchApp({ vscode }: { vscode: VsCodeApi }) {
               <MosaicSurface vscode={vscode} runtime={state.runtime} />
             ) : selected.id === "practice" ? (
               <PracticeSurface vscode={vscode} exercises={state.practice?.exercises ?? []} />
+            ) : selected.id === "fabric" ? (
+              <FabricSurface vscode={vscode} runtime={state.runtime} />
+            ) : selected.id === "sparklab" ? (
+              <SparkLabSurface vscode={vscode} runtime={state.runtime} />
             ) : selected.id === "pipeline" ? (
               <PipelineSurface vscode={vscode} pipeline={state.pipeline} />
             ) : selected.id === "airflow" ? (
@@ -134,7 +140,6 @@ export function WorkbenchApp({ vscode }: { vscode: VsCodeApi }) {
                     </Card>
                   ))}
                 </div>
-
                 <Card className="surface-card">
                   <CardHeader
                     header={<Text size={500} weight="semibold">VS Code-native boundary</Text>}
