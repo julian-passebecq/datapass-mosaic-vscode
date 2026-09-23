@@ -62,7 +62,9 @@ export class WorkbenchPanel {
         void this.refresh();
       }),
       vscode.workspace.onDidSaveTextDocument(() => {
-        if (this.selectedModule === "pipeline") void this.refresh();
+        if (this.selectedModule === "pipeline" || this.selectedModule === "airflow") {
+          void this.refresh();
+        }
       })
     );
   }
@@ -106,6 +108,12 @@ export class WorkbenchPanel {
         await this.openPipelineSource();
         return;
       case "refreshPipeline":
+        await this.refresh();
+        return;
+      case "openAirflowSource":
+        await this.openAirflowSource();
+        return;
+      case "refreshAirflow":
         await this.refresh();
         return;
     }
@@ -225,6 +233,30 @@ export class WorkbenchPanel {
     await this.refresh();
   }
 
+  private async openAirflowSource(): Promise<void> {
+    const root = vscode.workspace.workspaceFolders?.[0]?.uri;
+    if (!root) {
+      void vscode.window.showWarningMessage("Open a workspace folder before creating an Airflow Lab DAG.");
+      return;
+    }
+
+    const manifest = await readProjectManifest();
+    const airflowRoot = safeRelativeParts(manifest.manifest?.assets?.airflow, "airflow");
+    const directory = vscode.Uri.joinPath(root, ...airflowRoot);
+    const uri = vscode.Uri.joinPath(directory, "main.dag.json");
+
+    await vscode.workspace.fs.createDirectory(directory);
+    if (!(await exists(uri))) {
+      await vscode.workspace.fs.writeFile(
+        uri,
+        new TextEncoder().encode(airflowStarter())
+      );
+    }
+
+    await openTextDocument(uri);
+    await this.refresh();
+  }
+
   private async refresh(): Promise<void> {
     const state = await collectWorkbenchState(
       this.selectedModule,
@@ -298,6 +330,60 @@ function pipelineStarter(): string {
     "extract >> check >> publish",
     ""
   ].join("\n");
+}
+
+function airflowStarter(): string {
+  return JSON.stringify({
+    schemaVersion: 1,
+    dagId: "retail_daily",
+    schedule: "@daily",
+    tasks: [
+      {
+        id: "wait_for_orders",
+        label: "Wait for orders",
+        type: "sensor",
+        dependsOn: [],
+        retries: 0,
+        retryDelaySeconds: 0,
+        durationSeconds: 2,
+        triggerRule: "all_success",
+        failureMode: "none"
+      },
+      {
+        id: "extract",
+        label: "Extract orders",
+        type: "task",
+        dependsOn: ["wait_for_orders"],
+        retries: 1,
+        retryDelaySeconds: 5,
+        durationSeconds: 4,
+        triggerRule: "all_success",
+        failureMode: "none"
+      },
+      {
+        id: "check_quality",
+        label: "Check data quality",
+        type: "quality",
+        dependsOn: ["extract"],
+        retries: 1,
+        retryDelaySeconds: 3,
+        durationSeconds: 2,
+        triggerRule: "all_success",
+        failureMode: "transient"
+      },
+      {
+        id: "publish",
+        label: "Publish gold",
+        type: "task",
+        dependsOn: ["check_quality"],
+        retries: 0,
+        retryDelaySeconds: 0,
+        durationSeconds: 3,
+        triggerRule: "all_success",
+        failureMode: "none"
+      }
+    ]
+  }, null, 2) + "\n";
 }
 
 function exerciseReadme(exercise: ExerciseSummary): string {
