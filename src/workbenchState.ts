@@ -1,4 +1,5 @@
 import * as vscode from "vscode";
+import { loadExerciseCatalog } from "./exerciseCatalog";
 import { MODULES, type ModuleId } from "./modules";
 import { readProjectManifest } from "./project/projectManifest";
 import type { RuntimeManager } from "./runtimeManager";
@@ -6,10 +7,14 @@ import type { WorkbenchViewState } from "./webview/contracts";
 
 export async function collectWorkbenchState(
   selectedModule: ModuleId,
-  runtimeManager: RuntimeManager
+  runtimeManager: RuntimeManager,
+  extensionUri: vscode.Uri
 ): Promise<WorkbenchViewState> {
   const folder = vscode.workspace.workspaceFolders?.[0];
   const manifest = await readProjectManifest();
+  const practice = selectedModule === "practice"
+    ? { exercises: await loadExerciseCatalog(extensionUri) }
+    : undefined;
 
   return {
     selectedModule,
@@ -21,6 +26,7 @@ export async function collectWorkbenchState(
       projectTitle: manifest.manifest?.project.title,
       errors: manifest.errors
     },
-    runtime: runtimeManager.snapshot()
+    runtime: runtimeManager.snapshot(),
+    practice
   };
 }
