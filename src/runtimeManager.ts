@@ -1,11 +1,10 @@
 import { spawn, type ChildProcess } from "node:child_process";
-import * as http from "node:http";
 import * as path from "node:path";
 import * as vscode from "vscode";
 import type { RuntimeViewState } from "./webview/contracts";
+import { findFreePort, waitForDatapassHealth } from "./platform/runtimeEndpoint";
 
 const HOST = "127.0.0.1";
-const PORT = 8765;
 
 export interface PipelineCompileResponse {
   valid: boolean;
@@ -43,7 +42,8 @@ export class RuntimeManager implements vscode.Disposable {
     if (this.state.status === "running" || this.state.status === "starting") return;
 
     const runtimeRoot = path.join(this.extensionUri.fsPath, "runtime");
-    const url = `http://${HOST}:${PORT}`;
+    const port = await findFreePort(HOST);
+    const url = `http://${HOST}:${port}`;
     this.setState({ status: "starting", url, detail: "Starting local FastAPI runtime…" });
     this.output.show(true);
     this.output.appendLine(`Starting Datapass runtime with ${pythonCommand}`);
@@ -59,7 +59,7 @@ export class RuntimeManager implements vscode.Disposable {
         "--host",
         HOST,
         "--port",
-        String(PORT)
+        String(port)
       ],
       {
         cwd: runtimeRoot,
@@ -88,7 +88,7 @@ export class RuntimeManager implements vscode.Disposable {
     });
 
     try {
-      await waitForHealth(`${url}/api/health`, 6500);
+      await waitForDatapassHealth(`${url}/api/health`, 6500);
       if (this.child === child) {
         this.setState({ status: "running", url, detail: "Local runtime healthy." });
       }
@@ -136,76 +136,3 @@ export class RuntimeManager implements vscode.Disposable {
   }
 }
 
-async function waitForHealth(url: string, timeoutMs: number): Promise<void> {
-  const deadline = Date.now() + timeoutMs;
-  let lastError = "Runtime did not become healthy.";
-
-  while (Date.now() < deadline) {
-    try {
-      const status = await requestStatus(url);
-      if (status >= 200 && status < 300) return;
-      lastError = `Health endpoint returned HTTP ${status}.`;
-    } catch (error) {
-      lastError = error instanceof Error ? error.message : String(error);
-    }
-    await delay(180);
-  }
-
-  throw new Error(
-    `Datapass runtime failed to start. ${lastError} Check the Datapass Runtime output; Python dependencies may need to be installed from runtime/pyproject.toml.`
-  );
-}
-
-function requestStatus(url: string): Promise<number> {
-  return new Promise((resolve, reject) => {
-    const request = http.get(url, response => {
-      response.resume();
-      resolve(response.statusCode ?? 0);
-    });
-    request.setTimeout(900, () => request.destroy(new Error("Health request timed out.")));
-    request.on("error", reject);
-  });
-}
-
-function requestJson<T>(
-  url: string,
-  method: "POST",
-  body: unknown
-): Promise<T> {
-  return new Promise((resolve, reject) => {
-    const payload = Buffer.from(JSON.stringify(body), "utf8");
-    const request = http.request(
-      url,
-      {
-        method,
-        headers: {
-          "content-type": "application/json",
-          "content-length": String(payload.length)
-        }
-      },
-      response => {
-        const chunks: Buffer[] = [];
-        response.on("data", chunk => chunks.push(Buffer.from(chunk)));
-        response.on("end", () => {
-          const text = Buffer.concat(chunks).toString("utf8");
-          if ((response.statusCode ?? 500) < 200 || (response.statusCode ?? 500) >= 300) {
-            reject(new Error(`Runtime request failed with HTTP ${response.statusCode}: ${text.slice(0, 500)}`));
-            return;
-          }
-          try {
-            resolve(JSON.parse(text) as T);
-          } catch (error) {
-            reject(error);
-          }
-        });
-      }
-    );
-    request.setTimeout(2500, () => request.destroy(new Error("Runtime request timed out.")));
-    request.on("error", reject);
-    request.end(payload);
-  });
-}
-
-function delay(ms: number): Promise<void> {
-  return new Promise(resolve => setTimeout(resolve, ms));
-}
