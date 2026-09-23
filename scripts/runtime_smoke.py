@@ -2,11 +2,17 @@ from importlib import resources
 from datapass_runtime.main import app
 from datapass_runtime.pipeline_compiler import compile_response
 from datapass_runtime.guided_spark import compile_guard
+from datapass_runtime.content import cases, content_root
+from datapass_runtime.exercises import definitions
 from sparklab.capabilities import SUPPORT
 
 
 assert app.title == "Datapass Runtime"
 assert SUPPORT["schema_version"] == 1
+assert (content_root() / "cases").is_dir()
+assert (content_root() / "exercise-packs").is_dir()
+assert any(case.get("id") == "retail-medallion" for case in cases())
+assert definitions(), "Expected installed exercise definitions from content/exercise-packs."
 for asset in ("profiles.json", "cluster_profiles.json", "oracle.json"):
     assert resources.files("sparklab").joinpath(asset).is_file(), asset
 
