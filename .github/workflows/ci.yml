@@ -17,6 +17,7 @@ jobs:
           node-version: 22
       - run: npm install --no-audit --no-fund
       - run: npm run compile
+      - run: npm test
 
   runtime:
     runs-on: ubuntu-latest
