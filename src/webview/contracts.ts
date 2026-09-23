@@ -100,6 +100,24 @@ export interface AirflowViewState {
   graph: GraphView;
 }
 
+export interface DbtCliView {
+  available: boolean;
+  version?: string;
+  detail?: string;
+}
+
+export interface DbtViewState {
+  exists: boolean;
+  path: string;
+  projectName?: string;
+  modelCount: number;
+  seedCount: number;
+  lineageSource: "manifest" | "static" | "none";
+  graph: GraphView;
+  errors: readonly string[];
+  cli: DbtCliView;
+}
+
 export interface WorkbenchViewState {
   selectedModule: ModuleId;
   modules: readonly WorkbenchModule[];
@@ -108,6 +126,7 @@ export interface WorkbenchViewState {
   practice?: PracticeViewState;
   pipeline?: PipelineViewState;
   airflow?: AirflowViewState;
+  dbt?: DbtViewState;
 }
 
 export type HostToWebviewMessage = {
@@ -128,4 +147,7 @@ export type WebviewToHostMessage =
   | { type: "openPipelineSource" }
   | { type: "refreshPipeline" }
   | { type: "openAirflowSource" }
-  | { type: "refreshAirflow" };
+  | { type: "refreshAirflow" }
+  | { type: "openDbtProject" }
+  | { type: "refreshDbt" }
+  | { type: "runDbtBuild" };
