@@ -17,4 +17,7 @@ dependencies = [
 
 [tool.setuptools.packages.find]
 where = ["."]
-include = ["datapass_runtime*"]
+include = ["datapass_runtime*", "sparklab*"]
+
+[tool.setuptools.package-data]
+sparklab = ["*.json", "README.md"]
