@@ -1,0 +1,8 @@
+-r requirements.txt
+# Install these for the intended local data engine and optional Polars kernel.
+# DuckLake 1.0 reference implementation is available from DuckDB 1.5.2.
+duckdb>=1.5.2,<2
+polars>=1.34,<2
+
+# Shared trusted Python/pandas notebooks and semantic Arena variants.
+pandas>=2.2,<4
