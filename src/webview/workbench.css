@@ -208,9 +208,103 @@ h2 { margin-bottom: 8px; font-size: 28px; }
   font-size: 10px;
 }
 
+.pipeline-surface {
+  min-width: 0;
+  border-top: 1px solid var(--vscode-panel-border);
+  padding-top: 14px;
+}
+.pipeline-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 12px;
+}
+.pipeline-facts {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 18px;
+  color: var(--vscode-descriptionForeground);
+  font-size: 11px;
+  margin-bottom: 10px;
+}
+.pipeline-notice {
+  margin-bottom: 10px;
+  padding: 9px 11px;
+  border-left: 3px solid var(--vscode-editorWarning-foreground);
+  background: var(--vscode-editorWidget-background);
+  font-size: 12px;
+}
+.pipeline-diagnostics {
+  display: grid;
+  gap: 4px;
+  margin-bottom: 10px;
+  padding: 9px 11px;
+  border-left: 3px solid var(--vscode-errorForeground);
+  color: var(--vscode-errorForeground);
+  background: var(--vscode-editorWidget-background);
+  font-size: 12px;
+}
+.pipeline-footnote {
+  margin: 9px 0 0;
+  font-size: 11px;
+}
+.datapass-graph-host {
+  position: relative;
+  height: 470px;
+  overflow: hidden;
+  border: 1px solid var(--vscode-panel-border);
+  border-radius: 7px;
+  background: var(--vscode-editor-background);
+}
+.datapass-graph-node {
+  min-width: 175px;
+  max-width: 230px;
+  display: grid;
+  gap: 5px;
+  padding: 10px 12px;
+  border: 1px solid var(--vscode-panel-border);
+  border-radius: 7px;
+  background: var(--vscode-editorWidget-background);
+  color: var(--vscode-foreground);
+  box-shadow: 0 2px 8px var(--vscode-widget-shadow);
+}
+.datapass-graph-node.is-selected {
+  outline: 2px solid var(--vscode-focusBorder);
+  outline-offset: 1px;
+}
+.datapass-graph-node strong,
+.datapass-graph-node small {
+  display: block;
+}
+.datapass-graph-node small {
+  color: var(--vscode-descriptionForeground);
+  font-size: 10px;
+}
+.datapass-graph-empty {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  color: var(--vscode-descriptionForeground);
+  pointer-events: none;
+}
+.react-flow__controls button {
+  background: var(--vscode-button-secondaryBackground);
+  color: var(--vscode-button-secondaryForeground);
+  border-color: var(--vscode-panel-border);
+}
+.react-flow__minimap {
+  background: var(--vscode-editorWidget-background);
+}
+.react-flow__edge-path {
+  stroke: var(--vscode-descriptionForeground);
+}
+
 @media (max-width: 900px) {
   .content-grid { grid-template-columns: 1fr; }
   .feature-grid { grid-template-columns: 1fr; }
-  .topbar, .module-heading, .mosaic-toolbar, .practice-toolbar { align-items: flex-start; flex-direction: column; }
+  .topbar, .module-heading, .mosaic-toolbar, .practice-toolbar, .pipeline-toolbar { align-items: flex-start; flex-direction: column; }
   .side-column { grid-template-columns: 1fr; }
+  .datapass-graph-host { height: 390px; }
 }
