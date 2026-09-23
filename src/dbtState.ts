@@ -1,14 +1,35 @@
 import * as vscode from "vscode";
-import { detectCli } from "./platform/detection";
+import { defaultProbeRunner } from "./platform/detection";
+import { parseDbtVersionOutput } from "./platform/dbtVersion";
 import { readProjectManifest } from "./project/projectManifest";
-import type { DbtViewState, GraphView } from "./webview/contracts";
+import type { DbtCliView, DbtViewState, GraphView } from "./webview/contracts";
 
 const EMPTY_GRAPH: GraphView = { nodes: [], edges: [] };
 const REF = /\{\{\s*ref\(\s*['"]([^'"]+)['"]\s*\)\s*\}\}/g;
 const SOURCE = /\{\{\s*source\(\s*['"]([^'"]+)['"]\s*,\s*['"]([^'"]+)['"]\s*\)\s*\}\}/g;
 
+export async function probeDbtCli(): Promise<DbtCliView> {
+  const result = await defaultProbeRunner("dbt", ["--version"], 1800);
+  if (!result.ok) {
+    return {
+      available: false,
+      adapterAvailable: false,
+      detail: result.error
+    };
+  }
+
+  const parsed = parseDbtVersionOutput(result.output ?? "");
+  return {
+    available: true,
+    adapterAvailable: Boolean(parsed.duckdbAdapterVersion),
+    version: parsed.coreVersion,
+    adapterVersion: parsed.duckdbAdapterVersion,
+    detail: parsed.duckdbAdapterVersion ? undefined : "dbt-duckdb adapter was not detected in dbt --version output."
+  };
+}
+
 export async function loadDbtState(): Promise<DbtViewState> {
-  const cli = await detectCli({ id: "dbt", label: "dbt Core", command: "dbt" });
+  const cli = await probeDbtCli();
   const root = vscode.workspace.workspaceFolders?.[0]?.uri;
   if (!root) {
     return {
@@ -19,7 +40,7 @@ export async function loadDbtState(): Promise<DbtViewState> {
       lineageSource: "none",
       graph: EMPTY_GRAPH,
       errors: [],
-      cli: { available: cli.available, version: cli.version, detail: cli.detail }
+      cli: cli
     };
   }
 
@@ -38,7 +59,7 @@ export async function loadDbtState(): Promise<DbtViewState> {
       lineageSource: "none",
       graph: EMPTY_GRAPH,
       errors: [],
-      cli: { available: cli.available, version: cli.version, detail: cli.detail }
+      cli: cli
     };
   }
 
@@ -60,7 +81,7 @@ export async function loadDbtState(): Promise<DbtViewState> {
           lineageSource: "manifest",
           graph: manifestGraph.graph,
           errors,
-          cli: { available: cli.available, version: cli.version, detail: cli.detail }
+          cli: cli
         };
       }
     } catch (error) {
@@ -78,7 +99,7 @@ export async function loadDbtState(): Promise<DbtViewState> {
     lineageSource: "static",
     graph: staticGraph.graph,
     errors,
-    cli: { available: cli.available, version: cli.version, detail: cli.detail }
+    cli: cli
   };
 }
 
