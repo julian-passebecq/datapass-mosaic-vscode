@@ -18,6 +18,7 @@ import type {
   WorkbenchViewState
 } from "./contracts";
 import { MosaicSurface } from "./MosaicSurface";
+import { PipelineSurface } from "./PipelineSurface";
 import { PracticeSurface } from "./PracticeSurface";
 
 export interface VsCodeApi {
@@ -116,6 +117,8 @@ export function WorkbenchApp({ vscode }: { vscode: VsCodeApi }) {
               <MosaicSurface vscode={vscode} runtime={state.runtime} />
             ) : selected.id === "practice" ? (
               <PracticeSurface vscode={vscode} exercises={state.practice?.exercises ?? []} />
+            ) : selected.id === "pipeline" ? (
+              <PipelineSurface vscode={vscode} pipeline={state.pipeline} />
             ) : (
               <>
                 <div className="feature-grid">
