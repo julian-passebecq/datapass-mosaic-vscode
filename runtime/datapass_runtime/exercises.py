@@ -11,11 +11,12 @@ import sqlite3
 from importlib.metadata import version
 
 from .catalog import validate_sql
+from .content import content_root
+
 def _registry():
     from .exercise_packs import PackRegistry
-    from pathlib import Path
     registry = PackRegistry()
-    root = Path(__file__).resolve().parents[3] / 'content' / 'exercise-packs'
+    root = content_root() / 'exercise-packs'
     for manifest in sorted(root.glob('*/manifest.json')):
         registry.load(manifest.parent)
     return registry
