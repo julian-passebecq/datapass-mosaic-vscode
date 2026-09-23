@@ -1,0 +1,7 @@
+{
+  "schema_version": 1,
+  "id": "unified-retail-v1",
+  "version": "1",
+  "title": "Retail semantic exercises across SQL, pandas, Polars, dbt drills and SparkLab",
+  "enabled": true
+}

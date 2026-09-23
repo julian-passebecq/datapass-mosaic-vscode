@@ -1,0 +1,66 @@
+[
+  {
+    "id": "fabric-notebook",
+    "title": "Fabric notebook",
+    "kind": "notebook",
+    "persona": "fabric",
+    "status": "foundation",
+    "contract_version": 1
+  },
+  {
+    "id": "warehouse",
+    "title": "SQL warehouse",
+    "kind": "warehouse",
+    "persona": "fabric",
+    "status": "foundation",
+    "contract_version": 1
+  },
+  {
+    "id": "dbt",
+    "title": "dbt models",
+    "kind": "models",
+    "persona": "dbt",
+    "status": "foundation",
+    "contract_version": 1
+  },
+  {
+    "id": "airflow",
+    "title": "Local orchestration concepts",
+    "kind": "orchestration",
+    "persona": "airflow",
+    "status": "foundation",
+    "contract_version": 1
+  },
+  {
+    "id": "power-bi",
+    "title": "Power BI learning",
+    "kind": "report",
+    "persona": "powerbi",
+    "status": "foundation",
+    "contract_version": 1
+  },
+  {
+    "id": "databricks-notebook",
+    "title": "Databricks notebook",
+    "kind": "notebook",
+    "persona": "databricks",
+    "status": "foundation",
+    "contract_version": 1
+  },
+  {
+    "id": "polars-notebook",
+    "title": "Polars notebook",
+    "kind": "notebook",
+    "persona": "neutral",
+    "status": "foundation",
+    "contract_version": 1
+  },
+  {
+    "id": "sparklab",
+    "title": "SparkLab runtime",
+    "kind": "runtime",
+    "persona": "fabric",
+    "status": "foundation",
+    "contract_version": 1
+  }
+]

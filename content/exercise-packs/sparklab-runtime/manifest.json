@@ -1,0 +1,7 @@
+{
+  "schema_version": 1,
+  "id": "sparklab-runtime",
+  "version": "1",
+  "title": "SparkLab runtime learning",
+  "enabled": true
+}
