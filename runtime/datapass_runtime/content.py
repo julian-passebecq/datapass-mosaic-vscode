@@ -7,9 +7,12 @@ import re
 
 def content_root() -> Path:
     configured = os.getenv('DATAPASS_CONTENT_ROOT')
-    candidates = []
     if configured:
-        candidates.append(Path(configured).expanduser())
+        resolved = Path(configured).expanduser().resolve()
+        if resolved.is_dir():
+            return resolved
+        raise RuntimeError(f'DATAPASS_CONTENT_ROOT does not exist or is not a directory: {resolved}')
+    candidates = []
     source_root = Path(__file__).resolve().parents[2]
     candidates.extend([
         source_root / 'content',
