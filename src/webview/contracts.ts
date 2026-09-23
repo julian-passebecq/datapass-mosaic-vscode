@@ -70,6 +70,36 @@ export interface PipelineViewState {
   schedule?: string | null;
 }
 
+export type AirflowTriggerRule = "all_success" | "all_done" | "none_failed_min_one_success";
+export type AirflowFailureMode = "none" | "transient" | "permanent";
+
+export interface AirflowTaskView {
+  id: string;
+  label: string;
+  type: "task" | "sensor" | "quality" | "branch";
+  dependsOn: string[];
+  retries: number;
+  retryDelaySeconds: number;
+  durationSeconds: number;
+  triggerRule: AirflowTriggerRule;
+  failureMode: AirflowFailureMode;
+}
+
+export interface AirflowDefinitionView {
+  dagId: string;
+  schedule: string;
+  tasks: readonly AirflowTaskView[];
+}
+
+export interface AirflowViewState {
+  exists: boolean;
+  path: string;
+  valid: boolean;
+  errors: readonly string[];
+  definition?: AirflowDefinitionView;
+  graph: GraphView;
+}
+
 export interface WorkbenchViewState {
   selectedModule: ModuleId;
   modules: readonly WorkbenchModule[];
@@ -77,6 +107,7 @@ export interface WorkbenchViewState {
   runtime: RuntimeViewState;
   practice?: PracticeViewState;
   pipeline?: PipelineViewState;
+  airflow?: AirflowViewState;
 }
 
 export type HostToWebviewMessage = {
@@ -95,4 +126,6 @@ export type WebviewToHostMessage =
   | { type: "openScratch"; kind: ScratchKind }
   | { type: "openExercise"; exerciseKey: string }
   | { type: "openPipelineSource" }
-  | { type: "refreshPipeline" };
+  | { type: "refreshPipeline" }
+  | { type: "openAirflowSource" }
+  | { type: "refreshAirflow" };
