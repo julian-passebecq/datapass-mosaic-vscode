@@ -60,6 +60,9 @@ export class WorkbenchPanel {
       }),
       this.runtimeManager.onDidChange(() => {
         void this.refresh();
+      }),
+      vscode.workspace.onDidSaveTextDocument(() => {
+        if (this.selectedModule === "pipeline") void this.refresh();
       })
     );
   }
@@ -98,6 +101,12 @@ export class WorkbenchPanel {
         return;
       case "openExercise":
         await this.openExercise(message.exerciseKey);
+        return;
+      case "openPipelineSource":
+        await this.openPipelineSource();
+        return;
+      case "refreshPipeline":
+        await this.refresh();
         return;
     }
   }
@@ -192,6 +201,30 @@ export class WorkbenchPanel {
     await openTextDocument(starterUri);
   }
 
+  private async openPipelineSource(): Promise<void> {
+    const root = vscode.workspace.workspaceFolders?.[0]?.uri;
+    if (!root) {
+      void vscode.window.showWarningMessage("Open a workspace folder before creating a Datapass pipeline.");
+      return;
+    }
+
+    const manifest = await readProjectManifest();
+    const pipelineRoot = safeRelativeParts(manifest.manifest?.assets?.pipelines, "pipelines");
+    const directory = vscode.Uri.joinPath(root, ...pipelineRoot);
+    const uri = vscode.Uri.joinPath(directory, "main.pipeline.py");
+
+    await vscode.workspace.fs.createDirectory(directory);
+    if (!(await exists(uri))) {
+      await vscode.workspace.fs.writeFile(
+        uri,
+        new TextEncoder().encode(pipelineStarter())
+      );
+    }
+
+    await openTextDocument(uri);
+    await this.refresh();
+  }
+
   private async refresh(): Promise<void> {
     const state = await collectWorkbenchState(
       this.selectedModule,
@@ -254,6 +287,17 @@ function scratchSpec(kind: ScratchKind): { fileName: string; content: string } {
         content: "# Mosaic notes\n\nUse this file for dataset grain, assumptions, checks and observations.\n"
       };
   }
+}
+
+function pipelineStarter(): string {
+  return [
+    'pipeline("retail_quality", schedule="@daily")',
+    'extract = sql("extract", "CREATE OR REPLACE TABLE bronze_sample AS SELECT 1 AS id")',
+    'check = quality("check", "SELECT * FROM bronze_sample WHERE id IS NULL", retries=1, retry_delay=1)',
+    'publish = sql("publish", "SELECT COUNT(*) AS rows FROM bronze_sample")',
+    "extract >> check >> publish",
+    ""
+  ].join("\n");
 }
 
 function exerciseReadme(exercise: ExerciseSummary): string {
