@@ -1,6 +1,7 @@
 import * as vscode from "vscode";
 import { loadExerciseCatalog } from "./exerciseCatalog";
 import { MODULES, type ModuleId } from "./modules";
+import { loadPipelineState } from "./pipelineState";
 import { readProjectManifest } from "./project/projectManifest";
 import type { RuntimeManager } from "./runtimeManager";
 import type { WorkbenchViewState } from "./webview/contracts";
@@ -15,6 +16,9 @@ export async function collectWorkbenchState(
   const practice = selectedModule === "practice"
     ? { exercises: await loadExerciseCatalog(extensionUri) }
     : undefined;
+  const pipeline = selectedModule === "pipeline"
+    ? await loadPipelineState(runtimeManager)
+    : undefined;
 
   return {
     selectedModule,
@@ -27,6 +31,7 @@ export async function collectWorkbenchState(
       errors: manifest.errors
     },
     runtime: runtimeManager.snapshot(),
-    practice
+    practice,
+    pipeline
   };
 }
