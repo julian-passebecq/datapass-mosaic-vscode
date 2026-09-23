@@ -1,0 +1,134 @@
+{
+  "schema_version": 1,
+  "id": "spark-window",
+  "version": "2026-09-18",
+  "status": "foundation",
+  "title": "SparkLab account windows",
+  "subtitle": "Partition, order and hot-key limits",
+  "domain": "Finance",
+  "difficulty": "Intermediate",
+  "minutes": 25,
+  "modules": [
+    "sparklab"
+  ],
+  "description": "Compute prior amounts and running balances over real shared catalog rows, then compare fictional profiles and AQE. A hot ordered account cannot be split safely.",
+  "physical_data": "8 immutable transaction rows",
+  "scale_note": "Authored 9.7 GiB / 61,840,000-row scenario, not a real cluster benchmark.",
+  "steps": [
+    {
+      "id": "seed_transactions",
+      "title": "Load bounded transactions",
+      "module": "sparklab",
+      "language": "sql",
+      "code": "SELECT 'F-001' AS \"transaction_id\", 'A001' AS \"account_id\", '2026-09-17T09:00:00' AS \"transaction_ts\", CAST(100.0 AS DOUBLE) AS \"amount\", CAST(100.0 AS DOUBLE) AS \"balance\", '2026-09-17T09:01:00' AS \"loaded_at\" UNION ALL SELECT 'F-002' AS \"transaction_id\", 'A001' AS \"account_id\", '2026-09-17T10:00:00' AS \"transaction_ts\", CAST(-20.0 AS DOUBLE) AS \"amount\", CAST(80.0 AS DOUBLE) AS \"balance\", '2026-09-17T10:01:00' AS \"loaded_at\" UNION ALL SELECT 'F-003' AS \"transaction_id\", 'A001' AS \"account_id\", '2026-09-17T11:00:00' AS \"transaction_ts\", CAST(50.0 AS DOUBLE) AS \"amount\", CAST(130.0 AS DOUBLE) AS \"balance\", '2026-09-17T11:01:00' AS \"loaded_at\" UNION ALL SELECT 'F-004' AS \"transaction_id\", 'A002' AS \"account_id\", '2026-09-17T09:15:00' AS \"transaction_ts\", CAST(200.0 AS DOUBLE) AS \"amount\", CAST(200.0 AS DOUBLE) AS \"balance\", '2026-09-17T09:16:00' AS \"loaded_at\" UNION ALL SELECT 'F-005' AS \"transaction_id\", 'A002' AS \"account_id\", '2026-09-17T10:15:00' AS \"transaction_ts\", CAST(-75.0 AS DOUBLE) AS \"amount\", CAST(125.0 AS DOUBLE) AS \"balance\", '2026-09-17T10:16:00' AS \"loaded_at\" UNION ALL SELECT 'F-006' AS \"transaction_id\", 'A-HOT-001' AS \"account_id\", '2026-09-17T08:30:00' AS \"transaction_ts\", CAST(10.0 AS DOUBLE) AS \"amount\", CAST(10.0 AS DOUBLE) AS \"balance\", '2026-09-17T08:31:00' AS \"loaded_at\" UNION ALL SELECT 'F-007' AS \"transaction_id\", 'A-HOT-001' AS \"account_id\", '2026-09-17T09:30:00' AS \"transaction_ts\", CAST(15.0 AS DOUBLE) AS \"amount\", CAST(25.0 AS DOUBLE) AS \"balance\", '2026-09-17T09:31:00' AS \"loaded_at\" UNION ALL SELECT 'F-008' AS \"transaction_id\", 'A-HOT-001' AS \"account_id\", '2026-09-17T10:30:00' AS \"transaction_ts\", CAST(-5.0 AS DOUBLE) AS \"amount\", CAST(20.0 AS DOUBLE) AS \"balance\", '2026-09-17T10:31:00' AS \"loaded_at\"",
+      "solution": "SELECT 'F-001' AS \"transaction_id\", 'A001' AS \"account_id\", '2026-09-17T09:00:00' AS \"transaction_ts\", CAST(100.0 AS DOUBLE) AS \"amount\", CAST(100.0 AS DOUBLE) AS \"balance\", '2026-09-17T09:01:00' AS \"loaded_at\" UNION ALL SELECT 'F-002' AS \"transaction_id\", 'A001' AS \"account_id\", '2026-09-17T10:00:00' AS \"transaction_ts\", CAST(-20.0 AS DOUBLE) AS \"amount\", CAST(80.0 AS DOUBLE) AS \"balance\", '2026-09-17T10:01:00' AS \"loaded_at\" UNION ALL SELECT 'F-003' AS \"transaction_id\", 'A001' AS \"account_id\", '2026-09-17T11:00:00' AS \"transaction_ts\", CAST(50.0 AS DOUBLE) AS \"amount\", CAST(130.0 AS DOUBLE) AS \"balance\", '2026-09-17T11:01:00' AS \"loaded_at\" UNION ALL SELECT 'F-004' AS \"transaction_id\", 'A002' AS \"account_id\", '2026-09-17T09:15:00' AS \"transaction_ts\", CAST(200.0 AS DOUBLE) AS \"amount\", CAST(200.0 AS DOUBLE) AS \"balance\", '2026-09-17T09:16:00' AS \"loaded_at\" UNION ALL SELECT 'F-005' AS \"transaction_id\", 'A002' AS \"account_id\", '2026-09-17T10:15:00' AS \"transaction_ts\", CAST(-75.0 AS DOUBLE) AS \"amount\", CAST(125.0 AS DOUBLE) AS \"balance\", '2026-09-17T10:16:00' AS \"loaded_at\" UNION ALL SELECT 'F-006' AS \"transaction_id\", 'A-HOT-001' AS \"account_id\", '2026-09-17T08:30:00' AS \"transaction_ts\", CAST(10.0 AS DOUBLE) AS \"amount\", CAST(10.0 AS DOUBLE) AS \"balance\", '2026-09-17T08:31:00' AS \"loaded_at\" UNION ALL SELECT 'F-007' AS \"transaction_id\", 'A-HOT-001' AS \"account_id\", '2026-09-17T09:30:00' AS \"transaction_ts\", CAST(15.0 AS DOUBLE) AS \"amount\", CAST(25.0 AS DOUBLE) AS \"balance\", '2026-09-17T09:31:00' AS \"loaded_at\" UNION ALL SELECT 'F-008' AS \"transaction_id\", 'A-HOT-001' AS \"account_id\", '2026-09-17T10:30:00' AS \"transaction_ts\", CAST(-5.0 AS DOUBLE) AS \"amount\", CAST(20.0 AS DOUBLE) AS \"balance\", '2026-09-17T10:31:00' AS \"loaded_at\"",
+      "output_asset": "silver.transactions",
+      "depends_on": [],
+      "concept": "Shared immutable reference input",
+      "task": "Publish the eight-row reference input.",
+      "hint": "Run this step before the window.",
+      "check": null
+    },
+    {
+      "id": "account_window",
+      "title": "Previous amount and running balance",
+      "module": "sparklab",
+      "language": "sparklab",
+      "code": "from pyspark.sql import functions as F\nfrom pyspark.sql import Window\nw = Window.partitionBy(\"account_id\").orderBy(\"transaction_ts\")\nresult = (spark.table(\"silver.transactions\")\n    .withColumn(\"previous_amount\", F.lag(\"amount\").over(w))\n    .withColumn(\"running_net\", F.sum(\"amount\").over(w.rowsBetween(Window.unboundedPreceding, Window.currentRow))))",
+      "solution": "from pyspark.sql import functions as F\nfrom pyspark.sql import Window\nw = Window.partitionBy(\"account_id\").orderBy(\"transaction_ts\")\nresult = (spark.table(\"silver.transactions\")\n    .withColumn(\"previous_amount\", F.lag(\"amount\").over(w))\n    .withColumn(\"running_net\", F.sum(\"amount\").over(w.rowsBetween(Window.unboundedPreceding, Window.currentRow))))",
+      "output_asset": "gold.account_balances",
+      "depends_on": [
+        "seed_transactions"
+      ],
+      "concept": "Window partition exchange and sort; AQE cannot split a single ordered key",
+      "task": "Compute previous_amount and running_net per account in timestamp order. Compare Small and Generic profiles, then AQE off/on.",
+      "hint": "Use an explicit ROWS frame for the running sum.",
+      "check": {
+        "sql": "SELECT * FROM gold.account_balances",
+        "expected": [
+          {
+            "transaction_id": "F-001",
+            "account_id": "A001",
+            "transaction_ts": "2026-09-17T09:00:00",
+            "amount": 100.0,
+            "balance": 100.0,
+            "loaded_at": "2026-09-17T09:01:00",
+            "previous_amount": null,
+            "running_net": 100.0
+          },
+          {
+            "transaction_id": "F-002",
+            "account_id": "A001",
+            "transaction_ts": "2026-09-17T10:00:00",
+            "amount": -20.0,
+            "balance": 80.0,
+            "loaded_at": "2026-09-17T10:01:00",
+            "previous_amount": 100.0,
+            "running_net": 80.0
+          },
+          {
+            "transaction_id": "F-003",
+            "account_id": "A001",
+            "transaction_ts": "2026-09-17T11:00:00",
+            "amount": 50.0,
+            "balance": 130.0,
+            "loaded_at": "2026-09-17T11:01:00",
+            "previous_amount": -20.0,
+            "running_net": 130.0
+          },
+          {
+            "transaction_id": "F-004",
+            "account_id": "A002",
+            "transaction_ts": "2026-09-17T09:15:00",
+            "amount": 200.0,
+            "balance": 200.0,
+            "loaded_at": "2026-09-17T09:16:00",
+            "previous_amount": null,
+            "running_net": 200.0
+          },
+          {
+            "transaction_id": "F-005",
+            "account_id": "A002",
+            "transaction_ts": "2026-09-17T10:15:00",
+            "amount": -75.0,
+            "balance": 125.0,
+            "loaded_at": "2026-09-17T10:16:00",
+            "previous_amount": 200.0,
+            "running_net": 125.0
+          },
+          {
+            "transaction_id": "F-006",
+            "account_id": "A-HOT-001",
+            "transaction_ts": "2026-09-17T08:30:00",
+            "amount": 10.0,
+            "balance": 10.0,
+            "loaded_at": "2026-09-17T08:31:00",
+            "previous_amount": null,
+            "running_net": 10.0
+          },
+          {
+            "transaction_id": "F-007",
+            "account_id": "A-HOT-001",
+            "transaction_ts": "2026-09-17T09:30:00",
+            "amount": 15.0,
+            "balance": 25.0,
+            "loaded_at": "2026-09-17T09:31:00",
+            "previous_amount": 10.0,
+            "running_net": 25.0
+          },
+          {
+            "transaction_id": "F-008",
+            "account_id": "A-HOT-001",
+            "transaction_ts": "2026-09-17T10:30:00",
+            "amount": -5.0,
+            "balance": 20.0,
+            "loaded_at": "2026-09-17T10:31:00",
+            "previous_amount": 15.0,
+            "running_net": 20.0
+          }
+        ]
+      },
+      "truth_pack": "finance_account_window_03"
+    }
+  ]
+}

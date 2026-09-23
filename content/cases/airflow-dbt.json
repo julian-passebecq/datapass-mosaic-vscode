@@ -1,0 +1,85 @@
+{
+  "id": "airflow-dbt",
+  "title": "Orchestrate dbt models",
+  "subtitle": "Airflow chooses when; dbt defines what",
+  "domain": "Retail",
+  "difficulty": "Intermediate",
+  "minutes": 20,
+  "modules": [
+    "airflow",
+    "dbt"
+  ],
+  "description": "dbt defines transformations and lineage; Airflow defines when and in what dependency order work runs. Datapass can render the DAG and optionally execute its educational DAG with real Airflow 3 on GitHub Actions without creating a second data store.",
+  "physical_data": "12 physical orders",
+  "steps": [
+    {
+      "id": "stg_orders",
+      "title": "Build the staging model",
+      "module": "dbt",
+      "language": "dbt",
+      "code": "SELECT * FROM {{ source('retail', 'orders') }} WHERE net_amount > 0",
+      "solution": "SELECT * FROM {{ source('retail', 'orders') }} WHERE net_amount > 0",
+      "output_asset": "silver.stg_orders",
+      "depends_on": [],
+      "concept": "A dbt model is a SELECT with dependencies and a materialization. This foundation supports literal ref/source, not arbitrary Jinja.",
+      "task": "Build the staging model",
+      "hint": "",
+      "check": {
+        "sql": "SELECT COUNT(*) AS n FROM silver.stg_orders",
+        "expected": [
+          {
+            "n": 10
+          }
+        ]
+      }
+    },
+    {
+      "id": "fct_revenue",
+      "title": "Build the revenue model",
+      "module": "dbt",
+      "language": "dbt",
+      "code": "SELECT customer_id, SUM(net_amount) AS revenue, COUNT(*) AS orders\nFROM {{ ref('stg_orders') }}\nGROUP BY customer_id",
+      "solution": "SELECT customer_id, SUM(net_amount) AS revenue, COUNT(*) AS orders\nFROM {{ ref('stg_orders') }}\nGROUP BY customer_id",
+      "output_asset": "gold.fct_revenue",
+      "depends_on": [
+        "stg_orders"
+      ],
+      "concept": "ref resolves a registered model to an asset, and the root records lineage from the actual materialization.",
+      "task": "Build the revenue model",
+      "hint": "",
+      "check": {
+        "sql": "SELECT customer_id, revenue, orders FROM gold.fct_revenue ORDER BY customer_id",
+        "expected": [
+          {
+            "customer_id": "C001",
+            "revenue": 150,
+            "orders": 2
+          },
+          {
+            "customer_id": "C002",
+            "revenue": 225,
+            "orders": 2
+          },
+          {
+            "customer_id": "C005",
+            "revenue": 100,
+            "orders": 2
+          },
+          {
+            "customer_id": "C006",
+            "revenue": 10,
+            "orders": 1
+          },
+          {
+            "customer_id": "CORPORATE_ACCOUNT_01",
+            "revenue": 4500,
+            "orders": 3
+          }
+        ]
+      }
+    }
+  ],
+  "schema_version": 1,
+  "version": "2026-09-20",
+  "status": "foundation"
+}
