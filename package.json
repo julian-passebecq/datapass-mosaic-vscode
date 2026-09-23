@@ -26,13 +26,23 @@
     }
   },
   "scripts": {
-    "compile": "tsc -p .",
-    "watch": "tsc -w -p .",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "build": "node scripts/build.mjs",
+    "compile": "npm run typecheck && npm run build",
+    "watch": "node scripts/build.mjs --watch",
     "vscode:prepublish": "npm run compile"
   },
+  "dependencies": {
+    "@fluentui/react-components": "^9.68.0",
+    "react": "^19.1.1",
+    "react-dom": "^19.1.1"
+  },
   "devDependencies": {
-    "@types/node":"^22.10.0",
-    "@types/vscode":"^1.95.0",
-    "typescript":"^5.7.2"
+    "@types/node": "^22.10.0",
+    "@types/react": "^19.1.10",
+    "@types/react-dom": "^19.1.7",
+    "@types/vscode": "^1.95.0",
+    "esbuild": "^0.25.9",
+    "typescript": "^5.7.2"
   }
 }
