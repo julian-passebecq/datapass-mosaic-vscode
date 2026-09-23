@@ -1,9 +1,14 @@
+from importlib import resources
 from datapass_runtime.main import app
 from datapass_runtime.pipeline_compiler import compile_response
 from datapass_runtime.guided_spark import compile_guard
+from sparklab.capabilities import SUPPORT
 
 
 assert app.title == "Datapass Runtime"
+assert SUPPORT["schema_version"] == 1
+for asset in ("profiles.json", "cluster_profiles.json", "oracle.json"):
+    assert resources.files("sparklab").joinpath(asset).is_file(), asset
 
 source = """pipeline("ci")
 a = sql("a", "SELECT 1")
