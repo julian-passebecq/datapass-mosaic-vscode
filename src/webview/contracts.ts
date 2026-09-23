@@ -139,6 +139,7 @@ export type WebviewToHostMessage =
   | { type: "selectModule"; moduleId: ModuleId }
   | { type: "createManifest" }
   | { type: "openManifest" }
+  | { type: "createRetailDemo" }
   | { type: "startRuntime" }
   | { type: "stopRuntime" }
   | { type: "openTerminal" }
