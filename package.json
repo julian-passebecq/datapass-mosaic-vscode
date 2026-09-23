@@ -70,7 +70,8 @@
     "build": "node scripts/build.mjs",
     "compile": "npm run typecheck && npm run build",
     "watch": "node scripts/build.mjs --watch",
-    "vscode:prepublish": "npm run compile"
+    "vscode:prepublish": "npm run compile",
+    "test": "node scripts/scaffold_smoke.mjs"
   },
   "dependencies": {
     "@fluentui/react-components": "^9.68.0",
