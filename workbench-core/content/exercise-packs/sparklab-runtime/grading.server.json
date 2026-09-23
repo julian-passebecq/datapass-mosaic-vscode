@@ -1,0 +1,317 @@
+{
+  "spark-account-window": {
+    "solution": "from pyspark.sql import functions as F\nfrom pyspark.sql import Window\nw = Window.partitionBy(\"account_id\").orderBy(\"transaction_ts\")\nresult = (spark.table(\"input\")\n    .withColumn(\"previous_amount\", F.lag(\"amount\").over(w))\n    .withColumn(\"running_net\", F.sum(\"amount\").over(w.rowsBetween(Window.unboundedPreceding, Window.currentRow))))",
+    "fixtures": [
+      {
+        "id": "example",
+        "visibility": "visible",
+        "input_rows": [
+          {
+            "transaction_id": "F-001",
+            "account_id": "A001",
+            "transaction_ts": "2026-09-17T09:00:00",
+            "amount": 100.0,
+            "balance": 100.0,
+            "loaded_at": "2026-09-17T09:01:00"
+          },
+          {
+            "transaction_id": "F-002",
+            "account_id": "A001",
+            "transaction_ts": "2026-09-17T10:00:00",
+            "amount": -20.0,
+            "balance": 80.0,
+            "loaded_at": "2026-09-17T10:01:00"
+          },
+          {
+            "transaction_id": "F-003",
+            "account_id": "A001",
+            "transaction_ts": "2026-09-17T11:00:00",
+            "amount": 50.0,
+            "balance": 130.0,
+            "loaded_at": "2026-09-17T11:01:00"
+          },
+          {
+            "transaction_id": "F-004",
+            "account_id": "A002",
+            "transaction_ts": "2026-09-17T09:15:00",
+            "amount": 200.0,
+            "balance": 200.0,
+            "loaded_at": "2026-09-17T09:16:00"
+          },
+          {
+            "transaction_id": "F-005",
+            "account_id": "A002",
+            "transaction_ts": "2026-09-17T10:15:00",
+            "amount": -75.0,
+            "balance": 125.0,
+            "loaded_at": "2026-09-17T10:16:00"
+          },
+          {
+            "transaction_id": "F-006",
+            "account_id": "A-HOT-001",
+            "transaction_ts": "2026-09-17T08:30:00",
+            "amount": 10.0,
+            "balance": 10.0,
+            "loaded_at": "2026-09-17T08:31:00"
+          },
+          {
+            "transaction_id": "F-007",
+            "account_id": "A-HOT-001",
+            "transaction_ts": "2026-09-17T09:30:00",
+            "amount": 15.0,
+            "balance": 25.0,
+            "loaded_at": "2026-09-17T09:31:00"
+          },
+          {
+            "transaction_id": "F-008",
+            "account_id": "A-HOT-001",
+            "transaction_ts": "2026-09-17T10:30:00",
+            "amount": -5.0,
+            "balance": 20.0,
+            "loaded_at": "2026-09-17T10:31:00"
+          }
+        ],
+        "expected": [
+          {
+            "transaction_id": "F-001",
+            "account_id": "A001",
+            "transaction_ts": "2026-09-17T09:00:00",
+            "amount": 100.0,
+            "balance": 100.0,
+            "loaded_at": "2026-09-17T09:01:00",
+            "previous_amount": null,
+            "running_net": 100.0
+          },
+          {
+            "transaction_id": "F-002",
+            "account_id": "A001",
+            "transaction_ts": "2026-09-17T10:00:00",
+            "amount": -20.0,
+            "balance": 80.0,
+            "loaded_at": "2026-09-17T10:01:00",
+            "previous_amount": 100.0,
+            "running_net": 80.0
+          },
+          {
+            "transaction_id": "F-003",
+            "account_id": "A001",
+            "transaction_ts": "2026-09-17T11:00:00",
+            "amount": 50.0,
+            "balance": 130.0,
+            "loaded_at": "2026-09-17T11:01:00",
+            "previous_amount": -20.0,
+            "running_net": 130.0
+          },
+          {
+            "transaction_id": "F-004",
+            "account_id": "A002",
+            "transaction_ts": "2026-09-17T09:15:00",
+            "amount": 200.0,
+            "balance": 200.0,
+            "loaded_at": "2026-09-17T09:16:00",
+            "previous_amount": null,
+            "running_net": 200.0
+          },
+          {
+            "transaction_id": "F-005",
+            "account_id": "A002",
+            "transaction_ts": "2026-09-17T10:15:00",
+            "amount": -75.0,
+            "balance": 125.0,
+            "loaded_at": "2026-09-17T10:16:00",
+            "previous_amount": 200.0,
+            "running_net": 125.0
+          },
+          {
+            "transaction_id": "F-006",
+            "account_id": "A-HOT-001",
+            "transaction_ts": "2026-09-17T08:30:00",
+            "amount": 10.0,
+            "balance": 10.0,
+            "loaded_at": "2026-09-17T08:31:00",
+            "previous_amount": null,
+            "running_net": 10.0
+          },
+          {
+            "transaction_id": "F-007",
+            "account_id": "A-HOT-001",
+            "transaction_ts": "2026-09-17T09:30:00",
+            "amount": 15.0,
+            "balance": 25.0,
+            "loaded_at": "2026-09-17T09:31:00",
+            "previous_amount": 10.0,
+            "running_net": 25.0
+          },
+          {
+            "transaction_id": "F-008",
+            "account_id": "A-HOT-001",
+            "transaction_ts": "2026-09-17T10:30:00",
+            "amount": -5.0,
+            "balance": 20.0,
+            "loaded_at": "2026-09-17T10:31:00",
+            "previous_amount": 15.0,
+            "running_net": 20.0
+          }
+        ]
+      },
+      {
+        "id": "changed-amounts",
+        "visibility": "hidden",
+        "input_rows": [
+          {
+            "transaction_id": "F-001",
+            "account_id": "A001",
+            "transaction_ts": "2026-09-17T09:00:00",
+            "amount": 200.0,
+            "balance": 100.0,
+            "loaded_at": "2026-09-17T09:01:00"
+          },
+          {
+            "transaction_id": "F-002",
+            "account_id": "A001",
+            "transaction_ts": "2026-09-17T10:00:00",
+            "amount": -40.0,
+            "balance": 80.0,
+            "loaded_at": "2026-09-17T10:01:00"
+          },
+          {
+            "transaction_id": "F-003",
+            "account_id": "A001",
+            "transaction_ts": "2026-09-17T11:00:00",
+            "amount": 100.0,
+            "balance": 130.0,
+            "loaded_at": "2026-09-17T11:01:00"
+          },
+          {
+            "transaction_id": "F-004",
+            "account_id": "A002",
+            "transaction_ts": "2026-09-17T09:15:00",
+            "amount": 400.0,
+            "balance": 200.0,
+            "loaded_at": "2026-09-17T09:16:00"
+          },
+          {
+            "transaction_id": "F-005",
+            "account_id": "A002",
+            "transaction_ts": "2026-09-17T10:15:00",
+            "amount": -150.0,
+            "balance": 125.0,
+            "loaded_at": "2026-09-17T10:16:00"
+          },
+          {
+            "transaction_id": "F-006",
+            "account_id": "A-HOT-001",
+            "transaction_ts": "2026-09-17T08:30:00",
+            "amount": 20.0,
+            "balance": 10.0,
+            "loaded_at": "2026-09-17T08:31:00"
+          },
+          {
+            "transaction_id": "F-007",
+            "account_id": "A-HOT-001",
+            "transaction_ts": "2026-09-17T09:30:00",
+            "amount": 30.0,
+            "balance": 25.0,
+            "loaded_at": "2026-09-17T09:31:00"
+          },
+          {
+            "transaction_id": "F-008",
+            "account_id": "A-HOT-001",
+            "transaction_ts": "2026-09-17T10:30:00",
+            "amount": -10.0,
+            "balance": 20.0,
+            "loaded_at": "2026-09-17T10:31:00"
+          }
+        ],
+        "expected": [
+          {
+            "transaction_id": "F-001",
+            "account_id": "A001",
+            "transaction_ts": "2026-09-17T09:00:00",
+            "amount": 200.0,
+            "balance": 100.0,
+            "loaded_at": "2026-09-17T09:01:00",
+            "previous_amount": null,
+            "running_net": 200.0
+          },
+          {
+            "transaction_id": "F-002",
+            "account_id": "A001",
+            "transaction_ts": "2026-09-17T10:00:00",
+            "amount": -40.0,
+            "balance": 80.0,
+            "loaded_at": "2026-09-17T10:01:00",
+            "previous_amount": 200.0,
+            "running_net": 160.0
+          },
+          {
+            "transaction_id": "F-003",
+            "account_id": "A001",
+            "transaction_ts": "2026-09-17T11:00:00",
+            "amount": 100.0,
+            "balance": 130.0,
+            "loaded_at": "2026-09-17T11:01:00",
+            "previous_amount": -40.0,
+            "running_net": 260.0
+          },
+          {
+            "transaction_id": "F-004",
+            "account_id": "A002",
+            "transaction_ts": "2026-09-17T09:15:00",
+            "amount": 400.0,
+            "balance": 200.0,
+            "loaded_at": "2026-09-17T09:16:00",
+            "previous_amount": null,
+            "running_net": 400.0
+          },
+          {
+            "transaction_id": "F-005",
+            "account_id": "A002",
+            "transaction_ts": "2026-09-17T10:15:00",
+            "amount": -150.0,
+            "balance": 125.0,
+            "loaded_at": "2026-09-17T10:16:00",
+            "previous_amount": 400.0,
+            "running_net": 250.0
+          },
+          {
+            "transaction_id": "F-006",
+            "account_id": "A-HOT-001",
+            "transaction_ts": "2026-09-17T08:30:00",
+            "amount": 20.0,
+            "balance": 10.0,
+            "loaded_at": "2026-09-17T08:31:00",
+            "previous_amount": null,
+            "running_net": 20.0
+          },
+          {
+            "transaction_id": "F-007",
+            "account_id": "A-HOT-001",
+            "transaction_ts": "2026-09-17T09:30:00",
+            "amount": 30.0,
+            "balance": 25.0,
+            "loaded_at": "2026-09-17T09:31:00",
+            "previous_amount": 20.0,
+            "running_net": 50.0
+          },
+          {
+            "transaction_id": "F-008",
+            "account_id": "A-HOT-001",
+            "transaction_ts": "2026-09-17T10:30:00",
+            "amount": -10.0,
+            "balance": 20.0,
+            "loaded_at": "2026-09-17T10:31:00",
+            "previous_amount": 30.0,
+            "running_net": 40.0
+          }
+        ]
+      },
+      {
+        "id": "empty-input",
+        "visibility": "edge",
+        "input_rows": [],
+        "expected": []
+      }
+    ]
+  }
+}

@@ -1,0 +1,541 @@
+[
+  {
+    "schema_version": 1,
+    "id": "demo-sum",
+    "version": "1",
+    "title": "Sum with duplicates and NULL",
+    "difficulty": "easy",
+    "topics": [
+      "aggregation"
+    ],
+    "tags": [
+      "internal-demo"
+    ],
+    "origin": "internal-demo",
+    "language": "sql",
+    "runtime": "shared-sql-v1",
+    "prompt": "Internal demo: return one row with column total containing the sum of input.value. Return 0 for empty/all-NULL input.",
+    "sections": [
+      {
+        "title": "Input schema",
+        "body": "input(value INTEGER), including duplicates and NULL."
+      }
+    ],
+    "starter_source": "SELECT 0 AS total FROM input LIMIT 1",
+    "fixtures": [
+      {
+        "id": "demo-sum-fixtures",
+        "version": "1"
+      }
+    ],
+    "visible_checks": [
+      {
+        "id": "example",
+        "description": "Public example input: 1, 2, 2, NULL."
+      }
+    ],
+    "hidden_check_refs": [
+      "hidden-values"
+    ],
+    "edge_check_refs": [
+      "empty-input"
+    ],
+    "hints": [
+      "Use an aggregate over input; consider duplicates and NULL."
+    ],
+    "solution": {
+      "available": true,
+      "reveal": "explicit"
+    },
+    "explanation": "Aggregate the actual input. A constant matching the example is not a general solution.",
+    "follow_ups": [
+      "How do empty inputs, NULL values and duplicates affect the output?"
+    ],
+    "canonical_placement": {
+      "domain": "sql",
+      "topic": "aggregation"
+    },
+    "related_associations": [
+      "sql/nulls",
+      "interview/aggregation"
+    ],
+    "recommendation": {
+      "rank": 1,
+      "reason": "Small contract demonstration"
+    },
+    "validator_version": "rows-v2",
+    "data_context": [
+      {
+        "name": "input",
+        "columns": {
+          "value": "INTEGER"
+        },
+        "sample_rows": [
+          {
+            "value": 1
+          },
+          {
+            "value": 2
+          },
+          {
+            "value": 2
+          },
+          {
+            "value": null
+          }
+        ]
+      }
+    ],
+    "output_schema": {
+      "total": "number"
+    },
+    "runtime_requirements": [
+      "sql"
+    ],
+    "provenance": {
+      "source": "Datapass internal demo"
+    },
+    "constraints": {
+      "volume": "At most 200 fixture rows; shared preview limits apply.",
+      "quality": "Preserve declared NULL and duplicate semantics.",
+      "security": "Python/Polars require trusted-local opt-in; not a hostile-code sandbox."
+    }
+  },
+  {
+    "schema_version": 1,
+    "id": "demo-count",
+    "version": "1",
+    "title": "Count non-null values",
+    "difficulty": "easy",
+    "topics": [
+      "nulls"
+    ],
+    "tags": [
+      "internal-demo"
+    ],
+    "origin": "internal-demo",
+    "language": "sql",
+    "runtime": "shared-sql-v1",
+    "prompt": "Internal demo: return one row with column count_values counting non-NULL values, including duplicates.",
+    "sections": [
+      {
+        "title": "Input schema",
+        "body": "input(value INTEGER), including duplicates and NULL."
+      }
+    ],
+    "starter_source": "SELECT 0 AS count_values",
+    "fixtures": [
+      {
+        "id": "demo-count-fixtures",
+        "version": "1"
+      }
+    ],
+    "visible_checks": [
+      {
+        "id": "example",
+        "description": "Public example input: 1, 2, 2, NULL."
+      }
+    ],
+    "hidden_check_refs": [
+      "hidden-values"
+    ],
+    "edge_check_refs": [
+      "empty-input"
+    ],
+    "hints": [
+      "Use an aggregate over input; consider duplicates and NULL."
+    ],
+    "solution": {
+      "available": true,
+      "reveal": "explicit"
+    },
+    "explanation": "Aggregate the actual input. A constant matching the example is not a general solution.",
+    "follow_ups": [
+      "How do empty inputs, NULL values and duplicates affect the output?"
+    ],
+    "canonical_placement": {
+      "domain": "sql",
+      "topic": "nulls"
+    },
+    "related_associations": [
+      "sql/nulls",
+      "interview/aggregation"
+    ],
+    "recommendation": {
+      "rank": 1,
+      "reason": "Small contract demonstration"
+    },
+    "validator_version": "rows-v2",
+    "data_context": [
+      {
+        "name": "input",
+        "columns": {
+          "value": "INTEGER"
+        },
+        "sample_rows": [
+          {
+            "value": 1
+          },
+          {
+            "value": 2
+          },
+          {
+            "value": 2
+          },
+          {
+            "value": null
+          }
+        ]
+      }
+    ],
+    "output_schema": {
+      "count_values": "number"
+    },
+    "runtime_requirements": [
+      "sql"
+    ],
+    "provenance": {
+      "source": "Datapass internal demo"
+    },
+    "constraints": {
+      "volume": "At most 200 fixture rows; shared preview limits apply.",
+      "quality": "Preserve declared NULL and duplicate semantics.",
+      "security": "Python/Polars require trusted-local opt-in; not a hostile-code sandbox."
+    }
+  },
+  {
+    "schema_version": 1,
+    "id": "demo-python",
+    "version": "1",
+    "title": "python duplicate-preserving projection",
+    "difficulty": "easy",
+    "topics": [
+      "projection",
+      "nulls"
+    ],
+    "tags": [
+      "internal-demo"
+    ],
+    "origin": "internal-demo",
+    "language": "python",
+    "runtime": "shared-python-v1",
+    "prompt": "Internal demo: return input rows unchanged, including duplicates and NULL. Python/Polars receive input_rows; SparkLab reads input. Return a structured table through the shared runtime.",
+    "sections": [
+      {
+        "title": "Input schema",
+        "body": "input(value INTEGER), including duplicates and NULL."
+      }
+    ],
+    "starter_source": "display([])",
+    "fixtures": [
+      {
+        "id": "demo-python-fixtures",
+        "version": "1"
+      }
+    ],
+    "visible_checks": [
+      {
+        "id": "example",
+        "description": "Public example input: 1, 2, 2, NULL."
+      }
+    ],
+    "hidden_check_refs": [
+      "hidden-values"
+    ],
+    "edge_check_refs": [
+      "empty-input"
+    ],
+    "hints": [
+      "Keep duplicate rows and null values."
+    ],
+    "solution": {
+      "available": true,
+      "reveal": "explicit"
+    },
+    "explanation": "Project every input row without deduplicating or dropping NULL.",
+    "follow_ups": [
+      "How do empty inputs, NULL values and duplicates affect the output?"
+    ],
+    "canonical_placement": {
+      "domain": "python",
+      "topic": "projection"
+    },
+    "related_associations": [
+      "sql/nulls",
+      "interview/aggregation"
+    ],
+    "recommendation": {
+      "rank": 1,
+      "reason": "Small contract demonstration"
+    },
+    "validator_version": "rows-v2",
+    "data_context": [
+      {
+        "name": "input",
+        "columns": {
+          "value": "INTEGER"
+        },
+        "sample_rows": [
+          {
+            "value": 1
+          },
+          {
+            "value": 2
+          },
+          {
+            "value": 2
+          },
+          {
+            "value": null
+          }
+        ]
+      }
+    ],
+    "output_schema": {
+      "value": "INTEGER"
+    },
+    "runtime_requirements": [
+      "python",
+      "trusted-local-python"
+    ],
+    "provenance": {
+      "source": "Datapass internal demo"
+    },
+    "truth": "real",
+    "validation": {
+      "ordered": true,
+      "duplicate_sensitive": true,
+      "required_columns": [
+        "value"
+      ]
+    },
+    "constraints": {
+      "volume": "At most 200 fixture rows; shared preview limits apply.",
+      "quality": "Preserve declared NULL and duplicate semantics.",
+      "security": "Python/Polars require trusted-local opt-in; not a hostile-code sandbox."
+    }
+  },
+  {
+    "schema_version": 1,
+    "id": "demo-polars",
+    "version": "1",
+    "title": "polars duplicate-preserving projection",
+    "difficulty": "easy",
+    "topics": [
+      "projection",
+      "nulls"
+    ],
+    "tags": [
+      "internal-demo"
+    ],
+    "origin": "internal-demo",
+    "language": "polars",
+    "runtime": "shared-polars-v1",
+    "prompt": "Internal demo: return input rows unchanged, including duplicates and NULL. Python/Polars receive input_rows; SparkLab reads input. Return a structured table through the shared runtime.",
+    "sections": [
+      {
+        "title": "Input schema",
+        "body": "input(value INTEGER), including duplicates and NULL."
+      }
+    ],
+    "starter_source": "display([])",
+    "fixtures": [
+      {
+        "id": "demo-polars-fixtures",
+        "version": "1"
+      }
+    ],
+    "visible_checks": [
+      {
+        "id": "example",
+        "description": "Public example input: 1, 2, 2, NULL."
+      }
+    ],
+    "hidden_check_refs": [
+      "hidden-values"
+    ],
+    "edge_check_refs": [
+      "empty-input"
+    ],
+    "hints": [
+      "Keep duplicate rows and null values."
+    ],
+    "solution": {
+      "available": true,
+      "reveal": "explicit"
+    },
+    "explanation": "Project every input row without deduplicating or dropping NULL.",
+    "follow_ups": [
+      "How do empty inputs, NULL values and duplicates affect the output?"
+    ],
+    "canonical_placement": {
+      "domain": "polars",
+      "topic": "projection"
+    },
+    "related_associations": [
+      "sql/nulls",
+      "interview/aggregation"
+    ],
+    "recommendation": {
+      "rank": 1,
+      "reason": "Small contract demonstration"
+    },
+    "validator_version": "rows-v2",
+    "data_context": [
+      {
+        "name": "input",
+        "columns": {
+          "value": "INTEGER"
+        },
+        "sample_rows": [
+          {
+            "value": 1
+          },
+          {
+            "value": 2
+          },
+          {
+            "value": 2
+          },
+          {
+            "value": null
+          }
+        ]
+      }
+    ],
+    "output_schema": {
+      "value": "INTEGER"
+    },
+    "runtime_requirements": [
+      "polars",
+      "trusted-local-python"
+    ],
+    "provenance": {
+      "source": "Datapass internal demo"
+    },
+    "truth": "real",
+    "validation": {
+      "ordered": true,
+      "duplicate_sensitive": true,
+      "required_columns": [
+        "value"
+      ]
+    },
+    "constraints": {
+      "volume": "At most 200 fixture rows; shared preview limits apply.",
+      "quality": "Preserve declared NULL and duplicate semantics.",
+      "security": "Python/Polars require trusted-local opt-in; not a hostile-code sandbox."
+    }
+  },
+  {
+    "schema_version": 1,
+    "id": "demo-sparklab",
+    "version": "1",
+    "title": "sparklab duplicate-preserving projection",
+    "difficulty": "easy",
+    "topics": [
+      "projection",
+      "nulls"
+    ],
+    "tags": [
+      "internal-demo"
+    ],
+    "origin": "internal-demo",
+    "language": "sparklab",
+    "runtime": "shared-sparklab-v1",
+    "prompt": "Internal demo: return input rows unchanged, including duplicates and NULL. Python/Polars receive input_rows; SparkLab reads input. Return a structured table through the shared runtime.",
+    "sections": [
+      {
+        "title": "Input schema",
+        "body": "input(value INTEGER), including duplicates and NULL."
+      }
+    ],
+    "starter_source": "result = spark.table(\"input\").limit(1)",
+    "fixtures": [
+      {
+        "id": "demo-sparklab-fixtures",
+        "version": "1"
+      }
+    ],
+    "visible_checks": [
+      {
+        "id": "example",
+        "description": "Public example input: 1, 2, 2, NULL."
+      }
+    ],
+    "hidden_check_refs": [
+      "hidden-values"
+    ],
+    "edge_check_refs": [
+      "empty-input"
+    ],
+    "hints": [
+      "Keep duplicate rows and null values."
+    ],
+    "solution": {
+      "available": true,
+      "reveal": "explicit"
+    },
+    "explanation": "Project every input row without deduplicating or dropping NULL.",
+    "follow_ups": [
+      "How do empty inputs, NULL values and duplicates affect the output?"
+    ],
+    "canonical_placement": {
+      "domain": "sparklab",
+      "topic": "projection"
+    },
+    "related_associations": [
+      "sql/nulls",
+      "interview/aggregation"
+    ],
+    "recommendation": {
+      "rank": 1,
+      "reason": "Small contract demonstration"
+    },
+    "validator_version": "rows-v2",
+    "data_context": [
+      {
+        "name": "input",
+        "columns": {
+          "value": "INTEGER"
+        },
+        "sample_rows": [
+          {
+            "value": 1
+          },
+          {
+            "value": 2
+          },
+          {
+            "value": 2
+          },
+          {
+            "value": null
+          }
+        ]
+      }
+    ],
+    "output_schema": {
+      "value": "INTEGER"
+    },
+    "runtime_requirements": [
+      "sparklab"
+    ],
+    "provenance": {
+      "source": "Datapass internal demo"
+    },
+    "truth": "semantic-emulation",
+    "validation": {
+      "ordered": false,
+      "duplicate_sensitive": true,
+      "required_columns": [
+        "value"
+      ]
+    },
+    "constraints": {
+      "volume": "At most 200 fixture rows; shared preview limits apply.",
+      "quality": "Preserve declared NULL and duplicate semantics.",
+      "security": "Python/Polars require trusted-local opt-in; not a hostile-code sandbox."
+    }
+  }
+]
