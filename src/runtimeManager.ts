@@ -1,4 +1,5 @@
 import { spawn, type ChildProcess } from "node:child_process";
+import * as http from "node:http";
 import * as path from "node:path";
 import * as vscode from "vscode";
 import type { RuntimeViewState } from "./webview/contracts";
@@ -145,7 +146,7 @@ function requestJson<T>(
 ): Promise<T> {
   return new Promise((resolve, reject) => {
     const payload = Buffer.from(JSON.stringify(body), "utf8");
-    const request = require("node:http").request(
+    const request = http.request(
       url,
       {
         method,
@@ -154,7 +155,7 @@ function requestJson<T>(
           "content-length": String(payload.length)
         }
       },
-      (response: import("node:http").IncomingMessage) => {
+      response => {
         const chunks: Buffer[] = [];
         response.on("data", chunk => chunks.push(Buffer.from(chunk)));
         response.on("end", () => {
