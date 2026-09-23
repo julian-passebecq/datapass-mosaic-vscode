@@ -1,5 +1,6 @@
 import * as vscode from "vscode";
 import { loadExerciseCatalog } from "./exerciseCatalog";
+import { detectCli } from "./platform/detection";
 import { MODULES, type ModuleId } from "./modules";
 import { createDefaultProjectManifest, readProjectManifest, writeProjectManifest } from "./project/projectManifest";
 import type { RuntimeManager } from "./runtimeManager";
@@ -52,8 +53,16 @@ export class WorkbenchPanel {
   ) {
     this.selectedModule = initialModule;
     this.panel.webview.html = this.html(this.panel.webview);
+    const dbtArtifactWatcher = vscode.workspace.createFileSystemWatcher("**/target/manifest.json");
 
     this.disposables.push(
+      dbtArtifactWatcher,
+      dbtArtifactWatcher.onDidCreate(() => {
+        if (this.selectedModule === "dbt") void this.refresh();
+      }),
+      dbtArtifactWatcher.onDidChange(() => {
+        if (this.selectedModule === "dbt") void this.refresh();
+      }),
       this.panel.onDidDispose(() => this.dispose()),
       this.panel.webview.onDidReceiveMessage(message => {
         void this.handleMessage(message as WebviewToHostMessage);
@@ -62,7 +71,11 @@ export class WorkbenchPanel {
         void this.refresh();
       }),
       vscode.workspace.onDidSaveTextDocument(() => {
-        if (this.selectedModule === "pipeline" || this.selectedModule === "airflow") {
+        if (
+          this.selectedModule === "pipeline" ||
+          this.selectedModule === "airflow" ||
+          this.selectedModule === "dbt"
+        ) {
           void this.refresh();
         }
       })
@@ -115,6 +128,15 @@ export class WorkbenchPanel {
         return;
       case "refreshAirflow":
         await this.refresh();
+        return;
+      case "openDbtProject":
+        await this.openDbtProject();
+        return;
+      case "refreshDbt":
+        await this.refresh();
+        return;
+      case "runDbtBuild":
+        await this.runDbtBuild();
         return;
     }
   }
@@ -255,6 +277,65 @@ export class WorkbenchPanel {
 
     await openTextDocument(uri);
     await this.refresh();
+  }
+
+  private async openDbtProject(): Promise<void> {
+    const root = vscode.workspace.workspaceFolders?.[0]?.uri;
+    if (!root) {
+      void vscode.window.showWarningMessage("Open a workspace folder before creating a dbt Lab project.");
+      return;
+    }
+
+    const manifest = await readProjectManifest();
+    const dbtRoot = safeRelativeParts(manifest.manifest?.assets?.dbt, "dbt");
+    const projectRoot = vscode.Uri.joinPath(root, ...dbtRoot, "retail-dbt");
+    const projectFile = vscode.Uri.joinPath(projectRoot, "dbt_project.yml");
+
+    if (!(await exists(projectFile))) {
+      const donor = vscode.Uri.joinPath(
+        this.context.extensionUri,
+        "workbench-core",
+        "examples",
+        "analytics-m2",
+        "retail-dbt"
+      );
+      await copyDirectoryWithoutOverwrite(donor, projectRoot);
+    }
+
+    await ensureDbtProfile(root);
+    await openTextDocument(projectFile);
+    await this.refresh();
+  }
+
+  private async runDbtBuild(): Promise<void> {
+    const root = vscode.workspace.workspaceFolders?.[0]?.uri;
+    if (!root) {
+      void vscode.window.showWarningMessage("Open a workspace folder before running dbt.");
+      return;
+    }
+
+    const probe = await detectCli({ id: "dbt", label: "dbt Core", command: "dbt" });
+    if (!probe.available) {
+      void vscode.window.showWarningMessage("dbt CLI was not detected. Install dbt-core and dbt-duckdb first.");
+      return;
+    }
+
+    const manifest = await readProjectManifest();
+    const dbtRoot = safeRelativeParts(manifest.manifest?.assets?.dbt, "dbt");
+    const projectRoot = vscode.Uri.joinPath(root, ...dbtRoot, "retail-dbt");
+    const projectFile = vscode.Uri.joinPath(projectRoot, "dbt_project.yml");
+    if (!(await exists(projectFile))) {
+      await this.openDbtProject();
+      return;
+    }
+
+    const profilesDir = await ensureDbtProfile(root);
+    const terminal = vscode.window.createTerminal({
+      name: "Datapass dbt",
+      cwd: projectRoot
+    });
+    terminal.show();
+    terminal.sendText(`dbt build --profiles-dir ${quoteShellArg(profilesDir.fsPath)}`, true);
   }
 
   private async refresh(): Promise<void> {
@@ -451,6 +532,52 @@ function safeRelativeParts(value: string | undefined, fallback: string): string[
     return [fallback];
   }
   return parts;
+}
+
+async function ensureDbtProfile(root: vscode.Uri): Promise<vscode.Uri> {
+  const profilesDir = vscode.Uri.joinPath(root, ".datapass", "dbt");
+  const dataDir = vscode.Uri.joinPath(root, ".datapass", "data");
+  const profile = vscode.Uri.joinPath(profilesDir, "profiles.yml");
+  const database = vscode.Uri.joinPath(dataDir, "datapass.duckdb");
+
+  await vscode.workspace.fs.createDirectory(profilesDir);
+  await vscode.workspace.fs.createDirectory(dataDir);
+
+  if (!(await exists(profile))) {
+    const databasePath = database.fsPath.replaceAll("\\", "/").replaceAll("'", "''");
+    const content = [
+      "datapass_retail:",
+      "  target: dev",
+      "  outputs:",
+      "    dev:",
+      "      type: duckdb",
+      `      path: '${databasePath}'`,
+      "      threads: 4",
+      ""
+    ].join("\n");
+    await vscode.workspace.fs.writeFile(profile, new TextEncoder().encode(content));
+  }
+
+  return profilesDir;
+}
+
+async function copyDirectoryWithoutOverwrite(source: vscode.Uri, target: vscode.Uri): Promise<void> {
+  await vscode.workspace.fs.createDirectory(target);
+  const entries = await vscode.workspace.fs.readDirectory(source);
+  for (const [name, type] of entries) {
+    const from = vscode.Uri.joinPath(source, name);
+    const to = vscode.Uri.joinPath(target, name);
+    if ((type & vscode.FileType.Directory) !== 0) {
+      await copyDirectoryWithoutOverwrite(from, to);
+    } else if ((type & vscode.FileType.File) !== 0 && !(await exists(to))) {
+      const bytes = await vscode.workspace.fs.readFile(from);
+      await vscode.workspace.fs.writeFile(to, bytes);
+    }
+  }
+}
+
+function quoteShellArg(value: string): string {
+  return `"${value.replaceAll('"', '\\"')}"`;
 }
 
 async function exists(uri: vscode.Uri): Promise<boolean> {
