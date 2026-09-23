@@ -198,7 +198,7 @@ function hasCycle(tasks: readonly AirflowTaskView[]): boolean {
 }
 
 function projectGraph(definition: AirflowDefinitionView): GraphView {
-  const edges: GraphView["edges"] = [];
+  const edges: Array<{ id: string; source: string; target: string; label: string }> = [];
   for (const task of definition.tasks) {
     for (const dependency of task.dependsOn) {
       edges.push({
