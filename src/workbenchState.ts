@@ -1,4 +1,5 @@
 import * as vscode from "vscode";
+import { loadAirflowState } from "./airflowState";
 import { loadExerciseCatalog } from "./exerciseCatalog";
 import { MODULES, type ModuleId } from "./modules";
 import { loadPipelineState } from "./pipelineState";
@@ -19,6 +20,9 @@ export async function collectWorkbenchState(
   const pipeline = selectedModule === "pipeline"
     ? await loadPipelineState(runtimeManager)
     : undefined;
+  const airflow = selectedModule === "airflow"
+    ? await loadAirflowState()
+    : undefined;
 
   return {
     selectedModule,
@@ -32,6 +36,7 @@ export async function collectWorkbenchState(
     },
     runtime: runtimeManager.snapshot(),
     practice,
-    pipeline
+    pipeline,
+    airflow
   };
 }
