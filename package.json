@@ -1,0 +1,38 @@
+{
+  "name": "datapass-mosaic-vscode",
+  "displayName": "Datapass Workbench",
+  "description": "Local-first data-engineering practice workbench for VS Code.",
+  "version": "0.1.0",
+  "publisher": "datapass",
+  "engines": { "vscode": "^1.95.0" },
+  "categories": ["Education", "Data Science"],
+  "main": "./dist/extension.js",
+  "extensionPack": ["ms-python.python", "ms-toolsai.jupyter"],
+  "contributes": {
+    "commands": [
+      {"command":"datapass.openMosaic","title":"Datapass: Open Mosaic"},
+      {"command":"datapass.openPractice","title":"Datapass: Open Practice"},
+      {"command":"datapass.openFabricLab","title":"Datapass: Open Fabric Lab"},
+      {"command":"datapass.openSparkLab","title":"Datapass: Open SparkLab"},
+      {"command":"datapass.openDbtLab","title":"Datapass: Open dbt Lab"},
+      {"command":"datapass.openAirflowLab","title":"Datapass: Open Airflow Lab"},
+      {"command":"datapass.openPipelineLab","title":"Datapass: Open Pipeline Lab"}
+    ],
+    "viewsContainers": {
+      "activitybar": [{"id":"datapass","title":"Datapass","icon":"media/datapass.svg"}]
+    },
+    "views": {
+      "datapass": [{"id":"datapass.labs","name":"Labs"}]
+    }
+  },
+  "scripts": {
+    "compile": "tsc -p .",
+    "watch": "tsc -w -p .",
+    "vscode:prepublish": "npm run compile"
+  },
+  "devDependencies": {
+    "@types/node":"^22.10.0",
+    "@types/vscode":"^1.95.0",
+    "typescript":"^5.7.2"
+  }
+}
