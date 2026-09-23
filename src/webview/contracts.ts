@@ -17,11 +17,30 @@ export interface WorkspaceViewState {
   errors: string[];
 }
 
+export interface ExerciseSummary {
+  key: string;
+  packId: string;
+  packTitle: string;
+  id: string;
+  title: string;
+  difficulty: string;
+  language: string;
+  prompt: string;
+  starterSource: string;
+  truth?: string;
+  topics: string[];
+}
+
+export interface PracticeViewState {
+  exercises: readonly ExerciseSummary[];
+}
+
 export interface WorkbenchViewState {
   selectedModule: ModuleId;
   modules: readonly WorkbenchModule[];
   workspace: WorkspaceViewState;
   runtime: RuntimeViewState;
+  practice?: PracticeViewState;
 }
 
 export type HostToWebviewMessage = {
@@ -37,4 +56,5 @@ export type WebviewToHostMessage =
   | { type: "startRuntime" }
   | { type: "stopRuntime" }
   | { type: "openTerminal" }
-  | { type: "openScratch"; kind: ScratchKind };
+  | { type: "openScratch"; kind: ScratchKind }
+  | { type: "openExercise"; exerciseKey: string };
