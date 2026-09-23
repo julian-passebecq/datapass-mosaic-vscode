@@ -1,10 +1,30 @@
 from __future__ import annotations
 import json
 from pathlib import Path
+import os
 import re
 
-ROOT = Path(__file__).resolve().parents[3]
-CONTENT = ROOT / 'content'
+
+def content_root() -> Path:
+    configured = os.getenv('DATAPASS_CONTENT_ROOT')
+    candidates = []
+    if configured:
+        candidates.append(Path(configured).expanduser())
+    source_root = Path(__file__).resolve().parents[2]
+    candidates.extend([
+        source_root / 'content',
+        Path.cwd() / 'content',
+        Path.cwd().parent / 'content',
+    ])
+    for candidate in candidates:
+        resolved = candidate.resolve()
+        if resolved.is_dir():
+            return resolved
+    searched = ', '.join(str(candidate) for candidate in candidates)
+    raise RuntimeError(f'Datapass content directory was not found. Checked: {searched}')
+
+
+CONTENT = content_root()
 
 
 def cases():
