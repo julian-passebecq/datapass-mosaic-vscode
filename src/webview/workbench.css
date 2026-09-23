@@ -371,3 +371,123 @@ h2 { margin-bottom: 8px; font-size: 28px; }
   .datapass-graph-host { height: 390px; }
   .airflow-lower { grid-template-columns: 1fr; }
 }
+
+
+.lab-surface {
+  min-width: 0;
+  border-top: 1px solid var(--vscode-panel-border);
+  padding-top: 14px;
+}
+.lab-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 14px;
+}
+.lab-flow {
+  display: grid;
+  grid-template-columns: minmax(150px, 1fr) auto minmax(150px, 1fr) auto minmax(150px, 1fr) auto minmax(150px, 1fr);
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 16px;
+}
+.lab-flow-step {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  align-items: start;
+  gap: 8px;
+  min-height: 96px;
+  padding: 12px;
+  border: 1px solid var(--vscode-panel-border);
+  border-radius: 7px;
+  background: var(--vscode-editorWidget-background);
+}
+.lab-flow-step > [class*="fui-Badge"] { grid-column: 1 / -1; justify-self: start; }
+.lab-flow-step strong,
+.lab-flow-step small { display: block; }
+.lab-flow-step small {
+  margin-top: 3px;
+  color: var(--vscode-descriptionForeground);
+  font-size: 10px;
+}
+.lab-flow-index {
+  display: grid;
+  place-items: center;
+  width: 22px;
+  height: 22px;
+  border: 1px solid var(--vscode-focusBorder);
+  border-radius: 50%;
+  color: var(--vscode-focusBorder);
+  font-size: 10px;
+  font-weight: 700;
+}
+.lab-flow-arrow {
+  color: var(--vscode-descriptionForeground);
+  font-size: 18px;
+}
+.lab-card-grid,
+.spark-operation-grid {
+  display: grid;
+  gap: 12px;
+  margin-bottom: 16px;
+}
+.lab-card-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+.spark-operation-grid { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+.lab-card,
+.spark-operation-card { min-width: 0; }
+.lab-card-body {
+  padding: 0 12px 12px;
+  font-size: 11px;
+}
+.sparklab-hero {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 20px;
+  margin-bottom: 16px;
+  padding: 16px;
+  border: 1px solid var(--vscode-panel-border);
+  border-radius: 7px;
+  background: var(--vscode-editorWidget-background);
+}
+.sparklab-hero h3 { margin: 0 0 7px; }
+.sparklab-hero p {
+  max-width: 700px;
+  margin: 0;
+  color: var(--vscode-descriptionForeground);
+  font-size: 12px;
+  line-height: 1.5;
+}
+.truth-table {
+  overflow: hidden;
+  border: 1px solid var(--vscode-panel-border);
+  border-radius: 7px;
+  background: var(--vscode-editorWidget-background);
+}
+.truth-row {
+  display: grid;
+  grid-template-columns: minmax(150px, .8fr) minmax(145px, .7fr) minmax(240px, 1.5fr);
+  gap: 12px;
+  padding: 9px 12px;
+  border-bottom: 1px solid var(--vscode-panel-border);
+  font-size: 11px;
+}
+.truth-row:last-child { border-bottom: 0; }
+.truth-row span,
+.truth-row small { color: var(--vscode-descriptionForeground); }
+
+@media (max-width: 1100px) {
+  .lab-flow { grid-template-columns: 1fr 1fr; }
+  .lab-flow-arrow { display: none; }
+  .spark-operation-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+
+@media (max-width: 900px) {
+  .lab-toolbar,
+  .sparklab-hero { align-items: flex-start; flex-direction: column; }
+  .lab-card-grid,
+  .spark-operation-grid,
+  .lab-flow { grid-template-columns: 1fr; }
+  .truth-row { grid-template-columns: 1fr; gap: 3px; }
+}
