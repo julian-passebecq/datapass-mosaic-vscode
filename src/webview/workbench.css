@@ -87,9 +87,72 @@ h2 { margin-bottom: 8px; font-size: 28px; }
   display: grid;
   place-items: center;
 }
+
+.mosaic-surface {
+  min-width: 0;
+  border-top: 1px solid var(--vscode-panel-border);
+  padding-top: 14px;
+}
+.mosaic-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 14px;
+}
+.mosaic-canvas { min-height: 420px; }
+.mosaic-block {
+  height: 100%;
+  overflow: hidden;
+  border: 1px solid var(--vscode-panel-border);
+  border-radius: 7px;
+  background: var(--vscode-sideBar-background);
+  box-sizing: border-box;
+}
+.mosaic-drag-handle {
+  display: flex;
+  gap: 9px;
+  align-items: flex-start;
+  padding: 10px 12px;
+  cursor: grab;
+  border-bottom: 1px solid var(--vscode-panel-border);
+  background: var(--vscode-editorWidget-background);
+  user-select: none;
+}
+.mosaic-drag-handle:active { cursor: grabbing; }
+.mosaic-drag-handle > span {
+  color: var(--vscode-descriptionForeground);
+  letter-spacing: -3px;
+}
+.mosaic-drag-handle strong,
+.mosaic-drag-handle small {
+  display: block;
+}
+.mosaic-drag-handle small {
+  margin-top: 2px;
+  color: var(--vscode-descriptionForeground);
+  font-size: 11px;
+}
+.mosaic-block-body { padding: 12px; }
+.mosaic-runtime-line {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  flex-wrap: wrap;
+  font-size: 12px;
+}
+.react-grid-item.react-grid-placeholder {
+  background: var(--vscode-list-dropBackground);
+  border-radius: 7px;
+  opacity: .5;
+}
+.react-resizable-handle::after {
+  border-color: var(--vscode-focusBorder);
+}
+
 @media (max-width: 900px) {
   .content-grid { grid-template-columns: 1fr; }
   .feature-grid { grid-template-columns: 1fr; }
-  .topbar, .module-heading { align-items: flex-start; flex-direction: column; }
+  .topbar, .module-heading, .mosaic-toolbar { align-items: flex-start; flex-direction: column; }
   .side-column { grid-template-columns: 1fr; }
 }
