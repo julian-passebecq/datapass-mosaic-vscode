@@ -60,15 +60,17 @@ function normalizeExercise(
   const value = raw as Record<string, unknown>;
   const id = stringValue(value.id);
   const title = stringValue(value.title);
+  const version = stringValue(value.version);
   const language = stringValue(value.language);
   const starterSource = stringValue(value.starter_source);
-  if (!id || !title || !language || starterSource === undefined) return undefined;
+  if (!id || !title || !version || !language || starterSource === undefined) return undefined;
 
   return {
     key: `${packId}/${id}/${language}`,
     packId,
     packTitle,
     id,
+    version,
     title,
     difficulty: stringValue(value.difficulty) ?? "unspecified",
     language,
@@ -92,8 +94,9 @@ function normalizeScenario(
   if (!common || !variants) return [];
 
   const id = stringValue(semantic?.id) ?? stringValue(common.id);
+  const version = stringValue(semantic?.version) ?? stringValue(common.version);
   const title = stringValue(common.title);
-  if (!id || !title) return [];
+  if (!id || !version || !title) return [];
 
   const result: ExerciseSummary[] = [];
   for (const [language, candidate] of Object.entries(variants)) {
@@ -106,6 +109,7 @@ function normalizeScenario(
       packId,
       packTitle,
       id,
+      version,
       title,
       difficulty: stringValue(common.difficulty) ?? "unspecified",
       language,
