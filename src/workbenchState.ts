@@ -3,6 +3,7 @@ import { loadAirflowState } from "./airflowState";
 import { loadDbtState } from "./dbtState";
 import { loadExerciseCatalog } from "./exerciseCatalog";
 import { MODULES, type ModuleId } from "./modules";
+import { readMosaicLayout } from "./mosaicLayoutStore";
 import { loadPipelineState } from "./pipelineState";
 import { readProjectManifest } from "./project/projectManifest";
 import type { PythonTrustController } from "./pythonTrustController";
@@ -29,6 +30,9 @@ export async function collectWorkbenchState(
   const dbt = selectedModule === "dbt"
     ? await loadDbtState()
     : undefined;
+  const mosaicLayout = selectedModule === "mosaic"
+    ? await readMosaicLayout()
+    : undefined;
   const sparkProfiles = selectedModule === "sparklab"
     ? await loadSparkProfiles(extensionUri)
     : undefined;
@@ -50,6 +54,7 @@ export async function collectWorkbenchState(
       ...trust,
       restartRequired: runtime.status === "running" && (runtime.trustedPython === true) !== trust.effective
     },
+    mosaicLayout,
     sparkProfiles,
     practice,
     pipeline,

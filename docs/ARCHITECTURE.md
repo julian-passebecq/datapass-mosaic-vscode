@@ -40,7 +40,9 @@ React / Fluent / React Flow views
 
 ## Mosaic
 
-Mosaic is the free-form local workbench. Default execution is real Polars + DuckDB. It can arrange code/data/charts/docs in flexible panes, while source files remain real VS Code files. Spark simulation is optional, not Mosaic's identity.
+Mosaic is the free-form local workbench. Default execution is real DuckDB SQL; Python/Polars run for real only after the trusted-local-Python opt-in. It can arrange code/data/charts/docs in flexible panes, while source files remain real VS Code files. Spark simulation is optional, not Mosaic's identity.
+
+Layout durability: inside a Datapass project the block geometry is saved to `.datapass/mosaic.json` (`schemaVersion: 1`, block ids + grid positions only; no source, paths, runtime state or secrets). The host validates every save (known blocks, bounded integers, clamped to 12 columns) and never creates the file outside a project. Missing blocks are completed from defaults; corrupt files or unknown schema versions fall back to the default layout without being overwritten until the next drag/resize. A layout that previously lived only in webview state is migrated once. Without a project the layout stays in webview state for the window only.
 
 ## Practice
 

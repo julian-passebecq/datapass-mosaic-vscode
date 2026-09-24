@@ -33,13 +33,14 @@ The Workbench panel should show:
 4. Open the Python/Polars scratch file; **Run active Python** stays disabled and explains why.
 5. **Enable trusted local Python…**, read the warning, confirm; the runtime restarts and the side panel shows *Trusted Python: enabled (not sandboxed)*. Run the Python scratch, then **Disable** again.
 6. SparkLab: **Open SparkLab scratch**, **Run active SparkLab file**; check result, compiled SQL, plan and the SIMULATED stage table.
-7. Drag/resize the Mosaic blocks.
-8. Switch to Fabric Lab and back to Mosaic; the webview layout should remain available.
+7. Drag/resize the Mosaic blocks; `.datapass/mosaic.json` updates.
+8. Close the Workbench tab and reopen Mosaic (or reload the window); the layout is restored from `.datapass/mosaic.json`.
 
 The generated starter files are normal workspace files:
 
 ```text
 .datapass/project.json
+.datapass/mosaic.json      (after the first drag/resize)
 notebooks/mosaic.sql
 notebooks/mosaic.py
 notebooks/sparklab.py
@@ -74,7 +75,7 @@ npm run test:host
 
 1. activation and every Workbench command; the Mosaic command opens the Workbench webview;
 2. `.datapass/project.json` creation with `trustedLocalPython: false`;
-3. trusted-Python resolution (manifest flag alone is not enough; confirmation required; disable resets);
+3. trusted-Python resolution (manifest flag alone is not enough; confirmation required; disable resets); Mosaic layout round trip through `.datapass/mosaic.json`, rejected input and corrupt-file fallback;
 4. Airflow starter DAG validation; dbt sample static lineage (labeled static, not a run);
 5. runtime start **with `DATAPASS_TRUSTED_PYTHON=1` injected into the host** — it must still report trusted Python off;
 6. Mosaic SQL scratch on real DuckDB; Python refused while untrusted;

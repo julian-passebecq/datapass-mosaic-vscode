@@ -1,4 +1,5 @@
 import type { ModuleId, WorkbenchModule } from "../modules";
+import type { MosaicLayoutItem } from "../platform/mosaicLayout";
 import type { PythonTrustState } from "../platform/pythonTrust";
 
 export type RuntimeStatus = "stopped" | "starting" | "running" | "error";
@@ -306,6 +307,8 @@ export interface WorkbenchViewState {
   workspace: WorkspaceViewState;
   runtime: RuntimeViewState;
   pythonTrust: PythonTrustView;
+  /** Project-portable layout from .datapass/mosaic.json, when present and valid. */
+  mosaicLayout?: readonly MosaicLayoutItem[];
   sparkProfiles?: readonly SparkLabProfileView[];
   practice?: PracticeViewState;
   pipeline?: PipelineViewState;
@@ -330,6 +333,7 @@ export type WebviewToHostMessage =
   | { type: "runActivePython" }
   | { type: "runActiveSparkLab"; profileId: string; aqe: boolean }
   | { type: "setTrustedPython"; enabled: boolean }
+  | { type: "saveMosaicLayout"; layout: readonly { i: string; x: number; y: number; w: number; h: number }[] }
   | { type: "setupRuntime" }
   | { type: "startRuntime" }
   | { type: "stopRuntime" }

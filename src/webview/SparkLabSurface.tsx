@@ -45,7 +45,7 @@ export function SparkLabSurface({
           <h3>Run bounded PySpark-style code from a native file</h3>
           <p>
             SparkLab parses a whitelisted PySpark DataFrame subset without executing Python, compiles it to SQL and
-            computes the result locally against the shared catalog. Stages, shuffle, cost and cluster behaviour are
+            computes the result locally against the shared catalog. Stages, shuffle, cost and cluster behavior are
             simulated teaching evidence. This is not a Spark cluster and does not claim distributed parity.
           </p>
         </div>

@@ -17,7 +17,7 @@ export const MODULES: readonly WorkbenchModule[] = [
     label:"Mosaic",
     description:"Flexible multi-pane workspace for local Polars, DuckDB, data and charts.",
     command:"datapass.openMosaic",
-    execution:"Real Polars + DuckDB",
+    execution:"Real DuckDB SQL + opt-in trusted Python/Polars",
     mode:"real",
     highlights:["Mosaic notebook/layout core","Polars + DuckDB execution","Data, charts and docs in one workspace"]
   },

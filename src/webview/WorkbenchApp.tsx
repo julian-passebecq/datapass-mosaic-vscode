@@ -137,7 +137,13 @@ export function WorkbenchApp({ vscode }: { vscode: VsCodeApi }) {
             </div>
 
             {selected.id === "mosaic" ? (
-              <MosaicSurface vscode={vscode} runtime={state.runtime} pythonTrust={state.pythonTrust} />
+              <MosaicSurface
+                vscode={vscode}
+                runtime={state.runtime}
+                pythonTrust={state.pythonTrust}
+                projectLayout={state.mosaicLayout}
+                canPersist={state.workspace.manifestExists}
+              />
             ) : selected.id === "practice" ? (
               <PracticeSurface vscode={vscode} exercises={state.practice?.exercises ?? []} runtime={state.runtime} />
             ) : selected.id === "fabric" ? (

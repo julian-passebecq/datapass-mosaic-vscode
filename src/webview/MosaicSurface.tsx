@@ -6,17 +6,14 @@ import ReactGridLayout, {
 import "react-grid-layout/css/styles.css";
 import "react-resizable/css/styles.css";
 import { Badge, Button, Text } from "@fluentui/react-components";
+import { useEffect, useRef, useState } from "react";
+import { MOSAIC_DEFAULT_LAYOUT, type MosaicLayoutItem } from "../platform/mosaicLayout";
 import type { PythonTrustView, RuntimeViewState } from "./contracts";
 import { ResultTable } from "./ResultTable";
 import { TrustedPythonControl } from "./TrustedPythonControl";
 import type { VsCodeApi } from "./WorkbenchApp";
 
-const DEFAULT_LAYOUT: Layout = [
-  { i: "sql", x: 0, y: 0, w: 6, h: 9 },
-  { i: "python", x: 6, y: 0, w: 6, h: 9 },
-  { i: "data", x: 0, y: 9, w: 7, h: 9 },
-  { i: "notes", x: 7, y: 9, w: 5, h: 7 }
-];
+const DEFAULT_LAYOUT: Layout = MOSAIC_DEFAULT_LAYOUT.map(item => ({ ...item }));
 
 interface PersistedWebviewState {
   mosaicLayout?: Layout;
@@ -25,15 +22,35 @@ interface PersistedWebviewState {
 export function MosaicSurface({
   vscode,
   runtime,
-  pythonTrust
+  pythonTrust,
+  projectLayout,
+  canPersist
 }: {
   vscode: VsCodeApi;
   runtime: RuntimeViewState;
   pythonTrust: PythonTrustView;
+  projectLayout?: readonly MosaicLayoutItem[];
+  canPersist: boolean;
 }) {
   const { width, containerRef, mounted } = useContainerWidth();
-  const persisted = readState(vscode);
-  const layout = persisted.mosaicLayout ?? DEFAULT_LAYOUT;
+  // Precedence: project file (.datapass/mosaic.json) > webview cache > default.
+  const [layout, setLayout] = useState<Layout>(
+    () => (projectLayout as Layout | undefined) ?? readState(vscode).mosaicLayout ?? DEFAULT_LAYOUT
+  );
+  const projectKey = projectLayout ? JSON.stringify(projectLayout) : "";
+  useEffect(() => {
+    if (projectLayout) setLayout(projectLayout as Layout);
+  }, [projectKey]);
+
+  // One-time migration of a layout that previously lived only in webview state.
+  const migrated = useRef(false);
+  useEffect(() => {
+    const cached = readState(vscode).mosaicLayout;
+    if (!migrated.current && canPersist && !projectLayout && cached) {
+      migrated.current = true;
+      vscode.postMessage({ type: "saveMosaicLayout", layout: toGeometry(cached) });
+    }
+  }, [canPersist, projectKey]);
 
   const pythonRunnable = runtime.status === "running" && runtime.trustedPython === true;
   const pythonBlockedReason = runtime.status !== "running"
@@ -46,7 +63,9 @@ export function MosaicSurface({
   const lastRun = runtime.lastRun;
 
   const saveLayout = (next: Layout) => {
+    setLayout(next);
     vscode.setState({ ...readState(vscode), mosaicLayout: next });
+    if (canPersist) vscode.postMessage({ type: "saveMosaicLayout", layout: toGeometry(next) });
   };
 
   return (
@@ -56,7 +75,12 @@ export function MosaicSurface({
           <div className="eyebrow">Mosaic workspace</div>
           <Text size={500} weight="semibold">Arrange local data work around native VS Code files</Text>
         </div>
-        <Badge appearance="outline">Polars + DuckDB</Badge>
+        <div className="button-row">
+          <span className="muted" title={canPersist ? ".datapass/mosaic.json" : "Create a .datapass project to keep the layout with the project"}>
+            {canPersist ? "Layout saved to .datapass/mosaic.json" : "Layout kept in this window only"}
+          </span>
+          <Badge appearance="outline">DuckDB SQL · trusted Python/Polars</Badge>
+        </div>
       </div>
 
       <div ref={containerRef} className="mosaic-canvas">
@@ -213,6 +237,10 @@ function MosaicBlock({
       <div className="mosaic-block-body">{children}</div>
     </div>
   );
+}
+
+function toGeometry(layout: Layout): { i: string; x: number; y: number; w: number; h: number }[] {
+  return layout.map(({ i, x, y, w, h }) => ({ i, x, y, w, h }));
 }
 
 function readState(vscode: VsCodeApi): PersistedWebviewState {

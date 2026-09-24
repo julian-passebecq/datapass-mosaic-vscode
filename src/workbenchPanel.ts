@@ -2,6 +2,7 @@ import * as vscode from "vscode";
 import { loadExerciseCatalog } from "./exerciseCatalog";
 import { probeDbtCli } from "./dbtState";
 import { MODULES, type ModuleId } from "./modules";
+import { writeMosaicLayout } from "./mosaicLayoutStore";
 import { createDefaultProjectManifest, readProjectManifest, writeProjectManifest } from "./project/projectManifest";
 import type { PythonTrustController } from "./pythonTrustController";
 import type { RuntimeManager } from "./runtimeManager";
@@ -129,6 +130,10 @@ export class WorkbenchPanel {
         return;
       case "setTrustedPython":
         await this.setTrustedPython(message.enabled);
+        return;
+      case "saveMosaicLayout":
+        // Persist only inside a Datapass project; never create .datapass/ just by dragging.
+        if ((await readProjectManifest()).exists) await writeMosaicLayout(message.layout);
         return;
       case "setupRuntime":
         await this.setupRuntime();

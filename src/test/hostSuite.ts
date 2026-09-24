@@ -18,6 +18,7 @@ import { loadAirflowState } from "../airflowState";
 import { loadDbtState } from "../dbtState";
 import { loadExerciseCatalog } from "../exerciseCatalog";
 import { MODULES } from "../modules";
+import { readMosaicLayout, writeMosaicLayout } from "../mosaicLayoutStore";
 import { loadPipelineState } from "../pipelineState";
 import {
   createDefaultProjectManifest,
@@ -83,6 +84,21 @@ export async function run(): Promise<void> {
       assert.equal(await confirmed.disable(), true);
       assert.equal((await readProjectManifest()).manifest?.runtime?.trustedLocalPython, false);
       assert.equal((await confirmed.resolve()).state, "disabled");
+    }],
+    ["Mosaic layout persists to .datapass/mosaic.json and rejects bad input", async () => {
+      assert.equal(await readMosaicLayout(), undefined, "no project layout before the first save");
+      const custom = [
+        { i: "python", x: 0, y: 0, w: 12, h: 10 },
+        { i: "sql", x: 0, y: 10, w: 6, h: 8 },
+        { i: "data", x: 6, y: 10, w: 6, h: 8 },
+        { i: "notes", x: 0, y: 18, w: 12, h: 5 }
+      ];
+      assert.equal(await writeMosaicLayout(custom), true);
+      assert.deepEqual(await readMosaicLayout(), custom);
+      assert.equal(await writeMosaicLayout([{ i: "evil", x: 0, y: 0, w: 1, h: 1 }]), false);
+      assert.deepEqual(await readMosaicLayout(), custom, "rejected input must not overwrite the file");
+      await write(".datapass/mosaic.json", "{corrupt");
+      assert.equal(await readMosaicLayout(), undefined, "corrupt file falls back to defaults");
     }],
     ["Airflow starter loads as a valid simulated DAG", async () => {
       await vscode.workspace.fs.createDirectory(vscode.Uri.joinPath(root, "airflow"));
