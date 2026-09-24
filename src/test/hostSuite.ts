@@ -185,6 +185,43 @@ export async function run(): Promise<void> {
       });
       assert.equal(runtime!.snapshot().practiceResult?.status, "failed", "a wrong answer must fail");
     }],
+    ["SQL lab multi-table and semantic-variant exercises grade from the catalog", async () => {
+      const catalog = await loadExerciseCatalog(extension.extensionUri);
+      const lab = catalog.filter(item => item.packId === "sql-lab-v1");
+      assert.equal(lab.length, 30);
+      assert.ok(lab.every(item => item.dataContext.length > 0 && item.hints.length > 0));
+
+      const grading = JSON.parse(new TextDecoder().decode(await vscode.workspace.fs.readFile(
+        vscode.Uri.joinPath(extension.extensionUri, "content", "exercise-packs", "sql-lab-v1", "grading.server.json")
+      ))) as Record<string, { solution: string }>;
+      const leftJoin = lab.find(item => item.id === "sql-lab-left-preserve-customers")!;
+      assert.deepEqual(leftJoin.dataContext.map(table => table.name), ["customers", "order_detail"]);
+      const submit = async (exercise: typeof leftJoin, code: string, mode: "run" | "submit" = "submit") => {
+        await runtime!.gradeExercise(exercise.key, {
+          exercise_id: exercise.id, exercise_version: exercise.version, language: exercise.language,
+          code, mode, notebook_id: "e2e-lab", cell_id: "solution", source_revision: 1
+        });
+        return runtime!.snapshot().practiceResult!;
+      };
+      const passed = await submit(leftJoin, grading[leftJoin.id].solution);
+      assert.equal(passed.status, "passed", JSON.stringify(passed.checks));
+      assert.deepEqual(passed.checks.map(check => check.visibility), ["visible", "hidden", "edge"]);
+      const inner = await submit(leftJoin, grading[leftJoin.id].solution.replace("LEFT JOIN", "INNER JOIN"));
+      assert.equal(inner.status, "failed", "an INNER JOIN must not pass the LEFT JOIN lesson");
+      const visibleOnly = await submit(leftJoin, grading[leftJoin.id].solution, "run");
+      assert.deepEqual(visibleOnly.checks.map(check => check.visibility), ["visible"]);
+
+      // Semantic packs expand to `<scenario>-<language>` ids in the runtime.
+      const variant = catalog.find(item => item.packId === "unified-retail-v1" && item.language === "sql");
+      assert.ok(variant);
+      assert.ok(variant.id.endsWith("-sql"), `semantic variant id must be <scenario>-sql, got ${variant.id}`);
+      const unified = JSON.parse(new TextDecoder().decode(await vscode.workspace.fs.readFile(
+        vscode.Uri.joinPath(extension.extensionUri, "content", "exercise-packs", "unified-retail-v1", "grading.server.json")
+      ))) as Record<string, { solutions: Record<string, string> }>;
+      const scenario = variant.id.slice(0, -"-sql".length);
+      const semantic = await submit(variant, unified[scenario].solutions.sql);
+      assert.equal(semantic.status, "passed", JSON.stringify(semantic.checks));
+    }],
     ["Pipeline starter compiles into a graph and runs its activities", async () => {
       await vscode.workspace.fs.createDirectory(vscode.Uri.joinPath(root, "pipelines"));
       await write("pipelines/main.pipeline.py", pipelineStarter());

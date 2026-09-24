@@ -30,6 +30,7 @@ jobs:
       - run: python -m pip install ./runtime
       - run: python -m compileall -q runtime/datapass_runtime runtime/sparklab
       - run: python scripts/runtime_smoke.py
+      - run: python scripts/exercise_packs_smoke.py
 
   extension-host:
     runs-on: ubuntu-latest

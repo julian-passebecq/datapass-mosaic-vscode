@@ -74,6 +74,7 @@ npm test
 python -m pip install ./runtime
 python -m compileall -q runtime/datapass_runtime runtime/sparklab
 python scripts/runtime_smoke.py
+python scripts/exercise_packs_smoke.py
 npm run test:host   # with DATAPASS_E2E_PYTHON set; see docs/LOCAL_TEST.md
 ```
 

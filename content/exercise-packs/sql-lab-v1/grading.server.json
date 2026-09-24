@@ -1,0 +1,3923 @@
+{
+  "sql-lab-cross-size-brand": {
+    "solution": "SELECT s.size_code, b.brand_name\nFROM sizes AS s\nCROSS JOIN brands AS b",
+    "fixtures": [
+      {
+        "id": "example",
+        "visibility": "visible",
+        "input_rows": [],
+        "tables": {
+          "sizes": [
+            {
+              "size_code": "XS"
+            },
+            {
+              "size_code": "M"
+            },
+            {
+              "size_code": "L"
+            },
+            {
+              "size_code": "XL"
+            }
+          ],
+          "brands": [
+            {
+              "brand_name": "Nike"
+            },
+            {
+              "brand_name": "Asphalte"
+            },
+            {
+              "brand_name": "Abercrombie"
+            },
+            {
+              "brand_name": "Lewis"
+            }
+          ]
+        },
+        "expected": [
+          {
+            "size_code": "XS",
+            "brand_name": "Lewis"
+          },
+          {
+            "size_code": "XS",
+            "brand_name": "Nike"
+          },
+          {
+            "size_code": "XS",
+            "brand_name": "Asphalte"
+          },
+          {
+            "size_code": "XS",
+            "brand_name": "Abercrombie"
+          },
+          {
+            "size_code": "M",
+            "brand_name": "Lewis"
+          },
+          {
+            "size_code": "M",
+            "brand_name": "Nike"
+          },
+          {
+            "size_code": "M",
+            "brand_name": "Asphalte"
+          },
+          {
+            "size_code": "M",
+            "brand_name": "Abercrombie"
+          },
+          {
+            "size_code": "L",
+            "brand_name": "Lewis"
+          },
+          {
+            "size_code": "L",
+            "brand_name": "Nike"
+          },
+          {
+            "size_code": "L",
+            "brand_name": "Asphalte"
+          },
+          {
+            "size_code": "L",
+            "brand_name": "Abercrombie"
+          },
+          {
+            "size_code": "XL",
+            "brand_name": "Lewis"
+          },
+          {
+            "size_code": "XL",
+            "brand_name": "Nike"
+          },
+          {
+            "size_code": "XL",
+            "brand_name": "Asphalte"
+          },
+          {
+            "size_code": "XL",
+            "brand_name": "Abercrombie"
+          }
+        ]
+      },
+      {
+        "id": "duplicate-size",
+        "visibility": "hidden",
+        "input_rows": [],
+        "tables": {
+          "sizes": [
+            {
+              "size_code": "M"
+            },
+            {
+              "size_code": "M"
+            },
+            {
+              "size_code": "S"
+            }
+          ],
+          "brands": [
+            {
+              "brand_name": "Nike"
+            },
+            {
+              "brand_name": "Lewis"
+            }
+          ]
+        },
+        "expected": [
+          {
+            "size_code": "M",
+            "brand_name": "Nike"
+          },
+          {
+            "size_code": "M",
+            "brand_name": "Lewis"
+          },
+          {
+            "size_code": "M",
+            "brand_name": "Nike"
+          },
+          {
+            "size_code": "M",
+            "brand_name": "Lewis"
+          },
+          {
+            "size_code": "S",
+            "brand_name": "Nike"
+          },
+          {
+            "size_code": "S",
+            "brand_name": "Lewis"
+          }
+        ]
+      },
+      {
+        "id": "empty-brands",
+        "visibility": "edge",
+        "input_rows": [],
+        "tables": {
+          "sizes": [
+            {
+              "size_code": "M"
+            }
+          ],
+          "brands": []
+        },
+        "expected": []
+      }
+    ]
+  },
+  "sql-lab-cross-time-grid": {
+    "solution": "SELECT h.hour_value, q.minute_value\nFROM hours AS h\nCROSS JOIN quarters AS q\nORDER BY h.hour_value, q.minute_value",
+    "fixtures": [
+      {
+        "id": "example",
+        "visibility": "visible",
+        "input_rows": [],
+        "tables": {
+          "hours": [
+            {
+              "hour_value": 8
+            },
+            {
+              "hour_value": 9
+            },
+            {
+              "hour_value": 10
+            },
+            {
+              "hour_value": 11
+            },
+            {
+              "hour_value": 12
+            }
+          ],
+          "quarters": [
+            {
+              "minute_value": 0
+            },
+            {
+              "minute_value": 15
+            },
+            {
+              "minute_value": 30
+            },
+            {
+              "minute_value": 45
+            }
+          ]
+        },
+        "expected": [
+          {
+            "hour_value": 8,
+            "minute_value": 0
+          },
+          {
+            "hour_value": 8,
+            "minute_value": 15
+          },
+          {
+            "hour_value": 8,
+            "minute_value": 30
+          },
+          {
+            "hour_value": 8,
+            "minute_value": 45
+          },
+          {
+            "hour_value": 9,
+            "minute_value": 0
+          },
+          {
+            "hour_value": 9,
+            "minute_value": 15
+          },
+          {
+            "hour_value": 9,
+            "minute_value": 30
+          },
+          {
+            "hour_value": 9,
+            "minute_value": 45
+          },
+          {
+            "hour_value": 10,
+            "minute_value": 0
+          },
+          {
+            "hour_value": 10,
+            "minute_value": 15
+          },
+          {
+            "hour_value": 10,
+            "minute_value": 30
+          },
+          {
+            "hour_value": 10,
+            "minute_value": 45
+          },
+          {
+            "hour_value": 11,
+            "minute_value": 0
+          },
+          {
+            "hour_value": 11,
+            "minute_value": 15
+          },
+          {
+            "hour_value": 11,
+            "minute_value": 30
+          },
+          {
+            "hour_value": 11,
+            "minute_value": 45
+          },
+          {
+            "hour_value": 12,
+            "minute_value": 0
+          },
+          {
+            "hour_value": 12,
+            "minute_value": 15
+          },
+          {
+            "hour_value": 12,
+            "minute_value": 30
+          },
+          {
+            "hour_value": 12,
+            "minute_value": 45
+          }
+        ]
+      },
+      {
+        "id": "unsorted-sources",
+        "visibility": "hidden",
+        "input_rows": [],
+        "tables": {
+          "hours": [
+            {
+              "hour_value": 11
+            },
+            {
+              "hour_value": 9
+            }
+          ],
+          "quarters": [
+            {
+              "minute_value": 45
+            },
+            {
+              "minute_value": 0
+            },
+            {
+              "minute_value": 30
+            }
+          ]
+        },
+        "expected": [
+          {
+            "hour_value": 9,
+            "minute_value": 0
+          },
+          {
+            "hour_value": 9,
+            "minute_value": 30
+          },
+          {
+            "hour_value": 9,
+            "minute_value": 45
+          },
+          {
+            "hour_value": 11,
+            "minute_value": 0
+          },
+          {
+            "hour_value": 11,
+            "minute_value": 30
+          },
+          {
+            "hour_value": 11,
+            "minute_value": 45
+          }
+        ]
+      },
+      {
+        "id": "single-slot",
+        "visibility": "edge",
+        "input_rows": [],
+        "tables": {
+          "hours": [
+            {
+              "hour_value": 7
+            }
+          ],
+          "quarters": [
+            {
+              "minute_value": 0
+            }
+          ]
+        },
+        "expected": [
+          {
+            "hour_value": 7,
+            "minute_value": 0
+          }
+        ]
+      }
+    ]
+  },
+  "sql-lab-inner-customer-orders": {
+    "solution": "SELECT c.customer_id, c.customer_name, od.order_id, od.product_id, od.quantity\nFROM customers AS c\nINNER JOIN order_detail AS od\n    ON c.customer_id = od.customer_id",
+    "fixtures": [
+      {
+        "id": "example",
+        "visibility": "visible",
+        "input_rows": [],
+        "tables": {
+          "customers": [
+            {
+              "customer_id": 1,
+              "customer_name": "Ada"
+            },
+            {
+              "customer_id": 2,
+              "customer_name": "Grace"
+            },
+            {
+              "customer_id": 3,
+              "customer_name": "Linus"
+            }
+          ],
+          "order_detail": [
+            {
+              "order_id": 100,
+              "customer_id": 1,
+              "product_id": 10,
+              "quantity": 2
+            },
+            {
+              "order_id": 101,
+              "customer_id": 2,
+              "product_id": 11,
+              "quantity": 1
+            },
+            {
+              "order_id": 102,
+              "customer_id": 9,
+              "product_id": 12,
+              "quantity": 5
+            }
+          ]
+        },
+        "expected": [
+          {
+            "customer_id": 1,
+            "customer_name": "Ada",
+            "order_id": 100,
+            "product_id": 10,
+            "quantity": 2
+          },
+          {
+            "customer_id": 2,
+            "customer_name": "Grace",
+            "order_id": 101,
+            "product_id": 11,
+            "quantity": 1
+          }
+        ]
+      },
+      {
+        "id": "multiple-lines",
+        "visibility": "hidden",
+        "input_rows": [],
+        "tables": {
+          "customers": [
+            {
+              "customer_id": 1,
+              "customer_name": "Ada"
+            },
+            {
+              "customer_id": 2,
+              "customer_name": "Grace"
+            }
+          ],
+          "order_detail": [
+            {
+              "order_id": 1,
+              "customer_id": 2,
+              "product_id": 10,
+              "quantity": 1
+            },
+            {
+              "order_id": 2,
+              "customer_id": 2,
+              "product_id": 11,
+              "quantity": 3
+            },
+            {
+              "order_id": 3,
+              "customer_id": 1,
+              "product_id": 10,
+              "quantity": 4
+            }
+          ]
+        },
+        "expected": [
+          {
+            "customer_id": 2,
+            "customer_name": "Grace",
+            "order_id": 1,
+            "product_id": 10,
+            "quantity": 1
+          },
+          {
+            "customer_id": 2,
+            "customer_name": "Grace",
+            "order_id": 2,
+            "product_id": 11,
+            "quantity": 3
+          },
+          {
+            "customer_id": 1,
+            "customer_name": "Ada",
+            "order_id": 3,
+            "product_id": 10,
+            "quantity": 4
+          }
+        ]
+      },
+      {
+        "id": "no-orders",
+        "visibility": "edge",
+        "input_rows": [],
+        "tables": {
+          "customers": [
+            {
+              "customer_id": 1,
+              "customer_name": "Ada"
+            }
+          ],
+          "order_detail": []
+        },
+        "expected": []
+      }
+    ]
+  },
+  "sql-lab-inner-multi-key": {
+    "solution": "SELECT a.store_id, a.product_id, a.amount, t.target_amount\nFROM actual_sales AS a\nINNER JOIN product_targets AS t\n    ON a.store_id = t.store_id\n   AND a.product_id = t.product_id",
+    "fixtures": [
+      {
+        "id": "example",
+        "visibility": "visible",
+        "input_rows": [],
+        "tables": {
+          "actual_sales": [
+            {
+              "store_id": 1,
+              "product_id": 10,
+              "amount": 120.0
+            },
+            {
+              "store_id": 2,
+              "product_id": 10,
+              "amount": 80.0
+            },
+            {
+              "store_id": 1,
+              "product_id": 11,
+              "amount": 50.0
+            }
+          ],
+          "product_targets": [
+            {
+              "store_id": 1,
+              "product_id": 10,
+              "target_amount": 100.0
+            },
+            {
+              "store_id": 2,
+              "product_id": 10,
+              "target_amount": 90.0
+            },
+            {
+              "store_id": 1,
+              "product_id": 11,
+              "target_amount": 60.0
+            }
+          ]
+        },
+        "expected": [
+          {
+            "store_id": 1,
+            "product_id": 10,
+            "amount": 120.0,
+            "target_amount": 100.0
+          },
+          {
+            "store_id": 2,
+            "product_id": 10,
+            "amount": 80.0,
+            "target_amount": 90.0
+          },
+          {
+            "store_id": 1,
+            "product_id": 11,
+            "amount": 50.0,
+            "target_amount": 60.0
+          }
+        ]
+      },
+      {
+        "id": "missing-target",
+        "visibility": "hidden",
+        "input_rows": [],
+        "tables": {
+          "actual_sales": [
+            {
+              "store_id": 3,
+              "product_id": 20,
+              "amount": 10.0
+            },
+            {
+              "store_id": 4,
+              "product_id": 20,
+              "amount": 15.0
+            }
+          ],
+          "product_targets": [
+            {
+              "store_id": 3,
+              "product_id": 20,
+              "target_amount": 12.0
+            }
+          ]
+        },
+        "expected": [
+          {
+            "store_id": 3,
+            "product_id": 20,
+            "amount": 10.0,
+            "target_amount": 12.0
+          }
+        ]
+      },
+      {
+        "id": "no-targets",
+        "visibility": "edge",
+        "input_rows": [],
+        "tables": {
+          "actual_sales": [
+            {
+              "store_id": 1,
+              "product_id": 1,
+              "amount": 1.0
+            }
+          ],
+          "product_targets": []
+        },
+        "expected": []
+      }
+    ]
+  },
+  "sql-lab-left-preserve-customers": {
+    "solution": "SELECT c.customer_id, c.customer_name, od.order_id, od.product_id, od.quantity\nFROM customers AS c\nLEFT JOIN order_detail AS od\n    ON c.customer_id = od.customer_id",
+    "fixtures": [
+      {
+        "id": "example",
+        "visibility": "visible",
+        "input_rows": [],
+        "tables": {
+          "customers": [
+            {
+              "customer_id": 1,
+              "customer_name": "Ada"
+            },
+            {
+              "customer_id": 2,
+              "customer_name": "Grace"
+            },
+            {
+              "customer_id": 3,
+              "customer_name": "Linus"
+            }
+          ],
+          "order_detail": [
+            {
+              "order_id": 100,
+              "customer_id": 1,
+              "product_id": 10,
+              "quantity": 2
+            },
+            {
+              "order_id": 101,
+              "customer_id": 1,
+              "product_id": 11,
+              "quantity": 1
+            },
+            {
+              "order_id": 102,
+              "customer_id": 9,
+              "product_id": 12,
+              "quantity": 5
+            }
+          ]
+        },
+        "expected": [
+          {
+            "customer_id": 1,
+            "customer_name": "Ada",
+            "order_id": 101,
+            "product_id": 11,
+            "quantity": 1
+          },
+          {
+            "customer_id": 1,
+            "customer_name": "Ada",
+            "order_id": 100,
+            "product_id": 10,
+            "quantity": 2
+          },
+          {
+            "customer_id": 2,
+            "customer_name": "Grace",
+            "order_id": null,
+            "product_id": null,
+            "quantity": null
+          },
+          {
+            "customer_id": 3,
+            "customer_name": "Linus",
+            "order_id": null,
+            "product_id": null,
+            "quantity": null
+          }
+        ]
+      },
+      {
+        "id": "all-customers-ordered",
+        "visibility": "hidden",
+        "input_rows": [],
+        "tables": {
+          "customers": [
+            {
+              "customer_id": 5,
+              "customer_name": "Mia"
+            }
+          ],
+          "order_detail": [
+            {
+              "order_id": 7,
+              "customer_id": 5,
+              "product_id": 1,
+              "quantity": 1
+            }
+          ]
+        },
+        "expected": [
+          {
+            "customer_id": 5,
+            "customer_name": "Mia",
+            "order_id": 7,
+            "product_id": 1,
+            "quantity": 1
+          }
+        ]
+      },
+      {
+        "id": "no-orders",
+        "visibility": "edge",
+        "input_rows": [],
+        "tables": {
+          "customers": [
+            {
+              "customer_id": 1,
+              "customer_name": "Ada"
+            },
+            {
+              "customer_id": 2,
+              "customer_name": "Grace"
+            }
+          ],
+          "order_detail": []
+        },
+        "expected": [
+          {
+            "customer_id": 1,
+            "customer_name": "Ada",
+            "order_id": null,
+            "product_id": null,
+            "quantity": null
+          },
+          {
+            "customer_id": 2,
+            "customer_name": "Grace",
+            "order_id": null,
+            "product_id": null,
+            "quantity": null
+          }
+        ]
+      }
+    ]
+  },
+  "sql-lab-left-find-missing-universe": {
+    "solution": "SELECT s.sale_id, s.product_id, pc.category_id, cu.universe_id\nFROM sales AS s\nLEFT JOIN product_category AS pc\n    ON s.product_id = pc.product_id\nLEFT JOIN category_universe AS cu\n    ON pc.category_id = cu.category_id\nWHERE cu.universe_id IS NULL",
+    "fixtures": [
+      {
+        "id": "example",
+        "visibility": "visible",
+        "input_rows": [],
+        "tables": {
+          "sales": [
+            {
+              "sale_id": 1,
+              "product_id": 10
+            },
+            {
+              "sale_id": 2,
+              "product_id": 11
+            },
+            {
+              "sale_id": 3,
+              "product_id": 12
+            }
+          ],
+          "product_category": [
+            {
+              "product_id": 10,
+              "category_id": 100
+            },
+            {
+              "product_id": 12,
+              "category_id": 300
+            }
+          ],
+          "category_universe": [
+            {
+              "category_id": 100,
+              "universe_id": 1000
+            }
+          ]
+        },
+        "expected": [
+          {
+            "sale_id": 2,
+            "product_id": 11,
+            "category_id": null,
+            "universe_id": null
+          },
+          {
+            "sale_id": 3,
+            "product_id": 12,
+            "category_id": 300,
+            "universe_id": null
+          }
+        ]
+      },
+      {
+        "id": "all-mapped-but-one",
+        "visibility": "hidden",
+        "input_rows": [],
+        "tables": {
+          "sales": [
+            {
+              "sale_id": 7,
+              "product_id": 20
+            },
+            {
+              "sale_id": 8,
+              "product_id": 20
+            },
+            {
+              "sale_id": 9,
+              "product_id": 21
+            }
+          ],
+          "product_category": [
+            {
+              "product_id": 20,
+              "category_id": 200
+            },
+            {
+              "product_id": 21,
+              "category_id": 201
+            }
+          ],
+          "category_universe": [
+            {
+              "category_id": 200,
+              "universe_id": 2000
+            }
+          ]
+        },
+        "expected": [
+          {
+            "sale_id": 9,
+            "product_id": 21,
+            "category_id": 201,
+            "universe_id": null
+          }
+        ]
+      },
+      {
+        "id": "fully-mapped",
+        "visibility": "edge",
+        "input_rows": [],
+        "tables": {
+          "sales": [
+            {
+              "sale_id": 1,
+              "product_id": 1
+            }
+          ],
+          "product_category": [
+            {
+              "product_id": 1,
+              "category_id": 1
+            }
+          ],
+          "category_universe": [
+            {
+              "category_id": 1,
+              "universe_id": 1
+            }
+          ]
+        },
+        "expected": []
+      }
+    ]
+  },
+  "sql-lab-left-filter-placement": {
+    "solution": "SELECT c.customer_id, o.order_id, o.order_date\nFROM customers AS c\nLEFT JOIN orders AS o\n    ON c.customer_id = o.customer_id\n   AND o.status = 'COMPLETED'\n   AND o.order_date >= DATE '2026-01-01'\n   AND o.order_date < DATE '2027-01-01'",
+    "fixtures": [
+      {
+        "id": "example",
+        "visibility": "visible",
+        "input_rows": [],
+        "tables": {
+          "customers": [
+            {
+              "customer_id": 1
+            },
+            {
+              "customer_id": 2
+            },
+            {
+              "customer_id": 3
+            }
+          ],
+          "orders": [
+            {
+              "order_id": 10,
+              "customer_id": 1,
+              "order_date": "2026-03-01",
+              "status": "COMPLETED"
+            },
+            {
+              "order_id": 11,
+              "customer_id": 1,
+              "order_date": "2026-04-01",
+              "status": "CANCELLED"
+            },
+            {
+              "order_id": 12,
+              "customer_id": 2,
+              "order_date": "2025-12-31",
+              "status": "COMPLETED"
+            }
+          ]
+        },
+        "expected": [
+          {
+            "customer_id": 1,
+            "order_id": 10,
+            "order_date": "2026-03-01"
+          },
+          {
+            "customer_id": 2,
+            "order_id": null,
+            "order_date": null
+          },
+          {
+            "customer_id": 3,
+            "order_id": null,
+            "order_date": null
+          }
+        ]
+      },
+      {
+        "id": "boundaries",
+        "visibility": "hidden",
+        "input_rows": [],
+        "tables": {
+          "customers": [
+            {
+              "customer_id": 4
+            },
+            {
+              "customer_id": 5
+            }
+          ],
+          "orders": [
+            {
+              "order_id": 20,
+              "customer_id": 4,
+              "order_date": "2026-01-01",
+              "status": "COMPLETED"
+            },
+            {
+              "order_id": 21,
+              "customer_id": 4,
+              "order_date": "2026-12-31",
+              "status": "COMPLETED"
+            },
+            {
+              "order_id": 22,
+              "customer_id": 5,
+              "order_date": "2027-01-01",
+              "status": "COMPLETED"
+            }
+          ]
+        },
+        "expected": [
+          {
+            "customer_id": 4,
+            "order_id": 20,
+            "order_date": "2026-01-01"
+          },
+          {
+            "customer_id": 4,
+            "order_id": 21,
+            "order_date": "2026-12-31"
+          },
+          {
+            "customer_id": 5,
+            "order_id": null,
+            "order_date": null
+          }
+        ]
+      },
+      {
+        "id": "no-orders",
+        "visibility": "edge",
+        "input_rows": [],
+        "tables": {
+          "customers": [
+            {
+              "customer_id": 1
+            }
+          ],
+          "orders": []
+        },
+        "expected": [
+          {
+            "customer_id": 1,
+            "order_id": null,
+            "order_date": null
+          }
+        ]
+      }
+    ]
+  },
+  "sql-lab-full-reconcile": {
+    "solution": "SELECT COALESCE(s.customer_id, t.customer_id) AS customer_id,\n    CASE\n        WHEN s.customer_id IS NULL THEN 'TARGET_ONLY'\n        WHEN t.customer_id IS NULL THEN 'SOURCE_ONLY'\n        ELSE 'MATCHED'\n    END AS reconciliation_status\nFROM source_customers AS s\nFULL OUTER JOIN target_customers AS t\n    ON s.customer_id = t.customer_id",
+    "fixtures": [
+      {
+        "id": "example",
+        "visibility": "visible",
+        "input_rows": [],
+        "tables": {
+          "source_customers": [
+            {
+              "customer_id": 1
+            },
+            {
+              "customer_id": 2
+            },
+            {
+              "customer_id": 3
+            }
+          ],
+          "target_customers": [
+            {
+              "customer_id": 2
+            },
+            {
+              "customer_id": 3
+            },
+            {
+              "customer_id": 4
+            }
+          ]
+        },
+        "expected": [
+          {
+            "customer_id": 1,
+            "reconciliation_status": "SOURCE_ONLY"
+          },
+          {
+            "customer_id": 2,
+            "reconciliation_status": "MATCHED"
+          },
+          {
+            "customer_id": 3,
+            "reconciliation_status": "MATCHED"
+          },
+          {
+            "customer_id": 4,
+            "reconciliation_status": "TARGET_ONLY"
+          }
+        ]
+      },
+      {
+        "id": "target-heavy",
+        "visibility": "hidden",
+        "input_rows": [],
+        "tables": {
+          "source_customers": [
+            {
+              "customer_id": 5
+            }
+          ],
+          "target_customers": [
+            {
+              "customer_id": 6
+            },
+            {
+              "customer_id": 7
+            },
+            {
+              "customer_id": 5
+            }
+          ]
+        },
+        "expected": [
+          {
+            "customer_id": 6,
+            "reconciliation_status": "TARGET_ONLY"
+          },
+          {
+            "customer_id": 7,
+            "reconciliation_status": "TARGET_ONLY"
+          },
+          {
+            "customer_id": 5,
+            "reconciliation_status": "MATCHED"
+          }
+        ]
+      },
+      {
+        "id": "empty-target",
+        "visibility": "edge",
+        "input_rows": [],
+        "tables": {
+          "source_customers": [
+            {
+              "customer_id": 1
+            },
+            {
+              "customer_id": 2
+            }
+          ],
+          "target_customers": []
+        },
+        "expected": [
+          {
+            "customer_id": 1,
+            "reconciliation_status": "SOURCE_ONLY"
+          },
+          {
+            "customer_id": 2,
+            "reconciliation_status": "SOURCE_ONLY"
+          }
+        ]
+      }
+    ]
+  },
+  "sql-lab-self-manager": {
+    "solution": "SELECT e.employee_name, m.employee_name AS manager_name\nFROM employees AS e\nLEFT JOIN employees AS m\n    ON e.manager_id = m.employee_id",
+    "fixtures": [
+      {
+        "id": "example",
+        "visibility": "visible",
+        "input_rows": [],
+        "tables": {
+          "employees": [
+            {
+              "employee_id": 1,
+              "employee_name": "Nadia",
+              "manager_id": null
+            },
+            {
+              "employee_id": 2,
+              "employee_name": "Omar",
+              "manager_id": 1
+            },
+            {
+              "employee_id": 3,
+              "employee_name": "Paula",
+              "manager_id": 1
+            },
+            {
+              "employee_id": 4,
+              "employee_name": "Quentin",
+              "manager_id": 2
+            }
+          ]
+        },
+        "expected": [
+          {
+            "employee_name": "Omar",
+            "manager_name": "Nadia"
+          },
+          {
+            "employee_name": "Nadia",
+            "manager_name": null
+          },
+          {
+            "employee_name": "Paula",
+            "manager_name": "Nadia"
+          },
+          {
+            "employee_name": "Quentin",
+            "manager_name": "Omar"
+          }
+        ]
+      },
+      {
+        "id": "two-roots",
+        "visibility": "hidden",
+        "input_rows": [],
+        "tables": {
+          "employees": [
+            {
+              "employee_id": 10,
+              "employee_name": "Rita",
+              "manager_id": null
+            },
+            {
+              "employee_id": 11,
+              "employee_name": "Sam",
+              "manager_id": null
+            },
+            {
+              "employee_id": 12,
+              "employee_name": "Tess",
+              "manager_id": 11
+            }
+          ]
+        },
+        "expected": [
+          {
+            "employee_name": "Rita",
+            "manager_name": null
+          },
+          {
+            "employee_name": "Sam",
+            "manager_name": null
+          },
+          {
+            "employee_name": "Tess",
+            "manager_name": "Sam"
+          }
+        ]
+      },
+      {
+        "id": "single",
+        "visibility": "edge",
+        "input_rows": [],
+        "tables": {
+          "employees": [
+            {
+              "employee_id": 1,
+              "employee_name": "Uma",
+              "manager_id": null
+            }
+          ]
+        },
+        "expected": [
+          {
+            "employee_name": "Uma",
+            "manager_name": null
+          }
+        ]
+      }
+    ]
+  },
+  "sql-lab-self-consecutive-orders": {
+    "solution": "SELECT a.customer_id, a.order_id AS first_order, a.order_date AS first_order_date,\n       b.order_id AS second_order, b.order_date AS second_order_date\nFROM sales_orders AS a\nINNER JOIN sales_orders AS b\n    ON a.customer_id = b.customer_id\n   AND b.order_date = a.order_date + INTERVAL 1 DAY",
+    "fixtures": [
+      {
+        "id": "example",
+        "visibility": "visible",
+        "input_rows": [],
+        "tables": {
+          "sales_orders": [
+            {
+              "order_id": 1,
+              "customer_id": 100,
+              "order_date": "2026-05-01"
+            },
+            {
+              "order_id": 2,
+              "customer_id": 100,
+              "order_date": "2026-05-02"
+            },
+            {
+              "order_id": 3,
+              "customer_id": 100,
+              "order_date": "2026-05-04"
+            },
+            {
+              "order_id": 4,
+              "customer_id": 200,
+              "order_date": "2026-05-02"
+            }
+          ]
+        },
+        "expected": [
+          {
+            "customer_id": 100,
+            "first_order": 1,
+            "first_order_date": "2026-05-01",
+            "second_order": 2,
+            "second_order_date": "2026-05-02"
+          }
+        ]
+      },
+      {
+        "id": "same-day-pairs",
+        "visibility": "hidden",
+        "input_rows": [],
+        "tables": {
+          "sales_orders": [
+            {
+              "order_id": 10,
+              "customer_id": 300,
+              "order_date": "2026-06-30"
+            },
+            {
+              "order_id": 11,
+              "customer_id": 300,
+              "order_date": "2026-06-30"
+            },
+            {
+              "order_id": 12,
+              "customer_id": 300,
+              "order_date": "2026-07-01"
+            },
+            {
+              "order_id": 13,
+              "customer_id": 400,
+              "order_date": "2026-07-01"
+            }
+          ]
+        },
+        "expected": [
+          {
+            "customer_id": 300,
+            "first_order": 10,
+            "first_order_date": "2026-06-30",
+            "second_order": 12,
+            "second_order_date": "2026-07-01"
+          },
+          {
+            "customer_id": 300,
+            "first_order": 11,
+            "first_order_date": "2026-06-30",
+            "second_order": 12,
+            "second_order_date": "2026-07-01"
+          }
+        ]
+      },
+      {
+        "id": "no-pairs",
+        "visibility": "edge",
+        "input_rows": [],
+        "tables": {
+          "sales_orders": [
+            {
+              "order_id": 1,
+              "customer_id": 1,
+              "order_date": "2026-01-01"
+            },
+            {
+              "order_id": 2,
+              "customer_id": 1,
+              "order_date": "2026-01-03"
+            }
+          ]
+        },
+        "expected": []
+      }
+    ]
+  },
+  "sql-lab-groupby-basket": {
+    "solution": "SELECT customer_id, AVG(amount) AS average_basket_amount\nFROM sales\nGROUP BY customer_id",
+    "fixtures": [
+      {
+        "id": "example",
+        "visibility": "visible",
+        "input_rows": [],
+        "tables": {
+          "sales": [
+            {
+              "customer_id": 1,
+              "amount": 10.0
+            },
+            {
+              "customer_id": 1,
+              "amount": 30.0
+            },
+            {
+              "customer_id": 2,
+              "amount": 5.0
+            }
+          ]
+        },
+        "expected": [
+          {
+            "customer_id": 1,
+            "average_basket_amount": 20.0
+          },
+          {
+            "customer_id": 2,
+            "average_basket_amount": 5.0
+          }
+        ]
+      },
+      {
+        "id": "null-amounts",
+        "visibility": "hidden",
+        "input_rows": [],
+        "tables": {
+          "sales": [
+            {
+              "customer_id": 3,
+              "amount": 40.0
+            },
+            {
+              "customer_id": 3,
+              "amount": null
+            },
+            {
+              "customer_id": 4,
+              "amount": 7.5
+            },
+            {
+              "customer_id": 4,
+              "amount": 12.5
+            }
+          ]
+        },
+        "expected": [
+          {
+            "customer_id": 3,
+            "average_basket_amount": 40.0
+          },
+          {
+            "customer_id": 4,
+            "average_basket_amount": 10.0
+          }
+        ]
+      },
+      {
+        "id": "empty",
+        "visibility": "edge",
+        "input_rows": [],
+        "tables": {
+          "sales": []
+        },
+        "expected": []
+      }
+    ]
+  },
+  "sql-lab-groupby-having": {
+    "solution": "SELECT city, COUNT(*) AS sale_count, AVG(sale_value) AS avg_sale_value\nFROM property_sales\nGROUP BY city\nHAVING COUNT(*) > 3\n   AND AVG(sale_value) < 250000",
+    "fixtures": [
+      {
+        "id": "example",
+        "visibility": "visible",
+        "input_rows": [],
+        "tables": {
+          "property_sales": [
+            {
+              "city": "Lyon",
+              "sale_value": 180000.0
+            },
+            {
+              "city": "Lyon",
+              "sale_value": 220000.0
+            },
+            {
+              "city": "Lyon",
+              "sale_value": 190000.0
+            },
+            {
+              "city": "Lyon",
+              "sale_value": 210000.0
+            },
+            {
+              "city": "Nantes",
+              "sale_value": 90000.0
+            },
+            {
+              "city": "Nantes",
+              "sale_value": 110000.0
+            },
+            {
+              "city": "Nantes",
+              "sale_value": 100000.0
+            },
+            {
+              "city": "Paris",
+              "sale_value": 100000.0
+            },
+            {
+              "city": "Paris",
+              "sale_value": 100000.0
+            },
+            {
+              "city": "Paris",
+              "sale_value": 100000.0
+            },
+            {
+              "city": "Paris",
+              "sale_value": 100000.0
+            },
+            {
+              "city": "Paris",
+              "sale_value": 1000000.0
+            }
+          ]
+        },
+        "expected": [
+          {
+            "city": "Lyon",
+            "sale_count": 4,
+            "avg_sale_value": 200000.0
+          }
+        ]
+      },
+      {
+        "id": "exactly-at-limits",
+        "visibility": "hidden",
+        "input_rows": [],
+        "tables": {
+          "property_sales": [
+            {
+              "city": "Lille",
+              "sale_value": 250000.0
+            },
+            {
+              "city": "Lille",
+              "sale_value": 250000.0
+            },
+            {
+              "city": "Lille",
+              "sale_value": 250000.0
+            },
+            {
+              "city": "Lille",
+              "sale_value": 250000.0
+            },
+            {
+              "city": "Nice",
+              "sale_value": 240000.0
+            },
+            {
+              "city": "Nice",
+              "sale_value": 240000.0
+            },
+            {
+              "city": "Nice",
+              "sale_value": 240000.0
+            },
+            {
+              "city": "Nice",
+              "sale_value": 240000.0
+            }
+          ]
+        },
+        "expected": [
+          {
+            "city": "Nice",
+            "sale_count": 4,
+            "avg_sale_value": 240000.0
+          }
+        ]
+      },
+      {
+        "id": "empty",
+        "visibility": "edge",
+        "input_rows": [],
+        "tables": {
+          "property_sales": []
+        },
+        "expected": []
+      }
+    ]
+  },
+  "sql-lab-groupby-above-global": {
+    "solution": "SELECT customer_id, AVG(amount) AS customer_avg\nFROM sales\nGROUP BY customer_id\nHAVING AVG(amount) > (\n    SELECT AVG(amount)\n    FROM sales\n)",
+    "fixtures": [
+      {
+        "id": "example",
+        "visibility": "visible",
+        "input_rows": [],
+        "tables": {
+          "sales": [
+            {
+              "customer_id": 1,
+              "amount": 10.0
+            },
+            {
+              "customer_id": 1,
+              "amount": 10.0
+            },
+            {
+              "customer_id": 2,
+              "amount": 100.0
+            },
+            {
+              "customer_id": 3,
+              "amount": 40.0
+            },
+            {
+              "customer_id": 3,
+              "amount": 40.0
+            },
+            {
+              "customer_id": 3,
+              "amount": 40.0
+            },
+            {
+              "customer_id": 3,
+              "amount": 40.0
+            },
+            {
+              "customer_id": 3,
+              "amount": 40.0
+            },
+            {
+              "customer_id": 3,
+              "amount": 40.0
+            }
+          ]
+        },
+        "expected": [
+          {
+            "customer_id": 2,
+            "customer_avg": 100.0
+          }
+        ]
+      },
+      {
+        "id": "weighting-matters",
+        "visibility": "hidden",
+        "input_rows": [],
+        "tables": {
+          "sales": [
+            {
+              "customer_id": 1,
+              "amount": 10.0
+            },
+            {
+              "customer_id": 2,
+              "amount": 30.0
+            },
+            {
+              "customer_id": 2,
+              "amount": 30.0
+            },
+            {
+              "customer_id": 2,
+              "amount": 30.0
+            },
+            {
+              "customer_id": 2,
+              "amount": 30.0
+            },
+            {
+              "customer_id": 2,
+              "amount": 30.0
+            },
+            {
+              "customer_id": 3,
+              "amount": 25.0
+            }
+          ]
+        },
+        "expected": [
+          {
+            "customer_id": 2,
+            "customer_avg": 30.0
+          }
+        ]
+      },
+      {
+        "id": "single-customer",
+        "visibility": "edge",
+        "input_rows": [],
+        "tables": {
+          "sales": [
+            {
+              "customer_id": 9,
+              "amount": 5.0
+            },
+            {
+              "customer_id": 9,
+              "amount": 5.0
+            }
+          ]
+        },
+        "expected": []
+      }
+    ]
+  },
+  "sql-lab-case-raises": {
+    "solution": "SELECT employee_name, department, wage,\n    CASE\n        WHEN department = 'SALES' THEN wage * 1.10\n        WHEN department = 'HR' THEN wage * 1.05\n        WHEN department = 'IT' THEN wage * 1.03\n        ELSE wage\n    END AS wage_after_raise\nFROM employees",
+    "fixtures": [
+      {
+        "id": "example",
+        "visibility": "visible",
+        "input_rows": [],
+        "tables": {
+          "employees": [
+            {
+              "employee_name": "Ana",
+              "department": "SALES",
+              "wage": 50000
+            },
+            {
+              "employee_name": "Ben",
+              "department": "HR",
+              "wage": 40000
+            },
+            {
+              "employee_name": "Cid",
+              "department": "IT",
+              "wage": 60000
+            },
+            {
+              "employee_name": "Dee",
+              "department": "FINANCE",
+              "wage": 55000
+            }
+          ]
+        },
+        "expected": [
+          {
+            "employee_name": "Ana",
+            "department": "SALES",
+            "wage": 50000,
+            "wage_after_raise": 55000.0
+          },
+          {
+            "employee_name": "Ben",
+            "department": "HR",
+            "wage": 40000,
+            "wage_after_raise": 42000.0
+          },
+          {
+            "employee_name": "Cid",
+            "department": "IT",
+            "wage": 60000,
+            "wage_after_raise": 61800.0
+          },
+          {
+            "employee_name": "Dee",
+            "department": "FINANCE",
+            "wage": 55000,
+            "wage_after_raise": 55000.0
+          }
+        ]
+      },
+      {
+        "id": "other-departments",
+        "visibility": "hidden",
+        "input_rows": [],
+        "tables": {
+          "employees": [
+            {
+              "employee_name": "Eve",
+              "department": "LEGAL",
+              "wage": 70000
+            },
+            {
+              "employee_name": "Fox",
+              "department": "SALES",
+              "wage": 30000
+            },
+            {
+              "employee_name": "Gus",
+              "department": "OPS",
+              "wage": 45000
+            }
+          ]
+        },
+        "expected": [
+          {
+            "employee_name": "Eve",
+            "department": "LEGAL",
+            "wage": 70000,
+            "wage_after_raise": 70000.0
+          },
+          {
+            "employee_name": "Fox",
+            "department": "SALES",
+            "wage": 30000,
+            "wage_after_raise": 33000.0
+          },
+          {
+            "employee_name": "Gus",
+            "department": "OPS",
+            "wage": 45000,
+            "wage_after_raise": 45000.0
+          }
+        ]
+      },
+      {
+        "id": "empty",
+        "visibility": "edge",
+        "input_rows": [],
+        "tables": {
+          "employees": []
+        },
+        "expected": []
+      }
+    ]
+  },
+  "sql-lab-case-inside-sum": {
+    "solution": "SELECT discount_code,\n    SUM(\n        CASE\n            WHEN discount_code = 'DISCOUNT10' THEN quantity * price_per_unit * 0.90\n            WHEN discount_code = 'DISCOUNT20' THEN quantity * price_per_unit * 0.80\n            ELSE quantity * price_per_unit\n        END\n    ) AS total_revenue\nFROM sales\nGROUP BY discount_code",
+    "fixtures": [
+      {
+        "id": "example",
+        "visibility": "visible",
+        "input_rows": [],
+        "tables": {
+          "sales": [
+            {
+              "discount_code": "DISCOUNT10",
+              "quantity": 2,
+              "price_per_unit": 50.0
+            },
+            {
+              "discount_code": "DISCOUNT20",
+              "quantity": 1,
+              "price_per_unit": 100.0
+            },
+            {
+              "discount_code": "NONE",
+              "quantity": 3,
+              "price_per_unit": 10.0
+            },
+            {
+              "discount_code": "DISCOUNT10",
+              "quantity": 1,
+              "price_per_unit": 10.0
+            }
+          ]
+        },
+        "expected": [
+          {
+            "discount_code": "NONE",
+            "total_revenue": 30.0
+          },
+          {
+            "discount_code": "DISCOUNT20",
+            "total_revenue": 80.0
+          },
+          {
+            "discount_code": "DISCOUNT10",
+            "total_revenue": 99.0
+          }
+        ]
+      },
+      {
+        "id": "null-code",
+        "visibility": "hidden",
+        "input_rows": [],
+        "tables": {
+          "sales": [
+            {
+              "discount_code": null,
+              "quantity": 2,
+              "price_per_unit": 20.0
+            },
+            {
+              "discount_code": "DISCOUNT20",
+              "quantity": 5,
+              "price_per_unit": 4.0
+            },
+            {
+              "discount_code": null,
+              "quantity": 1,
+              "price_per_unit": 5.0
+            }
+          ]
+        },
+        "expected": [
+          {
+            "discount_code": "DISCOUNT20",
+            "total_revenue": 16.0
+          },
+          {
+            "discount_code": null,
+            "total_revenue": 45.0
+          }
+        ]
+      },
+      {
+        "id": "empty",
+        "visibility": "edge",
+        "input_rows": [],
+        "tables": {
+          "sales": []
+        },
+        "expected": []
+      }
+    ]
+  },
+  "sql-lab-case-salary-bands": {
+    "solution": "WITH banded AS (\n    SELECT department, wage,\n        CASE\n            WHEN wage <= 50000 THEN 'Low'\n            WHEN wage < 90000 THEN 'Medium'\n            ELSE 'High'\n        END AS salary_band\n    FROM employees\n)\nSELECT department, salary_band, COUNT(*) AS employee_count, AVG(wage) AS average_wage\nFROM banded\nGROUP BY department, salary_band",
+    "fixtures": [
+      {
+        "id": "example",
+        "visibility": "visible",
+        "input_rows": [],
+        "tables": {
+          "employees": [
+            {
+              "department": "IT",
+              "wage": 45000
+            },
+            {
+              "department": "IT",
+              "wage": 60000
+            },
+            {
+              "department": "IT",
+              "wage": 95000
+            },
+            {
+              "department": "HR",
+              "wage": 52000
+            },
+            {
+              "department": "HR",
+              "wage": 48000
+            }
+          ]
+        },
+        "expected": [
+          {
+            "department": "HR",
+            "salary_band": "Medium",
+            "employee_count": 1,
+            "average_wage": 52000.0
+          },
+          {
+            "department": "IT",
+            "salary_band": "Low",
+            "employee_count": 1,
+            "average_wage": 45000.0
+          },
+          {
+            "department": "IT",
+            "salary_band": "High",
+            "employee_count": 1,
+            "average_wage": 95000.0
+          },
+          {
+            "department": "HR",
+            "salary_band": "Low",
+            "employee_count": 1,
+            "average_wage": 48000.0
+          },
+          {
+            "department": "IT",
+            "salary_band": "Medium",
+            "employee_count": 1,
+            "average_wage": 60000.0
+          }
+        ]
+      },
+      {
+        "id": "boundaries",
+        "visibility": "hidden",
+        "input_rows": [],
+        "tables": {
+          "employees": [
+            {
+              "department": "OPS",
+              "wage": 50000
+            },
+            {
+              "department": "OPS",
+              "wage": 50001
+            },
+            {
+              "department": "OPS",
+              "wage": 90000
+            },
+            {
+              "department": "OPS",
+              "wage": 89999
+            }
+          ]
+        },
+        "expected": [
+          {
+            "department": "OPS",
+            "salary_band": "Medium",
+            "employee_count": 2,
+            "average_wage": 70000.0
+          },
+          {
+            "department": "OPS",
+            "salary_band": "Low",
+            "employee_count": 1,
+            "average_wage": 50000.0
+          },
+          {
+            "department": "OPS",
+            "salary_band": "High",
+            "employee_count": 1,
+            "average_wage": 90000.0
+          }
+        ]
+      },
+      {
+        "id": "empty",
+        "visibility": "edge",
+        "input_rows": [],
+        "tables": {
+          "employees": []
+        },
+        "expected": []
+      }
+    ]
+  },
+  "sql-lab-case-football-wins": {
+    "solution": "SELECT\n    COUNT(CASE WHEN home_team = 'Lille' AND home_goals > away_goals THEN 1 END) AS home_wins,\n    COUNT(CASE WHEN away_team = 'Lille' AND away_goals > home_goals THEN 1 END) AS away_wins\nFROM matches\nWHERE division = 'L1'",
+    "fixtures": [
+      {
+        "id": "example",
+        "visibility": "visible",
+        "input_rows": [],
+        "tables": {
+          "matches": [
+            {
+              "division": "L1",
+              "home_team": "Lille",
+              "away_team": "Lyon",
+              "home_goals": 2,
+              "away_goals": 0
+            },
+            {
+              "division": "L1",
+              "home_team": "Nice",
+              "away_team": "Lille",
+              "home_goals": 1,
+              "away_goals": 3
+            },
+            {
+              "division": "L1",
+              "home_team": "Lille",
+              "away_team": "Nantes",
+              "home_goals": 1,
+              "away_goals": 1
+            },
+            {
+              "division": "L1",
+              "home_team": "Rennes",
+              "away_team": "Lille",
+              "home_goals": 2,
+              "away_goals": 1
+            }
+          ]
+        },
+        "expected": [
+          {
+            "home_wins": 1,
+            "away_wins": 1
+          }
+        ]
+      },
+      {
+        "id": "other-divisions",
+        "visibility": "hidden",
+        "input_rows": [],
+        "tables": {
+          "matches": [
+            {
+              "division": "L2",
+              "home_team": "Lille",
+              "away_team": "Caen",
+              "home_goals": 4,
+              "away_goals": 0
+            },
+            {
+              "division": "L1",
+              "home_team": "Lille",
+              "away_team": "Brest",
+              "home_goals": 3,
+              "away_goals": 2
+            },
+            {
+              "division": "L1",
+              "home_team": "Metz",
+              "away_team": "Lille",
+              "home_goals": 0,
+              "away_goals": 0
+            }
+          ]
+        },
+        "expected": [
+          {
+            "home_wins": 1,
+            "away_wins": 0
+          }
+        ]
+      },
+      {
+        "id": "no-lille",
+        "visibility": "edge",
+        "input_rows": [],
+        "tables": {
+          "matches": [
+            {
+              "division": "L1",
+              "home_team": "Nice",
+              "away_team": "Lyon",
+              "home_goals": 1,
+              "away_goals": 0
+            }
+          ]
+        },
+        "expected": [
+          {
+            "home_wins": 0,
+            "away_wins": 0
+          }
+        ]
+      }
+    ]
+  },
+  "sql-lab-grouping-two-sets": {
+    "solution": "SELECT contract_type, act_type, SUM(amount_reimbursed) AS total_reimbursed\nFROM reimbursements\nGROUP BY GROUPING SETS (\n    (contract_type),\n    (act_type)\n)",
+    "fixtures": [
+      {
+        "id": "example",
+        "visibility": "visible",
+        "input_rows": [],
+        "tables": {
+          "reimbursements": [
+            {
+              "contract_type": "BASIC",
+              "act_type": "GP",
+              "amount_reimbursed": 20.0
+            },
+            {
+              "contract_type": "BASIC",
+              "act_type": "DENTAL",
+              "amount_reimbursed": 50.0
+            },
+            {
+              "contract_type": "PREMIUM",
+              "act_type": "GP",
+              "amount_reimbursed": 25.0
+            },
+            {
+              "contract_type": "PREMIUM",
+              "act_type": "OPTICAL",
+              "amount_reimbursed": 120.0
+            },
+            {
+              "contract_type": "BASIC",
+              "act_type": "GP",
+              "amount_reimbursed": 20.0
+            }
+          ]
+        },
+        "expected": [
+          {
+            "contract_type": "PREMIUM",
+            "act_type": null,
+            "total_reimbursed": 145.0
+          },
+          {
+            "contract_type": null,
+            "act_type": "DENTAL",
+            "total_reimbursed": 50.0
+          },
+          {
+            "contract_type": null,
+            "act_type": "GP",
+            "total_reimbursed": 65.0
+          },
+          {
+            "contract_type": null,
+            "act_type": "OPTICAL",
+            "total_reimbursed": 120.0
+          },
+          {
+            "contract_type": "BASIC",
+            "act_type": null,
+            "total_reimbursed": 90.0
+          }
+        ]
+      },
+      {
+        "id": "hidden-mix",
+        "visibility": "hidden",
+        "input_rows": [],
+        "tables": {
+          "reimbursements": [
+            {
+              "contract_type": "GOLD",
+              "act_type": "GP",
+              "amount_reimbursed": 30.0
+            },
+            {
+              "contract_type": "GOLD",
+              "act_type": "GP",
+              "amount_reimbursed": 10.0
+            },
+            {
+              "contract_type": "SILVER",
+              "act_type": "DENTAL",
+              "amount_reimbursed": 60.0
+            },
+            {
+              "contract_type": "SILVER",
+              "act_type": "GP",
+              "amount_reimbursed": 15.0
+            }
+          ]
+        },
+        "expected": [
+          {
+            "contract_type": "SILVER",
+            "act_type": null,
+            "total_reimbursed": 75.0
+          },
+          {
+            "contract_type": "GOLD",
+            "act_type": null,
+            "total_reimbursed": 40.0
+          },
+          {
+            "contract_type": null,
+            "act_type": "DENTAL",
+            "total_reimbursed": 60.0
+          },
+          {
+            "contract_type": null,
+            "act_type": "GP",
+            "total_reimbursed": 55.0
+          }
+        ]
+      },
+      {
+        "id": "single-row",
+        "visibility": "edge",
+        "input_rows": [],
+        "tables": {
+          "reimbursements": [
+            {
+              "contract_type": "BASIC",
+              "act_type": "GP",
+              "amount_reimbursed": 5.0
+            }
+          ]
+        },
+        "expected": [
+          {
+            "contract_type": "BASIC",
+            "act_type": null,
+            "total_reimbursed": 5.0
+          },
+          {
+            "contract_type": null,
+            "act_type": "GP",
+            "total_reimbursed": 5.0
+          }
+        ]
+      }
+    ]
+  },
+  "sql-lab-grouping-label-subtotals": {
+    "solution": "SELECT year_value,\n    CASE WHEN GROUPING(region) = 1 THEN 'ALL REGIONS' ELSE region END AS region_label,\n    SUM(population) AS population\nFROM regional_population\nGROUP BY GROUPING SETS (\n    (year_value, region),\n    (year_value)\n)",
+    "fixtures": [
+      {
+        "id": "example",
+        "visibility": "visible",
+        "input_rows": [],
+        "tables": {
+          "regional_population": [
+            {
+              "year_value": 2025,
+              "region": "North",
+              "population": 100
+            },
+            {
+              "year_value": 2025,
+              "region": "South",
+              "population": 150
+            },
+            {
+              "year_value": 2026,
+              "region": "North",
+              "population": 110
+            },
+            {
+              "year_value": 2026,
+              "region": "South",
+              "population": 160
+            }
+          ]
+        },
+        "expected": [
+          {
+            "year_value": 2025,
+            "region_label": "North",
+            "population": 100
+          },
+          {
+            "year_value": 2025,
+            "region_label": "South",
+            "population": 150
+          },
+          {
+            "year_value": 2026,
+            "region_label": "South",
+            "population": 160
+          },
+          {
+            "year_value": 2025,
+            "region_label": "ALL REGIONS",
+            "population": 250
+          },
+          {
+            "year_value": 2026,
+            "region_label": "ALL REGIONS",
+            "population": 270
+          },
+          {
+            "year_value": 2026,
+            "region_label": "North",
+            "population": 110
+          }
+        ]
+      },
+      {
+        "id": "source-null-region",
+        "visibility": "hidden",
+        "input_rows": [],
+        "tables": {
+          "regional_population": [
+            {
+              "year_value": 2026,
+              "region": null,
+              "population": 40
+            },
+            {
+              "year_value": 2026,
+              "region": "East",
+              "population": 60
+            },
+            {
+              "year_value": 2027,
+              "region": "East",
+              "population": 70
+            }
+          ]
+        },
+        "expected": [
+          {
+            "year_value": 2027,
+            "region_label": "East",
+            "population": 70
+          },
+          {
+            "year_value": 2026,
+            "region_label": null,
+            "population": 40
+          },
+          {
+            "year_value": 2027,
+            "region_label": "ALL REGIONS",
+            "population": 70
+          },
+          {
+            "year_value": 2026,
+            "region_label": "East",
+            "population": 60
+          },
+          {
+            "year_value": 2026,
+            "region_label": "ALL REGIONS",
+            "population": 100
+          }
+        ]
+      },
+      {
+        "id": "single-row",
+        "visibility": "edge",
+        "input_rows": [],
+        "tables": {
+          "regional_population": [
+            {
+              "year_value": 2030,
+              "region": "West",
+              "population": 5
+            }
+          ]
+        },
+        "expected": [
+          {
+            "year_value": 2030,
+            "region_label": "West",
+            "population": 5
+          },
+          {
+            "year_value": 2030,
+            "region_label": "ALL REGIONS",
+            "population": 5
+          }
+        ]
+      }
+    ]
+  },
+  "sql-lab-grouping-rollup": {
+    "solution": "SELECT contract_type, act_type, SUM(amount_reimbursed) AS total_reimbursed\nFROM reimbursements\nGROUP BY ROLLUP (contract_type, act_type)",
+    "fixtures": [
+      {
+        "id": "example",
+        "visibility": "visible",
+        "input_rows": [],
+        "tables": {
+          "reimbursements": [
+            {
+              "contract_type": "BASIC",
+              "act_type": "GP",
+              "amount_reimbursed": 20.0
+            },
+            {
+              "contract_type": "BASIC",
+              "act_type": "DENTAL",
+              "amount_reimbursed": 50.0
+            },
+            {
+              "contract_type": "PREMIUM",
+              "act_type": "GP",
+              "amount_reimbursed": 25.0
+            },
+            {
+              "contract_type": "PREMIUM",
+              "act_type": "OPTICAL",
+              "amount_reimbursed": 120.0
+            },
+            {
+              "contract_type": "BASIC",
+              "act_type": "GP",
+              "amount_reimbursed": 20.0
+            }
+          ]
+        },
+        "expected": [
+          {
+            "contract_type": null,
+            "act_type": null,
+            "total_reimbursed": 235.0
+          },
+          {
+            "contract_type": "PREMIUM",
+            "act_type": null,
+            "total_reimbursed": 145.0
+          },
+          {
+            "contract_type": "PREMIUM",
+            "act_type": "OPTICAL",
+            "total_reimbursed": 120.0
+          },
+          {
+            "contract_type": "BASIC",
+            "act_type": null,
+            "total_reimbursed": 90.0
+          },
+          {
+            "contract_type": "BASIC",
+            "act_type": "DENTAL",
+            "total_reimbursed": 50.0
+          },
+          {
+            "contract_type": "PREMIUM",
+            "act_type": "GP",
+            "total_reimbursed": 25.0
+          },
+          {
+            "contract_type": "BASIC",
+            "act_type": "GP",
+            "total_reimbursed": 40.0
+          }
+        ]
+      },
+      {
+        "id": "hidden-mix",
+        "visibility": "hidden",
+        "input_rows": [],
+        "tables": {
+          "reimbursements": [
+            {
+              "contract_type": "GOLD",
+              "act_type": "GP",
+              "amount_reimbursed": 30.0
+            },
+            {
+              "contract_type": "GOLD",
+              "act_type": "GP",
+              "amount_reimbursed": 10.0
+            },
+            {
+              "contract_type": "SILVER",
+              "act_type": "DENTAL",
+              "amount_reimbursed": 60.0
+            },
+            {
+              "contract_type": "SILVER",
+              "act_type": "GP",
+              "amount_reimbursed": 15.0
+            }
+          ]
+        },
+        "expected": [
+          {
+            "contract_type": null,
+            "act_type": null,
+            "total_reimbursed": 115.0
+          },
+          {
+            "contract_type": "SILVER",
+            "act_type": "GP",
+            "total_reimbursed": 15.0
+          },
+          {
+            "contract_type": "SILVER",
+            "act_type": null,
+            "total_reimbursed": 75.0
+          },
+          {
+            "contract_type": "GOLD",
+            "act_type": null,
+            "total_reimbursed": 40.0
+          },
+          {
+            "contract_type": "SILVER",
+            "act_type": "DENTAL",
+            "total_reimbursed": 60.0
+          },
+          {
+            "contract_type": "GOLD",
+            "act_type": "GP",
+            "total_reimbursed": 40.0
+          }
+        ]
+      },
+      {
+        "id": "single-row",
+        "visibility": "edge",
+        "input_rows": [],
+        "tables": {
+          "reimbursements": [
+            {
+              "contract_type": "BASIC",
+              "act_type": "GP",
+              "amount_reimbursed": 5.0
+            }
+          ]
+        },
+        "expected": [
+          {
+            "contract_type": null,
+            "act_type": null,
+            "total_reimbursed": 5.0
+          },
+          {
+            "contract_type": "BASIC",
+            "act_type": null,
+            "total_reimbursed": 5.0
+          },
+          {
+            "contract_type": "BASIC",
+            "act_type": "GP",
+            "total_reimbursed": 5.0
+          }
+        ]
+      }
+    ]
+  },
+  "sql-lab-grouping-cube": {
+    "solution": "SELECT contract_type, act_type, SUM(amount_reimbursed) AS total_reimbursed\nFROM reimbursements\nGROUP BY CUBE (contract_type, act_type)",
+    "fixtures": [
+      {
+        "id": "example",
+        "visibility": "visible",
+        "input_rows": [],
+        "tables": {
+          "reimbursements": [
+            {
+              "contract_type": "BASIC",
+              "act_type": "GP",
+              "amount_reimbursed": 20.0
+            },
+            {
+              "contract_type": "BASIC",
+              "act_type": "DENTAL",
+              "amount_reimbursed": 50.0
+            },
+            {
+              "contract_type": "PREMIUM",
+              "act_type": "GP",
+              "amount_reimbursed": 25.0
+            },
+            {
+              "contract_type": "PREMIUM",
+              "act_type": "OPTICAL",
+              "amount_reimbursed": 120.0
+            },
+            {
+              "contract_type": "BASIC",
+              "act_type": "GP",
+              "amount_reimbursed": 20.0
+            }
+          ]
+        },
+        "expected": [
+          {
+            "contract_type": null,
+            "act_type": null,
+            "total_reimbursed": 235.0
+          },
+          {
+            "contract_type": "BASIC",
+            "act_type": "DENTAL",
+            "total_reimbursed": 50.0
+          },
+          {
+            "contract_type": "BASIC",
+            "act_type": "GP",
+            "total_reimbursed": 40.0
+          },
+          {
+            "contract_type": "PREMIUM",
+            "act_type": "GP",
+            "total_reimbursed": 25.0
+          },
+          {
+            "contract_type": "PREMIUM",
+            "act_type": "OPTICAL",
+            "total_reimbursed": 120.0
+          },
+          {
+            "contract_type": null,
+            "act_type": "GP",
+            "total_reimbursed": 65.0
+          },
+          {
+            "contract_type": "BASIC",
+            "act_type": null,
+            "total_reimbursed": 90.0
+          },
+          {
+            "contract_type": "PREMIUM",
+            "act_type": null,
+            "total_reimbursed": 145.0
+          },
+          {
+            "contract_type": null,
+            "act_type": "OPTICAL",
+            "total_reimbursed": 120.0
+          },
+          {
+            "contract_type": null,
+            "act_type": "DENTAL",
+            "total_reimbursed": 50.0
+          }
+        ]
+      },
+      {
+        "id": "hidden-mix",
+        "visibility": "hidden",
+        "input_rows": [],
+        "tables": {
+          "reimbursements": [
+            {
+              "contract_type": "GOLD",
+              "act_type": "GP",
+              "amount_reimbursed": 30.0
+            },
+            {
+              "contract_type": "GOLD",
+              "act_type": "GP",
+              "amount_reimbursed": 10.0
+            },
+            {
+              "contract_type": "SILVER",
+              "act_type": "DENTAL",
+              "amount_reimbursed": 60.0
+            },
+            {
+              "contract_type": "SILVER",
+              "act_type": "GP",
+              "amount_reimbursed": 15.0
+            }
+          ]
+        },
+        "expected": [
+          {
+            "contract_type": null,
+            "act_type": null,
+            "total_reimbursed": 115.0
+          },
+          {
+            "contract_type": "SILVER",
+            "act_type": null,
+            "total_reimbursed": 75.0
+          },
+          {
+            "contract_type": "GOLD",
+            "act_type": null,
+            "total_reimbursed": 40.0
+          },
+          {
+            "contract_type": "GOLD",
+            "act_type": "GP",
+            "total_reimbursed": 40.0
+          },
+          {
+            "contract_type": "SILVER",
+            "act_type": "DENTAL",
+            "total_reimbursed": 60.0
+          },
+          {
+            "contract_type": null,
+            "act_type": "DENTAL",
+            "total_reimbursed": 60.0
+          },
+          {
+            "contract_type": "SILVER",
+            "act_type": "GP",
+            "total_reimbursed": 15.0
+          },
+          {
+            "contract_type": null,
+            "act_type": "GP",
+            "total_reimbursed": 55.0
+          }
+        ]
+      },
+      {
+        "id": "single-row",
+        "visibility": "edge",
+        "input_rows": [],
+        "tables": {
+          "reimbursements": [
+            {
+              "contract_type": "BASIC",
+              "act_type": "GP",
+              "amount_reimbursed": 5.0
+            }
+          ]
+        },
+        "expected": [
+          {
+            "contract_type": null,
+            "act_type": null,
+            "total_reimbursed": 5.0
+          },
+          {
+            "contract_type": "BASIC",
+            "act_type": null,
+            "total_reimbursed": 5.0
+          },
+          {
+            "contract_type": "BASIC",
+            "act_type": "GP",
+            "total_reimbursed": 5.0
+          },
+          {
+            "contract_type": null,
+            "act_type": "GP",
+            "total_reimbursed": 5.0
+          }
+        ]
+      }
+    ]
+  },
+  "sql-lab-window-running-total": {
+    "solution": "SELECT date_value, visitors_count,\n    SUM(visitors_count) OVER (\n        ORDER BY date_value\n        ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW\n    ) AS running_visitors\nFROM sensor_daily",
+    "fixtures": [
+      {
+        "id": "example",
+        "visibility": "visible",
+        "input_rows": [],
+        "tables": {
+          "sensor_daily": [
+            {
+              "date_value": "2026-01-01",
+              "visitors_count": 10
+            },
+            {
+              "date_value": "2026-01-02",
+              "visitors_count": 20
+            },
+            {
+              "date_value": "2026-01-03",
+              "visitors_count": 5
+            },
+            {
+              "date_value": "2026-01-04",
+              "visitors_count": 15
+            }
+          ]
+        },
+        "expected": [
+          {
+            "date_value": "2026-01-01",
+            "visitors_count": 10,
+            "running_visitors": 10
+          },
+          {
+            "date_value": "2026-01-02",
+            "visitors_count": 20,
+            "running_visitors": 30
+          },
+          {
+            "date_value": "2026-01-03",
+            "visitors_count": 5,
+            "running_visitors": 35
+          },
+          {
+            "date_value": "2026-01-04",
+            "visitors_count": 15,
+            "running_visitors": 50
+          }
+        ]
+      },
+      {
+        "id": "unsorted-input",
+        "visibility": "hidden",
+        "input_rows": [],
+        "tables": {
+          "sensor_daily": [
+            {
+              "date_value": "2026-02-03",
+              "visitors_count": 3
+            },
+            {
+              "date_value": "2026-02-01",
+              "visitors_count": 1
+            },
+            {
+              "date_value": "2026-02-02",
+              "visitors_count": 2
+            }
+          ]
+        },
+        "expected": [
+          {
+            "date_value": "2026-02-01",
+            "visitors_count": 1,
+            "running_visitors": 1
+          },
+          {
+            "date_value": "2026-02-02",
+            "visitors_count": 2,
+            "running_visitors": 3
+          },
+          {
+            "date_value": "2026-02-03",
+            "visitors_count": 3,
+            "running_visitors": 6
+          }
+        ]
+      },
+      {
+        "id": "single-day",
+        "visibility": "edge",
+        "input_rows": [],
+        "tables": {
+          "sensor_daily": [
+            {
+              "date_value": "2026-03-01",
+              "visitors_count": 7
+            }
+          ]
+        },
+        "expected": [
+          {
+            "date_value": "2026-03-01",
+            "visitors_count": 7,
+            "running_visitors": 7
+          }
+        ]
+      }
+    ]
+  },
+  "sql-lab-window-centered-average": {
+    "solution": "SELECT date_value, daily_sales,\n    AVG(daily_sales) OVER (\n        ORDER BY date_value\n        ROWS BETWEEN 2 PRECEDING AND 2 FOLLOWING\n    ) AS moving_average\nFROM store_daily_sales",
+    "fixtures": [
+      {
+        "id": "example",
+        "visibility": "visible",
+        "input_rows": [],
+        "tables": {
+          "store_daily_sales": [
+            {
+              "date_value": "2026-04-01",
+              "daily_sales": 10.0
+            },
+            {
+              "date_value": "2026-04-02",
+              "daily_sales": 20.0
+            },
+            {
+              "date_value": "2026-04-03",
+              "daily_sales": 30.0
+            },
+            {
+              "date_value": "2026-04-04",
+              "daily_sales": 40.0
+            },
+            {
+              "date_value": "2026-04-05",
+              "daily_sales": 50.0
+            },
+            {
+              "date_value": "2026-04-06",
+              "daily_sales": 60.0
+            }
+          ]
+        },
+        "expected": [
+          {
+            "date_value": "2026-04-01",
+            "daily_sales": 10.0,
+            "moving_average": 20.0
+          },
+          {
+            "date_value": "2026-04-02",
+            "daily_sales": 20.0,
+            "moving_average": 25.0
+          },
+          {
+            "date_value": "2026-04-03",
+            "daily_sales": 30.0,
+            "moving_average": 30.0
+          },
+          {
+            "date_value": "2026-04-04",
+            "daily_sales": 40.0,
+            "moving_average": 40.0
+          },
+          {
+            "date_value": "2026-04-05",
+            "daily_sales": 50.0,
+            "moving_average": 45.0
+          },
+          {
+            "date_value": "2026-04-06",
+            "daily_sales": 60.0,
+            "moving_average": 50.0
+          }
+        ]
+      },
+      {
+        "id": "missing-date",
+        "visibility": "hidden",
+        "input_rows": [],
+        "tables": {
+          "store_daily_sales": [
+            {
+              "date_value": "2026-05-01",
+              "daily_sales": 1.0
+            },
+            {
+              "date_value": "2026-05-02",
+              "daily_sales": 2.0
+            },
+            {
+              "date_value": "2026-05-05",
+              "daily_sales": 5.0
+            },
+            {
+              "date_value": "2026-05-06",
+              "daily_sales": 6.0
+            },
+            {
+              "date_value": "2026-05-07",
+              "daily_sales": 7.0
+            }
+          ]
+        },
+        "expected": [
+          {
+            "date_value": "2026-05-01",
+            "daily_sales": 1.0,
+            "moving_average": 2.6666666666666665
+          },
+          {
+            "date_value": "2026-05-02",
+            "daily_sales": 2.0,
+            "moving_average": 3.5
+          },
+          {
+            "date_value": "2026-05-05",
+            "daily_sales": 5.0,
+            "moving_average": 4.2
+          },
+          {
+            "date_value": "2026-05-06",
+            "daily_sales": 6.0,
+            "moving_average": 5.0
+          },
+          {
+            "date_value": "2026-05-07",
+            "daily_sales": 7.0,
+            "moving_average": 6.0
+          }
+        ]
+      },
+      {
+        "id": "short-series",
+        "visibility": "edge",
+        "input_rows": [],
+        "tables": {
+          "store_daily_sales": [
+            {
+              "date_value": "2026-06-01",
+              "daily_sales": 4.0
+            },
+            {
+              "date_value": "2026-06-02",
+              "daily_sales": 8.0
+            }
+          ]
+        },
+        "expected": [
+          {
+            "date_value": "2026-06-01",
+            "daily_sales": 4.0,
+            "moving_average": 6.0
+          },
+          {
+            "date_value": "2026-06-02",
+            "daily_sales": 8.0,
+            "moving_average": 6.0
+          }
+        ]
+      }
+    ]
+  },
+  "sql-lab-window-dept-average": {
+    "solution": "SELECT employee_name, department, wage,\n    AVG(wage) OVER (PARTITION BY department) AS department_avg_wage\nFROM employees",
+    "fixtures": [
+      {
+        "id": "example",
+        "visibility": "visible",
+        "input_rows": [],
+        "tables": {
+          "employees": [
+            {
+              "employee_name": "Ana",
+              "department": "IT",
+              "wage": 60000
+            },
+            {
+              "employee_name": "Ben",
+              "department": "IT",
+              "wage": 40000
+            },
+            {
+              "employee_name": "Cid",
+              "department": "HR",
+              "wage": 50000
+            }
+          ]
+        },
+        "expected": [
+          {
+            "employee_name": "Ana",
+            "department": "IT",
+            "wage": 60000,
+            "department_avg_wage": 50000.0
+          },
+          {
+            "employee_name": "Ben",
+            "department": "IT",
+            "wage": 40000,
+            "department_avg_wage": 50000.0
+          },
+          {
+            "employee_name": "Cid",
+            "department": "HR",
+            "wage": 50000,
+            "department_avg_wage": 50000.0
+          }
+        ]
+      },
+      {
+        "id": "three-departments",
+        "visibility": "hidden",
+        "input_rows": [],
+        "tables": {
+          "employees": [
+            {
+              "employee_name": "Dee",
+              "department": "OPS",
+              "wage": 30000
+            },
+            {
+              "employee_name": "Eve",
+              "department": "OPS",
+              "wage": 30000
+            },
+            {
+              "employee_name": "Fox",
+              "department": "OPS",
+              "wage": 60000
+            },
+            {
+              "employee_name": "Gus",
+              "department": "LEGAL",
+              "wage": 90000
+            },
+            {
+              "employee_name": "Hal",
+              "department": "HR",
+              "wage": 45000
+            }
+          ]
+        },
+        "expected": [
+          {
+            "employee_name": "Hal",
+            "department": "HR",
+            "wage": 45000,
+            "department_avg_wage": 45000.0
+          },
+          {
+            "employee_name": "Gus",
+            "department": "LEGAL",
+            "wage": 90000,
+            "department_avg_wage": 90000.0
+          },
+          {
+            "employee_name": "Dee",
+            "department": "OPS",
+            "wage": 30000,
+            "department_avg_wage": 40000.0
+          },
+          {
+            "employee_name": "Fox",
+            "department": "OPS",
+            "wage": 60000,
+            "department_avg_wage": 40000.0
+          },
+          {
+            "employee_name": "Eve",
+            "department": "OPS",
+            "wage": 30000,
+            "department_avg_wage": 40000.0
+          }
+        ]
+      },
+      {
+        "id": "empty",
+        "visibility": "edge",
+        "input_rows": [],
+        "tables": {
+          "employees": []
+        },
+        "expected": []
+      }
+    ]
+  },
+  "sql-lab-window-top-earner-flag": {
+    "solution": "WITH x AS (\n    SELECT *, MAX(wage) OVER (PARTITION BY department) AS department_max_wage\n    FROM employees\n)\nSELECT employee_name, department, wage, department_max_wage,\n    CASE WHEN wage = department_max_wage THEN 1 ELSE 0 END AS is_top_earner\nFROM x",
+    "fixtures": [
+      {
+        "id": "example",
+        "visibility": "visible",
+        "input_rows": [],
+        "tables": {
+          "employees": [
+            {
+              "employee_name": "Ana",
+              "department": "IT",
+              "wage": 70000
+            },
+            {
+              "employee_name": "Ben",
+              "department": "IT",
+              "wage": 50000
+            },
+            {
+              "employee_name": "Cid",
+              "department": "HR",
+              "wage": 45000
+            }
+          ]
+        },
+        "expected": [
+          {
+            "employee_name": "Cid",
+            "department": "HR",
+            "wage": 45000,
+            "department_max_wage": 45000,
+            "is_top_earner": 1
+          },
+          {
+            "employee_name": "Ana",
+            "department": "IT",
+            "wage": 70000,
+            "department_max_wage": 70000,
+            "is_top_earner": 1
+          },
+          {
+            "employee_name": "Ben",
+            "department": "IT",
+            "wage": 50000,
+            "department_max_wage": 70000,
+            "is_top_earner": 0
+          }
+        ]
+      },
+      {
+        "id": "ties",
+        "visibility": "hidden",
+        "input_rows": [],
+        "tables": {
+          "employees": [
+            {
+              "employee_name": "Dee",
+              "department": "OPS",
+              "wage": 60000
+            },
+            {
+              "employee_name": "Eve",
+              "department": "OPS",
+              "wage": 60000
+            },
+            {
+              "employee_name": "Fox",
+              "department": "OPS",
+              "wage": 30000
+            }
+          ]
+        },
+        "expected": [
+          {
+            "employee_name": "Dee",
+            "department": "OPS",
+            "wage": 60000,
+            "department_max_wage": 60000,
+            "is_top_earner": 1
+          },
+          {
+            "employee_name": "Eve",
+            "department": "OPS",
+            "wage": 60000,
+            "department_max_wage": 60000,
+            "is_top_earner": 1
+          },
+          {
+            "employee_name": "Fox",
+            "department": "OPS",
+            "wage": 30000,
+            "department_max_wage": 60000,
+            "is_top_earner": 0
+          }
+        ]
+      },
+      {
+        "id": "single",
+        "visibility": "edge",
+        "input_rows": [],
+        "tables": {
+          "employees": [
+            {
+              "employee_name": "Gus",
+              "department": "LEGAL",
+              "wage": 1000
+            }
+          ]
+        },
+        "expected": [
+          {
+            "employee_name": "Gus",
+            "department": "LEGAL",
+            "wage": 1000,
+            "department_max_wage": 1000,
+            "is_top_earner": 1
+          }
+        ]
+      }
+    ]
+  },
+  "sql-lab-window-second-highest": {
+    "solution": "WITH ranked AS (\n    SELECT *, DENSE_RANK() OVER (PARTITION BY department ORDER BY wage DESC) AS wage_rank\n    FROM employees\n)\nSELECT employee_name, department, wage\nFROM ranked\nWHERE wage_rank = 2",
+    "fixtures": [
+      {
+        "id": "example",
+        "visibility": "visible",
+        "input_rows": [],
+        "tables": {
+          "employees": [
+            {
+              "employee_name": "Ana",
+              "department": "IT",
+              "wage": 90000
+            },
+            {
+              "employee_name": "Ben",
+              "department": "IT",
+              "wage": 70000
+            },
+            {
+              "employee_name": "Cid",
+              "department": "IT",
+              "wage": 50000
+            },
+            {
+              "employee_name": "Dee",
+              "department": "HR",
+              "wage": 60000
+            },
+            {
+              "employee_name": "Eve",
+              "department": "HR",
+              "wage": 40000
+            }
+          ]
+        },
+        "expected": [
+          {
+            "employee_name": "Eve",
+            "department": "HR",
+            "wage": 40000
+          },
+          {
+            "employee_name": "Ben",
+            "department": "IT",
+            "wage": 70000
+          }
+        ]
+      },
+      {
+        "id": "top-ties",
+        "visibility": "hidden",
+        "input_rows": [],
+        "tables": {
+          "employees": [
+            {
+              "employee_name": "Fox",
+              "department": "OPS",
+              "wage": 100
+            },
+            {
+              "employee_name": "Gus",
+              "department": "OPS",
+              "wage": 100
+            },
+            {
+              "employee_name": "Hal",
+              "department": "OPS",
+              "wage": 90
+            },
+            {
+              "employee_name": "Ivy",
+              "department": "OPS",
+              "wage": 90
+            },
+            {
+              "employee_name": "Jay",
+              "department": "OPS",
+              "wage": 80
+            }
+          ]
+        },
+        "expected": [
+          {
+            "employee_name": "Ivy",
+            "department": "OPS",
+            "wage": 90
+          },
+          {
+            "employee_name": "Hal",
+            "department": "OPS",
+            "wage": 90
+          }
+        ]
+      },
+      {
+        "id": "single-level",
+        "visibility": "edge",
+        "input_rows": [],
+        "tables": {
+          "employees": [
+            {
+              "employee_name": "Kim",
+              "department": "LEGAL",
+              "wage": 5
+            },
+            {
+              "employee_name": "Lea",
+              "department": "LEGAL",
+              "wage": 5
+            }
+          ]
+        },
+        "expected": []
+      }
+    ]
+  },
+  "sql-lab-window-pct-change": {
+    "solution": "WITH x AS (\n    SELECT *, LAG(visitors_count) OVER (PARTITION BY weekday_number ORDER BY date_value) AS previous_visitors\n    FROM sensor_daily\n)\nSELECT date_value, weekday_number, visitors_count, previous_visitors,\n    (visitors_count - previous_visitors) * 1.0 / NULLIF(previous_visitors, 0) AS pct_change\nFROM x",
+    "fixtures": [
+      {
+        "id": "example",
+        "visibility": "visible",
+        "input_rows": [],
+        "tables": {
+          "sensor_daily": [
+            {
+              "date_value": "2026-01-05",
+              "weekday_number": 1,
+              "visitors_count": 100
+            },
+            {
+              "date_value": "2026-01-06",
+              "weekday_number": 2,
+              "visitors_count": 80
+            },
+            {
+              "date_value": "2026-01-12",
+              "weekday_number": 1,
+              "visitors_count": 120
+            },
+            {
+              "date_value": "2026-01-13",
+              "weekday_number": 2,
+              "visitors_count": 60
+            }
+          ]
+        },
+        "expected": [
+          {
+            "date_value": "2026-01-05",
+            "weekday_number": 1,
+            "visitors_count": 100,
+            "previous_visitors": null,
+            "pct_change": null
+          },
+          {
+            "date_value": "2026-01-12",
+            "weekday_number": 1,
+            "visitors_count": 120,
+            "previous_visitors": 100,
+            "pct_change": 0.2
+          },
+          {
+            "date_value": "2026-01-06",
+            "weekday_number": 2,
+            "visitors_count": 80,
+            "previous_visitors": null,
+            "pct_change": null
+          },
+          {
+            "date_value": "2026-01-13",
+            "weekday_number": 2,
+            "visitors_count": 60,
+            "previous_visitors": 80,
+            "pct_change": -0.25
+          }
+        ]
+      },
+      {
+        "id": "zero-previous",
+        "visibility": "hidden",
+        "input_rows": [],
+        "tables": {
+          "sensor_daily": [
+            {
+              "date_value": "2026-02-02",
+              "weekday_number": 1,
+              "visitors_count": 0
+            },
+            {
+              "date_value": "2026-02-09",
+              "weekday_number": 1,
+              "visitors_count": 50
+            },
+            {
+              "date_value": "2026-02-16",
+              "weekday_number": 1,
+              "visitors_count": 25
+            },
+            {
+              "date_value": "2026-02-03",
+              "weekday_number": 2,
+              "visitors_count": 10
+            }
+          ]
+        },
+        "expected": [
+          {
+            "date_value": "2026-02-02",
+            "weekday_number": 1,
+            "visitors_count": 0,
+            "previous_visitors": null,
+            "pct_change": null
+          },
+          {
+            "date_value": "2026-02-09",
+            "weekday_number": 1,
+            "visitors_count": 50,
+            "previous_visitors": 0,
+            "pct_change": null
+          },
+          {
+            "date_value": "2026-02-16",
+            "weekday_number": 1,
+            "visitors_count": 25,
+            "previous_visitors": 50,
+            "pct_change": -0.5
+          },
+          {
+            "date_value": "2026-02-03",
+            "weekday_number": 2,
+            "visitors_count": 10,
+            "previous_visitors": null,
+            "pct_change": null
+          }
+        ]
+      },
+      {
+        "id": "single-week",
+        "visibility": "edge",
+        "input_rows": [],
+        "tables": {
+          "sensor_daily": [
+            {
+              "date_value": "2026-03-02",
+              "weekday_number": 1,
+              "visitors_count": 5
+            }
+          ]
+        },
+        "expected": [
+          {
+            "date_value": "2026-03-02",
+            "weekday_number": 1,
+            "visitors_count": 5,
+            "previous_visitors": null,
+            "pct_change": null
+          }
+        ]
+      }
+    ]
+  },
+  "sql-lab-window-row-number-dept": {
+    "solution": "SELECT employee_name, department, wage,\n    ROW_NUMBER() OVER (PARTITION BY department ORDER BY wage DESC, employee_name) AS wage_row_number\nFROM employees",
+    "fixtures": [
+      {
+        "id": "example",
+        "visibility": "visible",
+        "input_rows": [],
+        "tables": {
+          "employees": [
+            {
+              "employee_name": "Ana",
+              "department": "IT",
+              "wage": 70000
+            },
+            {
+              "employee_name": "Ben",
+              "department": "IT",
+              "wage": 50000
+            },
+            {
+              "employee_name": "Cid",
+              "department": "HR",
+              "wage": 45000
+            },
+            {
+              "employee_name": "Dee",
+              "department": "HR",
+              "wage": 65000
+            }
+          ]
+        },
+        "expected": [
+          {
+            "employee_name": "Dee",
+            "department": "HR",
+            "wage": 65000,
+            "wage_row_number": 1
+          },
+          {
+            "employee_name": "Cid",
+            "department": "HR",
+            "wage": 45000,
+            "wage_row_number": 2
+          },
+          {
+            "employee_name": "Ana",
+            "department": "IT",
+            "wage": 70000,
+            "wage_row_number": 1
+          },
+          {
+            "employee_name": "Ben",
+            "department": "IT",
+            "wage": 50000,
+            "wage_row_number": 2
+          }
+        ]
+      },
+      {
+        "id": "ties",
+        "visibility": "hidden",
+        "input_rows": [],
+        "tables": {
+          "employees": [
+            {
+              "employee_name": "Zed",
+              "department": "OPS",
+              "wage": 500
+            },
+            {
+              "employee_name": "Amy",
+              "department": "OPS",
+              "wage": 500
+            },
+            {
+              "employee_name": "Bob",
+              "department": "OPS",
+              "wage": 400
+            }
+          ]
+        },
+        "expected": [
+          {
+            "employee_name": "Amy",
+            "department": "OPS",
+            "wage": 500,
+            "wage_row_number": 1
+          },
+          {
+            "employee_name": "Zed",
+            "department": "OPS",
+            "wage": 500,
+            "wage_row_number": 2
+          },
+          {
+            "employee_name": "Bob",
+            "department": "OPS",
+            "wage": 400,
+            "wage_row_number": 3
+          }
+        ]
+      },
+      {
+        "id": "empty",
+        "visibility": "edge",
+        "input_rows": [],
+        "tables": {
+          "employees": []
+        },
+        "expected": []
+      }
+    ]
+  },
+  "sql-lab-window-dense-rank": {
+    "solution": "SELECT employee_name, sex, wage,\n    DENSE_RANK() OVER (PARTITION BY sex ORDER BY wage DESC) AS wage_rank\nFROM employees",
+    "fixtures": [
+      {
+        "id": "example",
+        "visibility": "visible",
+        "input_rows": [],
+        "tables": {
+          "employees": [
+            {
+              "employee_name": "Ana",
+              "sex": "F",
+              "wage": 60000
+            },
+            {
+              "employee_name": "Bea",
+              "sex": "F",
+              "wage": 60000
+            },
+            {
+              "employee_name": "Cat",
+              "sex": "F",
+              "wage": 50000
+            },
+            {
+              "employee_name": "Dan",
+              "sex": "M",
+              "wage": 55000
+            },
+            {
+              "employee_name": "Eli",
+              "sex": "M",
+              "wage": 40000
+            }
+          ]
+        },
+        "expected": [
+          {
+            "employee_name": "Dan",
+            "sex": "M",
+            "wage": 55000,
+            "wage_rank": 1
+          },
+          {
+            "employee_name": "Eli",
+            "sex": "M",
+            "wage": 40000,
+            "wage_rank": 2
+          },
+          {
+            "employee_name": "Bea",
+            "sex": "F",
+            "wage": 60000,
+            "wage_rank": 1
+          },
+          {
+            "employee_name": "Ana",
+            "sex": "F",
+            "wage": 60000,
+            "wage_rank": 1
+          },
+          {
+            "employee_name": "Cat",
+            "sex": "F",
+            "wage": 50000,
+            "wage_rank": 2
+          }
+        ]
+      },
+      {
+        "id": "gap-after-tie",
+        "visibility": "hidden",
+        "input_rows": [],
+        "tables": {
+          "employees": [
+            {
+              "employee_name": "Fay",
+              "sex": "F",
+              "wage": 10
+            },
+            {
+              "employee_name": "Gia",
+              "sex": "F",
+              "wage": 10
+            },
+            {
+              "employee_name": "Hel",
+              "sex": "F",
+              "wage": 10
+            },
+            {
+              "employee_name": "Ida",
+              "sex": "F",
+              "wage": 9
+            },
+            {
+              "employee_name": "Jon",
+              "sex": "M",
+              "wage": 10
+            }
+          ]
+        },
+        "expected": [
+          {
+            "employee_name": "Jon",
+            "sex": "M",
+            "wage": 10,
+            "wage_rank": 1
+          },
+          {
+            "employee_name": "Fay",
+            "sex": "F",
+            "wage": 10,
+            "wage_rank": 1
+          },
+          {
+            "employee_name": "Gia",
+            "sex": "F",
+            "wage": 10,
+            "wage_rank": 1
+          },
+          {
+            "employee_name": "Hel",
+            "sex": "F",
+            "wage": 10,
+            "wage_rank": 1
+          },
+          {
+            "employee_name": "Ida",
+            "sex": "F",
+            "wage": 9,
+            "wage_rank": 2
+          }
+        ]
+      },
+      {
+        "id": "empty",
+        "visibility": "edge",
+        "input_rows": [],
+        "tables": {
+          "employees": []
+        },
+        "expected": []
+      }
+    ]
+  },
+  "sql-lab-window-rows-vs-range": {
+    "solution": "SELECT event_id, event_date, amount,\n    SUM(amount) OVER (\n        ORDER BY event_date, event_id\n        ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW\n    ) AS running_total\nFROM sales_events",
+    "fixtures": [
+      {
+        "id": "example",
+        "visibility": "visible",
+        "input_rows": [],
+        "tables": {
+          "sales_events": [
+            {
+              "event_id": 1,
+              "event_date": "2026-07-01",
+              "amount": 10.0
+            },
+            {
+              "event_id": 2,
+              "event_date": "2026-07-01",
+              "amount": 5.0
+            },
+            {
+              "event_id": 3,
+              "event_date": "2026-07-02",
+              "amount": 20.0
+            }
+          ]
+        },
+        "expected": [
+          {
+            "event_id": 1,
+            "event_date": "2026-07-01",
+            "amount": 10.0,
+            "running_total": 10.0
+          },
+          {
+            "event_id": 2,
+            "event_date": "2026-07-01",
+            "amount": 5.0,
+            "running_total": 15.0
+          },
+          {
+            "event_id": 3,
+            "event_date": "2026-07-02",
+            "amount": 20.0,
+            "running_total": 35.0
+          }
+        ]
+      },
+      {
+        "id": "many-duplicates",
+        "visibility": "hidden",
+        "input_rows": [],
+        "tables": {
+          "sales_events": [
+            {
+              "event_id": 12,
+              "event_date": "2026-08-02",
+              "amount": 1.0
+            },
+            {
+              "event_id": 11,
+              "event_date": "2026-08-02",
+              "amount": 2.0
+            },
+            {
+              "event_id": 10,
+              "event_date": "2026-08-01",
+              "amount": 4.0
+            },
+            {
+              "event_id": 13,
+              "event_date": "2026-08-02",
+              "amount": 8.0
+            }
+          ]
+        },
+        "expected": [
+          {
+            "event_id": 10,
+            "event_date": "2026-08-01",
+            "amount": 4.0,
+            "running_total": 4.0
+          },
+          {
+            "event_id": 11,
+            "event_date": "2026-08-02",
+            "amount": 2.0,
+            "running_total": 6.0
+          },
+          {
+            "event_id": 12,
+            "event_date": "2026-08-02",
+            "amount": 1.0,
+            "running_total": 7.0
+          },
+          {
+            "event_id": 13,
+            "event_date": "2026-08-02",
+            "amount": 8.0,
+            "running_total": 15.0
+          }
+        ]
+      },
+      {
+        "id": "single",
+        "visibility": "edge",
+        "input_rows": [],
+        "tables": {
+          "sales_events": [
+            {
+              "event_id": 1,
+              "event_date": "2026-09-01",
+              "amount": 3.0
+            }
+          ]
+        },
+        "expected": [
+          {
+            "event_id": 1,
+            "event_date": "2026-09-01",
+            "amount": 3.0,
+            "running_total": 3.0
+          }
+        ]
+      }
+    ]
+  }
+}
