@@ -1,9 +1,11 @@
 import { spawn, type ChildProcess } from "node:child_process";
+import { existsSync } from "node:fs";
 import * as http from "node:http";
 import * as path from "node:path";
 import * as vscode from "vscode";
-import type { RuntimeViewState } from "./webview/contracts";
+import type { RuntimeEnvironmentView, RuntimeViewState } from "./webview/contracts";
 import { findFreePort, waitForDatapassHealth } from "./platform/runtimeEndpoint";
+import { managedVenvPython, runtimeInstallArgs, runtimeVerifyArgs } from "./platform/runtimeEnvironment";
 
 const HOST = "127.0.0.1";
 
@@ -30,24 +32,100 @@ export class RuntimeManager implements vscode.Disposable {
   private state: RuntimeViewState = { status: "stopped" };
   private readonly output = vscode.window.createOutputChannel("Datapass Runtime");
   private readonly changed = new vscode.EventEmitter<RuntimeViewState>();
+  private environment: RuntimeEnvironmentView;
 
   readonly onDidChange = this.changed.event;
 
-  constructor(private readonly extensionUri: vscode.Uri) {}
+  constructor(
+    private readonly extensionUri: vscode.Uri,
+    private readonly storageUri: vscode.Uri
+  ) {
+    const python = this.managedPythonPath();
+    this.environment = existsSync(python)
+      ? { status: "ready", python, detail: "Managed Datapass runtime is installed." }
+      : { status: "missing", detail: "Managed Datapass runtime is not installed yet." };
+  }
 
   snapshot(): RuntimeViewState {
-    return { ...this.state };
+    return { ...this.state, environment: { ...this.environment } };
+  }
+
+  async setup(pythonCommand = "python"): Promise<string> {
+    if (this.state.status === "running" || this.state.status === "starting") {
+      throw new Error("Stop the Datapass runtime before updating its environment.");
+    }
+
+    const runtimeRoot = path.join(this.extensionUri.fsPath, "runtime");
+    const venvRoot = path.join(this.storageUri.fsPath, "runtime-venv");
+    const managedPython = managedVenvPython(venvRoot);
+
+    this.environment = {
+      status: "setting-up",
+      python: managedPython,
+      detail: "Creating and installing the isolated Datapass runtime…"
+    };
+    this.changed.fire(this.snapshot());
+    this.output.show(true);
+
+    try {
+      await vscode.workspace.fs.createDirectory(this.storageUri);
+      if (!existsSync(managedPython)) {
+        this.output.appendLine("Creating isolated Datapass Python environment.");
+        await this.runSetupCommand(
+          resolvedPython,
+          ["-m", "venv", venvRoot],
+          this.storageUri.fsPath
+        );
+      }
+
+      this.output.appendLine("Installing Datapass runtime and local engine dependencies.");
+      await this.runSetupCommand(
+        managedPython,
+        runtimeInstallArgs(runtimeRoot),
+        runtimeRoot
+      );
+      await this.runSetupCommand(
+        managedPython,
+        runtimeVerifyArgs(),
+        runtimeRoot
+      );
+
+      this.environment = {
+        status: "ready",
+        python: managedPython,
+        detail: "Managed Datapass runtime is ready."
+      };
+      this.state = {
+        ...this.state,
+        status: "stopped",
+        detail: "Runtime environment ready. Start the local runtime when needed."
+      };
+      this.changed.fire(this.snapshot());
+      return managedPython;
+    } catch (error) {
+      const detail = error instanceof Error ? error.message : String(error);
+      this.environment = {
+        status: "error",
+        python: managedPython,
+        detail
+      };
+      this.state = { ...this.state, status: "error", detail };
+      this.changed.fire(this.snapshot());
+      throw error;
+    }
   }
 
   async start(pythonCommand = "python", storage: "duckdb" | "ducklake" = "duckdb"): Promise<void> {
     if (this.state.status === "running" || this.state.status === "starting") return;
 
     const runtimeRoot = path.join(this.extensionUri.fsPath, "runtime");
+    const managedPython = this.managedPythonPath();
+    const resolvedPython = existsSync(managedPython) ? managedPython : pythonCommand;
     const port = await findFreePort(HOST);
     const url = `http://${HOST}:${port}`;
     this.setState({ status: "starting", url, detail: "Starting local FastAPI runtime…" });
     this.output.show(true);
-    this.output.appendLine(`Starting Datapass runtime with ${pythonCommand}`);
+    this.output.appendLine(`Starting Datapass runtime with ${resolvedPython}`);
 
     const child = spawn(
       pythonCommand,
@@ -225,6 +303,39 @@ export class RuntimeManager implements vscode.Disposable {
     this.stop();
     this.changed.dispose();
     this.output.dispose();
+  }
+
+  private managedPythonPath(): string {
+    return managedVenvPython(path.join(this.storageUri.fsPath, "runtime-venv"));
+  }
+
+  private runSetupCommand(
+    command: string,
+    args: readonly string[],
+    cwd: string
+  ): Promise<void> {
+    return new Promise((resolve, reject) => {
+      this.output.appendLine(`> ${command} ${args.join(" ")}`);
+      const child = spawn(command, [...args], {
+        cwd,
+        windowsHide: true,
+        stdio: ["ignore", "pipe", "pipe"],
+        env: process.env
+      });
+
+      child.stdout?.on("data", chunk => this.output.append(String(chunk)));
+      child.stderr?.on("data", chunk => this.output.append(String(chunk)));
+      child.once("error", reject);
+      child.once("exit", (code, signal) => {
+        if (code === 0) {
+          resolve();
+          return;
+        }
+        reject(new Error(
+          `Runtime setup command failed${code !== null ? ` with code ${code}` : ""}${signal ? ` (${signal})` : ""}.`
+        ));
+      });
+    });
   }
 
   private setState(next: RuntimeViewState): void {
