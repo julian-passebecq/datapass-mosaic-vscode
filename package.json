@@ -71,21 +71,23 @@
     "compile": "npm run typecheck && npm run build",
     "watch": "node scripts/build.mjs --watch",
     "vscode:prepublish": "npm run compile",
+    "test:host": "npm run build && node scripts/extension_host_e2e.mjs",
     "test": "node scripts/scaffold_smoke.mjs && node scripts/runtime_endpoint_smoke.mjs && node scripts/package_smoke.mjs && node scripts/runtime_environment_smoke.mjs && node scripts/trust_smoke.mjs"
   },
   "dependencies": {
     "@fluentui/react-components": "^9.68.0",
+    "@xyflow/react": "12.8.5",
     "react": "^19.1.1",
     "react-dom": "^19.1.1",
     "react-grid-layout": "2.2.3",
-    "react-resizable": "3.0.5",
-    "@xyflow/react": "12.8.5"
+    "react-resizable": "3.0.5"
   },
   "devDependencies": {
     "@types/node": "^22.10.0",
     "@types/react": "^19.1.10",
     "@types/react-dom": "^19.1.7",
     "@types/vscode": "^1.95.0",
+    "@vscode/test-electron": "^3.1.0",
     "esbuild": "^0.25.9",
     "typescript": "^5.7.2"
   }

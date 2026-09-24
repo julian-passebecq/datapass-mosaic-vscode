@@ -8,10 +8,10 @@ import {
 } from "./project/projectManifest";
 
 /** Per-machine confirmation. workspaceState is already scoped to this workspace. */
-const ACKNOWLEDGED_KEY = "datapass.trustedLocalPython.acknowledged";
+export const ACKNOWLEDGED_KEY = "datapass.trustedLocalPython.acknowledged";
 
 export class PythonTrustController {
-  constructor(private readonly context: vscode.ExtensionContext) {}
+  constructor(private readonly context: Pick<vscode.ExtensionContext, "workspaceState">) {}
 
   async resolve(): Promise<PythonTrustResolution> {
     const manifest = await readProjectManifest();

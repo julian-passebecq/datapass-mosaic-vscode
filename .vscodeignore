@@ -9,3 +9,4 @@ node_modules/**
 runtime/**/__pycache__/**
 runtime/**/*.pyc
 *.vsix
+dist-test/**
