@@ -136,6 +136,124 @@ MUTANTS: dict[str, list[str]] = {
     "sql-lab-window-rows-vs-range": [
         "SELECT event_id, event_date, amount, SUM(amount) OVER (ORDER BY event_date) AS running_total FROM sales_events",
     ],
+    # --- sql-lab-v1 pack version 2 -------------------------------------------------
+    "sql-lab-cross-retail-grid": [
+        "SELECT DISTINCT s.store_id, m.market_id, mo.month_id, w.weekday_id, q.quarter_id FROM stores AS s CROSS JOIN markets AS m CROSS JOIN months AS mo CROSS JOIN weekdays AS w CROSS JOIN quarters AS q",
+        "SELECT s.store_id, m.market_id, mo.month_id, w.weekday_id, q.quarter_id FROM stores AS s JOIN markets AS m ON s.store_id = m.market_id CROSS JOIN months AS mo CROSS JOIN weekdays AS w CROSS JOIN quarters AS q",
+    ],
+    "sql-lab-inner-add-products": [
+        "SELECT co.order_id, co.customer_id, co.product_id, co.quantity, p.product_name, p.unit_price FROM customer_orders AS co LEFT JOIN products AS p ON co.product_id = p.product_id",
+        "SELECT co.order_id, co.customer_id, co.product_id, co.quantity, p.product_name, p.unit_price FROM customer_orders AS co JOIN products AS p ON co.customer_id = p.product_id",
+    ],
+    "sql-lab-inner-retail-chain": [
+        "SELECT s.sale_id, s.product_id, pc.category_id, cu.universe_id FROM sales AS s JOIN product_category AS pc ON s.product_id = pc.product_id LEFT JOIN category_universe AS cu ON pc.category_id = cu.category_id",
+        "SELECT s.sale_id, s.product_id, pc.category_id, cu.universe_id FROM sales AS s LEFT JOIN product_category AS pc ON s.product_id = pc.product_id LEFT JOIN category_universe AS cu ON pc.category_id = cu.category_id",
+    ],
+    "sql-lab-inner-constant-key": [
+        "SELECT b.beverage, f.food FROM beverages AS b JOIN food_items AS f ON b.beverage = f.food",
+        "SELECT DISTINCT b.beverage, f.food FROM beverages AS b CROSS JOIN food_items AS f",
+    ],
+    "sql-lab-left-product-enrichment": [
+        "SELECT co.order_id, co.product_id, co.quantity, p.product_name FROM customer_orders AS co JOIN products AS p ON co.product_id = p.product_id",
+        "SELECT co.order_id, co.product_id, co.quantity, p.product_name FROM customer_orders AS co LEFT JOIN products AS p ON co.product_id = p.product_id WHERE p.product_name IS NOT NULL",
+    ],
+    "sql-lab-full-products": [
+        "SELECT sp.store_id, sp.product_id, p.product_name FROM store_products AS sp FULL OUTER JOIN products AS p ON sp.product_id = p.product_id",
+        "SELECT sp.store_id, sp.product_id, p.product_name FROM store_products AS sp LEFT JOIN products AS p ON sp.product_id = p.product_id",
+    ],
+    "sql-lab-self-meetings": [
+        "SELECT a.meeting_id, b.person_name AS colleague, a.duration_minutes FROM meeting_participants AS a JOIN meeting_participants AS b ON a.meeting_id = b.meeting_id WHERE a.person_name = 'Benjamin'",
+        "SELECT a.meeting_id, b.person_name AS colleague, a.duration_minutes FROM meeting_participants AS a JOIN meeting_participants AS b ON a.meeting_id = b.meeting_id WHERE b.person_name <> 'Benjamin'",
+    ],
+    "sql-lab-groupby-neighborhood": [
+        "SELECT neighborhood, SUM(price) AS average_price FROM property_sales GROUP BY neighborhood",
+        "SELECT neighborhood, AVG(price) AS average_price FROM property_sales GROUP BY neighborhood, price",
+    ],
+    "sql-lab-groupby-city": [
+        "SELECT city, CAST(AVG(CAST(sale_value AS INTEGER)) AS INTEGER) AS avg_sale_value FROM property_sales GROUP BY city",
+        "SELECT city, AVG(sale_value) AS avg_sale_value FROM property_sales GROUP BY city",
+    ],
+    "sql-lab-groupby-above-global-cte": [
+        "WITH global_avg AS (SELECT AVG(amount) AS avg_amount FROM sales) SELECT s.customer_id, AVG(s.amount) AS customer_avg FROM sales AS s CROSS JOIN global_avg AS g GROUP BY s.customer_id, g.avg_amount HAVING AVG(s.amount) >= g.avg_amount",
+        "WITH per_customer AS (SELECT customer_id, AVG(amount) AS customer_avg FROM sales GROUP BY customer_id) SELECT customer_id, customer_avg FROM per_customer WHERE customer_avg > (SELECT AVG(customer_avg) FROM per_customer)",
+    ],
+    "sql-lab-groupby-meeting-average": [
+        "SELECT person_name AS colleague, AVG(duration_minutes) AS avg_meeting_duration FROM meeting_participants WHERE person_name <> 'Benjamin' GROUP BY person_name",
+        "WITH m AS (SELECT a.meeting_id, b.person_name AS colleague, a.duration_minutes FROM meeting_participants AS a JOIN meeting_participants AS b ON a.meeting_id = b.meeting_id WHERE a.person_name = 'Benjamin') SELECT colleague, AVG(duration_minutes) AS avg_meeting_duration FROM m GROUP BY colleague",
+    ],
+    "sql-lab-case-discount-cte": [
+        "WITH priced AS (SELECT discount_code, CASE WHEN discount_code = 'DISCOUNT10' THEN quantity * price_per_unit * 0.10 WHEN discount_code = 'DISCOUNT20' THEN quantity * price_per_unit * 0.20 ELSE quantity * price_per_unit END AS revenue_after_discount FROM sales) SELECT discount_code, SUM(revenue_after_discount) AS total_revenue FROM priced GROUP BY discount_code",
+        "WITH priced AS (SELECT discount_code, CASE WHEN discount_code = 'DISCOUNT10' THEN quantity * price_per_unit * 0.90 WHEN discount_code = 'DISCOUNT20' THEN quantity * price_per_unit * 0.80 END AS revenue_after_discount FROM sales) SELECT discount_code, SUM(revenue_after_discount) AS total_revenue FROM priced GROUP BY discount_code",
+    ],
+    "sql-lab-grouping-contract": [
+        "SELECT contract_type, SUM(amount_reimbursed) AS total_reimbursed FROM reimbursements GROUP BY contract_type, act_type",
+        "SELECT contract_type, COUNT(amount_reimbursed) AS total_reimbursed FROM reimbursements GROUP BY contract_type",
+    ],
+    "sql-lab-grouping-contract-act": [
+        "SELECT contract_type, act_type, SUM(DISTINCT amount_reimbursed) AS total_reimbursed FROM reimbursements GROUP BY contract_type, act_type",
+        "SELECT contract_type, act_type, SUM(amount_reimbursed) AS total_reimbursed FROM reimbursements GROUP BY ROLLUP (contract_type, act_type)",
+    ],
+    "sql-lab-grouping-union": [
+        "SELECT contract_type AS typology, SUM(amount_reimbursed) AS total_reimbursed FROM reimbursements GROUP BY contract_type UNION SELECT act_type AS typology, SUM(amount_reimbursed) AS total_reimbursed FROM reimbursements GROUP BY act_type",
+        "SELECT contract_type AS typology, SUM(amount_reimbursed) AS total_reimbursed FROM reimbursements GROUP BY contract_type",
+    ],
+    "sql-lab-grouping-region-year": [
+        "SELECT year_value, region, SUM(population) AS population FROM regional_population GROUP BY year_value, region",
+        "SELECT year_value, region, SUM(population) AS population FROM regional_population GROUP BY ROLLUP (year_value, region)",
+    ],
+    "sql-lab-grouping-multilevel-rollup": [
+        "SELECT contract_type, act_type, age_group, sex, year_value, SUM(amount_reimbursed) AS total_reimbursed FROM reimbursements GROUP BY CUBE (contract_type, act_type, age_group, sex, year_value)",
+        "SELECT contract_type, act_type, age_group, sex, year_value, SUM(amount_reimbursed) AS total_reimbursed FROM reimbursements GROUP BY ROLLUP (contract_type, act_type, sex, age_group, year_value)",
+    ],
+    "sql-lab-grouping-store-share": [
+        "SELECT store_id, SUM(CASE WHEN product_name = 'Red Bull' THEN amount END) AS red_bull_sales, SUM(amount) AS store_sales, SUM(CASE WHEN product_name = 'Red Bull' THEN amount END) * 1.0 / (SELECT SUM(amount) FROM sales) AS red_bull_share FROM sales GROUP BY store_id",
+        "SELECT store_id, COALESCE(SUM(CASE WHEN product_name = 'Red Bull' THEN amount END), 0) AS red_bull_sales, SUM(amount) AS store_sales, COALESCE(SUM(CASE WHEN product_name = 'Red Bull' THEN amount END), 0) * 1.0 / SUM(amount) AS red_bull_share FROM sales GROUP BY store_id",
+    ],
+    "sql-lab-window-sum-over": [
+        "SELECT date_value, visitors_count, SUM(visitors_count) OVER (ORDER BY date_value) AS total_visitors FROM sensor_daily",
+    ],
+    "sql-lab-window-progressive-average": [
+        "SELECT date_value, visitors_count, AVG(visitors_count) OVER () AS avg_visitors_to_date FROM sensor_daily",
+        "SELECT date_value, visitors_count, AVG(visitors_count) OVER (ORDER BY date_value DESC ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW) AS avg_visitors_to_date FROM sensor_daily",
+    ],
+    "sql-lab-window-seven-row-average": [
+        "SELECT date_value, visitors_count, AVG(visitors_count) OVER (ORDER BY date_value ROWS BETWEEN 7 PRECEDING AND CURRENT ROW) AS seven_day_avg FROM sensor_daily",
+        "SELECT date_value, visitors_count, AVG(visitors_count) OVER (ORDER BY date_value RANGE BETWEEN INTERVAL 6 DAY PRECEDING AND CURRENT ROW) AS seven_day_avg FROM sensor_daily",
+    ],
+    "sql-lab-window-verify-average": [
+        "WITH w AS (SELECT *, SUM(visitors_count) OVER (ORDER BY date_value ROWS BETWEEN 6 PRECEDING AND CURRENT ROW) AS window_sum, COUNT(*) OVER () AS window_count, AVG(visitors_count) OVER (ORDER BY date_value ROWS BETWEEN 6 PRECEDING AND CURRENT ROW) AS window_avg FROM sensor_daily) SELECT date_value, visitors_count, window_sum, window_count, window_avg, window_sum * 1.0 / NULLIF(window_count, 0) AS manual_avg FROM w",
+        "WITH w AS (SELECT *, SUM(visitors_count) OVER (ORDER BY date_value ROWS BETWEEN 6 PRECEDING AND CURRENT ROW) AS window_sum, COUNT(*) OVER (ORDER BY date_value ROWS BETWEEN 7 PRECEDING AND CURRENT ROW) AS window_count, AVG(visitors_count) OVER (ORDER BY date_value ROWS BETWEEN 6 PRECEDING AND CURRENT ROW) AS window_avg FROM sensor_daily) SELECT date_value, visitors_count, window_sum, window_count, window_avg, window_sum * 1.0 / NULLIF(window_count, 0) AS manual_avg FROM w",
+    ],
+    "sql-lab-window-dept-max": [
+        "SELECT employee_name, department, wage, MAX(wage) OVER (PARTITION BY department ORDER BY wage) AS department_max_wage FROM employees",
+        "SELECT employee_name, department, wage, MAX(wage) OVER () AS department_max_wage FROM employees",
+    ],
+    "sql-lab-window-weekday-partition": [
+        "SELECT date_value, weekday_number, visitors_count, AVG(visitors_count) OVER (ORDER BY date_value ROWS BETWEEN 6 PRECEDING AND CURRENT ROW) AS same_weekday_avg FROM sensor_daily",
+        "SELECT date_value, weekday_number, visitors_count, AVG(visitors_count) OVER (PARTITION BY weekday_number ORDER BY date_value ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW) AS same_weekday_avg FROM sensor_daily",
+    ],
+    "sql-lab-window-lag": [
+        "SELECT date_value, weekday_number, visitors_count, LAG(visitors_count) OVER (ORDER BY date_value) AS previous_same_weekday_visitors FROM sensor_daily",
+        "SELECT date_value, weekday_number, visitors_count, LEAD(visitors_count) OVER (PARTITION BY weekday_number ORDER BY date_value) AS previous_same_weekday_visitors FROM sensor_daily",
+    ],
+    "sql-lab-window-row-number-sex": [
+        "SELECT employee_name, sex, wage, RANK() OVER (PARTITION BY sex ORDER BY wage DESC) AS wage_row_number FROM employees",
+        "SELECT employee_name, sex, wage, ROW_NUMBER() OVER (PARTITION BY sex ORDER BY wage DESC, employee_name DESC) AS wage_row_number FROM employees",
+    ],
+    "sql-lab-window-sensor-running-avg": [
+        "SELECT sensor_id, date_value, visitors_count, AVG(visitors_count) OVER (ORDER BY date_value, sensor_id ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW) AS running_avg_visitors FROM sensor_daily",
+    ],
+    "sql-lab-window-sensor-weekday": [
+        "SELECT sensor_id, weekday_number, date_value, visitors_count, AVG(visitors_count) OVER (PARTITION BY sensor_id ORDER BY date_value ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW) AS running_avg_visitors FROM sensor_daily",
+    ],
+    "sql-lab-window-updated-ranking": [
+        "WITH moving AS (SELECT *, AVG(visitors_count) OVER (PARTITION BY sensor_id, weekday_number ORDER BY date_value ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW) AS running_avg_visitors FROM sensor_daily) SELECT sensor_id, weekday_number, date_value, visitors_count, running_avg_visitors, RANK() OVER (PARTITION BY date_value ORDER BY running_avg_visitors DESC) AS sensor_rank FROM moving",
+        "WITH moving AS (SELECT *, AVG(visitors_count) OVER (PARTITION BY sensor_id, weekday_number ORDER BY date_value ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW) AS running_avg_visitors FROM sensor_daily) SELECT sensor_id, weekday_number, date_value, visitors_count, running_avg_visitors, DENSE_RANK() OVER (PARTITION BY date_value ORDER BY visitors_count DESC) AS sensor_rank FROM moving",
+    ],
+    "sql-lab-window-top-one": [
+        "WITH ranked AS (SELECT *, DENSE_RANK() OVER (PARTITION BY department ORDER BY wage DESC) AS rn FROM employees) SELECT employee_name, department, wage FROM ranked WHERE rn = 1",
+        "WITH ranked AS (SELECT *, ROW_NUMBER() OVER (PARTITION BY department ORDER BY wage DESC, employee_name DESC) AS rn FROM employees) SELECT employee_name, department, wage FROM ranked WHERE rn = 1",
+    ],
 }
 
 

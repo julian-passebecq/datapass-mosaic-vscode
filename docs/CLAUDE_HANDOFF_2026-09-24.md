@@ -20,7 +20,7 @@ Executed: `npm run compile`, `npm test`, runtime smoke, pack smoke, and `npm run
 
 Not done / next content steps:
 
-- The remaining 30 donor SQL lab items (more grouping-set and window variants) can follow the same process.
+- Done in a follow-up: the remaining 30 donor SQL lab items were added (pack version 2, 60 exercises; 108 mutants in the gate). All 60 donor SQL lab challenges are now promoted.
 - `curriculum.js` / `engineLab.js` donor content (Python, PySpark, storage, modeling) is not promoted yet. Python/Polars exercises need trusted-Python-aware messaging (already shown in Practice); SparkLab variants must stay within `sparklab/capabilities.py` support.
 - Reference solutions ship inside the VSIX (`grading.server.json`); grading is a teaching aid, not an exam control.
 
@@ -382,7 +382,7 @@ Proceed in this order unless a newly reproduced bug blocks the sequence.
 3. Do not force-push/rewrite the long branch history.
 4. Keep the branch-to-main PR as draft until manual F5 smoke testing is satisfactory.
 
-Status after the 2026-09-24 Claude tranches: P1 trusted Python — done; P1 SparkLab — done; P1 E2E — done (`npm run test:host`); P2 pipeline dbt — decided: explicitly unsupported; P2 Mosaic durability — done; P2 content — first pack done (`sql-lab-v1`, 30 exercises), more donor content remains. Remaining: manual F5 pass, further content.
+Status after the 2026-09-24 Claude tranches: P1 trusted Python — done; P1 SparkLab — done; P1 E2E — done (`npm run test:host`); P2 pipeline dbt — decided: explicitly unsupported; P2 Mosaic durability — done; P2 content — `sql-lab-v1` complete (all 60 donor SQL lab challenges); `curriculum.js`/`engineLab.js` donor content remains. Remaining: manual F5 pass, further content.
 
 ### P1 — trusted Python/Polars UX (done)
 

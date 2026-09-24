@@ -188,7 +188,7 @@ export async function run(): Promise<void> {
     ["SQL lab multi-table and semantic-variant exercises grade from the catalog", async () => {
       const catalog = await loadExerciseCatalog(extension.extensionUri);
       const lab = catalog.filter(item => item.packId === "sql-lab-v1");
-      assert.equal(lab.length, 30);
+      assert.equal(lab.length, 60);
       assert.ok(lab.every(item => item.dataContext.length > 0 && item.hints.length > 0));
 
       const grading = JSON.parse(new TextDecoder().decode(await vscode.workspace.fs.readFile(

@@ -3919,5 +3919,4599 @@
         ]
       }
     ]
+  },
+  "sql-lab-cross-retail-grid": {
+    "solution": "SELECT s.store_id, m.market_id, mo.month_id, w.weekday_id, q.quarter_id\nFROM stores AS s\nCROSS JOIN markets AS m\nCROSS JOIN months AS mo\nCROSS JOIN weekdays AS w\nCROSS JOIN quarters AS q",
+    "fixtures": [
+      {
+        "id": "example",
+        "visibility": "visible",
+        "input_rows": [],
+        "tables": {
+          "stores": [
+            {
+              "store_id": 1
+            },
+            {
+              "store_id": 2
+            }
+          ],
+          "markets": [
+            {
+              "market_id": 10
+            },
+            {
+              "market_id": 20
+            }
+          ],
+          "months": [
+            {
+              "month_id": 1
+            },
+            {
+              "month_id": 2
+            }
+          ],
+          "weekdays": [
+            {
+              "weekday_id": 1
+            },
+            {
+              "weekday_id": 7
+            }
+          ],
+          "quarters": [
+            {
+              "quarter_id": 1
+            }
+          ]
+        },
+        "expected": [
+          {
+            "store_id": 1,
+            "market_id": 10,
+            "month_id": 1,
+            "weekday_id": 1,
+            "quarter_id": 1
+          },
+          {
+            "store_id": 1,
+            "market_id": 20,
+            "month_id": 1,
+            "weekday_id": 1,
+            "quarter_id": 1
+          },
+          {
+            "store_id": 2,
+            "market_id": 10,
+            "month_id": 1,
+            "weekday_id": 1,
+            "quarter_id": 1
+          },
+          {
+            "store_id": 2,
+            "market_id": 20,
+            "month_id": 1,
+            "weekday_id": 1,
+            "quarter_id": 1
+          },
+          {
+            "store_id": 1,
+            "market_id": 10,
+            "month_id": 2,
+            "weekday_id": 1,
+            "quarter_id": 1
+          },
+          {
+            "store_id": 1,
+            "market_id": 20,
+            "month_id": 2,
+            "weekday_id": 1,
+            "quarter_id": 1
+          },
+          {
+            "store_id": 2,
+            "market_id": 10,
+            "month_id": 2,
+            "weekday_id": 1,
+            "quarter_id": 1
+          },
+          {
+            "store_id": 2,
+            "market_id": 20,
+            "month_id": 2,
+            "weekday_id": 1,
+            "quarter_id": 1
+          },
+          {
+            "store_id": 1,
+            "market_id": 10,
+            "month_id": 1,
+            "weekday_id": 7,
+            "quarter_id": 1
+          },
+          {
+            "store_id": 1,
+            "market_id": 20,
+            "month_id": 1,
+            "weekday_id": 7,
+            "quarter_id": 1
+          },
+          {
+            "store_id": 2,
+            "market_id": 10,
+            "month_id": 1,
+            "weekday_id": 7,
+            "quarter_id": 1
+          },
+          {
+            "store_id": 2,
+            "market_id": 20,
+            "month_id": 1,
+            "weekday_id": 7,
+            "quarter_id": 1
+          },
+          {
+            "store_id": 1,
+            "market_id": 10,
+            "month_id": 2,
+            "weekday_id": 7,
+            "quarter_id": 1
+          },
+          {
+            "store_id": 1,
+            "market_id": 20,
+            "month_id": 2,
+            "weekday_id": 7,
+            "quarter_id": 1
+          },
+          {
+            "store_id": 2,
+            "market_id": 10,
+            "month_id": 2,
+            "weekday_id": 7,
+            "quarter_id": 1
+          },
+          {
+            "store_id": 2,
+            "market_id": 20,
+            "month_id": 2,
+            "weekday_id": 7,
+            "quarter_id": 1
+          }
+        ]
+      },
+      {
+        "id": "duplicate-dimension",
+        "visibility": "hidden",
+        "input_rows": [],
+        "tables": {
+          "stores": [
+            {
+              "store_id": 3
+            },
+            {
+              "store_id": 3
+            }
+          ],
+          "markets": [
+            {
+              "market_id": 30
+            }
+          ],
+          "months": [
+            {
+              "month_id": 12
+            }
+          ],
+          "weekdays": [
+            {
+              "weekday_id": 5
+            }
+          ],
+          "quarters": [
+            {
+              "quarter_id": 4
+            },
+            {
+              "quarter_id": 1
+            }
+          ]
+        },
+        "expected": [
+          {
+            "store_id": 3,
+            "market_id": 30,
+            "month_id": 12,
+            "weekday_id": 5,
+            "quarter_id": 4
+          },
+          {
+            "store_id": 3,
+            "market_id": 30,
+            "month_id": 12,
+            "weekday_id": 5,
+            "quarter_id": 4
+          },
+          {
+            "store_id": 3,
+            "market_id": 30,
+            "month_id": 12,
+            "weekday_id": 5,
+            "quarter_id": 1
+          },
+          {
+            "store_id": 3,
+            "market_id": 30,
+            "month_id": 12,
+            "weekday_id": 5,
+            "quarter_id": 1
+          }
+        ]
+      },
+      {
+        "id": "empty-dimension",
+        "visibility": "edge",
+        "input_rows": [],
+        "tables": {
+          "stores": [
+            {
+              "store_id": 1
+            }
+          ],
+          "markets": [
+            {
+              "market_id": 10
+            }
+          ],
+          "months": [],
+          "weekdays": [
+            {
+              "weekday_id": 1
+            }
+          ],
+          "quarters": [
+            {
+              "quarter_id": 1
+            }
+          ]
+        },
+        "expected": []
+      }
+    ]
+  },
+  "sql-lab-inner-add-products": {
+    "solution": "SELECT co.order_id, co.customer_id, co.product_id, co.quantity, p.product_name, p.unit_price\nFROM customer_orders AS co\nINNER JOIN products AS p\n    ON co.product_id = p.product_id",
+    "fixtures": [
+      {
+        "id": "example",
+        "visibility": "visible",
+        "input_rows": [],
+        "tables": {
+          "customer_orders": [
+            {
+              "order_id": 1,
+              "customer_id": 1,
+              "product_id": 10,
+              "quantity": 2
+            },
+            {
+              "order_id": 2,
+              "customer_id": 2,
+              "product_id": 11,
+              "quantity": 1
+            },
+            {
+              "order_id": 3,
+              "customer_id": 2,
+              "product_id": 99,
+              "quantity": 4
+            }
+          ],
+          "products": [
+            {
+              "product_id": 10,
+              "product_name": "Tea",
+              "unit_price": 3.5
+            },
+            {
+              "product_id": 11,
+              "product_name": "Coffee",
+              "unit_price": 4.0
+            }
+          ]
+        },
+        "expected": [
+          {
+            "order_id": 1,
+            "customer_id": 1,
+            "product_id": 10,
+            "quantity": 2,
+            "product_name": "Tea",
+            "unit_price": 3.5
+          },
+          {
+            "order_id": 2,
+            "customer_id": 2,
+            "product_id": 11,
+            "quantity": 1,
+            "product_name": "Coffee",
+            "unit_price": 4.0
+          }
+        ]
+      },
+      {
+        "id": "repeated-product",
+        "visibility": "hidden",
+        "input_rows": [],
+        "tables": {
+          "customer_orders": [
+            {
+              "order_id": 4,
+              "customer_id": 3,
+              "product_id": 12,
+              "quantity": 1
+            },
+            {
+              "order_id": 5,
+              "customer_id": 4,
+              "product_id": 12,
+              "quantity": 2
+            },
+            {
+              "order_id": 6,
+              "customer_id": 4,
+              "product_id": 13,
+              "quantity": 1
+            }
+          ],
+          "products": [
+            {
+              "product_id": 12,
+              "product_name": "Juice",
+              "unit_price": 2.0
+            }
+          ]
+        },
+        "expected": [
+          {
+            "order_id": 4,
+            "customer_id": 3,
+            "product_id": 12,
+            "quantity": 1,
+            "product_name": "Juice",
+            "unit_price": 2.0
+          },
+          {
+            "order_id": 5,
+            "customer_id": 4,
+            "product_id": 12,
+            "quantity": 2,
+            "product_name": "Juice",
+            "unit_price": 2.0
+          }
+        ]
+      },
+      {
+        "id": "no-products",
+        "visibility": "edge",
+        "input_rows": [],
+        "tables": {
+          "customer_orders": [
+            {
+              "order_id": 7,
+              "customer_id": 1,
+              "product_id": 10,
+              "quantity": 1
+            }
+          ],
+          "products": []
+        },
+        "expected": []
+      }
+    ]
+  },
+  "sql-lab-inner-retail-chain": {
+    "solution": "SELECT s.sale_id, s.product_id, pc.category_id, cu.universe_id\nFROM sales AS s\nINNER JOIN product_category AS pc\n    ON s.product_id = pc.product_id\nINNER JOIN category_universe AS cu\n    ON pc.category_id = cu.category_id",
+    "fixtures": [
+      {
+        "id": "example",
+        "visibility": "visible",
+        "input_rows": [],
+        "tables": {
+          "sales": [
+            {
+              "sale_id": 1,
+              "product_id": 10
+            },
+            {
+              "sale_id": 2,
+              "product_id": 11
+            },
+            {
+              "sale_id": 3,
+              "product_id": 12
+            }
+          ],
+          "product_category": [
+            {
+              "product_id": 10,
+              "category_id": 100
+            },
+            {
+              "product_id": 11,
+              "category_id": 101
+            },
+            {
+              "product_id": 12,
+              "category_id": 102
+            }
+          ],
+          "category_universe": [
+            {
+              "category_id": 100,
+              "universe_id": 1000
+            },
+            {
+              "category_id": 101,
+              "universe_id": 1000
+            }
+          ]
+        },
+        "expected": [
+          {
+            "sale_id": 1,
+            "product_id": 10,
+            "category_id": 100,
+            "universe_id": 1000
+          },
+          {
+            "sale_id": 2,
+            "product_id": 11,
+            "category_id": 101,
+            "universe_id": 1000
+          }
+        ]
+      },
+      {
+        "id": "gaps-at-both-steps",
+        "visibility": "hidden",
+        "input_rows": [],
+        "tables": {
+          "sales": [
+            {
+              "sale_id": 4,
+              "product_id": 20
+            },
+            {
+              "sale_id": 5,
+              "product_id": 21
+            },
+            {
+              "sale_id": 6,
+              "product_id": 22
+            },
+            {
+              "sale_id": 7,
+              "product_id": 20
+            }
+          ],
+          "product_category": [
+            {
+              "product_id": 20,
+              "category_id": 200
+            },
+            {
+              "product_id": 21,
+              "category_id": 201
+            }
+          ],
+          "category_universe": [
+            {
+              "category_id": 200,
+              "universe_id": 2000
+            }
+          ]
+        },
+        "expected": [
+          {
+            "sale_id": 4,
+            "product_id": 20,
+            "category_id": 200,
+            "universe_id": 2000
+          },
+          {
+            "sale_id": 7,
+            "product_id": 20,
+            "category_id": 200,
+            "universe_id": 2000
+          }
+        ]
+      },
+      {
+        "id": "nothing-mapped",
+        "visibility": "edge",
+        "input_rows": [],
+        "tables": {
+          "sales": [
+            {
+              "sale_id": 1,
+              "product_id": 1
+            }
+          ],
+          "product_category": [],
+          "category_universe": [
+            {
+              "category_id": 1,
+              "universe_id": 1
+            }
+          ]
+        },
+        "expected": []
+      }
+    ]
+  },
+  "sql-lab-inner-constant-key": {
+    "solution": "SELECT b.beverage, f.food\nFROM beverages AS b\nCROSS JOIN food_items AS f",
+    "fixtures": [
+      {
+        "id": "example",
+        "visibility": "visible",
+        "input_rows": [],
+        "tables": {
+          "beverages": [
+            {
+              "id": 1,
+              "beverage": "Tea"
+            },
+            {
+              "id": 1,
+              "beverage": "Coffee"
+            }
+          ],
+          "food_items": [
+            {
+              "id": 1,
+              "food": "Croissant"
+            },
+            {
+              "id": 1,
+              "food": "Bagel"
+            },
+            {
+              "id": 1,
+              "food": "Muffin"
+            }
+          ]
+        },
+        "expected": [
+          {
+            "beverage": "Tea",
+            "food": "Croissant"
+          },
+          {
+            "beverage": "Coffee",
+            "food": "Croissant"
+          },
+          {
+            "beverage": "Tea",
+            "food": "Bagel"
+          },
+          {
+            "beverage": "Coffee",
+            "food": "Bagel"
+          },
+          {
+            "beverage": "Tea",
+            "food": "Muffin"
+          },
+          {
+            "beverage": "Coffee",
+            "food": "Muffin"
+          }
+        ]
+      },
+      {
+        "id": "duplicate-beverage",
+        "visibility": "hidden",
+        "input_rows": [],
+        "tables": {
+          "beverages": [
+            {
+              "id": 1,
+              "beverage": "Water"
+            },
+            {
+              "id": 1,
+              "beverage": "Water"
+            }
+          ],
+          "food_items": [
+            {
+              "id": 1,
+              "food": "Toast"
+            }
+          ]
+        },
+        "expected": [
+          {
+            "beverage": "Water",
+            "food": "Toast"
+          },
+          {
+            "beverage": "Water",
+            "food": "Toast"
+          }
+        ]
+      },
+      {
+        "id": "no-food",
+        "visibility": "edge",
+        "input_rows": [],
+        "tables": {
+          "beverages": [
+            {
+              "id": 1,
+              "beverage": "Tea"
+            }
+          ],
+          "food_items": []
+        },
+        "expected": []
+      }
+    ]
+  },
+  "sql-lab-left-product-enrichment": {
+    "solution": "SELECT co.order_id, co.product_id, co.quantity, p.product_name\nFROM customer_orders AS co\nLEFT JOIN products AS p\n    ON co.product_id = p.product_id",
+    "fixtures": [
+      {
+        "id": "example",
+        "visibility": "visible",
+        "input_rows": [],
+        "tables": {
+          "customer_orders": [
+            {
+              "order_id": 1,
+              "product_id": 10,
+              "quantity": 2
+            },
+            {
+              "order_id": 2,
+              "product_id": 99,
+              "quantity": 1
+            },
+            {
+              "order_id": 3,
+              "product_id": 11,
+              "quantity": 5
+            }
+          ],
+          "products": [
+            {
+              "product_id": 10,
+              "product_name": "Tea"
+            },
+            {
+              "product_id": 11,
+              "product_name": "Coffee"
+            },
+            {
+              "product_id": 12,
+              "product_name": "Juice"
+            }
+          ]
+        },
+        "expected": [
+          {
+            "order_id": 1,
+            "product_id": 10,
+            "quantity": 2,
+            "product_name": "Tea"
+          },
+          {
+            "order_id": 3,
+            "product_id": 11,
+            "quantity": 5,
+            "product_name": "Coffee"
+          },
+          {
+            "order_id": 2,
+            "product_id": 99,
+            "quantity": 1,
+            "product_name": null
+          }
+        ]
+      },
+      {
+        "id": "all-unknown",
+        "visibility": "hidden",
+        "input_rows": [],
+        "tables": {
+          "customer_orders": [
+            {
+              "order_id": 4,
+              "product_id": 50,
+              "quantity": 1
+            },
+            {
+              "order_id": 5,
+              "product_id": 51,
+              "quantity": 2
+            }
+          ],
+          "products": [
+            {
+              "product_id": 10,
+              "product_name": "Tea"
+            }
+          ]
+        },
+        "expected": [
+          {
+            "order_id": 4,
+            "product_id": 50,
+            "quantity": 1,
+            "product_name": null
+          },
+          {
+            "order_id": 5,
+            "product_id": 51,
+            "quantity": 2,
+            "product_name": null
+          }
+        ]
+      },
+      {
+        "id": "empty-orders",
+        "visibility": "edge",
+        "input_rows": [],
+        "tables": {
+          "customer_orders": [],
+          "products": [
+            {
+              "product_id": 10,
+              "product_name": "Tea"
+            }
+          ]
+        },
+        "expected": []
+      }
+    ]
+  },
+  "sql-lab-full-products": {
+    "solution": "SELECT sp.store_id, COALESCE(sp.product_id, p.product_id) AS product_id, p.product_name\nFROM store_products AS sp\nFULL OUTER JOIN products AS p\n    ON sp.product_id = p.product_id",
+    "fixtures": [
+      {
+        "id": "example",
+        "visibility": "visible",
+        "input_rows": [],
+        "tables": {
+          "store_products": [
+            {
+              "product_id": 10,
+              "store_id": 1
+            },
+            {
+              "product_id": 11,
+              "store_id": 1
+            },
+            {
+              "product_id": 99,
+              "store_id": 2
+            }
+          ],
+          "products": [
+            {
+              "product_id": 10,
+              "product_name": "Tea"
+            },
+            {
+              "product_id": 11,
+              "product_name": "Coffee"
+            },
+            {
+              "product_id": 12,
+              "product_name": "Juice"
+            }
+          ]
+        },
+        "expected": [
+          {
+            "store_id": 1,
+            "product_id": 10,
+            "product_name": "Tea"
+          },
+          {
+            "store_id": 1,
+            "product_id": 11,
+            "product_name": "Coffee"
+          },
+          {
+            "store_id": null,
+            "product_id": 12,
+            "product_name": "Juice"
+          },
+          {
+            "store_id": 2,
+            "product_id": 99,
+            "product_name": null
+          }
+        ]
+      },
+      {
+        "id": "product-in-two-stores",
+        "visibility": "hidden",
+        "input_rows": [],
+        "tables": {
+          "store_products": [
+            {
+              "product_id": 20,
+              "store_id": 3
+            },
+            {
+              "product_id": 20,
+              "store_id": 4
+            }
+          ],
+          "products": [
+            {
+              "product_id": 20,
+              "product_name": "Soda"
+            },
+            {
+              "product_id": 21,
+              "product_name": "Milk"
+            }
+          ]
+        },
+        "expected": [
+          {
+            "store_id": 3,
+            "product_id": 20,
+            "product_name": "Soda"
+          },
+          {
+            "store_id": 4,
+            "product_id": 20,
+            "product_name": "Soda"
+          },
+          {
+            "store_id": null,
+            "product_id": 21,
+            "product_name": "Milk"
+          }
+        ]
+      },
+      {
+        "id": "empty-stores",
+        "visibility": "edge",
+        "input_rows": [],
+        "tables": {
+          "store_products": [],
+          "products": [
+            {
+              "product_id": 1,
+              "product_name": "Tea"
+            }
+          ]
+        },
+        "expected": [
+          {
+            "store_id": null,
+            "product_id": 1,
+            "product_name": "Tea"
+          }
+        ]
+      }
+    ]
+  },
+  "sql-lab-self-meetings": {
+    "solution": "SELECT a.meeting_id, b.person_name AS colleague, a.duration_minutes\nFROM meeting_participants AS a\nINNER JOIN meeting_participants AS b\n    ON a.meeting_id = b.meeting_id\nWHERE a.person_name = 'Benjamin'\n  AND b.person_name <> 'Benjamin'",
+    "fixtures": [
+      {
+        "id": "example",
+        "visibility": "visible",
+        "input_rows": [],
+        "tables": {
+          "meeting_participants": [
+            {
+              "meeting_id": 1,
+              "person_name": "Benjamin",
+              "duration_minutes": 30
+            },
+            {
+              "meeting_id": 1,
+              "person_name": "Chloe",
+              "duration_minutes": 30
+            },
+            {
+              "meeting_id": 1,
+              "person_name": "Hugo",
+              "duration_minutes": 30
+            },
+            {
+              "meeting_id": 2,
+              "person_name": "Benjamin",
+              "duration_minutes": 60
+            },
+            {
+              "meeting_id": 2,
+              "person_name": "Chloe",
+              "duration_minutes": 60
+            },
+            {
+              "meeting_id": 3,
+              "person_name": "Chloe",
+              "duration_minutes": 45
+            },
+            {
+              "meeting_id": 3,
+              "person_name": "Hugo",
+              "duration_minutes": 45
+            }
+          ]
+        },
+        "expected": [
+          {
+            "meeting_id": 2,
+            "colleague": "Chloe",
+            "duration_minutes": 60
+          },
+          {
+            "meeting_id": 1,
+            "colleague": "Chloe",
+            "duration_minutes": 30
+          },
+          {
+            "meeting_id": 1,
+            "colleague": "Hugo",
+            "duration_minutes": 30
+          }
+        ]
+      },
+      {
+        "id": "many-colleagues",
+        "visibility": "hidden",
+        "input_rows": [],
+        "tables": {
+          "meeting_participants": [
+            {
+              "meeting_id": 7,
+              "person_name": "Benjamin",
+              "duration_minutes": 20
+            },
+            {
+              "meeting_id": 7,
+              "person_name": "Lina",
+              "duration_minutes": 20
+            },
+            {
+              "meeting_id": 8,
+              "person_name": "Benjamin",
+              "duration_minutes": 40
+            },
+            {
+              "meeting_id": 8,
+              "person_name": "Lina",
+              "duration_minutes": 40
+            },
+            {
+              "meeting_id": 8,
+              "person_name": "Omar",
+              "duration_minutes": 40
+            },
+            {
+              "meeting_id": 9,
+              "person_name": "Omar",
+              "duration_minutes": 90
+            },
+            {
+              "meeting_id": 9,
+              "person_name": "Lina",
+              "duration_minutes": 90
+            }
+          ]
+        },
+        "expected": [
+          {
+            "meeting_id": 8,
+            "colleague": "Lina",
+            "duration_minutes": 40
+          },
+          {
+            "meeting_id": 8,
+            "colleague": "Omar",
+            "duration_minutes": 40
+          },
+          {
+            "meeting_id": 7,
+            "colleague": "Lina",
+            "duration_minutes": 20
+          }
+        ]
+      },
+      {
+        "id": "alone",
+        "visibility": "edge",
+        "input_rows": [],
+        "tables": {
+          "meeting_participants": [
+            {
+              "meeting_id": 5,
+              "person_name": "Benjamin",
+              "duration_minutes": 15
+            }
+          ]
+        },
+        "expected": []
+      }
+    ]
+  },
+  "sql-lab-groupby-neighborhood": {
+    "solution": "SELECT neighborhood, AVG(price) AS average_price\nFROM property_sales\nGROUP BY neighborhood",
+    "fixtures": [
+      {
+        "id": "example",
+        "visibility": "visible",
+        "input_rows": [],
+        "tables": {
+          "property_sales": [
+            {
+              "neighborhood": "Old Town",
+              "price": 300000.0
+            },
+            {
+              "neighborhood": "Old Town",
+              "price": 500000.0
+            },
+            {
+              "neighborhood": "Harbor",
+              "price": 250000.0
+            }
+          ]
+        },
+        "expected": [
+          {
+            "neighborhood": "Harbor",
+            "average_price": 250000.0
+          },
+          {
+            "neighborhood": "Old Town",
+            "average_price": 400000.0
+          }
+        ]
+      },
+      {
+        "id": "mixed-prices",
+        "visibility": "hidden",
+        "input_rows": [],
+        "tables": {
+          "property_sales": [
+            {
+              "neighborhood": "Hill",
+              "price": 100000.0
+            },
+            {
+              "neighborhood": "Hill",
+              "price": 200000.0
+            },
+            {
+              "neighborhood": "Hill",
+              "price": null
+            },
+            {
+              "neighborhood": "Park",
+              "price": 400000.0
+            },
+            {
+              "neighborhood": "Park",
+              "price": 400000.0
+            }
+          ]
+        },
+        "expected": [
+          {
+            "neighborhood": "Park",
+            "average_price": 400000.0
+          },
+          {
+            "neighborhood": "Hill",
+            "average_price": 150000.0
+          }
+        ]
+      },
+      {
+        "id": "empty",
+        "visibility": "edge",
+        "input_rows": [],
+        "tables": {
+          "property_sales": []
+        },
+        "expected": []
+      }
+    ]
+  },
+  "sql-lab-groupby-city": {
+    "solution": "SELECT city, CAST(AVG(sale_value) AS INTEGER) AS avg_sale_value\nFROM property_sales\nGROUP BY city",
+    "fixtures": [
+      {
+        "id": "example",
+        "visibility": "visible",
+        "input_rows": [],
+        "tables": {
+          "property_sales": [
+            {
+              "city": "Lyon",
+              "sale_value": 200000.0
+            },
+            {
+              "city": "Lyon",
+              "sale_value": 300000.0
+            },
+            {
+              "city": "Nice",
+              "sale_value": 150000.0
+            }
+          ]
+        },
+        "expected": [
+          {
+            "city": "Lyon",
+            "avg_sale_value": 250000
+          },
+          {
+            "city": "Nice",
+            "avg_sale_value": 150000
+          }
+        ]
+      },
+      {
+        "id": "rounding-order",
+        "visibility": "hidden",
+        "input_rows": [],
+        "tables": {
+          "property_sales": [
+            {
+              "city": "Brest",
+              "sale_value": 100000.6
+            },
+            {
+              "city": "Brest",
+              "sale_value": 100000.6
+            },
+            {
+              "city": "Brest",
+              "sale_value": 100000.0
+            },
+            {
+              "city": "Metz",
+              "sale_value": 10.4
+            },
+            {
+              "city": "Metz",
+              "sale_value": 10.4
+            },
+            {
+              "city": "Metz",
+              "sale_value": 10.4
+            }
+          ]
+        },
+        "expected": [
+          {
+            "city": "Metz",
+            "avg_sale_value": 10
+          },
+          {
+            "city": "Brest",
+            "avg_sale_value": 100000
+          }
+        ]
+      },
+      {
+        "id": "empty",
+        "visibility": "edge",
+        "input_rows": [],
+        "tables": {
+          "property_sales": []
+        },
+        "expected": []
+      }
+    ]
+  },
+  "sql-lab-groupby-above-global-cte": {
+    "solution": "WITH global_avg AS (\n    SELECT AVG(amount) AS avg_amount\n    FROM sales\n)\nSELECT s.customer_id, AVG(s.amount) AS customer_avg\nFROM sales AS s\nCROSS JOIN global_avg AS g\nGROUP BY s.customer_id, g.avg_amount\nHAVING AVG(s.amount) > g.avg_amount",
+    "fixtures": [
+      {
+        "id": "example",
+        "visibility": "visible",
+        "input_rows": [],
+        "tables": {
+          "sales": [
+            {
+              "customer_id": 1,
+              "amount": 10.0
+            },
+            {
+              "customer_id": 1,
+              "amount": 10.0
+            },
+            {
+              "customer_id": 2,
+              "amount": 100.0
+            },
+            {
+              "customer_id": 3,
+              "amount": 40.0
+            },
+            {
+              "customer_id": 3,
+              "amount": 40.0
+            },
+            {
+              "customer_id": 3,
+              "amount": 40.0
+            },
+            {
+              "customer_id": 3,
+              "amount": 40.0
+            },
+            {
+              "customer_id": 3,
+              "amount": 40.0
+            },
+            {
+              "customer_id": 3,
+              "amount": 40.0
+            }
+          ]
+        },
+        "expected": [
+          {
+            "customer_id": 2,
+            "customer_avg": 100.0
+          }
+        ]
+      },
+      {
+        "id": "weighting-matters",
+        "visibility": "hidden",
+        "input_rows": [],
+        "tables": {
+          "sales": [
+            {
+              "customer_id": 1,
+              "amount": 10.0
+            },
+            {
+              "customer_id": 2,
+              "amount": 30.0
+            },
+            {
+              "customer_id": 2,
+              "amount": 30.0
+            },
+            {
+              "customer_id": 2,
+              "amount": 30.0
+            },
+            {
+              "customer_id": 2,
+              "amount": 30.0
+            },
+            {
+              "customer_id": 2,
+              "amount": 30.0
+            },
+            {
+              "customer_id": 3,
+              "amount": 25.0
+            }
+          ]
+        },
+        "expected": [
+          {
+            "customer_id": 2,
+            "customer_avg": 30.0
+          }
+        ]
+      },
+      {
+        "id": "single-customer",
+        "visibility": "edge",
+        "input_rows": [],
+        "tables": {
+          "sales": [
+            {
+              "customer_id": 9,
+              "amount": 5.0
+            },
+            {
+              "customer_id": 9,
+              "amount": 5.0
+            }
+          ]
+        },
+        "expected": []
+      }
+    ]
+  },
+  "sql-lab-groupby-meeting-average": {
+    "solution": "WITH benjamin_meetings AS (\n    SELECT a.meeting_id, b.person_name AS colleague, a.duration_minutes\n    FROM meeting_participants AS a\n    INNER JOIN meeting_participants AS b\n        ON a.meeting_id = b.meeting_id\n    WHERE a.person_name = 'Benjamin'\n      AND b.person_name <> 'Benjamin'\n)\nSELECT colleague, AVG(duration_minutes) AS avg_meeting_duration\nFROM benjamin_meetings\nGROUP BY colleague",
+    "fixtures": [
+      {
+        "id": "example",
+        "visibility": "visible",
+        "input_rows": [],
+        "tables": {
+          "meeting_participants": [
+            {
+              "meeting_id": 1,
+              "person_name": "Benjamin",
+              "duration_minutes": 30
+            },
+            {
+              "meeting_id": 1,
+              "person_name": "Chloe",
+              "duration_minutes": 30
+            },
+            {
+              "meeting_id": 1,
+              "person_name": "Hugo",
+              "duration_minutes": 30
+            },
+            {
+              "meeting_id": 2,
+              "person_name": "Benjamin",
+              "duration_minutes": 60
+            },
+            {
+              "meeting_id": 2,
+              "person_name": "Chloe",
+              "duration_minutes": 60
+            },
+            {
+              "meeting_id": 3,
+              "person_name": "Chloe",
+              "duration_minutes": 45
+            },
+            {
+              "meeting_id": 3,
+              "person_name": "Hugo",
+              "duration_minutes": 45
+            }
+          ]
+        },
+        "expected": [
+          {
+            "colleague": "Hugo",
+            "avg_meeting_duration": 30.0
+          },
+          {
+            "colleague": "Chloe",
+            "avg_meeting_duration": 45.0
+          }
+        ]
+      },
+      {
+        "id": "many-colleagues",
+        "visibility": "hidden",
+        "input_rows": [],
+        "tables": {
+          "meeting_participants": [
+            {
+              "meeting_id": 7,
+              "person_name": "Benjamin",
+              "duration_minutes": 20
+            },
+            {
+              "meeting_id": 7,
+              "person_name": "Lina",
+              "duration_minutes": 20
+            },
+            {
+              "meeting_id": 8,
+              "person_name": "Benjamin",
+              "duration_minutes": 40
+            },
+            {
+              "meeting_id": 8,
+              "person_name": "Lina",
+              "duration_minutes": 40
+            },
+            {
+              "meeting_id": 8,
+              "person_name": "Omar",
+              "duration_minutes": 40
+            },
+            {
+              "meeting_id": 9,
+              "person_name": "Omar",
+              "duration_minutes": 90
+            },
+            {
+              "meeting_id": 9,
+              "person_name": "Lina",
+              "duration_minutes": 90
+            }
+          ]
+        },
+        "expected": [
+          {
+            "colleague": "Lina",
+            "avg_meeting_duration": 30.0
+          },
+          {
+            "colleague": "Omar",
+            "avg_meeting_duration": 40.0
+          }
+        ]
+      },
+      {
+        "id": "alone",
+        "visibility": "edge",
+        "input_rows": [],
+        "tables": {
+          "meeting_participants": [
+            {
+              "meeting_id": 5,
+              "person_name": "Benjamin",
+              "duration_minutes": 15
+            }
+          ]
+        },
+        "expected": []
+      }
+    ]
+  },
+  "sql-lab-case-discount-cte": {
+    "solution": "WITH priced AS (\n    SELECT discount_code,\n        CASE\n            WHEN discount_code = 'DISCOUNT10' THEN quantity * price_per_unit * 0.90\n            WHEN discount_code = 'DISCOUNT20' THEN quantity * price_per_unit * 0.80\n            ELSE quantity * price_per_unit\n        END AS revenue_after_discount\n    FROM sales\n)\nSELECT discount_code, SUM(revenue_after_discount) AS total_revenue\nFROM priced\nGROUP BY discount_code",
+    "fixtures": [
+      {
+        "id": "example",
+        "visibility": "visible",
+        "input_rows": [],
+        "tables": {
+          "sales": [
+            {
+              "discount_code": "DISCOUNT10",
+              "quantity": 2,
+              "price_per_unit": 50.0
+            },
+            {
+              "discount_code": "DISCOUNT20",
+              "quantity": 1,
+              "price_per_unit": 100.0
+            },
+            {
+              "discount_code": "NONE",
+              "quantity": 3,
+              "price_per_unit": 10.0
+            }
+          ]
+        },
+        "expected": [
+          {
+            "discount_code": "DISCOUNT10",
+            "total_revenue": 90.0
+          },
+          {
+            "discount_code": "DISCOUNT20",
+            "total_revenue": 80.0
+          },
+          {
+            "discount_code": "NONE",
+            "total_revenue": 30.0
+          }
+        ]
+      },
+      {
+        "id": "null-and-repeat",
+        "visibility": "hidden",
+        "input_rows": [],
+        "tables": {
+          "sales": [
+            {
+              "discount_code": null,
+              "quantity": 1,
+              "price_per_unit": 8.0
+            },
+            {
+              "discount_code": "DISCOUNT10",
+              "quantity": 10,
+              "price_per_unit": 1.0
+            },
+            {
+              "discount_code": "DISCOUNT10",
+              "quantity": 5,
+              "price_per_unit": 2.0
+            },
+            {
+              "discount_code": "DISCOUNT20",
+              "quantity": 2,
+              "price_per_unit": 5.0
+            }
+          ]
+        },
+        "expected": [
+          {
+            "discount_code": null,
+            "total_revenue": 8.0
+          },
+          {
+            "discount_code": "DISCOUNT20",
+            "total_revenue": 8.0
+          },
+          {
+            "discount_code": "DISCOUNT10",
+            "total_revenue": 18.0
+          }
+        ]
+      },
+      {
+        "id": "empty",
+        "visibility": "edge",
+        "input_rows": [],
+        "tables": {
+          "sales": []
+        },
+        "expected": []
+      }
+    ]
+  },
+  "sql-lab-grouping-contract": {
+    "solution": "SELECT contract_type, SUM(amount_reimbursed) AS total_reimbursed\nFROM reimbursements\nGROUP BY contract_type",
+    "fixtures": [
+      {
+        "id": "example",
+        "visibility": "visible",
+        "input_rows": [],
+        "tables": {
+          "reimbursements": [
+            {
+              "contract_type": "BASIC",
+              "act_type": "GP",
+              "amount_reimbursed": 20.0
+            },
+            {
+              "contract_type": "BASIC",
+              "act_type": "DENTAL",
+              "amount_reimbursed": 50.0
+            },
+            {
+              "contract_type": "PREMIUM",
+              "act_type": "GP",
+              "amount_reimbursed": 25.0
+            },
+            {
+              "contract_type": "PREMIUM",
+              "act_type": "OPTICAL",
+              "amount_reimbursed": 120.0
+            },
+            {
+              "contract_type": "BASIC",
+              "act_type": "GP",
+              "amount_reimbursed": 20.0
+            }
+          ]
+        },
+        "expected": [
+          {
+            "contract_type": "BASIC",
+            "total_reimbursed": 90.0
+          },
+          {
+            "contract_type": "PREMIUM",
+            "total_reimbursed": 145.0
+          }
+        ]
+      },
+      {
+        "id": "hidden-mix",
+        "visibility": "hidden",
+        "input_rows": [],
+        "tables": {
+          "reimbursements": [
+            {
+              "contract_type": "GOLD",
+              "act_type": "GP",
+              "amount_reimbursed": 30.0
+            },
+            {
+              "contract_type": "GOLD",
+              "act_type": "GP",
+              "amount_reimbursed": 30.0
+            },
+            {
+              "contract_type": "SILVER",
+              "act_type": "DENTAL",
+              "amount_reimbursed": 60.0
+            },
+            {
+              "contract_type": "SILVER",
+              "act_type": "GP",
+              "amount_reimbursed": 15.0
+            }
+          ]
+        },
+        "expected": [
+          {
+            "contract_type": "SILVER",
+            "total_reimbursed": 75.0
+          },
+          {
+            "contract_type": "GOLD",
+            "total_reimbursed": 60.0
+          }
+        ]
+      },
+      {
+        "id": "single-row",
+        "visibility": "edge",
+        "input_rows": [],
+        "tables": {
+          "reimbursements": [
+            {
+              "contract_type": "BASIC",
+              "act_type": "GP",
+              "amount_reimbursed": 5.0
+            }
+          ]
+        },
+        "expected": [
+          {
+            "contract_type": "BASIC",
+            "total_reimbursed": 5.0
+          }
+        ]
+      }
+    ]
+  },
+  "sql-lab-grouping-contract-act": {
+    "solution": "SELECT contract_type, act_type, SUM(amount_reimbursed) AS total_reimbursed\nFROM reimbursements\nGROUP BY contract_type, act_type",
+    "fixtures": [
+      {
+        "id": "example",
+        "visibility": "visible",
+        "input_rows": [],
+        "tables": {
+          "reimbursements": [
+            {
+              "contract_type": "BASIC",
+              "act_type": "GP",
+              "amount_reimbursed": 20.0
+            },
+            {
+              "contract_type": "BASIC",
+              "act_type": "DENTAL",
+              "amount_reimbursed": 50.0
+            },
+            {
+              "contract_type": "PREMIUM",
+              "act_type": "GP",
+              "amount_reimbursed": 25.0
+            },
+            {
+              "contract_type": "PREMIUM",
+              "act_type": "OPTICAL",
+              "amount_reimbursed": 120.0
+            },
+            {
+              "contract_type": "BASIC",
+              "act_type": "GP",
+              "amount_reimbursed": 20.0
+            }
+          ]
+        },
+        "expected": [
+          {
+            "contract_type": "PREMIUM",
+            "act_type": "GP",
+            "total_reimbursed": 25.0
+          },
+          {
+            "contract_type": "PREMIUM",
+            "act_type": "OPTICAL",
+            "total_reimbursed": 120.0
+          },
+          {
+            "contract_type": "BASIC",
+            "act_type": "DENTAL",
+            "total_reimbursed": 50.0
+          },
+          {
+            "contract_type": "BASIC",
+            "act_type": "GP",
+            "total_reimbursed": 40.0
+          }
+        ]
+      },
+      {
+        "id": "hidden-mix",
+        "visibility": "hidden",
+        "input_rows": [],
+        "tables": {
+          "reimbursements": [
+            {
+              "contract_type": "GOLD",
+              "act_type": "GP",
+              "amount_reimbursed": 30.0
+            },
+            {
+              "contract_type": "GOLD",
+              "act_type": "GP",
+              "amount_reimbursed": 30.0
+            },
+            {
+              "contract_type": "SILVER",
+              "act_type": "DENTAL",
+              "amount_reimbursed": 60.0
+            },
+            {
+              "contract_type": "SILVER",
+              "act_type": "GP",
+              "amount_reimbursed": 15.0
+            }
+          ]
+        },
+        "expected": [
+          {
+            "contract_type": "SILVER",
+            "act_type": "GP",
+            "total_reimbursed": 15.0
+          },
+          {
+            "contract_type": "GOLD",
+            "act_type": "GP",
+            "total_reimbursed": 60.0
+          },
+          {
+            "contract_type": "SILVER",
+            "act_type": "DENTAL",
+            "total_reimbursed": 60.0
+          }
+        ]
+      },
+      {
+        "id": "single-row",
+        "visibility": "edge",
+        "input_rows": [],
+        "tables": {
+          "reimbursements": [
+            {
+              "contract_type": "BASIC",
+              "act_type": "GP",
+              "amount_reimbursed": 5.0
+            }
+          ]
+        },
+        "expected": [
+          {
+            "contract_type": "BASIC",
+            "act_type": "GP",
+            "total_reimbursed": 5.0
+          }
+        ]
+      }
+    ]
+  },
+  "sql-lab-grouping-union": {
+    "solution": "SELECT contract_type AS typology, SUM(amount_reimbursed) AS total_reimbursed\nFROM reimbursements\nGROUP BY contract_type\n\nUNION ALL\n\nSELECT act_type AS typology, SUM(amount_reimbursed) AS total_reimbursed\nFROM reimbursements\nGROUP BY act_type",
+    "fixtures": [
+      {
+        "id": "example",
+        "visibility": "visible",
+        "input_rows": [],
+        "tables": {
+          "reimbursements": [
+            {
+              "contract_type": "BASIC",
+              "act_type": "GP",
+              "amount_reimbursed": 20.0
+            },
+            {
+              "contract_type": "BASIC",
+              "act_type": "DENTAL",
+              "amount_reimbursed": 50.0
+            },
+            {
+              "contract_type": "PREMIUM",
+              "act_type": "GP",
+              "amount_reimbursed": 25.0
+            },
+            {
+              "contract_type": "PREMIUM",
+              "act_type": "OPTICAL",
+              "amount_reimbursed": 120.0
+            },
+            {
+              "contract_type": "BASIC",
+              "act_type": "GP",
+              "amount_reimbursed": 20.0
+            }
+          ]
+        },
+        "expected": [
+          {
+            "typology": "PREMIUM",
+            "total_reimbursed": 145.0
+          },
+          {
+            "typology": "BASIC",
+            "total_reimbursed": 90.0
+          },
+          {
+            "typology": "DENTAL",
+            "total_reimbursed": 50.0
+          },
+          {
+            "typology": "OPTICAL",
+            "total_reimbursed": 120.0
+          },
+          {
+            "typology": "GP",
+            "total_reimbursed": 65.0
+          }
+        ]
+      },
+      {
+        "id": "same-label",
+        "visibility": "hidden",
+        "input_rows": [],
+        "tables": {
+          "reimbursements": [
+            {
+              "contract_type": "STANDARD",
+              "act_type": "STANDARD",
+              "amount_reimbursed": 30.0
+            },
+            {
+              "contract_type": "PLUS",
+              "act_type": "DENTAL",
+              "amount_reimbursed": 10.0
+            }
+          ]
+        },
+        "expected": [
+          {
+            "typology": "PLUS",
+            "total_reimbursed": 10.0
+          },
+          {
+            "typology": "STANDARD",
+            "total_reimbursed": 30.0
+          },
+          {
+            "typology": "STANDARD",
+            "total_reimbursed": 30.0
+          },
+          {
+            "typology": "DENTAL",
+            "total_reimbursed": 10.0
+          }
+        ]
+      },
+      {
+        "id": "single-row",
+        "visibility": "edge",
+        "input_rows": [],
+        "tables": {
+          "reimbursements": [
+            {
+              "contract_type": "BASIC",
+              "act_type": "GP",
+              "amount_reimbursed": 5.0
+            }
+          ]
+        },
+        "expected": [
+          {
+            "typology": "BASIC",
+            "total_reimbursed": 5.0
+          },
+          {
+            "typology": "GP",
+            "total_reimbursed": 5.0
+          }
+        ]
+      }
+    ]
+  },
+  "sql-lab-grouping-region-year": {
+    "solution": "SELECT year_value, region, SUM(population) AS population\nFROM regional_population\nGROUP BY GROUPING SETS (\n    (year_value, region),\n    (year_value)\n)",
+    "fixtures": [
+      {
+        "id": "example",
+        "visibility": "visible",
+        "input_rows": [],
+        "tables": {
+          "regional_population": [
+            {
+              "year_value": 2025,
+              "region": "North",
+              "population": 100
+            },
+            {
+              "year_value": 2025,
+              "region": "South",
+              "population": 150
+            },
+            {
+              "year_value": 2026,
+              "region": "North",
+              "population": 110
+            },
+            {
+              "year_value": 2026,
+              "region": "South",
+              "population": 160
+            }
+          ]
+        },
+        "expected": [
+          {
+            "year_value": 2025,
+            "region": "North",
+            "population": 100
+          },
+          {
+            "year_value": 2026,
+            "region": "South",
+            "population": 160
+          },
+          {
+            "year_value": 2026,
+            "region": null,
+            "population": 270
+          },
+          {
+            "year_value": 2025,
+            "region": "South",
+            "population": 150
+          },
+          {
+            "year_value": 2026,
+            "region": "North",
+            "population": 110
+          },
+          {
+            "year_value": 2025,
+            "region": null,
+            "population": 250
+          }
+        ]
+      },
+      {
+        "id": "repeated-rows",
+        "visibility": "hidden",
+        "input_rows": [],
+        "tables": {
+          "regional_population": [
+            {
+              "year_value": 2027,
+              "region": "East",
+              "population": 70
+            },
+            {
+              "year_value": 2027,
+              "region": "East",
+              "population": 30
+            },
+            {
+              "year_value": 2028,
+              "region": "West",
+              "population": 5
+            }
+          ]
+        },
+        "expected": [
+          {
+            "year_value": 2028,
+            "region": "West",
+            "population": 5
+          },
+          {
+            "year_value": 2028,
+            "region": null,
+            "population": 5
+          },
+          {
+            "year_value": 2027,
+            "region": null,
+            "population": 100
+          },
+          {
+            "year_value": 2027,
+            "region": "East",
+            "population": 100
+          }
+        ]
+      },
+      {
+        "id": "single-row",
+        "visibility": "edge",
+        "input_rows": [],
+        "tables": {
+          "regional_population": [
+            {
+              "year_value": 2030,
+              "region": "West",
+              "population": 5
+            }
+          ]
+        },
+        "expected": [
+          {
+            "year_value": 2030,
+            "region": null,
+            "population": 5
+          },
+          {
+            "year_value": 2030,
+            "region": "West",
+            "population": 5
+          }
+        ]
+      }
+    ]
+  },
+  "sql-lab-grouping-multilevel-rollup": {
+    "solution": "SELECT contract_type, act_type, age_group, sex, year_value, SUM(amount_reimbursed) AS total_reimbursed\nFROM reimbursements\nGROUP BY ROLLUP (\n    contract_type,\n    act_type,\n    age_group,\n    sex,\n    year_value\n)",
+    "fixtures": [
+      {
+        "id": "example",
+        "visibility": "visible",
+        "input_rows": [],
+        "tables": {
+          "reimbursements": [
+            {
+              "contract_type": "BASIC",
+              "act_type": "GP",
+              "age_group": "18-39",
+              "sex": "F",
+              "year_value": 2025,
+              "amount_reimbursed": 20.0
+            },
+            {
+              "contract_type": "BASIC",
+              "act_type": "GP",
+              "age_group": "40-64",
+              "sex": "M",
+              "year_value": 2025,
+              "amount_reimbursed": 30.0
+            },
+            {
+              "contract_type": "PREMIUM",
+              "act_type": "DENTAL",
+              "age_group": "18-39",
+              "sex": "F",
+              "year_value": 2026,
+              "amount_reimbursed": 80.0
+            }
+          ]
+        },
+        "expected": [
+          {
+            "contract_type": null,
+            "act_type": null,
+            "age_group": null,
+            "sex": null,
+            "year_value": null,
+            "total_reimbursed": 130.0
+          },
+          {
+            "contract_type": "PREMIUM",
+            "act_type": null,
+            "age_group": null,
+            "sex": null,
+            "year_value": null,
+            "total_reimbursed": 80.0
+          },
+          {
+            "contract_type": "BASIC",
+            "act_type": "GP",
+            "age_group": null,
+            "sex": null,
+            "year_value": null,
+            "total_reimbursed": 50.0
+          },
+          {
+            "contract_type": "PREMIUM",
+            "act_type": "DENTAL",
+            "age_group": null,
+            "sex": null,
+            "year_value": null,
+            "total_reimbursed": 80.0
+          },
+          {
+            "contract_type": "BASIC",
+            "act_type": "GP",
+            "age_group": "40-64",
+            "sex": null,
+            "year_value": null,
+            "total_reimbursed": 30.0
+          },
+          {
+            "contract_type": "BASIC",
+            "act_type": "GP",
+            "age_group": "40-64",
+            "sex": "M",
+            "year_value": null,
+            "total_reimbursed": 30.0
+          },
+          {
+            "contract_type": "BASIC",
+            "act_type": "GP",
+            "age_group": "18-39",
+            "sex": "F",
+            "year_value": null,
+            "total_reimbursed": 20.0
+          },
+          {
+            "contract_type": "PREMIUM",
+            "act_type": "DENTAL",
+            "age_group": "18-39",
+            "sex": null,
+            "year_value": null,
+            "total_reimbursed": 80.0
+          },
+          {
+            "contract_type": "BASIC",
+            "act_type": "GP",
+            "age_group": "18-39",
+            "sex": "F",
+            "year_value": 2025,
+            "total_reimbursed": 20.0
+          },
+          {
+            "contract_type": "BASIC",
+            "act_type": "GP",
+            "age_group": "18-39",
+            "sex": null,
+            "year_value": null,
+            "total_reimbursed": 20.0
+          },
+          {
+            "contract_type": "BASIC",
+            "act_type": null,
+            "age_group": null,
+            "sex": null,
+            "year_value": null,
+            "total_reimbursed": 50.0
+          },
+          {
+            "contract_type": "PREMIUM",
+            "act_type": "DENTAL",
+            "age_group": "18-39",
+            "sex": "F",
+            "year_value": null,
+            "total_reimbursed": 80.0
+          },
+          {
+            "contract_type": "PREMIUM",
+            "act_type": "DENTAL",
+            "age_group": "18-39",
+            "sex": "F",
+            "year_value": 2026,
+            "total_reimbursed": 80.0
+          },
+          {
+            "contract_type": "BASIC",
+            "act_type": "GP",
+            "age_group": "40-64",
+            "sex": "M",
+            "year_value": 2025,
+            "total_reimbursed": 30.0
+          }
+        ]
+      },
+      {
+        "id": "shared-prefixes",
+        "visibility": "hidden",
+        "input_rows": [],
+        "tables": {
+          "reimbursements": [
+            {
+              "contract_type": "GOLD",
+              "act_type": "GP",
+              "age_group": "65+",
+              "sex": "F",
+              "year_value": 2025,
+              "amount_reimbursed": 10.0
+            },
+            {
+              "contract_type": "GOLD",
+              "act_type": "GP",
+              "age_group": "65+",
+              "sex": "F",
+              "year_value": 2026,
+              "amount_reimbursed": 15.0
+            },
+            {
+              "contract_type": "GOLD",
+              "act_type": "GP",
+              "age_group": "65+",
+              "sex": "M",
+              "year_value": 2026,
+              "amount_reimbursed": 5.0
+            },
+            {
+              "contract_type": "GOLD",
+              "act_type": "OPTICAL",
+              "age_group": "18-39",
+              "sex": "M",
+              "year_value": 2026,
+              "amount_reimbursed": 40.0
+            }
+          ]
+        },
+        "expected": [
+          {
+            "contract_type": null,
+            "act_type": null,
+            "age_group": null,
+            "sex": null,
+            "year_value": null,
+            "total_reimbursed": 70.0
+          },
+          {
+            "contract_type": "GOLD",
+            "act_type": null,
+            "age_group": null,
+            "sex": null,
+            "year_value": null,
+            "total_reimbursed": 70.0
+          },
+          {
+            "contract_type": "GOLD",
+            "act_type": "GP",
+            "age_group": null,
+            "sex": null,
+            "year_value": null,
+            "total_reimbursed": 30.0
+          },
+          {
+            "contract_type": "GOLD",
+            "act_type": "OPTICAL",
+            "age_group": "18-39",
+            "sex": null,
+            "year_value": null,
+            "total_reimbursed": 40.0
+          },
+          {
+            "contract_type": "GOLD",
+            "act_type": "GP",
+            "age_group": "65+",
+            "sex": "M",
+            "year_value": null,
+            "total_reimbursed": 5.0
+          },
+          {
+            "contract_type": "GOLD",
+            "act_type": "GP",
+            "age_group": "65+",
+            "sex": null,
+            "year_value": null,
+            "total_reimbursed": 30.0
+          },
+          {
+            "contract_type": "GOLD",
+            "act_type": "GP",
+            "age_group": "65+",
+            "sex": "M",
+            "year_value": 2026,
+            "total_reimbursed": 5.0
+          },
+          {
+            "contract_type": "GOLD",
+            "act_type": "OPTICAL",
+            "age_group": "18-39",
+            "sex": "M",
+            "year_value": 2026,
+            "total_reimbursed": 40.0
+          },
+          {
+            "contract_type": "GOLD",
+            "act_type": "OPTICAL",
+            "age_group": null,
+            "sex": null,
+            "year_value": null,
+            "total_reimbursed": 40.0
+          },
+          {
+            "contract_type": "GOLD",
+            "act_type": "GP",
+            "age_group": "65+",
+            "sex": "F",
+            "year_value": 2026,
+            "total_reimbursed": 15.0
+          },
+          {
+            "contract_type": "GOLD",
+            "act_type": "GP",
+            "age_group": "65+",
+            "sex": "F",
+            "year_value": 2025,
+            "total_reimbursed": 10.0
+          },
+          {
+            "contract_type": "GOLD",
+            "act_type": "GP",
+            "age_group": "65+",
+            "sex": "F",
+            "year_value": null,
+            "total_reimbursed": 25.0
+          },
+          {
+            "contract_type": "GOLD",
+            "act_type": "OPTICAL",
+            "age_group": "18-39",
+            "sex": "M",
+            "year_value": null,
+            "total_reimbursed": 40.0
+          }
+        ]
+      },
+      {
+        "id": "single-row",
+        "visibility": "edge",
+        "input_rows": [],
+        "tables": {
+          "reimbursements": [
+            {
+              "contract_type": "BASIC",
+              "act_type": "GP",
+              "age_group": "18-39",
+              "sex": "F",
+              "year_value": 2025,
+              "amount_reimbursed": 1.0
+            }
+          ]
+        },
+        "expected": [
+          {
+            "contract_type": null,
+            "act_type": null,
+            "age_group": null,
+            "sex": null,
+            "year_value": null,
+            "total_reimbursed": 1.0
+          },
+          {
+            "contract_type": "BASIC",
+            "act_type": "GP",
+            "age_group": null,
+            "sex": null,
+            "year_value": null,
+            "total_reimbursed": 1.0
+          },
+          {
+            "contract_type": "BASIC",
+            "act_type": null,
+            "age_group": null,
+            "sex": null,
+            "year_value": null,
+            "total_reimbursed": 1.0
+          },
+          {
+            "contract_type": "BASIC",
+            "act_type": "GP",
+            "age_group": "18-39",
+            "sex": null,
+            "year_value": null,
+            "total_reimbursed": 1.0
+          },
+          {
+            "contract_type": "BASIC",
+            "act_type": "GP",
+            "age_group": "18-39",
+            "sex": "F",
+            "year_value": 2025,
+            "total_reimbursed": 1.0
+          },
+          {
+            "contract_type": "BASIC",
+            "act_type": "GP",
+            "age_group": "18-39",
+            "sex": "F",
+            "year_value": null,
+            "total_reimbursed": 1.0
+          }
+        ]
+      }
+    ]
+  },
+  "sql-lab-grouping-store-share": {
+    "solution": "WITH totals AS (\n    SELECT store_id, product_name, SUM(amount) AS amount\n    FROM sales\n    GROUP BY GROUPING SETS (\n        (store_id, product_name),\n        (store_id)\n    )\n), store_rollup AS (\n    SELECT store_id,\n        MAX(CASE WHEN product_name = 'Red Bull' THEN amount END) AS red_bull_sales,\n        MAX(CASE WHEN product_name IS NULL THEN amount END) AS store_sales\n    FROM totals\n    GROUP BY store_id\n)\nSELECT store_id, red_bull_sales, store_sales,\n    red_bull_sales * 1.0 / NULLIF(store_sales, 0) AS red_bull_share\nFROM store_rollup",
+    "fixtures": [
+      {
+        "id": "example",
+        "visibility": "visible",
+        "input_rows": [],
+        "tables": {
+          "sales": [
+            {
+              "store_id": 1,
+              "product_name": "Red Bull",
+              "amount": 30.0
+            },
+            {
+              "store_id": 1,
+              "product_name": "Water",
+              "amount": 70.0
+            },
+            {
+              "store_id": 2,
+              "product_name": "Red Bull",
+              "amount": 10.0
+            },
+            {
+              "store_id": 2,
+              "product_name": "Red Bull",
+              "amount": 10.0
+            },
+            {
+              "store_id": 2,
+              "product_name": "Cola",
+              "amount": 80.0
+            }
+          ]
+        },
+        "expected": [
+          {
+            "store_id": 1,
+            "red_bull_sales": 30.0,
+            "store_sales": 100.0,
+            "red_bull_share": 0.3
+          },
+          {
+            "store_id": 2,
+            "red_bull_sales": 20.0,
+            "store_sales": 100.0,
+            "red_bull_share": 0.2
+          }
+        ]
+      },
+      {
+        "id": "store-without-red-bull",
+        "visibility": "hidden",
+        "input_rows": [],
+        "tables": {
+          "sales": [
+            {
+              "store_id": 3,
+              "product_name": "Cola",
+              "amount": 40.0
+            },
+            {
+              "store_id": 4,
+              "product_name": "Red Bull",
+              "amount": 25.0
+            },
+            {
+              "store_id": 4,
+              "product_name": "Water",
+              "amount": 25.0
+            },
+            {
+              "store_id": 4,
+              "product_name": "Chips",
+              "amount": 50.0
+            }
+          ]
+        },
+        "expected": [
+          {
+            "store_id": 4,
+            "red_bull_sales": 25.0,
+            "store_sales": 100.0,
+            "red_bull_share": 0.25
+          },
+          {
+            "store_id": 3,
+            "red_bull_sales": null,
+            "store_sales": 40.0,
+            "red_bull_share": null
+          }
+        ]
+      },
+      {
+        "id": "only-red-bull",
+        "visibility": "edge",
+        "input_rows": [],
+        "tables": {
+          "sales": [
+            {
+              "store_id": 5,
+              "product_name": "Red Bull",
+              "amount": 12.0
+            }
+          ]
+        },
+        "expected": [
+          {
+            "store_id": 5,
+            "red_bull_sales": 12.0,
+            "store_sales": 12.0,
+            "red_bull_share": 1.0
+          }
+        ]
+      }
+    ]
+  },
+  "sql-lab-window-sum-over": {
+    "solution": "SELECT date_value, visitors_count,\n    SUM(visitors_count) OVER () AS total_visitors\nFROM sensor_daily",
+    "fixtures": [
+      {
+        "id": "example",
+        "visibility": "visible",
+        "input_rows": [],
+        "tables": {
+          "sensor_daily": [
+            {
+              "date_value": "2026-01-01",
+              "visitors_count": 10
+            },
+            {
+              "date_value": "2026-01-02",
+              "visitors_count": 20
+            },
+            {
+              "date_value": "2026-01-03",
+              "visitors_count": 5
+            },
+            {
+              "date_value": "2026-01-04",
+              "visitors_count": 15
+            }
+          ]
+        },
+        "expected": [
+          {
+            "date_value": "2026-01-01",
+            "visitors_count": 10,
+            "total_visitors": 50
+          },
+          {
+            "date_value": "2026-01-02",
+            "visitors_count": 20,
+            "total_visitors": 50
+          },
+          {
+            "date_value": "2026-01-03",
+            "visitors_count": 5,
+            "total_visitors": 50
+          },
+          {
+            "date_value": "2026-01-04",
+            "visitors_count": 15,
+            "total_visitors": 50
+          }
+        ]
+      },
+      {
+        "id": "unsorted-input",
+        "visibility": "hidden",
+        "input_rows": [],
+        "tables": {
+          "sensor_daily": [
+            {
+              "date_value": "2026-02-03",
+              "visitors_count": 3
+            },
+            {
+              "date_value": "2026-02-01",
+              "visitors_count": 1
+            },
+            {
+              "date_value": "2026-02-02",
+              "visitors_count": 8
+            }
+          ]
+        },
+        "expected": [
+          {
+            "date_value": "2026-02-03",
+            "visitors_count": 3,
+            "total_visitors": 12
+          },
+          {
+            "date_value": "2026-02-01",
+            "visitors_count": 1,
+            "total_visitors": 12
+          },
+          {
+            "date_value": "2026-02-02",
+            "visitors_count": 8,
+            "total_visitors": 12
+          }
+        ]
+      },
+      {
+        "id": "single-day",
+        "visibility": "edge",
+        "input_rows": [],
+        "tables": {
+          "sensor_daily": [
+            {
+              "date_value": "2026-03-01",
+              "visitors_count": 7
+            }
+          ]
+        },
+        "expected": [
+          {
+            "date_value": "2026-03-01",
+            "visitors_count": 7,
+            "total_visitors": 7
+          }
+        ]
+      }
+    ]
+  },
+  "sql-lab-window-progressive-average": {
+    "solution": "SELECT date_value, visitors_count,\n    AVG(visitors_count) OVER (\n        ORDER BY date_value\n        ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW\n    ) AS avg_visitors_to_date\nFROM sensor_daily",
+    "fixtures": [
+      {
+        "id": "example",
+        "visibility": "visible",
+        "input_rows": [],
+        "tables": {
+          "sensor_daily": [
+            {
+              "date_value": "2026-01-01",
+              "visitors_count": 10
+            },
+            {
+              "date_value": "2026-01-02",
+              "visitors_count": 20
+            },
+            {
+              "date_value": "2026-01-03",
+              "visitors_count": 5
+            },
+            {
+              "date_value": "2026-01-04",
+              "visitors_count": 15
+            }
+          ]
+        },
+        "expected": [
+          {
+            "date_value": "2026-01-01",
+            "visitors_count": 10,
+            "avg_visitors_to_date": 10.0
+          },
+          {
+            "date_value": "2026-01-02",
+            "visitors_count": 20,
+            "avg_visitors_to_date": 15.0
+          },
+          {
+            "date_value": "2026-01-03",
+            "visitors_count": 5,
+            "avg_visitors_to_date": 11.666666666666666
+          },
+          {
+            "date_value": "2026-01-04",
+            "visitors_count": 15,
+            "avg_visitors_to_date": 12.5
+          }
+        ]
+      },
+      {
+        "id": "unsorted-input",
+        "visibility": "hidden",
+        "input_rows": [],
+        "tables": {
+          "sensor_daily": [
+            {
+              "date_value": "2026-02-03",
+              "visitors_count": 3
+            },
+            {
+              "date_value": "2026-02-01",
+              "visitors_count": 1
+            },
+            {
+              "date_value": "2026-02-02",
+              "visitors_count": 8
+            }
+          ]
+        },
+        "expected": [
+          {
+            "date_value": "2026-02-01",
+            "visitors_count": 1,
+            "avg_visitors_to_date": 1.0
+          },
+          {
+            "date_value": "2026-02-02",
+            "visitors_count": 8,
+            "avg_visitors_to_date": 4.5
+          },
+          {
+            "date_value": "2026-02-03",
+            "visitors_count": 3,
+            "avg_visitors_to_date": 4.0
+          }
+        ]
+      },
+      {
+        "id": "single-day",
+        "visibility": "edge",
+        "input_rows": [],
+        "tables": {
+          "sensor_daily": [
+            {
+              "date_value": "2026-03-01",
+              "visitors_count": 7
+            }
+          ]
+        },
+        "expected": [
+          {
+            "date_value": "2026-03-01",
+            "visitors_count": 7,
+            "avg_visitors_to_date": 7.0
+          }
+        ]
+      }
+    ]
+  },
+  "sql-lab-window-seven-row-average": {
+    "solution": "SELECT date_value, visitors_count,\n    AVG(visitors_count) OVER (\n        ORDER BY date_value\n        ROWS BETWEEN 6 PRECEDING AND CURRENT ROW\n    ) AS seven_day_avg\nFROM sensor_daily",
+    "fixtures": [
+      {
+        "id": "example",
+        "visibility": "visible",
+        "input_rows": [],
+        "tables": {
+          "sensor_daily": [
+            {
+              "date_value": "2026-04-01",
+              "visitors_count": 10
+            },
+            {
+              "date_value": "2026-04-02",
+              "visitors_count": 20
+            },
+            {
+              "date_value": "2026-04-03",
+              "visitors_count": 30
+            },
+            {
+              "date_value": "2026-04-04",
+              "visitors_count": 40
+            },
+            {
+              "date_value": "2026-04-05",
+              "visitors_count": 50
+            },
+            {
+              "date_value": "2026-04-06",
+              "visitors_count": 60
+            },
+            {
+              "date_value": "2026-04-07",
+              "visitors_count": 70
+            },
+            {
+              "date_value": "2026-04-08",
+              "visitors_count": 80
+            },
+            {
+              "date_value": "2026-04-09",
+              "visitors_count": 90
+            }
+          ]
+        },
+        "expected": [
+          {
+            "date_value": "2026-04-01",
+            "visitors_count": 10,
+            "seven_day_avg": 10.0
+          },
+          {
+            "date_value": "2026-04-02",
+            "visitors_count": 20,
+            "seven_day_avg": 15.0
+          },
+          {
+            "date_value": "2026-04-03",
+            "visitors_count": 30,
+            "seven_day_avg": 20.0
+          },
+          {
+            "date_value": "2026-04-04",
+            "visitors_count": 40,
+            "seven_day_avg": 25.0
+          },
+          {
+            "date_value": "2026-04-05",
+            "visitors_count": 50,
+            "seven_day_avg": 30.0
+          },
+          {
+            "date_value": "2026-04-06",
+            "visitors_count": 60,
+            "seven_day_avg": 35.0
+          },
+          {
+            "date_value": "2026-04-07",
+            "visitors_count": 70,
+            "seven_day_avg": 40.0
+          },
+          {
+            "date_value": "2026-04-08",
+            "visitors_count": 80,
+            "seven_day_avg": 50.0
+          },
+          {
+            "date_value": "2026-04-09",
+            "visitors_count": 90,
+            "seven_day_avg": 60.0
+          }
+        ]
+      },
+      {
+        "id": "missing-dates",
+        "visibility": "hidden",
+        "input_rows": [],
+        "tables": {
+          "sensor_daily": [
+            {
+              "date_value": "2026-05-01",
+              "visitors_count": 7
+            },
+            {
+              "date_value": "2026-05-02",
+              "visitors_count": 7
+            },
+            {
+              "date_value": "2026-05-04",
+              "visitors_count": 14
+            },
+            {
+              "date_value": "2026-05-05",
+              "visitors_count": 7
+            },
+            {
+              "date_value": "2026-05-07",
+              "visitors_count": 21
+            },
+            {
+              "date_value": "2026-05-08",
+              "visitors_count": 7
+            },
+            {
+              "date_value": "2026-05-09",
+              "visitors_count": 7
+            },
+            {
+              "date_value": "2026-05-10",
+              "visitors_count": 70
+            }
+          ]
+        },
+        "expected": [
+          {
+            "date_value": "2026-05-01",
+            "visitors_count": 7,
+            "seven_day_avg": 7.0
+          },
+          {
+            "date_value": "2026-05-02",
+            "visitors_count": 7,
+            "seven_day_avg": 7.0
+          },
+          {
+            "date_value": "2026-05-04",
+            "visitors_count": 14,
+            "seven_day_avg": 9.333333333333334
+          },
+          {
+            "date_value": "2026-05-05",
+            "visitors_count": 7,
+            "seven_day_avg": 8.75
+          },
+          {
+            "date_value": "2026-05-07",
+            "visitors_count": 21,
+            "seven_day_avg": 11.2
+          },
+          {
+            "date_value": "2026-05-08",
+            "visitors_count": 7,
+            "seven_day_avg": 10.5
+          },
+          {
+            "date_value": "2026-05-09",
+            "visitors_count": 7,
+            "seven_day_avg": 10.0
+          },
+          {
+            "date_value": "2026-05-10",
+            "visitors_count": 70,
+            "seven_day_avg": 19.0
+          }
+        ]
+      },
+      {
+        "id": "single-day",
+        "visibility": "edge",
+        "input_rows": [],
+        "tables": {
+          "sensor_daily": [
+            {
+              "date_value": "2026-03-01",
+              "visitors_count": 7
+            }
+          ]
+        },
+        "expected": [
+          {
+            "date_value": "2026-03-01",
+            "visitors_count": 7,
+            "seven_day_avg": 7.0
+          }
+        ]
+      }
+    ]
+  },
+  "sql-lab-window-verify-average": {
+    "solution": "WITH w AS (\n    SELECT *,\n        SUM(visitors_count) OVER (ORDER BY date_value ROWS BETWEEN 6 PRECEDING AND CURRENT ROW) AS window_sum,\n        COUNT(*) OVER (ORDER BY date_value ROWS BETWEEN 6 PRECEDING AND CURRENT ROW) AS window_count,\n        AVG(visitors_count) OVER (ORDER BY date_value ROWS BETWEEN 6 PRECEDING AND CURRENT ROW) AS window_avg\n    FROM sensor_daily\n)\nSELECT date_value, visitors_count, window_sum, window_count, window_avg,\n    window_sum * 1.0 / NULLIF(window_count, 0) AS manual_avg\nFROM w",
+    "fixtures": [
+      {
+        "id": "example",
+        "visibility": "visible",
+        "input_rows": [],
+        "tables": {
+          "sensor_daily": [
+            {
+              "date_value": "2026-04-01",
+              "visitors_count": 10
+            },
+            {
+              "date_value": "2026-04-02",
+              "visitors_count": 20
+            },
+            {
+              "date_value": "2026-04-03",
+              "visitors_count": 30
+            },
+            {
+              "date_value": "2026-04-04",
+              "visitors_count": 40
+            },
+            {
+              "date_value": "2026-04-05",
+              "visitors_count": 50
+            },
+            {
+              "date_value": "2026-04-06",
+              "visitors_count": 60
+            },
+            {
+              "date_value": "2026-04-07",
+              "visitors_count": 70
+            },
+            {
+              "date_value": "2026-04-08",
+              "visitors_count": 80
+            },
+            {
+              "date_value": "2026-04-09",
+              "visitors_count": 90
+            }
+          ]
+        },
+        "expected": [
+          {
+            "date_value": "2026-04-01",
+            "visitors_count": 10,
+            "window_sum": 10,
+            "window_count": 1,
+            "window_avg": 10.0,
+            "manual_avg": 10.0
+          },
+          {
+            "date_value": "2026-04-02",
+            "visitors_count": 20,
+            "window_sum": 30,
+            "window_count": 2,
+            "window_avg": 15.0,
+            "manual_avg": 15.0
+          },
+          {
+            "date_value": "2026-04-03",
+            "visitors_count": 30,
+            "window_sum": 60,
+            "window_count": 3,
+            "window_avg": 20.0,
+            "manual_avg": 20.0
+          },
+          {
+            "date_value": "2026-04-04",
+            "visitors_count": 40,
+            "window_sum": 100,
+            "window_count": 4,
+            "window_avg": 25.0,
+            "manual_avg": 25.0
+          },
+          {
+            "date_value": "2026-04-05",
+            "visitors_count": 50,
+            "window_sum": 150,
+            "window_count": 5,
+            "window_avg": 30.0,
+            "manual_avg": 30.0
+          },
+          {
+            "date_value": "2026-04-06",
+            "visitors_count": 60,
+            "window_sum": 210,
+            "window_count": 6,
+            "window_avg": 35.0,
+            "manual_avg": 35.0
+          },
+          {
+            "date_value": "2026-04-07",
+            "visitors_count": 70,
+            "window_sum": 280,
+            "window_count": 7,
+            "window_avg": 40.0,
+            "manual_avg": 40.0
+          },
+          {
+            "date_value": "2026-04-08",
+            "visitors_count": 80,
+            "window_sum": 350,
+            "window_count": 7,
+            "window_avg": 50.0,
+            "manual_avg": 50.0
+          },
+          {
+            "date_value": "2026-04-09",
+            "visitors_count": 90,
+            "window_sum": 420,
+            "window_count": 7,
+            "window_avg": 60.0,
+            "manual_avg": 60.0
+          }
+        ]
+      },
+      {
+        "id": "missing-dates",
+        "visibility": "hidden",
+        "input_rows": [],
+        "tables": {
+          "sensor_daily": [
+            {
+              "date_value": "2026-05-01",
+              "visitors_count": 7
+            },
+            {
+              "date_value": "2026-05-02",
+              "visitors_count": 7
+            },
+            {
+              "date_value": "2026-05-04",
+              "visitors_count": 14
+            },
+            {
+              "date_value": "2026-05-05",
+              "visitors_count": 7
+            },
+            {
+              "date_value": "2026-05-07",
+              "visitors_count": 21
+            },
+            {
+              "date_value": "2026-05-08",
+              "visitors_count": 7
+            },
+            {
+              "date_value": "2026-05-09",
+              "visitors_count": 7
+            },
+            {
+              "date_value": "2026-05-10",
+              "visitors_count": 70
+            }
+          ]
+        },
+        "expected": [
+          {
+            "date_value": "2026-05-01",
+            "visitors_count": 7,
+            "window_sum": 7,
+            "window_count": 1,
+            "window_avg": 7.0,
+            "manual_avg": 7.0
+          },
+          {
+            "date_value": "2026-05-02",
+            "visitors_count": 7,
+            "window_sum": 14,
+            "window_count": 2,
+            "window_avg": 7.0,
+            "manual_avg": 7.0
+          },
+          {
+            "date_value": "2026-05-04",
+            "visitors_count": 14,
+            "window_sum": 28,
+            "window_count": 3,
+            "window_avg": 9.333333333333334,
+            "manual_avg": 9.333333333333334
+          },
+          {
+            "date_value": "2026-05-05",
+            "visitors_count": 7,
+            "window_sum": 35,
+            "window_count": 4,
+            "window_avg": 8.75,
+            "manual_avg": 8.75
+          },
+          {
+            "date_value": "2026-05-07",
+            "visitors_count": 21,
+            "window_sum": 56,
+            "window_count": 5,
+            "window_avg": 11.2,
+            "manual_avg": 11.2
+          },
+          {
+            "date_value": "2026-05-08",
+            "visitors_count": 7,
+            "window_sum": 63,
+            "window_count": 6,
+            "window_avg": 10.5,
+            "manual_avg": 10.5
+          },
+          {
+            "date_value": "2026-05-09",
+            "visitors_count": 7,
+            "window_sum": 70,
+            "window_count": 7,
+            "window_avg": 10.0,
+            "manual_avg": 10.0
+          },
+          {
+            "date_value": "2026-05-10",
+            "visitors_count": 70,
+            "window_sum": 133,
+            "window_count": 7,
+            "window_avg": 19.0,
+            "manual_avg": 19.0
+          }
+        ]
+      },
+      {
+        "id": "single-day",
+        "visibility": "edge",
+        "input_rows": [],
+        "tables": {
+          "sensor_daily": [
+            {
+              "date_value": "2026-03-01",
+              "visitors_count": 7
+            }
+          ]
+        },
+        "expected": [
+          {
+            "date_value": "2026-03-01",
+            "visitors_count": 7,
+            "window_sum": 7,
+            "window_count": 1,
+            "window_avg": 7.0,
+            "manual_avg": 7.0
+          }
+        ]
+      }
+    ]
+  },
+  "sql-lab-window-dept-max": {
+    "solution": "SELECT employee_name, department, wage,\n    MAX(wage) OVER (PARTITION BY department) AS department_max_wage\nFROM employees",
+    "fixtures": [
+      {
+        "id": "example",
+        "visibility": "visible",
+        "input_rows": [],
+        "tables": {
+          "employees": [
+            {
+              "employee_name": "Ana",
+              "department": "IT",
+              "wage": 70000
+            },
+            {
+              "employee_name": "Ben",
+              "department": "IT",
+              "wage": 50000
+            },
+            {
+              "employee_name": "Cid",
+              "department": "HR",
+              "wage": 45000
+            },
+            {
+              "employee_name": "Dee",
+              "department": "HR",
+              "wage": 65000
+            }
+          ]
+        },
+        "expected": [
+          {
+            "employee_name": "Cid",
+            "department": "HR",
+            "wage": 45000,
+            "department_max_wage": 65000
+          },
+          {
+            "employee_name": "Dee",
+            "department": "HR",
+            "wage": 65000,
+            "department_max_wage": 65000
+          },
+          {
+            "employee_name": "Ben",
+            "department": "IT",
+            "wage": 50000,
+            "department_max_wage": 70000
+          },
+          {
+            "employee_name": "Ana",
+            "department": "IT",
+            "wage": 70000,
+            "department_max_wage": 70000
+          }
+        ]
+      },
+      {
+        "id": "lower-first",
+        "visibility": "hidden",
+        "input_rows": [],
+        "tables": {
+          "employees": [
+            {
+              "employee_name": "Eve",
+              "department": "OPS",
+              "wage": 30000
+            },
+            {
+              "employee_name": "Fox",
+              "department": "OPS",
+              "wage": 60000
+            },
+            {
+              "employee_name": "Gus",
+              "department": "OPS",
+              "wage": 40000
+            }
+          ]
+        },
+        "expected": [
+          {
+            "employee_name": "Fox",
+            "department": "OPS",
+            "wage": 60000,
+            "department_max_wage": 60000
+          },
+          {
+            "employee_name": "Eve",
+            "department": "OPS",
+            "wage": 30000,
+            "department_max_wage": 60000
+          },
+          {
+            "employee_name": "Gus",
+            "department": "OPS",
+            "wage": 40000,
+            "department_max_wage": 60000
+          }
+        ]
+      },
+      {
+        "id": "empty",
+        "visibility": "edge",
+        "input_rows": [],
+        "tables": {
+          "employees": []
+        },
+        "expected": []
+      }
+    ]
+  },
+  "sql-lab-window-weekday-partition": {
+    "solution": "SELECT date_value, weekday_number, visitors_count,\n    AVG(visitors_count) OVER (\n        PARTITION BY weekday_number\n        ORDER BY date_value\n        ROWS BETWEEN 6 PRECEDING AND CURRENT ROW\n    ) AS same_weekday_avg\nFROM sensor_daily",
+    "fixtures": [
+      {
+        "id": "example",
+        "visibility": "visible",
+        "input_rows": [],
+        "tables": {
+          "sensor_daily": [
+            {
+              "date_value": "2026-01-05",
+              "weekday_number": 1,
+              "visitors_count": 10
+            },
+            {
+              "date_value": "2026-01-12",
+              "weekday_number": 1,
+              "visitors_count": 20
+            },
+            {
+              "date_value": "2026-01-19",
+              "weekday_number": 1,
+              "visitors_count": 30
+            },
+            {
+              "date_value": "2026-01-26",
+              "weekday_number": 1,
+              "visitors_count": 40
+            },
+            {
+              "date_value": "2026-02-02",
+              "weekday_number": 1,
+              "visitors_count": 50
+            },
+            {
+              "date_value": "2026-02-09",
+              "weekday_number": 1,
+              "visitors_count": 60
+            },
+            {
+              "date_value": "2026-02-16",
+              "weekday_number": 1,
+              "visitors_count": 70
+            },
+            {
+              "date_value": "2026-02-23",
+              "weekday_number": 1,
+              "visitors_count": 80
+            },
+            {
+              "date_value": "2026-01-06",
+              "weekday_number": 2,
+              "visitors_count": 5
+            },
+            {
+              "date_value": "2026-01-13",
+              "weekday_number": 2,
+              "visitors_count": 15
+            }
+          ]
+        },
+        "expected": [
+          {
+            "date_value": "2026-01-05",
+            "weekday_number": 1,
+            "visitors_count": 10,
+            "same_weekday_avg": 10.0
+          },
+          {
+            "date_value": "2026-01-12",
+            "weekday_number": 1,
+            "visitors_count": 20,
+            "same_weekday_avg": 15.0
+          },
+          {
+            "date_value": "2026-01-19",
+            "weekday_number": 1,
+            "visitors_count": 30,
+            "same_weekday_avg": 20.0
+          },
+          {
+            "date_value": "2026-01-26",
+            "weekday_number": 1,
+            "visitors_count": 40,
+            "same_weekday_avg": 25.0
+          },
+          {
+            "date_value": "2026-02-02",
+            "weekday_number": 1,
+            "visitors_count": 50,
+            "same_weekday_avg": 30.0
+          },
+          {
+            "date_value": "2026-02-09",
+            "weekday_number": 1,
+            "visitors_count": 60,
+            "same_weekday_avg": 35.0
+          },
+          {
+            "date_value": "2026-02-16",
+            "weekday_number": 1,
+            "visitors_count": 70,
+            "same_weekday_avg": 40.0
+          },
+          {
+            "date_value": "2026-02-23",
+            "weekday_number": 1,
+            "visitors_count": 80,
+            "same_weekday_avg": 50.0
+          },
+          {
+            "date_value": "2026-01-06",
+            "weekday_number": 2,
+            "visitors_count": 5,
+            "same_weekday_avg": 5.0
+          },
+          {
+            "date_value": "2026-01-13",
+            "weekday_number": 2,
+            "visitors_count": 15,
+            "same_weekday_avg": 10.0
+          }
+        ]
+      },
+      {
+        "id": "interleaved",
+        "visibility": "hidden",
+        "input_rows": [],
+        "tables": {
+          "sensor_daily": [
+            {
+              "date_value": "2026-03-02",
+              "weekday_number": 1,
+              "visitors_count": 100
+            },
+            {
+              "date_value": "2026-03-03",
+              "weekday_number": 2,
+              "visitors_count": 1
+            },
+            {
+              "date_value": "2026-03-09",
+              "weekday_number": 1,
+              "visitors_count": 0
+            },
+            {
+              "date_value": "2026-03-10",
+              "weekday_number": 2,
+              "visitors_count": 3
+            },
+            {
+              "date_value": "2026-03-16",
+              "weekday_number": 1,
+              "visitors_count": 50
+            }
+          ]
+        },
+        "expected": [
+          {
+            "date_value": "2026-03-02",
+            "weekday_number": 1,
+            "visitors_count": 100,
+            "same_weekday_avg": 100.0
+          },
+          {
+            "date_value": "2026-03-09",
+            "weekday_number": 1,
+            "visitors_count": 0,
+            "same_weekday_avg": 50.0
+          },
+          {
+            "date_value": "2026-03-16",
+            "weekday_number": 1,
+            "visitors_count": 50,
+            "same_weekday_avg": 50.0
+          },
+          {
+            "date_value": "2026-03-03",
+            "weekday_number": 2,
+            "visitors_count": 1,
+            "same_weekday_avg": 1.0
+          },
+          {
+            "date_value": "2026-03-10",
+            "weekday_number": 2,
+            "visitors_count": 3,
+            "same_weekday_avg": 2.0
+          }
+        ]
+      },
+      {
+        "id": "single",
+        "visibility": "edge",
+        "input_rows": [],
+        "tables": {
+          "sensor_daily": [
+            {
+              "date_value": "2026-04-06",
+              "weekday_number": 1,
+              "visitors_count": 9
+            }
+          ]
+        },
+        "expected": [
+          {
+            "date_value": "2026-04-06",
+            "weekday_number": 1,
+            "visitors_count": 9,
+            "same_weekday_avg": 9.0
+          }
+        ]
+      }
+    ]
+  },
+  "sql-lab-window-lag": {
+    "solution": "SELECT date_value, weekday_number, visitors_count,\n    LAG(visitors_count) OVER (\n        PARTITION BY weekday_number\n        ORDER BY date_value\n    ) AS previous_same_weekday_visitors\nFROM sensor_daily",
+    "fixtures": [
+      {
+        "id": "example",
+        "visibility": "visible",
+        "input_rows": [],
+        "tables": {
+          "sensor_daily": [
+            {
+              "date_value": "2026-01-05",
+              "weekday_number": 1,
+              "visitors_count": 10
+            },
+            {
+              "date_value": "2026-01-12",
+              "weekday_number": 1,
+              "visitors_count": 20
+            },
+            {
+              "date_value": "2026-01-19",
+              "weekday_number": 1,
+              "visitors_count": 30
+            },
+            {
+              "date_value": "2026-01-26",
+              "weekday_number": 1,
+              "visitors_count": 40
+            },
+            {
+              "date_value": "2026-02-02",
+              "weekday_number": 1,
+              "visitors_count": 50
+            },
+            {
+              "date_value": "2026-02-09",
+              "weekday_number": 1,
+              "visitors_count": 60
+            },
+            {
+              "date_value": "2026-02-16",
+              "weekday_number": 1,
+              "visitors_count": 70
+            },
+            {
+              "date_value": "2026-02-23",
+              "weekday_number": 1,
+              "visitors_count": 80
+            },
+            {
+              "date_value": "2026-01-06",
+              "weekday_number": 2,
+              "visitors_count": 5
+            },
+            {
+              "date_value": "2026-01-13",
+              "weekday_number": 2,
+              "visitors_count": 15
+            }
+          ]
+        },
+        "expected": [
+          {
+            "date_value": "2026-01-05",
+            "weekday_number": 1,
+            "visitors_count": 10,
+            "previous_same_weekday_visitors": null
+          },
+          {
+            "date_value": "2026-01-12",
+            "weekday_number": 1,
+            "visitors_count": 20,
+            "previous_same_weekday_visitors": 10
+          },
+          {
+            "date_value": "2026-01-19",
+            "weekday_number": 1,
+            "visitors_count": 30,
+            "previous_same_weekday_visitors": 20
+          },
+          {
+            "date_value": "2026-01-26",
+            "weekday_number": 1,
+            "visitors_count": 40,
+            "previous_same_weekday_visitors": 30
+          },
+          {
+            "date_value": "2026-02-02",
+            "weekday_number": 1,
+            "visitors_count": 50,
+            "previous_same_weekday_visitors": 40
+          },
+          {
+            "date_value": "2026-02-09",
+            "weekday_number": 1,
+            "visitors_count": 60,
+            "previous_same_weekday_visitors": 50
+          },
+          {
+            "date_value": "2026-02-16",
+            "weekday_number": 1,
+            "visitors_count": 70,
+            "previous_same_weekday_visitors": 60
+          },
+          {
+            "date_value": "2026-02-23",
+            "weekday_number": 1,
+            "visitors_count": 80,
+            "previous_same_weekday_visitors": 70
+          },
+          {
+            "date_value": "2026-01-06",
+            "weekday_number": 2,
+            "visitors_count": 5,
+            "previous_same_weekday_visitors": null
+          },
+          {
+            "date_value": "2026-01-13",
+            "weekday_number": 2,
+            "visitors_count": 15,
+            "previous_same_weekday_visitors": 5
+          }
+        ]
+      },
+      {
+        "id": "interleaved",
+        "visibility": "hidden",
+        "input_rows": [],
+        "tables": {
+          "sensor_daily": [
+            {
+              "date_value": "2026-03-02",
+              "weekday_number": 1,
+              "visitors_count": 100
+            },
+            {
+              "date_value": "2026-03-03",
+              "weekday_number": 2,
+              "visitors_count": 1
+            },
+            {
+              "date_value": "2026-03-09",
+              "weekday_number": 1,
+              "visitors_count": 0
+            },
+            {
+              "date_value": "2026-03-10",
+              "weekday_number": 2,
+              "visitors_count": 3
+            },
+            {
+              "date_value": "2026-03-16",
+              "weekday_number": 1,
+              "visitors_count": 50
+            }
+          ]
+        },
+        "expected": [
+          {
+            "date_value": "2026-03-03",
+            "weekday_number": 2,
+            "visitors_count": 1,
+            "previous_same_weekday_visitors": null
+          },
+          {
+            "date_value": "2026-03-10",
+            "weekday_number": 2,
+            "visitors_count": 3,
+            "previous_same_weekday_visitors": 1
+          },
+          {
+            "date_value": "2026-03-02",
+            "weekday_number": 1,
+            "visitors_count": 100,
+            "previous_same_weekday_visitors": null
+          },
+          {
+            "date_value": "2026-03-09",
+            "weekday_number": 1,
+            "visitors_count": 0,
+            "previous_same_weekday_visitors": 100
+          },
+          {
+            "date_value": "2026-03-16",
+            "weekday_number": 1,
+            "visitors_count": 50,
+            "previous_same_weekday_visitors": 0
+          }
+        ]
+      },
+      {
+        "id": "single",
+        "visibility": "edge",
+        "input_rows": [],
+        "tables": {
+          "sensor_daily": [
+            {
+              "date_value": "2026-04-06",
+              "weekday_number": 1,
+              "visitors_count": 9
+            }
+          ]
+        },
+        "expected": [
+          {
+            "date_value": "2026-04-06",
+            "weekday_number": 1,
+            "visitors_count": 9,
+            "previous_same_weekday_visitors": null
+          }
+        ]
+      }
+    ]
+  },
+  "sql-lab-window-row-number-sex": {
+    "solution": "SELECT employee_name, sex, wage,\n    ROW_NUMBER() OVER (PARTITION BY sex ORDER BY wage DESC, employee_name) AS wage_row_number\nFROM employees",
+    "fixtures": [
+      {
+        "id": "example",
+        "visibility": "visible",
+        "input_rows": [],
+        "tables": {
+          "employees": [
+            {
+              "employee_name": "Ana",
+              "sex": "F",
+              "wage": 60000
+            },
+            {
+              "employee_name": "Cat",
+              "sex": "F",
+              "wage": 50000
+            },
+            {
+              "employee_name": "Dan",
+              "sex": "M",
+              "wage": 55000
+            },
+            {
+              "employee_name": "Eli",
+              "sex": "M",
+              "wage": 40000
+            }
+          ]
+        },
+        "expected": [
+          {
+            "employee_name": "Dan",
+            "sex": "M",
+            "wage": 55000,
+            "wage_row_number": 1
+          },
+          {
+            "employee_name": "Eli",
+            "sex": "M",
+            "wage": 40000,
+            "wage_row_number": 2
+          },
+          {
+            "employee_name": "Ana",
+            "sex": "F",
+            "wage": 60000,
+            "wage_row_number": 1
+          },
+          {
+            "employee_name": "Cat",
+            "sex": "F",
+            "wage": 50000,
+            "wage_row_number": 2
+          }
+        ]
+      },
+      {
+        "id": "ties",
+        "visibility": "hidden",
+        "input_rows": [],
+        "tables": {
+          "employees": [
+            {
+              "employee_name": "Zoe",
+              "sex": "F",
+              "wage": 100
+            },
+            {
+              "employee_name": "Amy",
+              "sex": "F",
+              "wage": 100
+            },
+            {
+              "employee_name": "Bob",
+              "sex": "M",
+              "wage": 90
+            },
+            {
+              "employee_name": "Al",
+              "sex": "M",
+              "wage": 90
+            },
+            {
+              "employee_name": "Cy",
+              "sex": "M",
+              "wage": 80
+            }
+          ]
+        },
+        "expected": [
+          {
+            "employee_name": "Al",
+            "sex": "M",
+            "wage": 90,
+            "wage_row_number": 1
+          },
+          {
+            "employee_name": "Bob",
+            "sex": "M",
+            "wage": 90,
+            "wage_row_number": 2
+          },
+          {
+            "employee_name": "Cy",
+            "sex": "M",
+            "wage": 80,
+            "wage_row_number": 3
+          },
+          {
+            "employee_name": "Amy",
+            "sex": "F",
+            "wage": 100,
+            "wage_row_number": 1
+          },
+          {
+            "employee_name": "Zoe",
+            "sex": "F",
+            "wage": 100,
+            "wage_row_number": 2
+          }
+        ]
+      },
+      {
+        "id": "empty",
+        "visibility": "edge",
+        "input_rows": [],
+        "tables": {
+          "employees": []
+        },
+        "expected": []
+      }
+    ]
+  },
+  "sql-lab-window-sensor-running-avg": {
+    "solution": "SELECT sensor_id, date_value, visitors_count,\n    AVG(visitors_count) OVER (\n        PARTITION BY sensor_id\n        ORDER BY date_value\n        ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW\n    ) AS running_avg_visitors\nFROM sensor_daily",
+    "fixtures": [
+      {
+        "id": "example",
+        "visibility": "visible",
+        "input_rows": [],
+        "tables": {
+          "sensor_daily": [
+            {
+              "sensor_id": 1,
+              "date_value": "2026-01-01",
+              "visitors_count": 10
+            },
+            {
+              "sensor_id": 1,
+              "date_value": "2026-01-02",
+              "visitors_count": 30
+            },
+            {
+              "sensor_id": 2,
+              "date_value": "2026-01-01",
+              "visitors_count": 100
+            },
+            {
+              "sensor_id": 2,
+              "date_value": "2026-01-02",
+              "visitors_count": 50
+            }
+          ]
+        },
+        "expected": [
+          {
+            "sensor_id": 1,
+            "date_value": "2026-01-01",
+            "visitors_count": 10,
+            "running_avg_visitors": 10.0
+          },
+          {
+            "sensor_id": 1,
+            "date_value": "2026-01-02",
+            "visitors_count": 30,
+            "running_avg_visitors": 20.0
+          },
+          {
+            "sensor_id": 2,
+            "date_value": "2026-01-01",
+            "visitors_count": 100,
+            "running_avg_visitors": 100.0
+          },
+          {
+            "sensor_id": 2,
+            "date_value": "2026-01-02",
+            "visitors_count": 50,
+            "running_avg_visitors": 75.0
+          }
+        ]
+      },
+      {
+        "id": "interleaved",
+        "visibility": "hidden",
+        "input_rows": [],
+        "tables": {
+          "sensor_daily": [
+            {
+              "sensor_id": 3,
+              "date_value": "2026-02-02",
+              "visitors_count": 4
+            },
+            {
+              "sensor_id": 4,
+              "date_value": "2026-02-01",
+              "visitors_count": 9
+            },
+            {
+              "sensor_id": 3,
+              "date_value": "2026-02-01",
+              "visitors_count": 2
+            },
+            {
+              "sensor_id": 4,
+              "date_value": "2026-02-02",
+              "visitors_count": 3
+            },
+            {
+              "sensor_id": 3,
+              "date_value": "2026-02-03",
+              "visitors_count": 6
+            }
+          ]
+        },
+        "expected": [
+          {
+            "sensor_id": 4,
+            "date_value": "2026-02-01",
+            "visitors_count": 9,
+            "running_avg_visitors": 9.0
+          },
+          {
+            "sensor_id": 4,
+            "date_value": "2026-02-02",
+            "visitors_count": 3,
+            "running_avg_visitors": 6.0
+          },
+          {
+            "sensor_id": 3,
+            "date_value": "2026-02-01",
+            "visitors_count": 2,
+            "running_avg_visitors": 2.0
+          },
+          {
+            "sensor_id": 3,
+            "date_value": "2026-02-02",
+            "visitors_count": 4,
+            "running_avg_visitors": 3.0
+          },
+          {
+            "sensor_id": 3,
+            "date_value": "2026-02-03",
+            "visitors_count": 6,
+            "running_avg_visitors": 4.0
+          }
+        ]
+      },
+      {
+        "id": "single",
+        "visibility": "edge",
+        "input_rows": [],
+        "tables": {
+          "sensor_daily": [
+            {
+              "sensor_id": 5,
+              "date_value": "2026-03-01",
+              "visitors_count": 1
+            }
+          ]
+        },
+        "expected": [
+          {
+            "sensor_id": 5,
+            "date_value": "2026-03-01",
+            "visitors_count": 1,
+            "running_avg_visitors": 1.0
+          }
+        ]
+      }
+    ]
+  },
+  "sql-lab-window-sensor-weekday": {
+    "solution": "SELECT sensor_id, weekday_number, date_value, visitors_count,\n    AVG(visitors_count) OVER (\n        PARTITION BY sensor_id, weekday_number\n        ORDER BY date_value\n        ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW\n    ) AS running_avg_visitors\nFROM sensor_daily",
+    "fixtures": [
+      {
+        "id": "example",
+        "visibility": "visible",
+        "input_rows": [],
+        "tables": {
+          "sensor_daily": [
+            {
+              "sensor_id": 1,
+              "weekday_number": 1,
+              "date_value": "2026-01-05",
+              "visitors_count": 10
+            },
+            {
+              "sensor_id": 1,
+              "weekday_number": 2,
+              "date_value": "2026-01-06",
+              "visitors_count": 50
+            },
+            {
+              "sensor_id": 1,
+              "weekday_number": 1,
+              "date_value": "2026-01-12",
+              "visitors_count": 30
+            },
+            {
+              "sensor_id": 1,
+              "weekday_number": 2,
+              "date_value": "2026-01-13",
+              "visitors_count": 70
+            },
+            {
+              "sensor_id": 2,
+              "weekday_number": 1,
+              "date_value": "2026-01-05",
+              "visitors_count": 5
+            },
+            {
+              "sensor_id": 2,
+              "weekday_number": 1,
+              "date_value": "2026-01-12",
+              "visitors_count": 15
+            }
+          ]
+        },
+        "expected": [
+          {
+            "sensor_id": 1,
+            "weekday_number": 1,
+            "date_value": "2026-01-05",
+            "visitors_count": 10,
+            "running_avg_visitors": 10.0
+          },
+          {
+            "sensor_id": 1,
+            "weekday_number": 1,
+            "date_value": "2026-01-12",
+            "visitors_count": 30,
+            "running_avg_visitors": 20.0
+          },
+          {
+            "sensor_id": 2,
+            "weekday_number": 1,
+            "date_value": "2026-01-05",
+            "visitors_count": 5,
+            "running_avg_visitors": 5.0
+          },
+          {
+            "sensor_id": 2,
+            "weekday_number": 1,
+            "date_value": "2026-01-12",
+            "visitors_count": 15,
+            "running_avg_visitors": 10.0
+          },
+          {
+            "sensor_id": 1,
+            "weekday_number": 2,
+            "date_value": "2026-01-06",
+            "visitors_count": 50,
+            "running_avg_visitors": 50.0
+          },
+          {
+            "sensor_id": 1,
+            "weekday_number": 2,
+            "date_value": "2026-01-13",
+            "visitors_count": 70,
+            "running_avg_visitors": 60.0
+          }
+        ]
+      },
+      {
+        "id": "mixed-series",
+        "visibility": "hidden",
+        "input_rows": [],
+        "tables": {
+          "sensor_daily": [
+            {
+              "sensor_id": 3,
+              "weekday_number": 1,
+              "date_value": "2026-02-02",
+              "visitors_count": 8
+            },
+            {
+              "sensor_id": 3,
+              "weekday_number": 3,
+              "date_value": "2026-02-04",
+              "visitors_count": 1
+            },
+            {
+              "sensor_id": 3,
+              "weekday_number": 1,
+              "date_value": "2026-02-09",
+              "visitors_count": 4
+            },
+            {
+              "sensor_id": 3,
+              "weekday_number": 3,
+              "date_value": "2026-02-11",
+              "visitors_count": 3
+            },
+            {
+              "sensor_id": 4,
+              "weekday_number": 1,
+              "date_value": "2026-02-02",
+              "visitors_count": 8
+            },
+            {
+              "sensor_id": 4,
+              "weekday_number": 1,
+              "date_value": "2026-02-09",
+              "visitors_count": 4
+            },
+            {
+              "sensor_id": 5,
+              "weekday_number": 1,
+              "date_value": "2026-02-02",
+              "visitors_count": 6
+            },
+            {
+              "sensor_id": 5,
+              "weekday_number": 1,
+              "date_value": "2026-02-09",
+              "visitors_count": 6
+            }
+          ]
+        },
+        "expected": [
+          {
+            "sensor_id": 5,
+            "weekday_number": 1,
+            "date_value": "2026-02-02",
+            "visitors_count": 6,
+            "running_avg_visitors": 6.0
+          },
+          {
+            "sensor_id": 5,
+            "weekday_number": 1,
+            "date_value": "2026-02-09",
+            "visitors_count": 6,
+            "running_avg_visitors": 6.0
+          },
+          {
+            "sensor_id": 4,
+            "weekday_number": 1,
+            "date_value": "2026-02-02",
+            "visitors_count": 8,
+            "running_avg_visitors": 8.0
+          },
+          {
+            "sensor_id": 4,
+            "weekday_number": 1,
+            "date_value": "2026-02-09",
+            "visitors_count": 4,
+            "running_avg_visitors": 6.0
+          },
+          {
+            "sensor_id": 3,
+            "weekday_number": 3,
+            "date_value": "2026-02-04",
+            "visitors_count": 1,
+            "running_avg_visitors": 1.0
+          },
+          {
+            "sensor_id": 3,
+            "weekday_number": 3,
+            "date_value": "2026-02-11",
+            "visitors_count": 3,
+            "running_avg_visitors": 2.0
+          },
+          {
+            "sensor_id": 3,
+            "weekday_number": 1,
+            "date_value": "2026-02-02",
+            "visitors_count": 8,
+            "running_avg_visitors": 8.0
+          },
+          {
+            "sensor_id": 3,
+            "weekday_number": 1,
+            "date_value": "2026-02-09",
+            "visitors_count": 4,
+            "running_avg_visitors": 6.0
+          }
+        ]
+      },
+      {
+        "id": "single",
+        "visibility": "edge",
+        "input_rows": [],
+        "tables": {
+          "sensor_daily": [
+            {
+              "sensor_id": 6,
+              "weekday_number": 5,
+              "date_value": "2026-03-06",
+              "visitors_count": 2
+            }
+          ]
+        },
+        "expected": [
+          {
+            "sensor_id": 6,
+            "weekday_number": 5,
+            "date_value": "2026-03-06",
+            "visitors_count": 2,
+            "running_avg_visitors": 2.0
+          }
+        ]
+      }
+    ]
+  },
+  "sql-lab-window-updated-ranking": {
+    "solution": "WITH moving AS (\n    SELECT *,\n        AVG(visitors_count) OVER (\n            PARTITION BY sensor_id, weekday_number\n            ORDER BY date_value\n            ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW\n        ) AS running_avg_visitors\n    FROM sensor_daily\n)\nSELECT sensor_id, weekday_number, date_value, visitors_count, running_avg_visitors,\n    DENSE_RANK() OVER (PARTITION BY date_value ORDER BY running_avg_visitors DESC) AS sensor_rank\nFROM moving",
+    "fixtures": [
+      {
+        "id": "example",
+        "visibility": "visible",
+        "input_rows": [],
+        "tables": {
+          "sensor_daily": [
+            {
+              "sensor_id": 1,
+              "weekday_number": 1,
+              "date_value": "2026-01-05",
+              "visitors_count": 10
+            },
+            {
+              "sensor_id": 1,
+              "weekday_number": 2,
+              "date_value": "2026-01-06",
+              "visitors_count": 50
+            },
+            {
+              "sensor_id": 1,
+              "weekday_number": 1,
+              "date_value": "2026-01-12",
+              "visitors_count": 30
+            },
+            {
+              "sensor_id": 1,
+              "weekday_number": 2,
+              "date_value": "2026-01-13",
+              "visitors_count": 70
+            },
+            {
+              "sensor_id": 2,
+              "weekday_number": 1,
+              "date_value": "2026-01-05",
+              "visitors_count": 5
+            },
+            {
+              "sensor_id": 2,
+              "weekday_number": 1,
+              "date_value": "2026-01-12",
+              "visitors_count": 15
+            }
+          ]
+        },
+        "expected": [
+          {
+            "sensor_id": 1,
+            "weekday_number": 1,
+            "date_value": "2026-01-05",
+            "visitors_count": 10,
+            "running_avg_visitors": 10.0,
+            "sensor_rank": 1
+          },
+          {
+            "sensor_id": 2,
+            "weekday_number": 1,
+            "date_value": "2026-01-05",
+            "visitors_count": 5,
+            "running_avg_visitors": 5.0,
+            "sensor_rank": 2
+          },
+          {
+            "sensor_id": 1,
+            "weekday_number": 1,
+            "date_value": "2026-01-12",
+            "visitors_count": 30,
+            "running_avg_visitors": 20.0,
+            "sensor_rank": 1
+          },
+          {
+            "sensor_id": 2,
+            "weekday_number": 1,
+            "date_value": "2026-01-12",
+            "visitors_count": 15,
+            "running_avg_visitors": 10.0,
+            "sensor_rank": 2
+          },
+          {
+            "sensor_id": 1,
+            "weekday_number": 2,
+            "date_value": "2026-01-13",
+            "visitors_count": 70,
+            "running_avg_visitors": 60.0,
+            "sensor_rank": 1
+          },
+          {
+            "sensor_id": 1,
+            "weekday_number": 2,
+            "date_value": "2026-01-06",
+            "visitors_count": 50,
+            "running_avg_visitors": 50.0,
+            "sensor_rank": 1
+          }
+        ]
+      },
+      {
+        "id": "mixed-series",
+        "visibility": "hidden",
+        "input_rows": [],
+        "tables": {
+          "sensor_daily": [
+            {
+              "sensor_id": 3,
+              "weekday_number": 1,
+              "date_value": "2026-02-02",
+              "visitors_count": 8
+            },
+            {
+              "sensor_id": 3,
+              "weekday_number": 3,
+              "date_value": "2026-02-04",
+              "visitors_count": 1
+            },
+            {
+              "sensor_id": 3,
+              "weekday_number": 1,
+              "date_value": "2026-02-09",
+              "visitors_count": 4
+            },
+            {
+              "sensor_id": 3,
+              "weekday_number": 3,
+              "date_value": "2026-02-11",
+              "visitors_count": 3
+            },
+            {
+              "sensor_id": 4,
+              "weekday_number": 1,
+              "date_value": "2026-02-02",
+              "visitors_count": 8
+            },
+            {
+              "sensor_id": 4,
+              "weekday_number": 1,
+              "date_value": "2026-02-09",
+              "visitors_count": 4
+            },
+            {
+              "sensor_id": 5,
+              "weekday_number": 1,
+              "date_value": "2026-02-02",
+              "visitors_count": 6
+            },
+            {
+              "sensor_id": 5,
+              "weekday_number": 1,
+              "date_value": "2026-02-09",
+              "visitors_count": 6
+            }
+          ]
+        },
+        "expected": [
+          {
+            "sensor_id": 3,
+            "weekday_number": 3,
+            "date_value": "2026-02-11",
+            "visitors_count": 3,
+            "running_avg_visitors": 2.0,
+            "sensor_rank": 1
+          },
+          {
+            "sensor_id": 3,
+            "weekday_number": 3,
+            "date_value": "2026-02-04",
+            "visitors_count": 1,
+            "running_avg_visitors": 1.0,
+            "sensor_rank": 1
+          },
+          {
+            "sensor_id": 5,
+            "weekday_number": 1,
+            "date_value": "2026-02-09",
+            "visitors_count": 6,
+            "running_avg_visitors": 6.0,
+            "sensor_rank": 1
+          },
+          {
+            "sensor_id": 3,
+            "weekday_number": 1,
+            "date_value": "2026-02-09",
+            "visitors_count": 4,
+            "running_avg_visitors": 6.0,
+            "sensor_rank": 1
+          },
+          {
+            "sensor_id": 4,
+            "weekday_number": 1,
+            "date_value": "2026-02-09",
+            "visitors_count": 4,
+            "running_avg_visitors": 6.0,
+            "sensor_rank": 1
+          },
+          {
+            "sensor_id": 3,
+            "weekday_number": 1,
+            "date_value": "2026-02-02",
+            "visitors_count": 8,
+            "running_avg_visitors": 8.0,
+            "sensor_rank": 1
+          },
+          {
+            "sensor_id": 4,
+            "weekday_number": 1,
+            "date_value": "2026-02-02",
+            "visitors_count": 8,
+            "running_avg_visitors": 8.0,
+            "sensor_rank": 1
+          },
+          {
+            "sensor_id": 5,
+            "weekday_number": 1,
+            "date_value": "2026-02-02",
+            "visitors_count": 6,
+            "running_avg_visitors": 6.0,
+            "sensor_rank": 2
+          }
+        ]
+      },
+      {
+        "id": "single",
+        "visibility": "edge",
+        "input_rows": [],
+        "tables": {
+          "sensor_daily": [
+            {
+              "sensor_id": 6,
+              "weekday_number": 5,
+              "date_value": "2026-03-06",
+              "visitors_count": 2
+            }
+          ]
+        },
+        "expected": [
+          {
+            "sensor_id": 6,
+            "weekday_number": 5,
+            "date_value": "2026-03-06",
+            "visitors_count": 2,
+            "running_avg_visitors": 2.0,
+            "sensor_rank": 1
+          }
+        ]
+      }
+    ]
+  },
+  "sql-lab-window-top-one": {
+    "solution": "WITH ranked AS (\n    SELECT *,\n        ROW_NUMBER() OVER (PARTITION BY department ORDER BY wage DESC, employee_name) AS rn\n    FROM employees\n)\nSELECT employee_name, department, wage\nFROM ranked\nWHERE rn = 1",
+    "fixtures": [
+      {
+        "id": "example",
+        "visibility": "visible",
+        "input_rows": [],
+        "tables": {
+          "employees": [
+            {
+              "employee_name": "Ana",
+              "department": "IT",
+              "wage": 70000
+            },
+            {
+              "employee_name": "Ben",
+              "department": "IT",
+              "wage": 50000
+            },
+            {
+              "employee_name": "Cid",
+              "department": "HR",
+              "wage": 45000
+            },
+            {
+              "employee_name": "Dee",
+              "department": "HR",
+              "wage": 65000
+            }
+          ]
+        },
+        "expected": [
+          {
+            "employee_name": "Dee",
+            "department": "HR",
+            "wage": 65000
+          },
+          {
+            "employee_name": "Ana",
+            "department": "IT",
+            "wage": 70000
+          }
+        ]
+      },
+      {
+        "id": "ties",
+        "visibility": "hidden",
+        "input_rows": [],
+        "tables": {
+          "employees": [
+            {
+              "employee_name": "Zed",
+              "department": "OPS",
+              "wage": 500
+            },
+            {
+              "employee_name": "Amy",
+              "department": "OPS",
+              "wage": 500
+            },
+            {
+              "employee_name": "Bob",
+              "department": "OPS",
+              "wage": 400
+            },
+            {
+              "employee_name": "Kim",
+              "department": "LEGAL",
+              "wage": 10
+            }
+          ]
+        },
+        "expected": [
+          {
+            "employee_name": "Kim",
+            "department": "LEGAL",
+            "wage": 10
+          },
+          {
+            "employee_name": "Amy",
+            "department": "OPS",
+            "wage": 500
+          }
+        ]
+      },
+      {
+        "id": "empty",
+        "visibility": "edge",
+        "input_rows": [],
+        "tables": {
+          "employees": []
+        },
+        "expected": []
+      }
+    ]
   }
 }

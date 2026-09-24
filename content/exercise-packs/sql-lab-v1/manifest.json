@@ -1,7 +1,7 @@
 {
   "schema_version": 1,
   "id": "sql-lab-v1",
-  "version": "1",
+  "version": "2",
   "title": "SQL lab: joins, grouping, CASE and window functions (DuckDB)",
   "enabled": true,
   "provenance": {

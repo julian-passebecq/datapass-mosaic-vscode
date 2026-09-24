@@ -4494,5 +4494,4625 @@
     "constraints": {
       "fixtures": "At most 200 rows per table; complete results are graded, truncated results never pass."
     }
+  },
+  {
+    "schema_version": 1,
+    "id": "sql-lab-cross-retail-grid",
+    "version": "1",
+    "title": "Build a complete retail reporting grid",
+    "difficulty": "medium",
+    "topics": [
+      "cross-join",
+      "joins"
+    ],
+    "tags": [
+      "sql-lab",
+      "duckdb"
+    ],
+    "origin": "migrated",
+    "language": "sql",
+    "runtime": "shared-sql-v1",
+    "prompt": "Create every store x market x month x weekday x quarter combination: store_id, market_id, month_id, weekday_id, quarter_id. Duplicate dimension rows are kept.",
+    "sections": [
+      {
+        "title": "Tables",
+        "body": "stores(store_id INTEGER); markets(market_id INTEGER); months(month_id INTEGER); weekdays(weekday_id INTEGER); quarters(quarter_id INTEGER)"
+      },
+      {
+        "title": "Output",
+        "body": "Columns in this order: store_id, market_id, month_id, weekday_id, quarter_id."
+      },
+      {
+        "title": "Common pitfall",
+        "body": "Cartesian products explode quickly; an empty dimension empties the whole grid."
+      }
+    ],
+    "starter_source": "SELECT s.store_id, m.market_id\nFROM stores AS s\nCROSS JOIN markets AS m\n-- add months, weekdays and quarters\n",
+    "fixtures": [
+      {
+        "id": "sql-lab-cross-retail-grid-fixtures",
+        "version": "1"
+      }
+    ],
+    "visible_checks": [
+      {
+        "id": "example",
+        "description": "Public example: the tables shown in data_context."
+      }
+    ],
+    "hidden_check_refs": [
+      "duplicate-dimension"
+    ],
+    "edge_check_refs": [
+      "empty-dimension"
+    ],
+    "hints": [
+      "Chain one CROSS JOIN per dimension.",
+      "Predict the row count: multiply the dimension sizes."
+    ],
+    "solution": {
+      "available": true,
+      "reveal": "explicit"
+    },
+    "explanation": "Each CROSS JOIN multiplies the row count; the grid is the product of every dimension.",
+    "follow_ups": [
+      "How many rows would 50 stores x 10 markets x 12 months x 7 weekdays x 4 quarters produce?"
+    ],
+    "canonical_placement": {
+      "domain": "sql",
+      "topic": "cross-join"
+    },
+    "related_associations": [
+      "sql/joins"
+    ],
+    "recommendation": {
+      "rank": 31,
+      "reason": "SQL lab progression"
+    },
+    "validator_version": "rows-v2",
+    "validation": {
+      "kind": "rows",
+      "ordered": false,
+      "duplicate_sensitive": true,
+      "relative_tolerance": 1e-09,
+      "absolute_tolerance": 1e-06,
+      "required_columns": [
+        "store_id",
+        "market_id",
+        "month_id",
+        "weekday_id",
+        "quarter_id"
+      ],
+      "exact_schema": [
+        "store_id",
+        "market_id",
+        "month_id",
+        "weekday_id",
+        "quarter_id"
+      ],
+      "forbidden_extra_columns": true,
+      "null_semantics": "equal"
+    },
+    "data_context": [
+      {
+        "name": "stores",
+        "columns": {
+          "store_id": "INTEGER"
+        },
+        "sample_rows": [
+          {
+            "store_id": 1
+          },
+          {
+            "store_id": 2
+          }
+        ]
+      },
+      {
+        "name": "markets",
+        "columns": {
+          "market_id": "INTEGER"
+        },
+        "sample_rows": [
+          {
+            "market_id": 10
+          },
+          {
+            "market_id": 20
+          }
+        ]
+      },
+      {
+        "name": "months",
+        "columns": {
+          "month_id": "INTEGER"
+        },
+        "sample_rows": [
+          {
+            "month_id": 1
+          },
+          {
+            "month_id": 2
+          }
+        ]
+      },
+      {
+        "name": "weekdays",
+        "columns": {
+          "weekday_id": "INTEGER"
+        },
+        "sample_rows": [
+          {
+            "weekday_id": 1
+          },
+          {
+            "weekday_id": 7
+          }
+        ]
+      },
+      {
+        "name": "quarters",
+        "columns": {
+          "quarter_id": "INTEGER"
+        },
+        "sample_rows": [
+          {
+            "quarter_id": 1
+          }
+        ]
+      }
+    ],
+    "output_schema": {
+      "store_id": "value",
+      "market_id": "value",
+      "month_id": "value",
+      "weekday_id": "value",
+      "quarter_id": "value"
+    },
+    "runtime_requirements": [
+      "sql"
+    ],
+    "provenance": {
+      "source": "Datapass leetcodedataeng SQL lab (lab-cross-retail-grid), adapted to DuckDB SQL",
+      "fixtures": "Authored for Datapass; expected rows computed from the reference solution and reviewed"
+    },
+    "constraints": {
+      "fixtures": "At most 200 rows per table; complete results are graded, truncated results never pass."
+    }
+  },
+  {
+    "schema_version": 1,
+    "id": "sql-lab-inner-add-products",
+    "version": "1",
+    "title": "Enrich order rows with product data",
+    "difficulty": "easy",
+    "topics": [
+      "inner-join",
+      "joins"
+    ],
+    "tags": [
+      "sql-lab",
+      "duckdb"
+    ],
+    "origin": "migrated",
+    "language": "sql",
+    "runtime": "shared-sql-v1",
+    "prompt": "Return order_id, customer_id, product_id, quantity, product_name, unit_price for every order row whose product exists in products. Rows with unknown products are excluded.",
+    "sections": [
+      {
+        "title": "Tables",
+        "body": "customer_orders(order_id INTEGER, customer_id INTEGER, product_id INTEGER, quantity INTEGER); products(product_id INTEGER, product_name VARCHAR, unit_price DOUBLE)"
+      },
+      {
+        "title": "Output",
+        "body": "Columns in this order: order_id, customer_id, product_id, quantity, product_name, unit_price."
+      },
+      {
+        "title": "Common pitfall",
+        "body": "If unknown products must stay visible for data-quality analysis, LEFT JOIN is the better choice."
+      }
+    ],
+    "starter_source": "SELECT co.order_id, co.customer_id, co.product_id, co.quantity\nFROM customer_orders AS co\n-- add product_name and unit_price\n",
+    "fixtures": [
+      {
+        "id": "sql-lab-inner-add-products-fixtures",
+        "version": "1"
+      }
+    ],
+    "visible_checks": [
+      {
+        "id": "example",
+        "description": "Public example: the tables shown in data_context."
+      }
+    ],
+    "hidden_check_refs": [
+      "repeated-product"
+    ],
+    "edge_check_refs": [
+      "no-products"
+    ],
+    "hints": [
+      "Join on product_id.",
+      "An inner join drops orders whose product is unknown."
+    ],
+    "solution": {
+      "available": true,
+      "reveal": "explicit"
+    },
+    "explanation": "INNER JOIN enriches matched rows and drops unmatched ones.",
+    "follow_ups": [
+      "How would you list the unknown product_ids instead?"
+    ],
+    "canonical_placement": {
+      "domain": "sql",
+      "topic": "inner-join"
+    },
+    "related_associations": [
+      "sql/joins"
+    ],
+    "recommendation": {
+      "rank": 32,
+      "reason": "SQL lab progression"
+    },
+    "validator_version": "rows-v2",
+    "validation": {
+      "kind": "rows",
+      "ordered": false,
+      "duplicate_sensitive": true,
+      "relative_tolerance": 1e-09,
+      "absolute_tolerance": 1e-06,
+      "required_columns": [
+        "order_id",
+        "customer_id",
+        "product_id",
+        "quantity",
+        "product_name",
+        "unit_price"
+      ],
+      "exact_schema": [
+        "order_id",
+        "customer_id",
+        "product_id",
+        "quantity",
+        "product_name",
+        "unit_price"
+      ],
+      "forbidden_extra_columns": true,
+      "null_semantics": "equal"
+    },
+    "data_context": [
+      {
+        "name": "customer_orders",
+        "columns": {
+          "order_id": "INTEGER",
+          "customer_id": "INTEGER",
+          "product_id": "INTEGER",
+          "quantity": "INTEGER"
+        },
+        "sample_rows": [
+          {
+            "order_id": 1,
+            "customer_id": 1,
+            "product_id": 10,
+            "quantity": 2
+          },
+          {
+            "order_id": 2,
+            "customer_id": 2,
+            "product_id": 11,
+            "quantity": 1
+          },
+          {
+            "order_id": 3,
+            "customer_id": 2,
+            "product_id": 99,
+            "quantity": 4
+          }
+        ]
+      },
+      {
+        "name": "products",
+        "columns": {
+          "product_id": "INTEGER",
+          "product_name": "VARCHAR",
+          "unit_price": "DOUBLE"
+        },
+        "sample_rows": [
+          {
+            "product_id": 10,
+            "product_name": "Tea",
+            "unit_price": 3.5
+          },
+          {
+            "product_id": 11,
+            "product_name": "Coffee",
+            "unit_price": 4.0
+          }
+        ]
+      }
+    ],
+    "output_schema": {
+      "order_id": "value",
+      "customer_id": "value",
+      "product_id": "value",
+      "quantity": "value",
+      "product_name": "value",
+      "unit_price": "value"
+    },
+    "runtime_requirements": [
+      "sql"
+    ],
+    "provenance": {
+      "source": "Datapass leetcodedataeng SQL lab (lab-inner-add-products), adapted to DuckDB SQL",
+      "fixtures": "Authored for Datapass; expected rows computed from the reference solution and reviewed"
+    },
+    "constraints": {
+      "fixtures": "At most 200 rows per table; complete results are graded, truncated results never pass."
+    }
+  },
+  {
+    "schema_version": 1,
+    "id": "sql-lab-inner-retail-chain",
+    "version": "1",
+    "title": "Map each sale to its retail universe",
+    "difficulty": "medium",
+    "topics": [
+      "inner-join",
+      "joins"
+    ],
+    "tags": [
+      "sql-lab",
+      "duckdb"
+    ],
+    "origin": "migrated",
+    "language": "sql",
+    "runtime": "shared-sql-v1",
+    "prompt": "Chain two inner joins to return sale_id, product_id, category_id, universe_id for every sale that maps all the way to a universe.",
+    "sections": [
+      {
+        "title": "Tables",
+        "body": "sales(sale_id INTEGER, product_id INTEGER); product_category(product_id INTEGER, category_id INTEGER); category_universe(category_id INTEGER, universe_id INTEGER)"
+      },
+      {
+        "title": "Output",
+        "body": "Columns in this order: sale_id, product_id, category_id, universe_id."
+      },
+      {
+        "title": "Common pitfall",
+        "body": "Joining sales directly to category_universe has no legitimate key; LEFT joins would keep unmapped sales."
+      }
+    ],
+    "starter_source": "SELECT s.sale_id, s.product_id\nFROM sales AS s\n-- join product_category, then category_universe\n",
+    "fixtures": [
+      {
+        "id": "sql-lab-inner-retail-chain-fixtures",
+        "version": "1"
+      }
+    ],
+    "visible_checks": [
+      {
+        "id": "example",
+        "description": "Public example: the tables shown in data_context."
+      }
+    ],
+    "hidden_check_refs": [
+      "gaps-at-both-steps"
+    ],
+    "edge_check_refs": [
+      "nothing-mapped"
+    ],
+    "hints": [
+      "sales -> product_category on product_id.",
+      "product_category -> category_universe on category_id."
+    ],
+    "solution": {
+      "available": true,
+      "reveal": "explicit"
+    },
+    "explanation": "Each join follows a real key; a sale survives only if both hops match.",
+    "follow_ups": [
+      "Which sales are lost, and how would you monitor that loss?"
+    ],
+    "canonical_placement": {
+      "domain": "sql",
+      "topic": "inner-join"
+    },
+    "related_associations": [
+      "sql/joins"
+    ],
+    "recommendation": {
+      "rank": 33,
+      "reason": "SQL lab progression"
+    },
+    "validator_version": "rows-v2",
+    "validation": {
+      "kind": "rows",
+      "ordered": false,
+      "duplicate_sensitive": true,
+      "relative_tolerance": 1e-09,
+      "absolute_tolerance": 1e-06,
+      "required_columns": [
+        "sale_id",
+        "product_id",
+        "category_id",
+        "universe_id"
+      ],
+      "exact_schema": [
+        "sale_id",
+        "product_id",
+        "category_id",
+        "universe_id"
+      ],
+      "forbidden_extra_columns": true,
+      "null_semantics": "equal"
+    },
+    "data_context": [
+      {
+        "name": "sales",
+        "columns": {
+          "sale_id": "INTEGER",
+          "product_id": "INTEGER"
+        },
+        "sample_rows": [
+          {
+            "sale_id": 1,
+            "product_id": 10
+          },
+          {
+            "sale_id": 2,
+            "product_id": 11
+          },
+          {
+            "sale_id": 3,
+            "product_id": 12
+          }
+        ]
+      },
+      {
+        "name": "product_category",
+        "columns": {
+          "product_id": "INTEGER",
+          "category_id": "INTEGER"
+        },
+        "sample_rows": [
+          {
+            "product_id": 10,
+            "category_id": 100
+          },
+          {
+            "product_id": 11,
+            "category_id": 101
+          },
+          {
+            "product_id": 12,
+            "category_id": 102
+          }
+        ]
+      },
+      {
+        "name": "category_universe",
+        "columns": {
+          "category_id": "INTEGER",
+          "universe_id": "INTEGER"
+        },
+        "sample_rows": [
+          {
+            "category_id": 100,
+            "universe_id": 1000
+          },
+          {
+            "category_id": 101,
+            "universe_id": 1000
+          }
+        ]
+      }
+    ],
+    "output_schema": {
+      "sale_id": "value",
+      "product_id": "value",
+      "category_id": "value",
+      "universe_id": "value"
+    },
+    "runtime_requirements": [
+      "sql"
+    ],
+    "provenance": {
+      "source": "Datapass leetcodedataeng SQL lab (lab-inner-retail-chain), adapted to DuckDB SQL",
+      "fixtures": "Authored for Datapass; expected rows computed from the reference solution and reviewed"
+    },
+    "constraints": {
+      "fixtures": "At most 200 rows per table; complete results are graded, truncated results never pass."
+    }
+  },
+  {
+    "schema_version": 1,
+    "id": "sql-lab-inner-constant-key",
+    "version": "1",
+    "title": "A cross join simulated with an inner join",
+    "difficulty": "hard",
+    "topics": [
+      "inner-join",
+      "cross-join",
+      "joins"
+    ],
+    "tags": [
+      "sql-lab",
+      "duckdb"
+    ],
+    "origin": "migrated",
+    "language": "sql",
+    "runtime": "shared-sql-v1",
+    "prompt": "Every row of beverages and food_items has id = 1. Return every beverage x food pair as beverage, food. An inner join on id or an explicit CROSS JOIN both give this result here; prefer the one that states the intent.",
+    "sections": [
+      {
+        "title": "Tables",
+        "body": "beverages(id INTEGER, beverage VARCHAR); food_items(id INTEGER, food VARCHAR)"
+      },
+      {
+        "title": "Output",
+        "body": "Columns in this order: beverage, food."
+      },
+      {
+        "title": "Common pitfall",
+        "body": "The artificial-key trick silently changes meaning as soon as one id differs."
+      }
+    ],
+    "starter_source": "SELECT b.beverage\nFROM beverages AS b\n-- pair with every food item\n",
+    "fixtures": [
+      {
+        "id": "sql-lab-inner-constant-key-fixtures",
+        "version": "1"
+      }
+    ],
+    "visible_checks": [
+      {
+        "id": "example",
+        "description": "Public example: the tables shown in data_context."
+      }
+    ],
+    "hidden_check_refs": [
+      "duplicate-beverage"
+    ],
+    "edge_check_refs": [
+      "no-food"
+    ],
+    "hints": [
+      "When every key is equal, ON b.id = f.id matches everything.",
+      "CROSS JOIN says the same thing explicitly."
+    ],
+    "solution": {
+      "available": true,
+      "reveal": "explicit"
+    },
+    "explanation": "An equality join on a constant key is a disguised Cartesian product; CROSS JOIN expresses the intent directly.",
+    "follow_ups": [
+      "What happens to the inner-join version if one food row gets id = 2?"
+    ],
+    "canonical_placement": {
+      "domain": "sql",
+      "topic": "inner-join"
+    },
+    "related_associations": [
+      "sql/cross-join",
+      "sql/joins"
+    ],
+    "recommendation": {
+      "rank": 34,
+      "reason": "SQL lab progression"
+    },
+    "validator_version": "rows-v2",
+    "validation": {
+      "kind": "rows",
+      "ordered": false,
+      "duplicate_sensitive": true,
+      "relative_tolerance": 1e-09,
+      "absolute_tolerance": 1e-06,
+      "required_columns": [
+        "beverage",
+        "food"
+      ],
+      "exact_schema": [
+        "beverage",
+        "food"
+      ],
+      "forbidden_extra_columns": true,
+      "null_semantics": "equal"
+    },
+    "data_context": [
+      {
+        "name": "beverages",
+        "columns": {
+          "id": "INTEGER",
+          "beverage": "VARCHAR"
+        },
+        "sample_rows": [
+          {
+            "id": 1,
+            "beverage": "Tea"
+          },
+          {
+            "id": 1,
+            "beverage": "Coffee"
+          }
+        ]
+      },
+      {
+        "name": "food_items",
+        "columns": {
+          "id": "INTEGER",
+          "food": "VARCHAR"
+        },
+        "sample_rows": [
+          {
+            "id": 1,
+            "food": "Croissant"
+          },
+          {
+            "id": 1,
+            "food": "Bagel"
+          },
+          {
+            "id": 1,
+            "food": "Muffin"
+          }
+        ]
+      }
+    ],
+    "output_schema": {
+      "beverage": "value",
+      "food": "value"
+    },
+    "runtime_requirements": [
+      "sql"
+    ],
+    "provenance": {
+      "source": "Datapass leetcodedataeng SQL lab (lab-inner-constant-key), adapted to DuckDB SQL",
+      "fixtures": "Authored for Datapass; expected rows computed from the reference solution and reviewed"
+    },
+    "constraints": {
+      "fixtures": "At most 200 rows per table; complete results are graded, truncated results never pass."
+    }
+  },
+  {
+    "schema_version": 1,
+    "id": "sql-lab-left-product-enrichment",
+    "version": "1",
+    "title": "Preserve order lines with unknown products",
+    "difficulty": "easy",
+    "topics": [
+      "left-join",
+      "joins",
+      "nulls"
+    ],
+    "tags": [
+      "sql-lab",
+      "duckdb"
+    ],
+    "origin": "migrated",
+    "language": "sql",
+    "runtime": "shared-sql-v1",
+    "prompt": "Return order_id, product_id, quantity, product_name for every row of customer_orders; unknown products get a NULL product_name.",
+    "sections": [
+      {
+        "title": "Tables",
+        "body": "customer_orders(order_id INTEGER, product_id INTEGER, quantity INTEGER); products(product_id INTEGER, product_name VARCHAR)"
+      },
+      {
+        "title": "Output",
+        "body": "Columns in this order: order_id, product_id, quantity, product_name."
+      },
+      {
+        "title": "Common pitfall",
+        "body": "WHERE p.product_name IS NOT NULL after the join removes the NULL rows and behaves like an inner join."
+      }
+    ],
+    "starter_source": "SELECT co.order_id, co.product_id, co.quantity\nFROM customer_orders AS co\n-- add product_name, keep every order row\n",
+    "fixtures": [
+      {
+        "id": "sql-lab-left-product-enrichment-fixtures",
+        "version": "1"
+      }
+    ],
+    "visible_checks": [
+      {
+        "id": "example",
+        "description": "Public example: the tables shown in data_context."
+      }
+    ],
+    "hidden_check_refs": [
+      "all-unknown"
+    ],
+    "edge_check_refs": [
+      "empty-orders"
+    ],
+    "hints": [
+      "Keep customer_orders on the left.",
+      "Do not filter the right table in WHERE."
+    ],
+    "solution": {
+      "available": true,
+      "reveal": "explicit"
+    },
+    "explanation": "LEFT JOIN preserves every order line; unknown products surface as NULL names.",
+    "follow_ups": [
+      "How would you turn the NULL names into a data-quality report?"
+    ],
+    "canonical_placement": {
+      "domain": "sql",
+      "topic": "left-join"
+    },
+    "related_associations": [
+      "sql/joins",
+      "sql/nulls"
+    ],
+    "recommendation": {
+      "rank": 35,
+      "reason": "SQL lab progression"
+    },
+    "validator_version": "rows-v2",
+    "validation": {
+      "kind": "rows",
+      "ordered": false,
+      "duplicate_sensitive": true,
+      "relative_tolerance": 1e-09,
+      "absolute_tolerance": 1e-06,
+      "required_columns": [
+        "order_id",
+        "product_id",
+        "quantity",
+        "product_name"
+      ],
+      "exact_schema": [
+        "order_id",
+        "product_id",
+        "quantity",
+        "product_name"
+      ],
+      "forbidden_extra_columns": true,
+      "null_semantics": "equal"
+    },
+    "data_context": [
+      {
+        "name": "customer_orders",
+        "columns": {
+          "order_id": "INTEGER",
+          "product_id": "INTEGER",
+          "quantity": "INTEGER"
+        },
+        "sample_rows": [
+          {
+            "order_id": 1,
+            "product_id": 10,
+            "quantity": 2
+          },
+          {
+            "order_id": 2,
+            "product_id": 99,
+            "quantity": 1
+          },
+          {
+            "order_id": 3,
+            "product_id": 11,
+            "quantity": 5
+          }
+        ]
+      },
+      {
+        "name": "products",
+        "columns": {
+          "product_id": "INTEGER",
+          "product_name": "VARCHAR"
+        },
+        "sample_rows": [
+          {
+            "product_id": 10,
+            "product_name": "Tea"
+          },
+          {
+            "product_id": 11,
+            "product_name": "Coffee"
+          },
+          {
+            "product_id": 12,
+            "product_name": "Juice"
+          }
+        ]
+      }
+    ],
+    "output_schema": {
+      "order_id": "value",
+      "product_id": "value",
+      "quantity": "value",
+      "product_name": "value"
+    },
+    "runtime_requirements": [
+      "sql"
+    ],
+    "provenance": {
+      "source": "Datapass leetcodedataeng SQL lab (lab-left-product-enrichment), adapted to DuckDB SQL",
+      "fixtures": "Authored for Datapass; expected rows computed from the reference solution and reviewed"
+    },
+    "constraints": {
+      "fixtures": "At most 200 rows per table; complete results are graded, truncated results never pass."
+    }
+  },
+  {
+    "schema_version": 1,
+    "id": "sql-lab-full-products",
+    "version": "1",
+    "title": "Preserve store products and catalog products",
+    "difficulty": "medium",
+    "topics": [
+      "full-join",
+      "joins",
+      "nulls"
+    ],
+    "tags": [
+      "sql-lab",
+      "duckdb"
+    ],
+    "origin": "migrated",
+    "language": "sql",
+    "runtime": "shared-sql-v1",
+    "prompt": "Return store_id, product_id, product_name for every store-product mapping and every catalog product, including products missing on either side. product_id must never be NULL.",
+    "sections": [
+      {
+        "title": "Tables",
+        "body": "store_products(product_id INTEGER, store_id INTEGER); products(product_id INTEGER, product_name VARCHAR)"
+      },
+      {
+        "title": "Output",
+        "body": "Columns in this order: store_id, product_id, product_name."
+      },
+      {
+        "title": "Common pitfall",
+        "body": "Selecting only one side's key hides the identifier of rows that exist only on the other side."
+      }
+    ],
+    "starter_source": "SELECT sp.store_id, sp.product_id\nFROM store_products AS sp\n-- keep catalog-only products too\n",
+    "fixtures": [
+      {
+        "id": "sql-lab-full-products-fixtures",
+        "version": "1"
+      }
+    ],
+    "visible_checks": [
+      {
+        "id": "example",
+        "description": "Public example: the tables shown in data_context."
+      }
+    ],
+    "hidden_check_refs": [
+      "product-in-two-stores"
+    ],
+    "edge_check_refs": [
+      "empty-stores"
+    ],
+    "hints": [
+      "FULL OUTER JOIN keeps both sides.",
+      "COALESCE the two keys."
+    ],
+    "solution": {
+      "available": true,
+      "reveal": "explicit"
+    },
+    "explanation": "A full outer join keeps unmatched rows from both sides; COALESCE recovers the key from whichever side has it.",
+    "follow_ups": [
+      "How would you label each row as store-only, catalog-only or both?"
+    ],
+    "canonical_placement": {
+      "domain": "sql",
+      "topic": "full-join"
+    },
+    "related_associations": [
+      "sql/joins",
+      "sql/nulls"
+    ],
+    "recommendation": {
+      "rank": 36,
+      "reason": "SQL lab progression"
+    },
+    "validator_version": "rows-v2",
+    "validation": {
+      "kind": "rows",
+      "ordered": false,
+      "duplicate_sensitive": true,
+      "relative_tolerance": 1e-09,
+      "absolute_tolerance": 1e-06,
+      "required_columns": [
+        "store_id",
+        "product_id",
+        "product_name"
+      ],
+      "exact_schema": [
+        "store_id",
+        "product_id",
+        "product_name"
+      ],
+      "forbidden_extra_columns": true,
+      "null_semantics": "equal"
+    },
+    "data_context": [
+      {
+        "name": "store_products",
+        "columns": {
+          "product_id": "INTEGER",
+          "store_id": "INTEGER"
+        },
+        "sample_rows": [
+          {
+            "product_id": 10,
+            "store_id": 1
+          },
+          {
+            "product_id": 11,
+            "store_id": 1
+          },
+          {
+            "product_id": 99,
+            "store_id": 2
+          }
+        ]
+      },
+      {
+        "name": "products",
+        "columns": {
+          "product_id": "INTEGER",
+          "product_name": "VARCHAR"
+        },
+        "sample_rows": [
+          {
+            "product_id": 10,
+            "product_name": "Tea"
+          },
+          {
+            "product_id": 11,
+            "product_name": "Coffee"
+          },
+          {
+            "product_id": 12,
+            "product_name": "Juice"
+          }
+        ]
+      }
+    ],
+    "output_schema": {
+      "store_id": "value",
+      "product_id": "value",
+      "product_name": "value"
+    },
+    "runtime_requirements": [
+      "sql"
+    ],
+    "provenance": {
+      "source": "Datapass leetcodedataeng SQL lab (lab-full-products), adapted to DuckDB SQL",
+      "fixtures": "Authored for Datapass; expected rows computed from the reference solution and reviewed"
+    },
+    "constraints": {
+      "fixtures": "At most 200 rows per table; complete results are graded, truncated results never pass."
+    }
+  },
+  {
+    "schema_version": 1,
+    "id": "sql-lab-self-meetings",
+    "version": "1",
+    "title": "Find Benjamin's meeting partners",
+    "difficulty": "medium",
+    "topics": [
+      "self-join",
+      "joins"
+    ],
+    "tags": [
+      "sql-lab",
+      "duckdb"
+    ],
+    "origin": "migrated",
+    "language": "sql",
+    "runtime": "shared-sql-v1",
+    "prompt": "Return meeting_id, colleague, duration_minutes for every meeting Benjamin attended, paired with each other participant.",
+    "sections": [
+      {
+        "title": "Tables",
+        "body": "meeting_participants(meeting_id INTEGER, person_name VARCHAR, duration_minutes INTEGER)"
+      },
+      {
+        "title": "Output",
+        "body": "Columns in this order: meeting_id, colleague, duration_minutes."
+      },
+      {
+        "title": "Common pitfall",
+        "body": "Forgetting the right-side exclusion pairs Benjamin with himself."
+      }
+    ],
+    "starter_source": "SELECT a.meeting_id, a.duration_minutes\nFROM meeting_participants AS a\nWHERE a.person_name = 'Benjamin'\n-- pair with the other participants\n",
+    "fixtures": [
+      {
+        "id": "sql-lab-self-meetings-fixtures",
+        "version": "1"
+      }
+    ],
+    "visible_checks": [
+      {
+        "id": "example",
+        "description": "Public example: the tables shown in data_context."
+      }
+    ],
+    "hidden_check_refs": [
+      "many-colleagues"
+    ],
+    "edge_check_refs": [
+      "alone"
+    ],
+    "hints": [
+      "Join the table to itself on meeting_id.",
+      "Filter the left side to Benjamin, exclude him on the right."
+    ],
+    "solution": {
+      "available": true,
+      "reveal": "explicit"
+    },
+    "explanation": "The self join pairs each of Benjamin's participations with every participant of the same meeting.",
+    "follow_ups": [
+      "How would you find every pair of colleagues, not only Benjamin's?"
+    ],
+    "canonical_placement": {
+      "domain": "sql",
+      "topic": "self-join"
+    },
+    "related_associations": [
+      "sql/joins"
+    ],
+    "recommendation": {
+      "rank": 37,
+      "reason": "SQL lab progression"
+    },
+    "validator_version": "rows-v2",
+    "validation": {
+      "kind": "rows",
+      "ordered": false,
+      "duplicate_sensitive": true,
+      "relative_tolerance": 1e-09,
+      "absolute_tolerance": 1e-06,
+      "required_columns": [
+        "meeting_id",
+        "colleague",
+        "duration_minutes"
+      ],
+      "exact_schema": [
+        "meeting_id",
+        "colleague",
+        "duration_minutes"
+      ],
+      "forbidden_extra_columns": true,
+      "null_semantics": "equal"
+    },
+    "data_context": [
+      {
+        "name": "meeting_participants",
+        "columns": {
+          "meeting_id": "INTEGER",
+          "person_name": "VARCHAR",
+          "duration_minutes": "INTEGER"
+        },
+        "sample_rows": [
+          {
+            "meeting_id": 1,
+            "person_name": "Benjamin",
+            "duration_minutes": 30
+          },
+          {
+            "meeting_id": 1,
+            "person_name": "Chloe",
+            "duration_minutes": 30
+          },
+          {
+            "meeting_id": 1,
+            "person_name": "Hugo",
+            "duration_minutes": 30
+          },
+          {
+            "meeting_id": 2,
+            "person_name": "Benjamin",
+            "duration_minutes": 60
+          },
+          {
+            "meeting_id": 2,
+            "person_name": "Chloe",
+            "duration_minutes": 60
+          },
+          {
+            "meeting_id": 3,
+            "person_name": "Chloe",
+            "duration_minutes": 45
+          },
+          {
+            "meeting_id": 3,
+            "person_name": "Hugo",
+            "duration_minutes": 45
+          }
+        ]
+      }
+    ],
+    "output_schema": {
+      "meeting_id": "value",
+      "colleague": "value",
+      "duration_minutes": "value"
+    },
+    "runtime_requirements": [
+      "sql"
+    ],
+    "provenance": {
+      "source": "Datapass leetcodedataeng SQL lab (lab-self-meetings), adapted to DuckDB SQL",
+      "fixtures": "Authored for Datapass; expected rows computed from the reference solution and reviewed"
+    },
+    "constraints": {
+      "fixtures": "At most 200 rows per table; complete results are graded, truncated results never pass."
+    }
+  },
+  {
+    "schema_version": 1,
+    "id": "sql-lab-groupby-neighborhood",
+    "version": "1",
+    "title": "Average property price by neighborhood",
+    "difficulty": "easy",
+    "topics": [
+      "group-by",
+      "aggregation"
+    ],
+    "tags": [
+      "sql-lab",
+      "duckdb"
+    ],
+    "origin": "migrated",
+    "language": "sql",
+    "runtime": "shared-sql-v1",
+    "prompt": "Return one row per neighborhood with average_price, the average of its non-NULL prices.",
+    "sections": [
+      {
+        "title": "Tables",
+        "body": "property_sales(neighborhood VARCHAR, price DOUBLE)"
+      },
+      {
+        "title": "Output",
+        "body": "Columns in this order: neighborhood, average_price."
+      },
+      {
+        "title": "Common pitfall",
+        "body": "Adding price to GROUP BY changes the grain to one row per distinct price."
+      }
+    ],
+    "starter_source": "SELECT neighborhood\nFROM property_sales\n",
+    "fixtures": [
+      {
+        "id": "sql-lab-groupby-neighborhood-fixtures",
+        "version": "1"
+      }
+    ],
+    "visible_checks": [
+      {
+        "id": "example",
+        "description": "Public example: the tables shown in data_context."
+      }
+    ],
+    "hidden_check_refs": [
+      "mixed-prices"
+    ],
+    "edge_check_refs": [
+      "empty"
+    ],
+    "hints": [
+      "One output row per neighborhood.",
+      "Only grouped columns and aggregates can be selected."
+    ],
+    "solution": {
+      "available": true,
+      "reveal": "explicit"
+    },
+    "explanation": "GROUP BY defines the output grain; AVG ignores NULL prices.",
+    "follow_ups": [
+      "What would the median tell you that the average does not?"
+    ],
+    "canonical_placement": {
+      "domain": "sql",
+      "topic": "group-by"
+    },
+    "related_associations": [
+      "sql/aggregation"
+    ],
+    "recommendation": {
+      "rank": 38,
+      "reason": "SQL lab progression"
+    },
+    "validator_version": "rows-v2",
+    "validation": {
+      "kind": "rows",
+      "ordered": false,
+      "duplicate_sensitive": true,
+      "relative_tolerance": 1e-09,
+      "absolute_tolerance": 1e-06,
+      "required_columns": [
+        "neighborhood",
+        "average_price"
+      ],
+      "exact_schema": [
+        "neighborhood",
+        "average_price"
+      ],
+      "forbidden_extra_columns": true,
+      "null_semantics": "equal"
+    },
+    "data_context": [
+      {
+        "name": "property_sales",
+        "columns": {
+          "neighborhood": "VARCHAR",
+          "price": "DOUBLE"
+        },
+        "sample_rows": [
+          {
+            "neighborhood": "Old Town",
+            "price": 300000.0
+          },
+          {
+            "neighborhood": "Old Town",
+            "price": 500000.0
+          },
+          {
+            "neighborhood": "Harbor",
+            "price": 250000.0
+          }
+        ]
+      }
+    ],
+    "output_schema": {
+      "neighborhood": "value",
+      "average_price": "value"
+    },
+    "runtime_requirements": [
+      "sql"
+    ],
+    "provenance": {
+      "source": "Datapass leetcodedataeng SQL lab (lab-groupby-neighborhood), adapted to DuckDB SQL",
+      "fixtures": "Authored for Datapass; expected rows computed from the reference solution and reviewed"
+    },
+    "constraints": {
+      "fixtures": "At most 200 rows per table; complete results are graded, truncated results never pass."
+    }
+  },
+  {
+    "schema_version": 1,
+    "id": "sql-lab-groupby-city",
+    "version": "1",
+    "title": "Average sale value by city as an integer",
+    "difficulty": "easy",
+    "topics": [
+      "group-by",
+      "aggregation",
+      "casting"
+    ],
+    "tags": [
+      "sql-lab",
+      "duckdb"
+    ],
+    "origin": "migrated",
+    "language": "sql",
+    "runtime": "shared-sql-v1",
+    "prompt": "Return city and avg_sale_value = CAST(AVG(sale_value) AS INTEGER). In DuckDB, casting a decimal value to INTEGER rounds to the nearest integer. Cast the average, not the individual rows.",
+    "sections": [
+      {
+        "title": "Tables",
+        "body": "property_sales(city VARCHAR, sale_value DOUBLE)"
+      },
+      {
+        "title": "Output",
+        "body": "Columns in this order: city, avg_sale_value."
+      },
+      {
+        "title": "Common pitfall",
+        "body": "Casting each source row before AVG changes the result: 100000.6, 100000.6, 100000.0 averages to 100000.4, not 100000.67."
+      }
+    ],
+    "starter_source": "SELECT city, AVG(sale_value) AS avg_sale_value\nFROM property_sales\nGROUP BY city\n",
+    "fixtures": [
+      {
+        "id": "sql-lab-groupby-city-fixtures",
+        "version": "1"
+      }
+    ],
+    "visible_checks": [
+      {
+        "id": "example",
+        "description": "Public example: the tables shown in data_context."
+      }
+    ],
+    "hidden_check_refs": [
+      "rounding-order"
+    ],
+    "edge_check_refs": [
+      "empty"
+    ],
+    "hints": [
+      "Aggregate first, then cast.",
+      "CAST(x AS INTEGER) rounds in DuckDB; SQL Server truncates."
+    ],
+    "solution": {
+      "available": true,
+      "reveal": "explicit"
+    },
+    "explanation": "Casting the aggregate keeps full precision until the last step.",
+    "follow_ups": [
+      "When would ROUND(AVG(x), 2) be a better output than an integer cast?"
+    ],
+    "canonical_placement": {
+      "domain": "sql",
+      "topic": "group-by"
+    },
+    "related_associations": [
+      "sql/aggregation",
+      "sql/casting"
+    ],
+    "recommendation": {
+      "rank": 39,
+      "reason": "SQL lab progression"
+    },
+    "validator_version": "rows-v2",
+    "validation": {
+      "kind": "rows",
+      "ordered": false,
+      "duplicate_sensitive": true,
+      "relative_tolerance": 1e-09,
+      "absolute_tolerance": 1e-06,
+      "required_columns": [
+        "city",
+        "avg_sale_value"
+      ],
+      "exact_schema": [
+        "city",
+        "avg_sale_value"
+      ],
+      "forbidden_extra_columns": true,
+      "null_semantics": "equal"
+    },
+    "data_context": [
+      {
+        "name": "property_sales",
+        "columns": {
+          "city": "VARCHAR",
+          "sale_value": "DOUBLE"
+        },
+        "sample_rows": [
+          {
+            "city": "Lyon",
+            "sale_value": 200000.0
+          },
+          {
+            "city": "Lyon",
+            "sale_value": 300000.0
+          },
+          {
+            "city": "Nice",
+            "sale_value": 150000.0
+          }
+        ]
+      }
+    ],
+    "output_schema": {
+      "city": "value",
+      "avg_sale_value": "value"
+    },
+    "runtime_requirements": [
+      "sql"
+    ],
+    "provenance": {
+      "source": "Datapass leetcodedataeng SQL lab (lab-groupby-city), adapted to DuckDB SQL",
+      "fixtures": "Authored for Datapass; expected rows computed from the reference solution and reviewed"
+    },
+    "constraints": {
+      "fixtures": "At most 200 rows per table; complete results are graded, truncated results never pass."
+    }
+  },
+  {
+    "schema_version": 1,
+    "id": "sql-lab-groupby-above-global-cte",
+    "version": "1",
+    "title": "Rewrite the global-average filter with a CTE",
+    "difficulty": "medium",
+    "topics": [
+      "cte",
+      "group-by",
+      "having"
+    ],
+    "tags": [
+      "sql-lab",
+      "duckdb"
+    ],
+    "origin": "migrated",
+    "language": "sql",
+    "runtime": "shared-sql-v1",
+    "prompt": "Compute the average amount across all transactions in a CTE, then return customer_id and customer_avg for customers whose average transaction amount is strictly greater than it.",
+    "sections": [
+      {
+        "title": "Tables",
+        "body": "sales(customer_id INTEGER, amount DOUBLE)"
+      },
+      {
+        "title": "Output",
+        "body": "Columns in this order: customer_id, customer_avg."
+      },
+      {
+        "title": "Common pitfall",
+        "body": "A CTE does not expose its columns automatically; averaging customer averages changes the baseline."
+      }
+    ],
+    "starter_source": "WITH global_avg AS (\n    SELECT AVG(amount) AS avg_amount\n    FROM sales\n)\nSELECT customer_id, AVG(amount) AS customer_avg\nFROM sales\nGROUP BY customer_id\n",
+    "fixtures": [
+      {
+        "id": "sql-lab-groupby-above-global-cte-fixtures",
+        "version": "1"
+      }
+    ],
+    "visible_checks": [
+      {
+        "id": "example",
+        "description": "Public example: the tables shown in data_context."
+      }
+    ],
+    "hidden_check_refs": [
+      "weighting-matters"
+    ],
+    "edge_check_refs": [
+      "single-customer"
+    ],
+    "hints": [
+      "A CTE must be referenced in FROM or JOIN to use its columns.",
+      "CROSS JOIN a one-row CTE to every group."
+    ],
+    "solution": {
+      "available": true,
+      "reveal": "explicit"
+    },
+    "explanation": "The one-row CTE is joined to every sales row; grouping by its value keeps it available in HAVING.",
+    "follow_ups": [
+      "Compare this with the scalar-subquery version. Which reads better in review?"
+    ],
+    "canonical_placement": {
+      "domain": "sql",
+      "topic": "cte"
+    },
+    "related_associations": [
+      "sql/group-by",
+      "sql/having"
+    ],
+    "recommendation": {
+      "rank": 40,
+      "reason": "SQL lab progression"
+    },
+    "validator_version": "rows-v2",
+    "validation": {
+      "kind": "rows",
+      "ordered": false,
+      "duplicate_sensitive": true,
+      "relative_tolerance": 1e-09,
+      "absolute_tolerance": 1e-06,
+      "required_columns": [
+        "customer_id",
+        "customer_avg"
+      ],
+      "exact_schema": [
+        "customer_id",
+        "customer_avg"
+      ],
+      "forbidden_extra_columns": true,
+      "null_semantics": "equal"
+    },
+    "data_context": [
+      {
+        "name": "sales",
+        "columns": {
+          "customer_id": "INTEGER",
+          "amount": "DOUBLE"
+        },
+        "sample_rows": [
+          {
+            "customer_id": 1,
+            "amount": 10.0
+          },
+          {
+            "customer_id": 1,
+            "amount": 10.0
+          },
+          {
+            "customer_id": 2,
+            "amount": 100.0
+          },
+          {
+            "customer_id": 3,
+            "amount": 40.0
+          },
+          {
+            "customer_id": 3,
+            "amount": 40.0
+          },
+          {
+            "customer_id": 3,
+            "amount": 40.0
+          },
+          {
+            "customer_id": 3,
+            "amount": 40.0
+          },
+          {
+            "customer_id": 3,
+            "amount": 40.0
+          },
+          {
+            "customer_id": 3,
+            "amount": 40.0
+          }
+        ]
+      }
+    ],
+    "output_schema": {
+      "customer_id": "value",
+      "customer_avg": "value"
+    },
+    "runtime_requirements": [
+      "sql"
+    ],
+    "provenance": {
+      "source": "Datapass leetcodedataeng SQL lab (lab-groupby-above-global-cte), adapted to DuckDB SQL",
+      "fixtures": "Authored for Datapass; expected rows computed from the reference solution and reviewed"
+    },
+    "constraints": {
+      "fixtures": "At most 200 rows per table; complete results are graded, truncated results never pass."
+    }
+  },
+  {
+    "schema_version": 1,
+    "id": "sql-lab-groupby-meeting-average",
+    "version": "1",
+    "title": "Average meeting duration by colleague",
+    "difficulty": "medium",
+    "topics": [
+      "group-by",
+      "self-join",
+      "cte"
+    ],
+    "tags": [
+      "sql-lab",
+      "duckdb"
+    ],
+    "origin": "migrated",
+    "language": "sql",
+    "runtime": "shared-sql-v1",
+    "prompt": "Using the meetings Benjamin attended, return colleague and avg_meeting_duration: the average duration of the meetings each colleague shared with Benjamin. Meetings without Benjamin do not count.",
+    "sections": [
+      {
+        "title": "Tables",
+        "body": "meeting_participants(meeting_id INTEGER, person_name VARCHAR, duration_minutes INTEGER)"
+      },
+      {
+        "title": "Output",
+        "body": "Columns in this order: colleague, avg_meeting_duration."
+      },
+      {
+        "title": "Common pitfall",
+        "body": "Aggregating participants before forming pairs counts meetings the colleague attended without Benjamin."
+      }
+    ],
+    "starter_source": "SELECT person_name AS colleague, AVG(duration_minutes) AS avg_meeting_duration\nFROM meeting_participants\nGROUP BY person_name\n",
+    "fixtures": [
+      {
+        "id": "sql-lab-groupby-meeting-average-fixtures",
+        "version": "1"
+      }
+    ],
+    "visible_checks": [
+      {
+        "id": "example",
+        "description": "Public example: the tables shown in data_context."
+      }
+    ],
+    "hidden_check_refs": [
+      "many-colleagues"
+    ],
+    "edge_check_refs": [
+      "alone"
+    ],
+    "hints": [
+      "Build Benjamin's colleague pairs first (self join).",
+      "Aggregate the pairs by colleague."
+    ],
+    "solution": {
+      "available": true,
+      "reveal": "explicit"
+    },
+    "explanation": "Pairs come first, aggregation second: the CTE restricts the data to shared meetings.",
+    "follow_ups": [
+      "How would you add the number of shared meetings per colleague?"
+    ],
+    "canonical_placement": {
+      "domain": "sql",
+      "topic": "group-by"
+    },
+    "related_associations": [
+      "sql/self-join",
+      "sql/cte"
+    ],
+    "recommendation": {
+      "rank": 41,
+      "reason": "SQL lab progression"
+    },
+    "validator_version": "rows-v2",
+    "validation": {
+      "kind": "rows",
+      "ordered": false,
+      "duplicate_sensitive": true,
+      "relative_tolerance": 1e-09,
+      "absolute_tolerance": 1e-06,
+      "required_columns": [
+        "colleague",
+        "avg_meeting_duration"
+      ],
+      "exact_schema": [
+        "colleague",
+        "avg_meeting_duration"
+      ],
+      "forbidden_extra_columns": true,
+      "null_semantics": "equal"
+    },
+    "data_context": [
+      {
+        "name": "meeting_participants",
+        "columns": {
+          "meeting_id": "INTEGER",
+          "person_name": "VARCHAR",
+          "duration_minutes": "INTEGER"
+        },
+        "sample_rows": [
+          {
+            "meeting_id": 1,
+            "person_name": "Benjamin",
+            "duration_minutes": 30
+          },
+          {
+            "meeting_id": 1,
+            "person_name": "Chloe",
+            "duration_minutes": 30
+          },
+          {
+            "meeting_id": 1,
+            "person_name": "Hugo",
+            "duration_minutes": 30
+          },
+          {
+            "meeting_id": 2,
+            "person_name": "Benjamin",
+            "duration_minutes": 60
+          },
+          {
+            "meeting_id": 2,
+            "person_name": "Chloe",
+            "duration_minutes": 60
+          },
+          {
+            "meeting_id": 3,
+            "person_name": "Chloe",
+            "duration_minutes": 45
+          },
+          {
+            "meeting_id": 3,
+            "person_name": "Hugo",
+            "duration_minutes": 45
+          }
+        ]
+      }
+    ],
+    "output_schema": {
+      "colleague": "value",
+      "avg_meeting_duration": "value"
+    },
+    "runtime_requirements": [
+      "sql"
+    ],
+    "provenance": {
+      "source": "Datapass leetcodedataeng SQL lab (lab-groupby-meeting-average), adapted to DuckDB SQL",
+      "fixtures": "Authored for Datapass; expected rows computed from the reference solution and reviewed"
+    },
+    "constraints": {
+      "fixtures": "At most 200 rows per table; complete results are graded, truncated results never pass."
+    }
+  },
+  {
+    "schema_version": 1,
+    "id": "sql-lab-case-discount-cte",
+    "version": "1",
+    "title": "Calculate discounted revenue with a CTE",
+    "difficulty": "medium",
+    "topics": [
+      "case-when",
+      "cte",
+      "aggregation"
+    ],
+    "tags": [
+      "sql-lab",
+      "duckdb"
+    ],
+    "origin": "migrated",
+    "language": "sql",
+    "runtime": "shared-sql-v1",
+    "prompt": "In a CTE compute revenue_after_discount per row (DISCOUNT10 pays 90%, DISCOUNT20 pays 80%, anything else full price), then return discount_code and total_revenue.",
+    "sections": [
+      {
+        "title": "Tables",
+        "body": "sales(discount_code VARCHAR, quantity INTEGER, price_per_unit DOUBLE)"
+      },
+      {
+        "title": "Output",
+        "body": "Columns in this order: discount_code, total_revenue."
+      },
+      {
+        "title": "Common pitfall",
+        "body": "Multiplying by 0.10 keeps only 10% of revenue: a 10% discount means multiply by 0.90."
+      }
+    ],
+    "starter_source": "WITH priced AS (\n    SELECT discount_code, quantity * price_per_unit AS revenue_after_discount\n    FROM sales\n)\nSELECT discount_code, SUM(revenue_after_discount) AS total_revenue\nFROM priced\nGROUP BY discount_code\n",
+    "fixtures": [
+      {
+        "id": "sql-lab-case-discount-cte-fixtures",
+        "version": "1"
+      }
+    ],
+    "visible_checks": [
+      {
+        "id": "example",
+        "description": "Public example: the tables shown in data_context."
+      }
+    ],
+    "hidden_check_refs": [
+      "null-and-repeat"
+    ],
+    "edge_check_refs": [
+      "empty"
+    ],
+    "hints": [
+      "A 10% discount keeps 90% of the price.",
+      "Keep the ELSE branch for full-price rows."
+    ],
+    "solution": {
+      "available": true,
+      "reveal": "explicit"
+    },
+    "explanation": "The CTE names the per-row business rule; the outer query only aggregates.",
+    "follow_ups": [
+      "Where would you store discount rates so the query stops hard-coding them?"
+    ],
+    "canonical_placement": {
+      "domain": "sql",
+      "topic": "case-when"
+    },
+    "related_associations": [
+      "sql/cte",
+      "sql/aggregation"
+    ],
+    "recommendation": {
+      "rank": 42,
+      "reason": "SQL lab progression"
+    },
+    "validator_version": "rows-v2",
+    "validation": {
+      "kind": "rows",
+      "ordered": false,
+      "duplicate_sensitive": true,
+      "relative_tolerance": 1e-09,
+      "absolute_tolerance": 1e-06,
+      "required_columns": [
+        "discount_code",
+        "total_revenue"
+      ],
+      "exact_schema": [
+        "discount_code",
+        "total_revenue"
+      ],
+      "forbidden_extra_columns": true,
+      "null_semantics": "equal"
+    },
+    "data_context": [
+      {
+        "name": "sales",
+        "columns": {
+          "discount_code": "VARCHAR",
+          "quantity": "INTEGER",
+          "price_per_unit": "DOUBLE"
+        },
+        "sample_rows": [
+          {
+            "discount_code": "DISCOUNT10",
+            "quantity": 2,
+            "price_per_unit": 50.0
+          },
+          {
+            "discount_code": "DISCOUNT20",
+            "quantity": 1,
+            "price_per_unit": 100.0
+          },
+          {
+            "discount_code": "NONE",
+            "quantity": 3,
+            "price_per_unit": 10.0
+          }
+        ]
+      }
+    ],
+    "output_schema": {
+      "discount_code": "value",
+      "total_revenue": "value"
+    },
+    "runtime_requirements": [
+      "sql"
+    ],
+    "provenance": {
+      "source": "Datapass leetcodedataeng SQL lab (lab-case-discount-cte), adapted to DuckDB SQL",
+      "fixtures": "Authored for Datapass; expected rows computed from the reference solution and reviewed"
+    },
+    "constraints": {
+      "fixtures": "At most 200 rows per table; complete results are graded, truncated results never pass."
+    }
+  },
+  {
+    "schema_version": 1,
+    "id": "sql-lab-grouping-contract",
+    "version": "1",
+    "title": "Baseline: reimbursements by contract type",
+    "difficulty": "easy",
+    "topics": [
+      "group-by",
+      "aggregation"
+    ],
+    "tags": [
+      "sql-lab",
+      "duckdb"
+    ],
+    "origin": "migrated",
+    "language": "sql",
+    "runtime": "shared-sql-v1",
+    "prompt": "Return contract_type and total_reimbursed, the sum of amount_reimbursed per contract type.",
+    "sections": [
+      {
+        "title": "Tables",
+        "body": "reimbursements(contract_type VARCHAR, act_type VARCHAR, amount_reimbursed DOUBLE)"
+      },
+      {
+        "title": "Output",
+        "body": "Columns in this order: contract_type, total_reimbursed."
+      },
+      {
+        "title": "Common pitfall",
+        "body": "Including act_type in GROUP BY produces a finer grain than requested."
+      }
+    ],
+    "starter_source": "SELECT contract_type\nFROM reimbursements\n",
+    "fixtures": [
+      {
+        "id": "sql-lab-grouping-contract-fixtures",
+        "version": "1"
+      }
+    ],
+    "visible_checks": [
+      {
+        "id": "example",
+        "description": "Public example: the tables shown in data_context."
+      }
+    ],
+    "hidden_check_refs": [
+      "hidden-mix"
+    ],
+    "edge_check_refs": [
+      "single-row"
+    ],
+    "hints": [
+      "Group by contract_type only.",
+      "SUM the amount."
+    ],
+    "solution": {
+      "available": true,
+      "reveal": "explicit"
+    },
+    "explanation": "One grouping key gives one row per contract type.",
+    "follow_ups": [
+      "Which query would answer the same question per act type?"
+    ],
+    "canonical_placement": {
+      "domain": "sql",
+      "topic": "group-by"
+    },
+    "related_associations": [
+      "sql/aggregation"
+    ],
+    "recommendation": {
+      "rank": 43,
+      "reason": "SQL lab progression"
+    },
+    "validator_version": "rows-v2",
+    "validation": {
+      "kind": "rows",
+      "ordered": false,
+      "duplicate_sensitive": true,
+      "relative_tolerance": 1e-09,
+      "absolute_tolerance": 1e-06,
+      "required_columns": [
+        "contract_type",
+        "total_reimbursed"
+      ],
+      "exact_schema": [
+        "contract_type",
+        "total_reimbursed"
+      ],
+      "forbidden_extra_columns": true,
+      "null_semantics": "equal"
+    },
+    "data_context": [
+      {
+        "name": "reimbursements",
+        "columns": {
+          "contract_type": "VARCHAR",
+          "act_type": "VARCHAR",
+          "amount_reimbursed": "DOUBLE"
+        },
+        "sample_rows": [
+          {
+            "contract_type": "BASIC",
+            "act_type": "GP",
+            "amount_reimbursed": 20.0
+          },
+          {
+            "contract_type": "BASIC",
+            "act_type": "DENTAL",
+            "amount_reimbursed": 50.0
+          },
+          {
+            "contract_type": "PREMIUM",
+            "act_type": "GP",
+            "amount_reimbursed": 25.0
+          },
+          {
+            "contract_type": "PREMIUM",
+            "act_type": "OPTICAL",
+            "amount_reimbursed": 120.0
+          },
+          {
+            "contract_type": "BASIC",
+            "act_type": "GP",
+            "amount_reimbursed": 20.0
+          }
+        ]
+      }
+    ],
+    "output_schema": {
+      "contract_type": "value",
+      "total_reimbursed": "value"
+    },
+    "runtime_requirements": [
+      "sql"
+    ],
+    "provenance": {
+      "source": "Datapass leetcodedataeng SQL lab (lab-grouping-contract), adapted to DuckDB SQL",
+      "fixtures": "Authored for Datapass; expected rows computed from the reference solution and reviewed"
+    },
+    "constraints": {
+      "fixtures": "At most 200 rows per table; complete results are graded, truncated results never pass."
+    }
+  },
+  {
+    "schema_version": 1,
+    "id": "sql-lab-grouping-contract-act",
+    "version": "1",
+    "title": "Baseline: reimbursements by contract and act",
+    "difficulty": "easy",
+    "topics": [
+      "group-by",
+      "aggregation"
+    ],
+    "tags": [
+      "sql-lab",
+      "duckdb"
+    ],
+    "origin": "migrated",
+    "language": "sql",
+    "runtime": "shared-sql-v1",
+    "prompt": "Return contract_type, act_type, total_reimbursed for each contract + act combination. Repeated identical amounts all count.",
+    "sections": [
+      {
+        "title": "Tables",
+        "body": "reimbursements(contract_type VARCHAR, act_type VARCHAR, amount_reimbursed DOUBLE)"
+      },
+      {
+        "title": "Output",
+        "body": "Columns in this order: contract_type, act_type, total_reimbursed."
+      },
+      {
+        "title": "Common pitfall",
+        "body": "Changing the grouping keys changes the meaning of every total; DISTINCT inside SUM silently drops real rows."
+      }
+    ],
+    "starter_source": "SELECT contract_type, SUM(amount_reimbursed) AS total_reimbursed\nFROM reimbursements\nGROUP BY contract_type\n",
+    "fixtures": [
+      {
+        "id": "sql-lab-grouping-contract-act-fixtures",
+        "version": "1"
+      }
+    ],
+    "visible_checks": [
+      {
+        "id": "example",
+        "description": "Public example: the tables shown in data_context."
+      }
+    ],
+    "hidden_check_refs": [
+      "hidden-mix"
+    ],
+    "edge_check_refs": [
+      "single-row"
+    ],
+    "hints": [
+      "Two grouping keys: one row per combination.",
+      "SUM(DISTINCT ...) would drop repeated amounts."
+    ],
+    "solution": {
+      "available": true,
+      "reveal": "explicit"
+    },
+    "explanation": "The grouping keys define the grain of every aggregate.",
+    "follow_ups": [
+      "How would you add a subtotal per contract type to this result?"
+    ],
+    "canonical_placement": {
+      "domain": "sql",
+      "topic": "group-by"
+    },
+    "related_associations": [
+      "sql/aggregation"
+    ],
+    "recommendation": {
+      "rank": 44,
+      "reason": "SQL lab progression"
+    },
+    "validator_version": "rows-v2",
+    "validation": {
+      "kind": "rows",
+      "ordered": false,
+      "duplicate_sensitive": true,
+      "relative_tolerance": 1e-09,
+      "absolute_tolerance": 1e-06,
+      "required_columns": [
+        "contract_type",
+        "act_type",
+        "total_reimbursed"
+      ],
+      "exact_schema": [
+        "contract_type",
+        "act_type",
+        "total_reimbursed"
+      ],
+      "forbidden_extra_columns": true,
+      "null_semantics": "equal"
+    },
+    "data_context": [
+      {
+        "name": "reimbursements",
+        "columns": {
+          "contract_type": "VARCHAR",
+          "act_type": "VARCHAR",
+          "amount_reimbursed": "DOUBLE"
+        },
+        "sample_rows": [
+          {
+            "contract_type": "BASIC",
+            "act_type": "GP",
+            "amount_reimbursed": 20.0
+          },
+          {
+            "contract_type": "BASIC",
+            "act_type": "DENTAL",
+            "amount_reimbursed": 50.0
+          },
+          {
+            "contract_type": "PREMIUM",
+            "act_type": "GP",
+            "amount_reimbursed": 25.0
+          },
+          {
+            "contract_type": "PREMIUM",
+            "act_type": "OPTICAL",
+            "amount_reimbursed": 120.0
+          },
+          {
+            "contract_type": "BASIC",
+            "act_type": "GP",
+            "amount_reimbursed": 20.0
+          }
+        ]
+      }
+    ],
+    "output_schema": {
+      "contract_type": "value",
+      "act_type": "value",
+      "total_reimbursed": "value"
+    },
+    "runtime_requirements": [
+      "sql"
+    ],
+    "provenance": {
+      "source": "Datapass leetcodedataeng SQL lab (lab-grouping-contract-act), adapted to DuckDB SQL",
+      "fixtures": "Authored for Datapass; expected rows computed from the reference solution and reviewed"
+    },
+    "constraints": {
+      "fixtures": "At most 200 rows per table; complete results are graded, truncated results never pass."
+    }
+  },
+  {
+    "schema_version": 1,
+    "id": "sql-lab-grouping-union",
+    "version": "1",
+    "title": "Combine two summaries with UNION ALL",
+    "difficulty": "medium",
+    "topics": [
+      "union",
+      "grouping-sets",
+      "aggregation"
+    ],
+    "tags": [
+      "sql-lab",
+      "duckdb"
+    ],
+    "origin": "migrated",
+    "language": "sql",
+    "runtime": "shared-sql-v1",
+    "prompt": "Return totals by contract_type and totals by act_type as one two-column result: typology, total_reimbursed. Every total row must survive, even if a contract total and an act total have the same label and amount.",
+    "sections": [
+      {
+        "title": "Tables",
+        "body": "reimbursements(contract_type VARCHAR, act_type VARCHAR, amount_reimbursed DOUBLE)"
+      },
+      {
+        "title": "Output",
+        "body": "Columns in this order: typology, total_reimbursed."
+      },
+      {
+        "title": "Common pitfall",
+        "body": "UNION eliminates duplicates; UNION ALL is the operation you want for combining grouping results."
+      }
+    ],
+    "starter_source": "SELECT contract_type AS typology, SUM(amount_reimbursed) AS total_reimbursed\nFROM reimbursements\nGROUP BY contract_type\n",
+    "fixtures": [
+      {
+        "id": "sql-lab-grouping-union-fixtures",
+        "version": "1"
+      }
+    ],
+    "visible_checks": [
+      {
+        "id": "example",
+        "description": "Public example: the tables shown in data_context."
+      }
+    ],
+    "hidden_check_refs": [
+      "same-label"
+    ],
+    "edge_check_refs": [
+      "single-row"
+    ],
+    "hints": [
+      "Write the two GROUP BY queries, then stack them.",
+      "UNION removes duplicate rows; UNION ALL keeps them."
+    ],
+    "solution": {
+      "available": true,
+      "reveal": "explicit"
+    },
+    "explanation": "UNION ALL concatenates results; UNION additionally deduplicates, which can drop a genuine total.",
+    "follow_ups": [
+      "Rewrite this with GROUPING SETS. What extra column would identify the source grain?"
+    ],
+    "canonical_placement": {
+      "domain": "sql",
+      "topic": "union"
+    },
+    "related_associations": [
+      "sql/grouping-sets",
+      "sql/aggregation"
+    ],
+    "recommendation": {
+      "rank": 45,
+      "reason": "SQL lab progression"
+    },
+    "validator_version": "rows-v2",
+    "validation": {
+      "kind": "rows",
+      "ordered": false,
+      "duplicate_sensitive": true,
+      "relative_tolerance": 1e-09,
+      "absolute_tolerance": 1e-06,
+      "required_columns": [
+        "typology",
+        "total_reimbursed"
+      ],
+      "exact_schema": [
+        "typology",
+        "total_reimbursed"
+      ],
+      "forbidden_extra_columns": true,
+      "null_semantics": "equal"
+    },
+    "data_context": [
+      {
+        "name": "reimbursements",
+        "columns": {
+          "contract_type": "VARCHAR",
+          "act_type": "VARCHAR",
+          "amount_reimbursed": "DOUBLE"
+        },
+        "sample_rows": [
+          {
+            "contract_type": "BASIC",
+            "act_type": "GP",
+            "amount_reimbursed": 20.0
+          },
+          {
+            "contract_type": "BASIC",
+            "act_type": "DENTAL",
+            "amount_reimbursed": 50.0
+          },
+          {
+            "contract_type": "PREMIUM",
+            "act_type": "GP",
+            "amount_reimbursed": 25.0
+          },
+          {
+            "contract_type": "PREMIUM",
+            "act_type": "OPTICAL",
+            "amount_reimbursed": 120.0
+          },
+          {
+            "contract_type": "BASIC",
+            "act_type": "GP",
+            "amount_reimbursed": 20.0
+          }
+        ]
+      }
+    ],
+    "output_schema": {
+      "typology": "value",
+      "total_reimbursed": "value"
+    },
+    "runtime_requirements": [
+      "sql"
+    ],
+    "provenance": {
+      "source": "Datapass leetcodedataeng SQL lab (lab-grouping-union), adapted to DuckDB SQL",
+      "fixtures": "Authored for Datapass; expected rows computed from the reference solution and reviewed"
+    },
+    "constraints": {
+      "fixtures": "At most 200 rows per table; complete results are graded, truncated results never pass."
+    }
+  },
+  {
+    "schema_version": 1,
+    "id": "sql-lab-grouping-region-year",
+    "version": "1",
+    "title": "Region/year detail plus yearly totals",
+    "difficulty": "medium",
+    "topics": [
+      "grouping-sets",
+      "aggregation"
+    ],
+    "tags": [
+      "sql-lab",
+      "duckdb"
+    ],
+    "origin": "migrated",
+    "language": "sql",
+    "runtime": "shared-sql-v1",
+    "prompt": "Return year_value, region, population with population per year + region and total population per year (region NULL on total rows). No grand total.",
+    "sections": [
+      {
+        "title": "Tables",
+        "body": "regional_population(year_value INTEGER, region VARCHAR, population INTEGER)"
+      },
+      {
+        "title": "Output",
+        "body": "Columns in this order: year_value, region, population."
+      },
+      {
+        "title": "Common pitfall",
+        "body": "A NULL region on a subtotal row means 'all regions', not missing data; ROLLUP adds an unrequested grand total."
+      }
+    ],
+    "starter_source": "SELECT year_value, region, SUM(population) AS population\nFROM regional_population\nGROUP BY year_value, region\n",
+    "fixtures": [
+      {
+        "id": "sql-lab-grouping-region-year-fixtures",
+        "version": "1"
+      }
+    ],
+    "visible_checks": [
+      {
+        "id": "example",
+        "description": "Public example: the tables shown in data_context."
+      }
+    ],
+    "hidden_check_refs": [
+      "repeated-rows"
+    ],
+    "edge_check_refs": [
+      "single-row"
+    ],
+    "hints": [
+      "Two grouping sets: (year, region) and (year).",
+      "ROLLUP would also add a grand total."
+    ],
+    "solution": {
+      "available": true,
+      "reveal": "explicit"
+    },
+    "explanation": "GROUPING SETS lists exactly the grains you need; the subtotal rows carry NULL in the aggregated-away column.",
+    "follow_ups": [
+      "How would GROUPING(region) help label the total rows?"
+    ],
+    "canonical_placement": {
+      "domain": "sql",
+      "topic": "grouping-sets"
+    },
+    "related_associations": [
+      "sql/aggregation"
+    ],
+    "recommendation": {
+      "rank": 46,
+      "reason": "SQL lab progression"
+    },
+    "validator_version": "rows-v2",
+    "validation": {
+      "kind": "rows",
+      "ordered": false,
+      "duplicate_sensitive": true,
+      "relative_tolerance": 1e-09,
+      "absolute_tolerance": 1e-06,
+      "required_columns": [
+        "year_value",
+        "region",
+        "population"
+      ],
+      "exact_schema": [
+        "year_value",
+        "region",
+        "population"
+      ],
+      "forbidden_extra_columns": true,
+      "null_semantics": "equal"
+    },
+    "data_context": [
+      {
+        "name": "regional_population",
+        "columns": {
+          "year_value": "INTEGER",
+          "region": "VARCHAR",
+          "population": "INTEGER"
+        },
+        "sample_rows": [
+          {
+            "year_value": 2025,
+            "region": "North",
+            "population": 100
+          },
+          {
+            "year_value": 2025,
+            "region": "South",
+            "population": 150
+          },
+          {
+            "year_value": 2026,
+            "region": "North",
+            "population": 110
+          },
+          {
+            "year_value": 2026,
+            "region": "South",
+            "population": 160
+          }
+        ]
+      }
+    ],
+    "output_schema": {
+      "year_value": "value",
+      "region": "value",
+      "population": "value"
+    },
+    "runtime_requirements": [
+      "sql"
+    ],
+    "provenance": {
+      "source": "Datapass leetcodedataeng SQL lab (lab-grouping-region-year), adapted to DuckDB SQL",
+      "fixtures": "Authored for Datapass; expected rows computed from the reference solution and reviewed"
+    },
+    "constraints": {
+      "fixtures": "At most 200 rows per table; complete results are graded, truncated results never pass."
+    }
+  },
+  {
+    "schema_version": 1,
+    "id": "sql-lab-grouping-multilevel-rollup",
+    "version": "1",
+    "title": "Roll up a five-level reporting hierarchy",
+    "difficulty": "hard",
+    "topics": [
+      "rollup",
+      "grouping-sets",
+      "aggregation"
+    ],
+    "tags": [
+      "sql-lab",
+      "duckdb"
+    ],
+    "origin": "migrated",
+    "language": "sql",
+    "runtime": "shared-sql-v1",
+    "prompt": "Return contract_type, act_type, age_group, sex, year_value, total_reimbursed with subtotals along the hierarchy contract_type -> act_type -> age_group -> sex -> year_value and a grand total.",
+    "sections": [
+      {
+        "title": "Tables",
+        "body": "reimbursements(contract_type VARCHAR, act_type VARCHAR, age_group VARCHAR, sex VARCHAR, year_value INTEGER, amount_reimbursed DOUBLE)"
+      },
+      {
+        "title": "Output",
+        "body": "Columns in this order: contract_type, act_type, age_group, sex, year_value, total_reimbursed."
+      },
+      {
+        "title": "Common pitfall",
+        "body": "CUBE would add every cross-dimensional subtotal (2^5 = 32 grouping sets) and explode the result; the column order matters."
+      }
+    ],
+    "starter_source": "SELECT contract_type, act_type, SUM(amount_reimbursed) AS total_reimbursed\nFROM reimbursements\nGROUP BY ROLLUP (contract_type, act_type)\n",
+    "fixtures": [
+      {
+        "id": "sql-lab-grouping-multilevel-rollup-fixtures",
+        "version": "1"
+      }
+    ],
+    "visible_checks": [
+      {
+        "id": "example",
+        "description": "Public example: the tables shown in data_context."
+      }
+    ],
+    "hidden_check_refs": [
+      "shared-prefixes"
+    ],
+    "edge_check_refs": [
+      "single-row"
+    ],
+    "hints": [
+      "ROLLUP(a, b, c, d, e) produces 6 grouping levels.",
+      "The column order is the hierarchy."
+    ],
+    "solution": {
+      "available": true,
+      "reveal": "explicit"
+    },
+    "explanation": "ROLLUP over n columns adds n + 1 grouping levels, following the declared hierarchy.",
+    "follow_ups": [
+      "How many grouping sets would CUBE over these five columns produce?"
+    ],
+    "canonical_placement": {
+      "domain": "sql",
+      "topic": "rollup"
+    },
+    "related_associations": [
+      "sql/grouping-sets",
+      "sql/aggregation"
+    ],
+    "recommendation": {
+      "rank": 47,
+      "reason": "SQL lab progression"
+    },
+    "validator_version": "rows-v2",
+    "validation": {
+      "kind": "rows",
+      "ordered": false,
+      "duplicate_sensitive": true,
+      "relative_tolerance": 1e-09,
+      "absolute_tolerance": 1e-06,
+      "required_columns": [
+        "contract_type",
+        "act_type",
+        "age_group",
+        "sex",
+        "year_value",
+        "total_reimbursed"
+      ],
+      "exact_schema": [
+        "contract_type",
+        "act_type",
+        "age_group",
+        "sex",
+        "year_value",
+        "total_reimbursed"
+      ],
+      "forbidden_extra_columns": true,
+      "null_semantics": "equal"
+    },
+    "data_context": [
+      {
+        "name": "reimbursements",
+        "columns": {
+          "contract_type": "VARCHAR",
+          "act_type": "VARCHAR",
+          "age_group": "VARCHAR",
+          "sex": "VARCHAR",
+          "year_value": "INTEGER",
+          "amount_reimbursed": "DOUBLE"
+        },
+        "sample_rows": [
+          {
+            "contract_type": "BASIC",
+            "act_type": "GP",
+            "age_group": "18-39",
+            "sex": "F",
+            "year_value": 2025,
+            "amount_reimbursed": 20.0
+          },
+          {
+            "contract_type": "BASIC",
+            "act_type": "GP",
+            "age_group": "40-64",
+            "sex": "M",
+            "year_value": 2025,
+            "amount_reimbursed": 30.0
+          },
+          {
+            "contract_type": "PREMIUM",
+            "act_type": "DENTAL",
+            "age_group": "18-39",
+            "sex": "F",
+            "year_value": 2026,
+            "amount_reimbursed": 80.0
+          }
+        ]
+      }
+    ],
+    "output_schema": {
+      "contract_type": "value",
+      "act_type": "value",
+      "age_group": "value",
+      "sex": "value",
+      "year_value": "value",
+      "total_reimbursed": "value"
+    },
+    "runtime_requirements": [
+      "sql"
+    ],
+    "provenance": {
+      "source": "Datapass leetcodedataeng SQL lab (lab-grouping-multilevel-rollup), adapted to DuckDB SQL",
+      "fixtures": "Authored for Datapass; expected rows computed from the reference solution and reviewed"
+    },
+    "constraints": {
+      "fixtures": "At most 200 rows per table; complete results are graded, truncated results never pass."
+    }
+  },
+  {
+    "schema_version": 1,
+    "id": "sql-lab-grouping-store-share",
+    "version": "1",
+    "title": "Product share of store sales",
+    "difficulty": "hard",
+    "topics": [
+      "grouping-sets",
+      "conditional-aggregation"
+    ],
+    "tags": [
+      "sql-lab",
+      "duckdb"
+    ],
+    "origin": "migrated",
+    "language": "sql",
+    "runtime": "shared-sql-v1",
+    "prompt": "For each store return store_id, red_bull_sales, store_sales, red_bull_share = red_bull_sales / store_sales. Stores that sold no Red Bull have NULL red_bull_sales and NULL red_bull_share. A GROUPING SETS approach is suggested; any correct result passes.",
+    "sections": [
+      {
+        "title": "Tables",
+        "body": "sales(store_id INTEGER, product_name VARCHAR, amount DOUBLE)"
+      },
+      {
+        "title": "Output",
+        "body": "Columns in this order: store_id, red_bull_sales, store_sales, red_bull_share."
+      },
+      {
+        "title": "Common pitfall",
+        "body": "The share must be relative to the store's total, not the company's; a genuine NULL product_name would need GROUPING()."
+      }
+    ],
+    "starter_source": "SELECT store_id, SUM(amount) AS store_sales\nFROM sales\nGROUP BY store_id\n",
+    "fixtures": [
+      {
+        "id": "sql-lab-grouping-store-share-fixtures",
+        "version": "1"
+      }
+    ],
+    "visible_checks": [
+      {
+        "id": "example",
+        "description": "Public example: the tables shown in data_context."
+      }
+    ],
+    "hidden_check_refs": [
+      "store-without-red-bull"
+    ],
+    "edge_check_refs": [
+      "only-red-bull"
+    ],
+    "hints": [
+      "Two grains: (store, product) and (store).",
+      "Pivot the two grains back onto one row per store."
+    ],
+    "solution": {
+      "available": true,
+      "reveal": "explicit"
+    },
+    "explanation": "Grouping sets compute product and store totals in one pass; conditional aggregation pivots them side by side.",
+    "follow_ups": [
+      "Rewrite this with SUM(CASE ...) only. Which version is easier to extend to more products?"
+    ],
+    "canonical_placement": {
+      "domain": "sql",
+      "topic": "grouping-sets"
+    },
+    "related_associations": [
+      "sql/conditional-aggregation"
+    ],
+    "recommendation": {
+      "rank": 48,
+      "reason": "SQL lab progression"
+    },
+    "validator_version": "rows-v2",
+    "validation": {
+      "kind": "rows",
+      "ordered": false,
+      "duplicate_sensitive": true,
+      "relative_tolerance": 1e-09,
+      "absolute_tolerance": 1e-06,
+      "required_columns": [
+        "store_id",
+        "red_bull_sales",
+        "store_sales",
+        "red_bull_share"
+      ],
+      "exact_schema": [
+        "store_id",
+        "red_bull_sales",
+        "store_sales",
+        "red_bull_share"
+      ],
+      "forbidden_extra_columns": true,
+      "null_semantics": "equal"
+    },
+    "data_context": [
+      {
+        "name": "sales",
+        "columns": {
+          "store_id": "INTEGER",
+          "product_name": "VARCHAR",
+          "amount": "DOUBLE"
+        },
+        "sample_rows": [
+          {
+            "store_id": 1,
+            "product_name": "Red Bull",
+            "amount": 30.0
+          },
+          {
+            "store_id": 1,
+            "product_name": "Water",
+            "amount": 70.0
+          },
+          {
+            "store_id": 2,
+            "product_name": "Red Bull",
+            "amount": 10.0
+          },
+          {
+            "store_id": 2,
+            "product_name": "Red Bull",
+            "amount": 10.0
+          },
+          {
+            "store_id": 2,
+            "product_name": "Cola",
+            "amount": 80.0
+          }
+        ]
+      }
+    ],
+    "output_schema": {
+      "store_id": "value",
+      "red_bull_sales": "value",
+      "store_sales": "value",
+      "red_bull_share": "value"
+    },
+    "runtime_requirements": [
+      "sql"
+    ],
+    "provenance": {
+      "source": "Datapass leetcodedataeng SQL lab (lab-grouping-store-share), adapted to DuckDB SQL",
+      "fixtures": "Authored for Datapass; expected rows computed from the reference solution and reviewed"
+    },
+    "constraints": {
+      "fixtures": "At most 200 rows per table; complete results are graded, truncated results never pass."
+    }
+  },
+  {
+    "schema_version": 1,
+    "id": "sql-lab-window-sum-over",
+    "version": "1",
+    "title": "Repeat a grand total on every row with OVER()",
+    "difficulty": "easy",
+    "topics": [
+      "window-functions",
+      "aggregation"
+    ],
+    "tags": [
+      "sql-lab",
+      "duckdb"
+    ],
+    "origin": "migrated",
+    "language": "sql",
+    "runtime": "shared-sql-v1",
+    "prompt": "Return date_value, visitors_count, total_visitors where total_visitors is the grand total of the whole table on every row.",
+    "sections": [
+      {
+        "title": "Tables",
+        "body": "sensor_daily(date_value DATE, visitors_count INTEGER)"
+      },
+      {
+        "title": "Output",
+        "body": "Columns in this order: date_value, visitors_count, total_visitors."
+      },
+      {
+        "title": "Common pitfall",
+        "body": "SUM without OVER and without GROUP BY collapses the result to one row; OVER (ORDER BY ...) makes it a running total."
+      }
+    ],
+    "starter_source": "SELECT date_value, visitors_count\nFROM sensor_daily\n",
+    "fixtures": [
+      {
+        "id": "sql-lab-window-sum-over-fixtures",
+        "version": "1"
+      }
+    ],
+    "visible_checks": [
+      {
+        "id": "example",
+        "description": "Public example: the tables shown in data_context."
+      }
+    ],
+    "hidden_check_refs": [
+      "unsorted-input"
+    ],
+    "edge_check_refs": [
+      "single-day"
+    ],
+    "hints": [
+      "OVER () is a window over the whole table.",
+      "No GROUP BY: every row stays."
+    ],
+    "solution": {
+      "available": true,
+      "reveal": "explicit"
+    },
+    "explanation": "An empty OVER () aggregates over all rows without collapsing them.",
+    "follow_ups": [
+      "How would you compute each day's share of the total visitors?"
+    ],
+    "canonical_placement": {
+      "domain": "sql",
+      "topic": "window-functions"
+    },
+    "related_associations": [
+      "sql/aggregation"
+    ],
+    "recommendation": {
+      "rank": 49,
+      "reason": "SQL lab progression"
+    },
+    "validator_version": "rows-v2",
+    "validation": {
+      "kind": "rows",
+      "ordered": false,
+      "duplicate_sensitive": true,
+      "relative_tolerance": 1e-09,
+      "absolute_tolerance": 1e-06,
+      "required_columns": [
+        "date_value",
+        "visitors_count",
+        "total_visitors"
+      ],
+      "exact_schema": [
+        "date_value",
+        "visitors_count",
+        "total_visitors"
+      ],
+      "forbidden_extra_columns": true,
+      "null_semantics": "equal"
+    },
+    "data_context": [
+      {
+        "name": "sensor_daily",
+        "columns": {
+          "date_value": "DATE",
+          "visitors_count": "INTEGER"
+        },
+        "sample_rows": [
+          {
+            "date_value": "2026-01-01",
+            "visitors_count": 10
+          },
+          {
+            "date_value": "2026-01-02",
+            "visitors_count": 20
+          },
+          {
+            "date_value": "2026-01-03",
+            "visitors_count": 5
+          },
+          {
+            "date_value": "2026-01-04",
+            "visitors_count": 15
+          }
+        ]
+      }
+    ],
+    "output_schema": {
+      "date_value": "value",
+      "visitors_count": "value",
+      "total_visitors": "value"
+    },
+    "runtime_requirements": [
+      "sql"
+    ],
+    "provenance": {
+      "source": "Datapass leetcodedataeng SQL lab (lab-window-sum-over), adapted to DuckDB SQL",
+      "fixtures": "Authored for Datapass; expected rows computed from the reference solution and reviewed"
+    },
+    "constraints": {
+      "fixtures": "At most 200 rows per table; complete results are graded, truncated results never pass."
+    }
+  },
+  {
+    "schema_version": 1,
+    "id": "sql-lab-window-progressive-average",
+    "version": "1",
+    "title": "Progressive average by date",
+    "difficulty": "easy",
+    "topics": [
+      "window-functions",
+      "running-total"
+    ],
+    "tags": [
+      "sql-lab",
+      "duckdb"
+    ],
+    "origin": "migrated",
+    "language": "sql",
+    "runtime": "shared-sql-v1",
+    "prompt": "Return date_value, visitors_count, avg_visitors_to_date: the average from the earliest date through the current row.",
+    "sections": [
+      {
+        "title": "Tables",
+        "body": "sensor_daily(date_value DATE, visitors_count INTEGER)"
+      },
+      {
+        "title": "Output",
+        "body": "Columns in this order: date_value, visitors_count, avg_visitors_to_date."
+      },
+      {
+        "title": "Common pitfall",
+        "body": "OVER () averages the whole table; ordering descending averages from the latest date."
+      }
+    ],
+    "starter_source": "SELECT date_value, visitors_count\nFROM sensor_daily\n",
+    "fixtures": [
+      {
+        "id": "sql-lab-window-progressive-average-fixtures",
+        "version": "1"
+      }
+    ],
+    "visible_checks": [
+      {
+        "id": "example",
+        "description": "Public example: the tables shown in data_context."
+      }
+    ],
+    "hidden_check_refs": [
+      "unsorted-input"
+    ],
+    "edge_check_refs": [
+      "single-day"
+    ],
+    "hints": [
+      "AVG(...) OVER (ORDER BY ... ROWS UNBOUNDED PRECEDING).",
+      "The window order is independent from any final ORDER BY."
+    ],
+    "solution": {
+      "available": true,
+      "reveal": "explicit"
+    },
+    "explanation": "An ordered frame from the first row to the current row gives a progressive average.",
+    "follow_ups": [
+      "How is this different from a seven-day moving average?"
+    ],
+    "canonical_placement": {
+      "domain": "sql",
+      "topic": "window-functions"
+    },
+    "related_associations": [
+      "sql/running-total"
+    ],
+    "recommendation": {
+      "rank": 50,
+      "reason": "SQL lab progression"
+    },
+    "validator_version": "rows-v2",
+    "validation": {
+      "kind": "rows",
+      "ordered": false,
+      "duplicate_sensitive": true,
+      "relative_tolerance": 1e-09,
+      "absolute_tolerance": 1e-06,
+      "required_columns": [
+        "date_value",
+        "visitors_count",
+        "avg_visitors_to_date"
+      ],
+      "exact_schema": [
+        "date_value",
+        "visitors_count",
+        "avg_visitors_to_date"
+      ],
+      "forbidden_extra_columns": true,
+      "null_semantics": "equal"
+    },
+    "data_context": [
+      {
+        "name": "sensor_daily",
+        "columns": {
+          "date_value": "DATE",
+          "visitors_count": "INTEGER"
+        },
+        "sample_rows": [
+          {
+            "date_value": "2026-01-01",
+            "visitors_count": 10
+          },
+          {
+            "date_value": "2026-01-02",
+            "visitors_count": 20
+          },
+          {
+            "date_value": "2026-01-03",
+            "visitors_count": 5
+          },
+          {
+            "date_value": "2026-01-04",
+            "visitors_count": 15
+          }
+        ]
+      }
+    ],
+    "output_schema": {
+      "date_value": "value",
+      "visitors_count": "value",
+      "avg_visitors_to_date": "value"
+    },
+    "runtime_requirements": [
+      "sql"
+    ],
+    "provenance": {
+      "source": "Datapass leetcodedataeng SQL lab (lab-window-progressive-average), adapted to DuckDB SQL",
+      "fixtures": "Authored for Datapass; expected rows computed from the reference solution and reviewed"
+    },
+    "constraints": {
+      "fixtures": "At most 200 rows per table; complete results are graded, truncated results never pass."
+    }
+  },
+  {
+    "schema_version": 1,
+    "id": "sql-lab-window-seven-row-average",
+    "version": "1",
+    "title": "Trailing seven-row moving average",
+    "difficulty": "medium",
+    "topics": [
+      "window-functions",
+      "frames"
+    ],
+    "tags": [
+      "sql-lab",
+      "duckdb"
+    ],
+    "origin": "migrated",
+    "language": "sql",
+    "runtime": "shared-sql-v1",
+    "prompt": "Return date_value, visitors_count, seven_day_avg: the average over the current row and the six previous rows by date. Rows are counted physically, even when a date is missing.",
+    "sections": [
+      {
+        "title": "Tables",
+        "body": "sensor_daily(date_value DATE, visitors_count INTEGER)"
+      },
+      {
+        "title": "Output",
+        "body": "Columns in this order: date_value, visitors_count, seven_day_avg."
+      },
+      {
+        "title": "Common pitfall",
+        "body": "A seven-row window is not a seven-day window when dates are missing or duplicated."
+      }
+    ],
+    "starter_source": "SELECT date_value, visitors_count\nFROM sensor_daily\n",
+    "fixtures": [
+      {
+        "id": "sql-lab-window-seven-row-average-fixtures",
+        "version": "1"
+      }
+    ],
+    "visible_checks": [
+      {
+        "id": "example",
+        "description": "Public example: the tables shown in data_context."
+      }
+    ],
+    "hidden_check_refs": [
+      "missing-dates"
+    ],
+    "edge_check_refs": [
+      "single-day"
+    ],
+    "hints": [
+      "ROWS BETWEEN 6 PRECEDING AND CURRENT ROW = 7 rows.",
+      "Early rows average fewer values."
+    ],
+    "solution": {
+      "available": true,
+      "reveal": "explicit"
+    },
+    "explanation": "A trailing ROWS frame of 6 PRECEDING covers seven physical rows.",
+    "follow_ups": [
+      "How would a RANGE frame with INTERVAL 6 DAY differ on the hidden data?"
+    ],
+    "canonical_placement": {
+      "domain": "sql",
+      "topic": "window-functions"
+    },
+    "related_associations": [
+      "sql/frames"
+    ],
+    "recommendation": {
+      "rank": 51,
+      "reason": "SQL lab progression"
+    },
+    "validator_version": "rows-v2",
+    "validation": {
+      "kind": "rows",
+      "ordered": false,
+      "duplicate_sensitive": true,
+      "relative_tolerance": 1e-09,
+      "absolute_tolerance": 1e-06,
+      "required_columns": [
+        "date_value",
+        "visitors_count",
+        "seven_day_avg"
+      ],
+      "exact_schema": [
+        "date_value",
+        "visitors_count",
+        "seven_day_avg"
+      ],
+      "forbidden_extra_columns": true,
+      "null_semantics": "equal"
+    },
+    "data_context": [
+      {
+        "name": "sensor_daily",
+        "columns": {
+          "date_value": "DATE",
+          "visitors_count": "INTEGER"
+        },
+        "sample_rows": [
+          {
+            "date_value": "2026-04-01",
+            "visitors_count": 10
+          },
+          {
+            "date_value": "2026-04-02",
+            "visitors_count": 20
+          },
+          {
+            "date_value": "2026-04-03",
+            "visitors_count": 30
+          },
+          {
+            "date_value": "2026-04-04",
+            "visitors_count": 40
+          },
+          {
+            "date_value": "2026-04-05",
+            "visitors_count": 50
+          },
+          {
+            "date_value": "2026-04-06",
+            "visitors_count": 60
+          },
+          {
+            "date_value": "2026-04-07",
+            "visitors_count": 70
+          },
+          {
+            "date_value": "2026-04-08",
+            "visitors_count": 80
+          },
+          {
+            "date_value": "2026-04-09",
+            "visitors_count": 90
+          }
+        ]
+      }
+    ],
+    "output_schema": {
+      "date_value": "value",
+      "visitors_count": "value",
+      "seven_day_avg": "value"
+    },
+    "runtime_requirements": [
+      "sql"
+    ],
+    "provenance": {
+      "source": "Datapass leetcodedataeng SQL lab (lab-window-seven-row-average), adapted to DuckDB SQL",
+      "fixtures": "Authored for Datapass; expected rows computed from the reference solution and reviewed"
+    },
+    "constraints": {
+      "fixtures": "At most 200 rows per table; complete results are graded, truncated results never pass."
+    }
+  },
+  {
+    "schema_version": 1,
+    "id": "sql-lab-window-verify-average",
+    "version": "1",
+    "title": "Verify a moving average with SUM / COUNT",
+    "difficulty": "medium",
+    "topics": [
+      "window-functions",
+      "frames"
+    ],
+    "tags": [
+      "sql-lab",
+      "duckdb"
+    ],
+    "origin": "migrated",
+    "language": "sql",
+    "runtime": "shared-sql-v1",
+    "prompt": "Return date_value, visitors_count, window_sum, window_count, window_avg, manual_avg using the same trailing frame (current row and six previous rows) for SUM, COUNT(*) and AVG; manual_avg = window_sum / window_count.",
+    "sections": [
+      {
+        "title": "Tables",
+        "body": "sensor_daily(date_value DATE, visitors_count INTEGER)"
+      },
+      {
+        "title": "Output",
+        "body": "Columns in this order: date_value, visitors_count, window_sum, window_count, window_avg, manual_avg."
+      },
+      {
+        "title": "Common pitfall",
+        "body": "A mismatched frame between SUM and COUNT makes the manual average silently wrong."
+      }
+    ],
+    "starter_source": "SELECT date_value, visitors_count\nFROM sensor_daily\n",
+    "fixtures": [
+      {
+        "id": "sql-lab-window-verify-average-fixtures",
+        "version": "1"
+      }
+    ],
+    "visible_checks": [
+      {
+        "id": "example",
+        "description": "Public example: the tables shown in data_context."
+      }
+    ],
+    "hidden_check_refs": [
+      "missing-dates"
+    ],
+    "edge_check_refs": [
+      "single-day"
+    ],
+    "hints": [
+      "Repeat the identical frame for every window function (or use a named WINDOW).",
+      "Compute manual_avg in an outer query."
+    ],
+    "solution": {
+      "available": true,
+      "reveal": "explicit"
+    },
+    "explanation": "When all three functions share one frame, SUM / COUNT equals AVG: a quick self-check for window logic.",
+    "follow_ups": [
+      "Rewrite the query with a WINDOW clause so the frame is declared once."
+    ],
+    "canonical_placement": {
+      "domain": "sql",
+      "topic": "window-functions"
+    },
+    "related_associations": [
+      "sql/frames"
+    ],
+    "recommendation": {
+      "rank": 52,
+      "reason": "SQL lab progression"
+    },
+    "validator_version": "rows-v2",
+    "validation": {
+      "kind": "rows",
+      "ordered": false,
+      "duplicate_sensitive": true,
+      "relative_tolerance": 1e-09,
+      "absolute_tolerance": 1e-06,
+      "required_columns": [
+        "date_value",
+        "visitors_count",
+        "window_sum",
+        "window_count",
+        "window_avg",
+        "manual_avg"
+      ],
+      "exact_schema": [
+        "date_value",
+        "visitors_count",
+        "window_sum",
+        "window_count",
+        "window_avg",
+        "manual_avg"
+      ],
+      "forbidden_extra_columns": true,
+      "null_semantics": "equal"
+    },
+    "data_context": [
+      {
+        "name": "sensor_daily",
+        "columns": {
+          "date_value": "DATE",
+          "visitors_count": "INTEGER"
+        },
+        "sample_rows": [
+          {
+            "date_value": "2026-04-01",
+            "visitors_count": 10
+          },
+          {
+            "date_value": "2026-04-02",
+            "visitors_count": 20
+          },
+          {
+            "date_value": "2026-04-03",
+            "visitors_count": 30
+          },
+          {
+            "date_value": "2026-04-04",
+            "visitors_count": 40
+          },
+          {
+            "date_value": "2026-04-05",
+            "visitors_count": 50
+          },
+          {
+            "date_value": "2026-04-06",
+            "visitors_count": 60
+          },
+          {
+            "date_value": "2026-04-07",
+            "visitors_count": 70
+          },
+          {
+            "date_value": "2026-04-08",
+            "visitors_count": 80
+          },
+          {
+            "date_value": "2026-04-09",
+            "visitors_count": 90
+          }
+        ]
+      }
+    ],
+    "output_schema": {
+      "date_value": "value",
+      "visitors_count": "value",
+      "window_sum": "value",
+      "window_count": "value",
+      "window_avg": "value",
+      "manual_avg": "value"
+    },
+    "runtime_requirements": [
+      "sql"
+    ],
+    "provenance": {
+      "source": "Datapass leetcodedataeng SQL lab (lab-window-verify-average), adapted to DuckDB SQL",
+      "fixtures": "Authored for Datapass; expected rows computed from the reference solution and reviewed"
+    },
+    "constraints": {
+      "fixtures": "At most 200 rows per table; complete results are graded, truncated results never pass."
+    }
+  },
+  {
+    "schema_version": 1,
+    "id": "sql-lab-window-dept-max",
+    "version": "1",
+    "title": "Department maximum on every employee row",
+    "difficulty": "easy",
+    "topics": [
+      "window-functions",
+      "partition-by"
+    ],
+    "tags": [
+      "sql-lab",
+      "duckdb"
+    ],
+    "origin": "migrated",
+    "language": "sql",
+    "runtime": "shared-sql-v1",
+    "prompt": "Return employee_name, department, wage, department_max_wage for every employee.",
+    "sections": [
+      {
+        "title": "Tables",
+        "body": "employees(employee_name VARCHAR, department VARCHAR, wage INTEGER)"
+      },
+      {
+        "title": "Output",
+        "body": "Columns in this order: employee_name, department, wage, department_max_wage."
+      },
+      {
+        "title": "Common pitfall",
+        "body": "Adding ORDER BY turns it into a running maximum that changes row by row."
+      }
+    ],
+    "starter_source": "SELECT employee_name, department, wage\nFROM employees\n",
+    "fixtures": [
+      {
+        "id": "sql-lab-window-dept-max-fixtures",
+        "version": "1"
+      }
+    ],
+    "visible_checks": [
+      {
+        "id": "example",
+        "description": "Public example: the tables shown in data_context."
+      }
+    ],
+    "hidden_check_refs": [
+      "lower-first"
+    ],
+    "edge_check_refs": [
+      "empty"
+    ],
+    "hints": [
+      "PARTITION BY department.",
+      "No ORDER BY: this is not a running maximum."
+    ],
+    "solution": {
+      "available": true,
+      "reveal": "explicit"
+    },
+    "explanation": "A partitioned MAX without ORDER BY repeats the department maximum on every row.",
+    "follow_ups": [
+      "How would you show the gap between each wage and the department maximum?"
+    ],
+    "canonical_placement": {
+      "domain": "sql",
+      "topic": "window-functions"
+    },
+    "related_associations": [
+      "sql/partition-by"
+    ],
+    "recommendation": {
+      "rank": 53,
+      "reason": "SQL lab progression"
+    },
+    "validator_version": "rows-v2",
+    "validation": {
+      "kind": "rows",
+      "ordered": false,
+      "duplicate_sensitive": true,
+      "relative_tolerance": 1e-09,
+      "absolute_tolerance": 1e-06,
+      "required_columns": [
+        "employee_name",
+        "department",
+        "wage",
+        "department_max_wage"
+      ],
+      "exact_schema": [
+        "employee_name",
+        "department",
+        "wage",
+        "department_max_wage"
+      ],
+      "forbidden_extra_columns": true,
+      "null_semantics": "equal"
+    },
+    "data_context": [
+      {
+        "name": "employees",
+        "columns": {
+          "employee_name": "VARCHAR",
+          "department": "VARCHAR",
+          "wage": "INTEGER"
+        },
+        "sample_rows": [
+          {
+            "employee_name": "Ana",
+            "department": "IT",
+            "wage": 70000
+          },
+          {
+            "employee_name": "Ben",
+            "department": "IT",
+            "wage": 50000
+          },
+          {
+            "employee_name": "Cid",
+            "department": "HR",
+            "wage": 45000
+          },
+          {
+            "employee_name": "Dee",
+            "department": "HR",
+            "wage": 65000
+          }
+        ]
+      }
+    ],
+    "output_schema": {
+      "employee_name": "value",
+      "department": "value",
+      "wage": "value",
+      "department_max_wage": "value"
+    },
+    "runtime_requirements": [
+      "sql"
+    ],
+    "provenance": {
+      "source": "Datapass leetcodedataeng SQL lab (lab-window-dept-max), adapted to DuckDB SQL",
+      "fixtures": "Authored for Datapass; expected rows computed from the reference solution and reviewed"
+    },
+    "constraints": {
+      "fixtures": "At most 200 rows per table; complete results are graded, truncated results never pass."
+    }
+  },
+  {
+    "schema_version": 1,
+    "id": "sql-lab-window-weekday-partition",
+    "version": "1",
+    "title": "Compare each weekday with previous occurrences",
+    "difficulty": "medium",
+    "topics": [
+      "window-functions",
+      "partition-by",
+      "frames"
+    ],
+    "tags": [
+      "sql-lab",
+      "duckdb"
+    ],
+    "origin": "migrated",
+    "language": "sql",
+    "runtime": "shared-sql-v1",
+    "prompt": "Return date_value, weekday_number, visitors_count, same_weekday_avg: the average over the current row and the six previous occurrences of the same weekday.",
+    "sections": [
+      {
+        "title": "Tables",
+        "body": "sensor_daily(date_value DATE, weekday_number INTEGER, visitors_count INTEGER)"
+      },
+      {
+        "title": "Output",
+        "body": "Columns in this order: date_value, weekday_number, visitors_count, same_weekday_avg."
+      },
+      {
+        "title": "Common pitfall",
+        "body": "Without ORDER BY, 'previous six' has no defined sequence; UNBOUNDED PRECEDING keeps growing past seven occurrences."
+      }
+    ],
+    "starter_source": "SELECT date_value, weekday_number, visitors_count\nFROM sensor_daily\n",
+    "fixtures": [
+      {
+        "id": "sql-lab-window-weekday-partition-fixtures",
+        "version": "1"
+      }
+    ],
+    "visible_checks": [
+      {
+        "id": "example",
+        "description": "Public example: the tables shown in data_context."
+      }
+    ],
+    "hidden_check_refs": [
+      "interleaved"
+    ],
+    "edge_check_refs": [
+      "single"
+    ],
+    "hints": [
+      "PARTITION BY weekday_number, ORDER BY date_value.",
+      "ROWS BETWEEN 6 PRECEDING AND CURRENT ROW."
+    ],
+    "solution": {
+      "available": true,
+      "reveal": "explicit"
+    },
+    "explanation": "Partitioning by weekday makes 'previous six' mean previous six same weekdays.",
+    "follow_ups": [
+      "Why is comparing a Monday with previous Mondays better than with the previous day?"
+    ],
+    "canonical_placement": {
+      "domain": "sql",
+      "topic": "window-functions"
+    },
+    "related_associations": [
+      "sql/partition-by",
+      "sql/frames"
+    ],
+    "recommendation": {
+      "rank": 54,
+      "reason": "SQL lab progression"
+    },
+    "validator_version": "rows-v2",
+    "validation": {
+      "kind": "rows",
+      "ordered": false,
+      "duplicate_sensitive": true,
+      "relative_tolerance": 1e-09,
+      "absolute_tolerance": 1e-06,
+      "required_columns": [
+        "date_value",
+        "weekday_number",
+        "visitors_count",
+        "same_weekday_avg"
+      ],
+      "exact_schema": [
+        "date_value",
+        "weekday_number",
+        "visitors_count",
+        "same_weekday_avg"
+      ],
+      "forbidden_extra_columns": true,
+      "null_semantics": "equal"
+    },
+    "data_context": [
+      {
+        "name": "sensor_daily",
+        "columns": {
+          "date_value": "DATE",
+          "weekday_number": "INTEGER",
+          "visitors_count": "INTEGER"
+        },
+        "sample_rows": [
+          {
+            "date_value": "2026-01-05",
+            "weekday_number": 1,
+            "visitors_count": 10
+          },
+          {
+            "date_value": "2026-01-12",
+            "weekday_number": 1,
+            "visitors_count": 20
+          },
+          {
+            "date_value": "2026-01-19",
+            "weekday_number": 1,
+            "visitors_count": 30
+          },
+          {
+            "date_value": "2026-01-26",
+            "weekday_number": 1,
+            "visitors_count": 40
+          },
+          {
+            "date_value": "2026-02-02",
+            "weekday_number": 1,
+            "visitors_count": 50
+          },
+          {
+            "date_value": "2026-02-09",
+            "weekday_number": 1,
+            "visitors_count": 60
+          },
+          {
+            "date_value": "2026-02-16",
+            "weekday_number": 1,
+            "visitors_count": 70
+          },
+          {
+            "date_value": "2026-02-23",
+            "weekday_number": 1,
+            "visitors_count": 80
+          },
+          {
+            "date_value": "2026-01-06",
+            "weekday_number": 2,
+            "visitors_count": 5
+          },
+          {
+            "date_value": "2026-01-13",
+            "weekday_number": 2,
+            "visitors_count": 15
+          }
+        ]
+      }
+    ],
+    "output_schema": {
+      "date_value": "value",
+      "weekday_number": "value",
+      "visitors_count": "value",
+      "same_weekday_avg": "value"
+    },
+    "runtime_requirements": [
+      "sql"
+    ],
+    "provenance": {
+      "source": "Datapass leetcodedataeng SQL lab (lab-window-weekday-partition), adapted to DuckDB SQL",
+      "fixtures": "Authored for Datapass; expected rows computed from the reference solution and reviewed"
+    },
+    "constraints": {
+      "fixtures": "At most 200 rows per table; complete results are graded, truncated results never pass."
+    }
+  },
+  {
+    "schema_version": 1,
+    "id": "sql-lab-window-lag",
+    "version": "1",
+    "title": "Bring the previous same-weekday value onto the row",
+    "difficulty": "medium",
+    "topics": [
+      "window-functions",
+      "lag"
+    ],
+    "tags": [
+      "sql-lab",
+      "duckdb"
+    ],
+    "origin": "migrated",
+    "language": "sql",
+    "runtime": "shared-sql-v1",
+    "prompt": "Return date_value, weekday_number, visitors_count, previous_same_weekday_visitors (LAG within the same weekday by date; NULL for the first occurrence).",
+    "sections": [
+      {
+        "title": "Tables",
+        "body": "sensor_daily(date_value DATE, weekday_number INTEGER, visitors_count INTEGER)"
+      },
+      {
+        "title": "Output",
+        "body": "Columns in this order: date_value, weekday_number, visitors_count, previous_same_weekday_visitors."
+      },
+      {
+        "title": "Common pitfall",
+        "body": "Filtering rows before LAG changes which row is 'previous'; LEAD looks forward instead."
+      }
+    ],
+    "starter_source": "SELECT date_value, weekday_number, visitors_count\nFROM sensor_daily\n",
+    "fixtures": [
+      {
+        "id": "sql-lab-window-lag-fixtures",
+        "version": "1"
+      }
+    ],
+    "visible_checks": [
+      {
+        "id": "example",
+        "description": "Public example: the tables shown in data_context."
+      }
+    ],
+    "hidden_check_refs": [
+      "interleaved"
+    ],
+    "edge_check_refs": [
+      "single"
+    ],
+    "hints": [
+      "LAG(value) OVER (PARTITION BY ... ORDER BY ...).",
+      "The first row of each partition has no previous value."
+    ],
+    "solution": {
+      "available": true,
+      "reveal": "explicit"
+    },
+    "explanation": "LAG reads the previous row of the same partition in window order.",
+    "follow_ups": [
+      "How would LAG(visitors_count, 2) change the result?"
+    ],
+    "canonical_placement": {
+      "domain": "sql",
+      "topic": "window-functions"
+    },
+    "related_associations": [
+      "sql/lag"
+    ],
+    "recommendation": {
+      "rank": 55,
+      "reason": "SQL lab progression"
+    },
+    "validator_version": "rows-v2",
+    "validation": {
+      "kind": "rows",
+      "ordered": false,
+      "duplicate_sensitive": true,
+      "relative_tolerance": 1e-09,
+      "absolute_tolerance": 1e-06,
+      "required_columns": [
+        "date_value",
+        "weekday_number",
+        "visitors_count",
+        "previous_same_weekday_visitors"
+      ],
+      "exact_schema": [
+        "date_value",
+        "weekday_number",
+        "visitors_count",
+        "previous_same_weekday_visitors"
+      ],
+      "forbidden_extra_columns": true,
+      "null_semantics": "equal"
+    },
+    "data_context": [
+      {
+        "name": "sensor_daily",
+        "columns": {
+          "date_value": "DATE",
+          "weekday_number": "INTEGER",
+          "visitors_count": "INTEGER"
+        },
+        "sample_rows": [
+          {
+            "date_value": "2026-01-05",
+            "weekday_number": 1,
+            "visitors_count": 10
+          },
+          {
+            "date_value": "2026-01-12",
+            "weekday_number": 1,
+            "visitors_count": 20
+          },
+          {
+            "date_value": "2026-01-19",
+            "weekday_number": 1,
+            "visitors_count": 30
+          },
+          {
+            "date_value": "2026-01-26",
+            "weekday_number": 1,
+            "visitors_count": 40
+          },
+          {
+            "date_value": "2026-02-02",
+            "weekday_number": 1,
+            "visitors_count": 50
+          },
+          {
+            "date_value": "2026-02-09",
+            "weekday_number": 1,
+            "visitors_count": 60
+          },
+          {
+            "date_value": "2026-02-16",
+            "weekday_number": 1,
+            "visitors_count": 70
+          },
+          {
+            "date_value": "2026-02-23",
+            "weekday_number": 1,
+            "visitors_count": 80
+          },
+          {
+            "date_value": "2026-01-06",
+            "weekday_number": 2,
+            "visitors_count": 5
+          },
+          {
+            "date_value": "2026-01-13",
+            "weekday_number": 2,
+            "visitors_count": 15
+          }
+        ]
+      }
+    ],
+    "output_schema": {
+      "date_value": "value",
+      "weekday_number": "value",
+      "visitors_count": "value",
+      "previous_same_weekday_visitors": "value"
+    },
+    "runtime_requirements": [
+      "sql"
+    ],
+    "provenance": {
+      "source": "Datapass leetcodedataeng SQL lab (lab-window-lag), adapted to DuckDB SQL",
+      "fixtures": "Authored for Datapass; expected rows computed from the reference solution and reviewed"
+    },
+    "constraints": {
+      "fixtures": "At most 200 rows per table; complete results are graded, truncated results never pass."
+    }
+  },
+  {
+    "schema_version": 1,
+    "id": "sql-lab-window-row-number-sex",
+    "version": "1",
+    "title": "Rank salaries separately by sex",
+    "difficulty": "easy",
+    "topics": [
+      "window-functions",
+      "row-number"
+    ],
+    "tags": [
+      "sql-lab",
+      "duckdb"
+    ],
+    "origin": "migrated",
+    "language": "sql",
+    "runtime": "shared-sql-v1",
+    "prompt": "Return employee_name, sex, wage, wage_row_number: ROW_NUMBER from highest to lowest wage separately for each sex, ties broken by employee_name ascending.",
+    "sections": [
+      {
+        "title": "Tables",
+        "body": "employees(employee_name VARCHAR, sex VARCHAR, wage INTEGER)"
+      },
+      {
+        "title": "Output",
+        "body": "Columns in this order: employee_name, sex, wage, wage_row_number."
+      },
+      {
+        "title": "Common pitfall",
+        "body": "ROW_NUMBER needs an ORDER BY to mean anything; RANK repeats numbers on ties."
+      }
+    ],
+    "starter_source": "SELECT employee_name, sex, wage\nFROM employees\n",
+    "fixtures": [
+      {
+        "id": "sql-lab-window-row-number-sex-fixtures",
+        "version": "1"
+      }
+    ],
+    "visible_checks": [
+      {
+        "id": "example",
+        "description": "Public example: the tables shown in data_context."
+      }
+    ],
+    "hidden_check_refs": [
+      "ties"
+    ],
+    "edge_check_refs": [
+      "empty"
+    ],
+    "hints": [
+      "PARTITION BY sex.",
+      "ORDER BY wage DESC, employee_name."
+    ],
+    "solution": {
+      "available": true,
+      "reveal": "explicit"
+    },
+    "explanation": "ROW_NUMBER always yields unique positions; the tie-breaker makes them reproducible.",
+    "follow_ups": [
+      "Which ranking function fits a leaderboard with shared places?"
+    ],
+    "canonical_placement": {
+      "domain": "sql",
+      "topic": "window-functions"
+    },
+    "related_associations": [
+      "sql/row-number"
+    ],
+    "recommendation": {
+      "rank": 56,
+      "reason": "SQL lab progression"
+    },
+    "validator_version": "rows-v2",
+    "validation": {
+      "kind": "rows",
+      "ordered": false,
+      "duplicate_sensitive": true,
+      "relative_tolerance": 1e-09,
+      "absolute_tolerance": 1e-06,
+      "required_columns": [
+        "employee_name",
+        "sex",
+        "wage",
+        "wage_row_number"
+      ],
+      "exact_schema": [
+        "employee_name",
+        "sex",
+        "wage",
+        "wage_row_number"
+      ],
+      "forbidden_extra_columns": true,
+      "null_semantics": "equal"
+    },
+    "data_context": [
+      {
+        "name": "employees",
+        "columns": {
+          "employee_name": "VARCHAR",
+          "sex": "VARCHAR",
+          "wage": "INTEGER"
+        },
+        "sample_rows": [
+          {
+            "employee_name": "Ana",
+            "sex": "F",
+            "wage": 60000
+          },
+          {
+            "employee_name": "Cat",
+            "sex": "F",
+            "wage": 50000
+          },
+          {
+            "employee_name": "Dan",
+            "sex": "M",
+            "wage": 55000
+          },
+          {
+            "employee_name": "Eli",
+            "sex": "M",
+            "wage": 40000
+          }
+        ]
+      }
+    ],
+    "output_schema": {
+      "employee_name": "value",
+      "sex": "value",
+      "wage": "value",
+      "wage_row_number": "value"
+    },
+    "runtime_requirements": [
+      "sql"
+    ],
+    "provenance": {
+      "source": "Datapass leetcodedataeng SQL lab (lab-window-row-number-sex), adapted to DuckDB SQL",
+      "fixtures": "Authored for Datapass; expected rows computed from the reference solution and reviewed"
+    },
+    "constraints": {
+      "fixtures": "At most 200 rows per table; complete results are graded, truncated results never pass."
+    }
+  },
+  {
+    "schema_version": 1,
+    "id": "sql-lab-window-sensor-running-avg",
+    "version": "1",
+    "title": "Running average per sensor",
+    "difficulty": "medium",
+    "topics": [
+      "window-functions",
+      "partition-by",
+      "running-total"
+    ],
+    "tags": [
+      "sql-lab",
+      "duckdb"
+    ],
+    "origin": "migrated",
+    "language": "sql",
+    "runtime": "shared-sql-v1",
+    "prompt": "Return sensor_id, date_value, visitors_count, running_avg_visitors computed independently for each sensor, from its first date through the current row.",
+    "sections": [
+      {
+        "title": "Tables",
+        "body": "sensor_daily(sensor_id INTEGER, date_value DATE, visitors_count INTEGER)"
+      },
+      {
+        "title": "Output",
+        "body": "Columns in this order: sensor_id, date_value, visitors_count, running_avg_visitors."
+      },
+      {
+        "title": "Common pitfall",
+        "body": "Omitting sensor_id mixes every sensor into one calculation."
+      }
+    ],
+    "starter_source": "SELECT sensor_id, date_value, visitors_count\nFROM sensor_daily\n",
+    "fixtures": [
+      {
+        "id": "sql-lab-window-sensor-running-avg-fixtures",
+        "version": "1"
+      }
+    ],
+    "visible_checks": [
+      {
+        "id": "example",
+        "description": "Public example: the tables shown in data_context."
+      }
+    ],
+    "hidden_check_refs": [
+      "interleaved"
+    ],
+    "edge_check_refs": [
+      "single"
+    ],
+    "hints": [
+      "One series per sensor: PARTITION BY sensor_id.",
+      "ORDER BY date_value with an explicit ROWS frame."
+    ],
+    "solution": {
+      "available": true,
+      "reveal": "explicit"
+    },
+    "explanation": "Partitioning keeps independent time series independent.",
+    "follow_ups": [
+      "How would you flag days where a sensor is 50% above its running average?"
+    ],
+    "canonical_placement": {
+      "domain": "sql",
+      "topic": "window-functions"
+    },
+    "related_associations": [
+      "sql/partition-by",
+      "sql/running-total"
+    ],
+    "recommendation": {
+      "rank": 57,
+      "reason": "SQL lab progression"
+    },
+    "validator_version": "rows-v2",
+    "validation": {
+      "kind": "rows",
+      "ordered": false,
+      "duplicate_sensitive": true,
+      "relative_tolerance": 1e-09,
+      "absolute_tolerance": 1e-06,
+      "required_columns": [
+        "sensor_id",
+        "date_value",
+        "visitors_count",
+        "running_avg_visitors"
+      ],
+      "exact_schema": [
+        "sensor_id",
+        "date_value",
+        "visitors_count",
+        "running_avg_visitors"
+      ],
+      "forbidden_extra_columns": true,
+      "null_semantics": "equal"
+    },
+    "data_context": [
+      {
+        "name": "sensor_daily",
+        "columns": {
+          "sensor_id": "INTEGER",
+          "date_value": "DATE",
+          "visitors_count": "INTEGER"
+        },
+        "sample_rows": [
+          {
+            "sensor_id": 1,
+            "date_value": "2026-01-01",
+            "visitors_count": 10
+          },
+          {
+            "sensor_id": 1,
+            "date_value": "2026-01-02",
+            "visitors_count": 30
+          },
+          {
+            "sensor_id": 2,
+            "date_value": "2026-01-01",
+            "visitors_count": 100
+          },
+          {
+            "sensor_id": 2,
+            "date_value": "2026-01-02",
+            "visitors_count": 50
+          }
+        ]
+      }
+    ],
+    "output_schema": {
+      "sensor_id": "value",
+      "date_value": "value",
+      "visitors_count": "value",
+      "running_avg_visitors": "value"
+    },
+    "runtime_requirements": [
+      "sql"
+    ],
+    "provenance": {
+      "source": "Datapass leetcodedataeng SQL lab (lab-window-sensor-running-avg), adapted to DuckDB SQL",
+      "fixtures": "Authored for Datapass; expected rows computed from the reference solution and reviewed"
+    },
+    "constraints": {
+      "fixtures": "At most 200 rows per table; complete results are graded, truncated results never pass."
+    }
+  },
+  {
+    "schema_version": 1,
+    "id": "sql-lab-window-sensor-weekday",
+    "version": "1",
+    "title": "Running average per sensor and weekday",
+    "difficulty": "medium",
+    "topics": [
+      "window-functions",
+      "partition-by",
+      "running-total"
+    ],
+    "tags": [
+      "sql-lab",
+      "duckdb"
+    ],
+    "origin": "migrated",
+    "language": "sql",
+    "runtime": "shared-sql-v1",
+    "prompt": "Return sensor_id, weekday_number, date_value, visitors_count, running_avg_visitors computed for each sensor + weekday series from its first date through the current row.",
+    "sections": [
+      {
+        "title": "Tables",
+        "body": "sensor_daily(sensor_id INTEGER, weekday_number INTEGER, date_value DATE, visitors_count INTEGER)"
+      },
+      {
+        "title": "Output",
+        "body": "Columns in this order: sensor_id, weekday_number, date_value, visitors_count, running_avg_visitors."
+      },
+      {
+        "title": "Common pitfall",
+        "body": "Filtering to one weekday after computing a sensor-only window is not equivalent to partitioning by weekday."
+      }
+    ],
+    "starter_source": "SELECT sensor_id, weekday_number, date_value, visitors_count\nFROM sensor_daily\n",
+    "fixtures": [
+      {
+        "id": "sql-lab-window-sensor-weekday-fixtures",
+        "version": "1"
+      }
+    ],
+    "visible_checks": [
+      {
+        "id": "example",
+        "description": "Public example: the tables shown in data_context."
+      }
+    ],
+    "hidden_check_refs": [
+      "mixed-series"
+    ],
+    "edge_check_refs": [
+      "single"
+    ],
+    "hints": [
+      "Partition by both sensor_id and weekday_number.",
+      "Keep an explicit ROWS frame."
+    ],
+    "solution": {
+      "available": true,
+      "reveal": "explicit"
+    },
+    "explanation": "A composite partition keeps each sensor's weekday series separate.",
+    "follow_ups": [
+      "What business question does a per-weekday baseline answer better?"
+    ],
+    "canonical_placement": {
+      "domain": "sql",
+      "topic": "window-functions"
+    },
+    "related_associations": [
+      "sql/partition-by",
+      "sql/running-total"
+    ],
+    "recommendation": {
+      "rank": 58,
+      "reason": "SQL lab progression"
+    },
+    "validator_version": "rows-v2",
+    "validation": {
+      "kind": "rows",
+      "ordered": false,
+      "duplicate_sensitive": true,
+      "relative_tolerance": 1e-09,
+      "absolute_tolerance": 1e-06,
+      "required_columns": [
+        "sensor_id",
+        "weekday_number",
+        "date_value",
+        "visitors_count",
+        "running_avg_visitors"
+      ],
+      "exact_schema": [
+        "sensor_id",
+        "weekday_number",
+        "date_value",
+        "visitors_count",
+        "running_avg_visitors"
+      ],
+      "forbidden_extra_columns": true,
+      "null_semantics": "equal"
+    },
+    "data_context": [
+      {
+        "name": "sensor_daily",
+        "columns": {
+          "sensor_id": "INTEGER",
+          "weekday_number": "INTEGER",
+          "date_value": "DATE",
+          "visitors_count": "INTEGER"
+        },
+        "sample_rows": [
+          {
+            "sensor_id": 1,
+            "weekday_number": 1,
+            "date_value": "2026-01-05",
+            "visitors_count": 10
+          },
+          {
+            "sensor_id": 1,
+            "weekday_number": 2,
+            "date_value": "2026-01-06",
+            "visitors_count": 50
+          },
+          {
+            "sensor_id": 1,
+            "weekday_number": 1,
+            "date_value": "2026-01-12",
+            "visitors_count": 30
+          },
+          {
+            "sensor_id": 1,
+            "weekday_number": 2,
+            "date_value": "2026-01-13",
+            "visitors_count": 70
+          },
+          {
+            "sensor_id": 2,
+            "weekday_number": 1,
+            "date_value": "2026-01-05",
+            "visitors_count": 5
+          },
+          {
+            "sensor_id": 2,
+            "weekday_number": 1,
+            "date_value": "2026-01-12",
+            "visitors_count": 15
+          }
+        ]
+      }
+    ],
+    "output_schema": {
+      "sensor_id": "value",
+      "weekday_number": "value",
+      "date_value": "value",
+      "visitors_count": "value",
+      "running_avg_visitors": "value"
+    },
+    "runtime_requirements": [
+      "sql"
+    ],
+    "provenance": {
+      "source": "Datapass leetcodedataeng SQL lab (lab-window-sensor-weekday), adapted to DuckDB SQL",
+      "fixtures": "Authored for Datapass; expected rows computed from the reference solution and reviewed"
+    },
+    "constraints": {
+      "fixtures": "At most 200 rows per table; complete results are graded, truncated results never pass."
+    }
+  },
+  {
+    "schema_version": 1,
+    "id": "sql-lab-window-updated-ranking",
+    "version": "1",
+    "title": "Rank sensors by their updated running average",
+    "difficulty": "hard",
+    "topics": [
+      "window-functions",
+      "dense-rank",
+      "cte"
+    ],
+    "tags": [
+      "sql-lab",
+      "duckdb"
+    ],
+    "origin": "migrated",
+    "language": "sql",
+    "runtime": "shared-sql-v1",
+    "prompt": "Compute running_avg_visitors per sensor + weekday (as in the previous exercise), then sensor_rank = DENSE_RANK of sensors within each date by running_avg_visitors descending. Return sensor_id, weekday_number, date_value, visitors_count, running_avg_visitors, sensor_rank.",
+    "sections": [
+      {
+        "title": "Tables",
+        "body": "sensor_daily(sensor_id INTEGER, weekday_number INTEGER, date_value DATE, visitors_count INTEGER)"
+      },
+      {
+        "title": "Output",
+        "body": "Columns in this order: sensor_id, weekday_number, date_value, visitors_count, running_avg_visitors, sensor_rank."
+      },
+      {
+        "title": "Common pitfall",
+        "body": "Nesting one window function inside another is invalid; ranking by the raw daily count ignores the running average."
+      }
+    ],
+    "starter_source": "SELECT sensor_id, weekday_number, date_value, visitors_count\nFROM sensor_daily\n",
+    "fixtures": [
+      {
+        "id": "sql-lab-window-updated-ranking-fixtures",
+        "version": "1"
+      }
+    ],
+    "visible_checks": [
+      {
+        "id": "example",
+        "description": "Public example: the tables shown in data_context."
+      }
+    ],
+    "hidden_check_refs": [
+      "mixed-series"
+    ],
+    "edge_check_refs": [
+      "single"
+    ],
+    "hints": [
+      "Window functions cannot be nested: compute the running average in a CTE first.",
+      "Rank within each date_value."
+    ],
+    "solution": {
+      "available": true,
+      "reveal": "explicit"
+    },
+    "explanation": "Stacking windows through a CTE lets a ranking use a previously computed window result.",
+    "follow_ups": [
+      "When would RANK be preferable to DENSE_RANK here?"
+    ],
+    "canonical_placement": {
+      "domain": "sql",
+      "topic": "window-functions"
+    },
+    "related_associations": [
+      "sql/dense-rank",
+      "sql/cte"
+    ],
+    "recommendation": {
+      "rank": 59,
+      "reason": "SQL lab progression"
+    },
+    "validator_version": "rows-v2",
+    "validation": {
+      "kind": "rows",
+      "ordered": false,
+      "duplicate_sensitive": true,
+      "relative_tolerance": 1e-09,
+      "absolute_tolerance": 1e-06,
+      "required_columns": [
+        "sensor_id",
+        "weekday_number",
+        "date_value",
+        "visitors_count",
+        "running_avg_visitors",
+        "sensor_rank"
+      ],
+      "exact_schema": [
+        "sensor_id",
+        "weekday_number",
+        "date_value",
+        "visitors_count",
+        "running_avg_visitors",
+        "sensor_rank"
+      ],
+      "forbidden_extra_columns": true,
+      "null_semantics": "equal"
+    },
+    "data_context": [
+      {
+        "name": "sensor_daily",
+        "columns": {
+          "sensor_id": "INTEGER",
+          "weekday_number": "INTEGER",
+          "date_value": "DATE",
+          "visitors_count": "INTEGER"
+        },
+        "sample_rows": [
+          {
+            "sensor_id": 1,
+            "weekday_number": 1,
+            "date_value": "2026-01-05",
+            "visitors_count": 10
+          },
+          {
+            "sensor_id": 1,
+            "weekday_number": 2,
+            "date_value": "2026-01-06",
+            "visitors_count": 50
+          },
+          {
+            "sensor_id": 1,
+            "weekday_number": 1,
+            "date_value": "2026-01-12",
+            "visitors_count": 30
+          },
+          {
+            "sensor_id": 1,
+            "weekday_number": 2,
+            "date_value": "2026-01-13",
+            "visitors_count": 70
+          },
+          {
+            "sensor_id": 2,
+            "weekday_number": 1,
+            "date_value": "2026-01-05",
+            "visitors_count": 5
+          },
+          {
+            "sensor_id": 2,
+            "weekday_number": 1,
+            "date_value": "2026-01-12",
+            "visitors_count": 15
+          }
+        ]
+      }
+    ],
+    "output_schema": {
+      "sensor_id": "value",
+      "weekday_number": "value",
+      "date_value": "value",
+      "visitors_count": "value",
+      "running_avg_visitors": "value",
+      "sensor_rank": "value"
+    },
+    "runtime_requirements": [
+      "sql"
+    ],
+    "provenance": {
+      "source": "Datapass leetcodedataeng SQL lab (lab-window-updated-ranking), adapted to DuckDB SQL",
+      "fixtures": "Authored for Datapass; expected rows computed from the reference solution and reviewed"
+    },
+    "constraints": {
+      "fixtures": "At most 200 rows per table; complete results are graded, truncated results never pass."
+    }
+  },
+  {
+    "schema_version": 1,
+    "id": "sql-lab-window-top-one",
+    "version": "1",
+    "title": "Top-paid employee per department",
+    "difficulty": "medium",
+    "topics": [
+      "window-functions",
+      "row-number",
+      "cte"
+    ],
+    "tags": [
+      "sql-lab",
+      "duckdb"
+    ],
+    "origin": "migrated",
+    "language": "sql",
+    "runtime": "shared-sql-v1",
+    "prompt": "Return exactly one row per department: employee_name, department, wage of the top-paid employee; on a tie keep the employee_name that sorts first.",
+    "sections": [
+      {
+        "title": "Tables",
+        "body": "employees(employee_name VARCHAR, department VARCHAR, wage INTEGER)"
+      },
+      {
+        "title": "Output",
+        "body": "Columns in this order: employee_name, department, wage."
+      },
+      {
+        "title": "Common pitfall",
+        "body": "RANK or DENSE_RANK = 1 keeps every tied top earner, which is a different business rule."
+      }
+    ],
+    "starter_source": "SELECT employee_name, department, wage\nFROM employees\n",
+    "fixtures": [
+      {
+        "id": "sql-lab-window-top-one-fixtures",
+        "version": "1"
+      }
+    ],
+    "visible_checks": [
+      {
+        "id": "example",
+        "description": "Public example: the tables shown in data_context."
+      }
+    ],
+    "hidden_check_refs": [
+      "ties"
+    ],
+    "edge_check_refs": [
+      "empty"
+    ],
+    "hints": [
+      "Number rows per department in a CTE.",
+      "Keep rn = 1."
+    ],
+    "solution": {
+      "available": true,
+      "reveal": "explicit"
+    },
+    "explanation": "ROW_NUMBER guarantees exactly one row per partition; the tie-breaker decides which.",
+    "follow_ups": [
+      "How would you return all tied top earners instead?"
+    ],
+    "canonical_placement": {
+      "domain": "sql",
+      "topic": "window-functions"
+    },
+    "related_associations": [
+      "sql/row-number",
+      "sql/cte"
+    ],
+    "recommendation": {
+      "rank": 60,
+      "reason": "SQL lab progression"
+    },
+    "validator_version": "rows-v2",
+    "validation": {
+      "kind": "rows",
+      "ordered": false,
+      "duplicate_sensitive": true,
+      "relative_tolerance": 1e-09,
+      "absolute_tolerance": 1e-06,
+      "required_columns": [
+        "employee_name",
+        "department",
+        "wage"
+      ],
+      "exact_schema": [
+        "employee_name",
+        "department",
+        "wage"
+      ],
+      "forbidden_extra_columns": true,
+      "null_semantics": "equal"
+    },
+    "data_context": [
+      {
+        "name": "employees",
+        "columns": {
+          "employee_name": "VARCHAR",
+          "department": "VARCHAR",
+          "wage": "INTEGER"
+        },
+        "sample_rows": [
+          {
+            "employee_name": "Ana",
+            "department": "IT",
+            "wage": 70000
+          },
+          {
+            "employee_name": "Ben",
+            "department": "IT",
+            "wage": 50000
+          },
+          {
+            "employee_name": "Cid",
+            "department": "HR",
+            "wage": 45000
+          },
+          {
+            "employee_name": "Dee",
+            "department": "HR",
+            "wage": 65000
+          }
+        ]
+      }
+    ],
+    "output_schema": {
+      "employee_name": "value",
+      "department": "value",
+      "wage": "value"
+    },
+    "runtime_requirements": [
+      "sql"
+    ],
+    "provenance": {
+      "source": "Datapass leetcodedataeng SQL lab (lab-window-top-one), adapted to DuckDB SQL",
+      "fixtures": "Authored for Datapass; expected rows computed from the reference solution and reviewed"
+    },
+    "constraints": {
+      "fixtures": "At most 200 rows per table; complete results are graded, truncated results never pass."
+    }
   }
 ]
