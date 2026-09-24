@@ -2,7 +2,28 @@
 
 Date: 2026-09-24
 
-## 0. Latest tranche — Claude, 2026-09-24 (read this first)
+## 0a. Content tranche — Claude, 2026-09-24 (newest; read first)
+
+| Commit | Change |
+| --- | --- |
+| `2eb2740` | Typed fixture literals; SQL named multi-table fixtures; semantic-variant id fix in Practice; pandas runtime dependency; richer exercise brief |
+| `5af1be0` | `sql-lab-v1` pack (30 DuckDB SQL exercises) + `scripts/exercise_packs_smoke.py` mutant gate (CI runtime job) + host E2E grading step |
+
+What changed and why:
+
+- **Grader**: fixture literals are CAST to allowlisted `data_context` types; SQL exercises may declare several named fixture tables (one CTE each). Non-SQL languages reject named tables. See `docs/EXERCISE_AUTHORING.md`.
+- **Bugs found by grading every installed exercise**: (1) the Practice catalog listed semantic-pack variants under the scenario id, which the runtime does not register, so all 10 `unified-retail-v1` variants failed to grade from the UI; (2) its Python variants import pandas, which the runtime never installed. Both fixed.
+- **Content**: 30 exercises adapted from `legacy-donors/leetcodedataeng/sqlChallenges.js` (joins, GROUP BY/HAVING, CASE, GROUPING SETS/ROLLUP/CUBE, windows), with new visible/hidden/edge fixtures designed around each pitfall. Expected rows were computed from the reference solution and every row was reviewed by hand.
+- **Quality gate**: the pack smoke grades all 47 installed exercises: reference passes, starter fails, and 51 runnable mutants (plausible wrong answers) fail.
+
+Executed: `npm run compile`, `npm test`, runtime smoke, pack smoke, and `npm run test:host` (16 steps) locally. CI for `5af1be0` must be checked before continuing.
+
+Not done / next content steps:
+
+- The remaining 30 donor SQL lab items (more grouping-set and window variants) can follow the same process.
+- `curriculum.js` / `engineLab.js` donor content (Python, PySpark, storage, modeling) is not promoted yet. Python/Polars exercises need trusted-Python-aware messaging (already shown in Practice); SparkLab variants must stay within `sparklab/capabilities.py` support.
+- Reference solutions ship inside the VSIX (`grading.server.json`); grading is a teaching aid, not an exam control.
+
 
 Branch tip after this tranche: `48ee7b6` on `codex/bootstrap-datapass-workbench` (draft PR #1 stays draft).
 
@@ -361,7 +382,7 @@ Proceed in this order unless a newly reproduced bug blocks the sequence.
 3. Do not force-push/rewrite the long branch history.
 4. Keep the branch-to-main PR as draft until manual F5 smoke testing is satisfactory.
 
-Status after the 2026-09-24 Claude tranche: P1 trusted Python — done; P1 SparkLab — done; P1 E2E — done (`npm run test:host`); P2 pipeline dbt — decided: explicitly unsupported; P2 Mosaic durability — done. Remaining: P2 content, manual F5 pass.
+Status after the 2026-09-24 Claude tranches: P1 trusted Python — done; P1 SparkLab — done; P1 E2E — done (`npm run test:host`); P2 pipeline dbt — decided: explicitly unsupported; P2 Mosaic durability — done; P2 content — first pack done (`sql-lab-v1`, 30 exercises), more donor content remains. Remaining: manual F5 pass, further content.
 
 ### P1 — trusted Python/Polars UX (done)
 
@@ -444,6 +465,7 @@ Runtime:
 python -m pip install ./runtime
 python -m compileall -q runtime/datapass_runtime runtime/sparklab
 python scripts/runtime_smoke.py
+python scripts/exercise_packs_smoke.py
 ```
 
 Extension Development Host E2E (see `docs/LOCAL_TEST.md`):
