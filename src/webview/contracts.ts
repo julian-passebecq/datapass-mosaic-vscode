@@ -85,6 +85,7 @@ export interface RuntimeViewState {
   catalog?: readonly LocalCatalogAssetView[];
   lastRun?: LocalCellRunView;
   pipelineRun?: PipelineRunView;
+  practiceResult?: PracticeResultView;
   environment?: RuntimeEnvironmentView;
 }
 
@@ -101,6 +102,7 @@ export interface ExerciseSummary {
   packId: string;
   packTitle: string;
   id: string;
+  version: string;
   title: string;
   difficulty: string;
   language: string;
@@ -108,6 +110,36 @@ export interface ExerciseSummary {
   starterSource: string;
   truth?: string;
   topics: string[];
+}
+
+export interface ExerciseCheckView {
+  id: string;
+  visibility: "visible" | "hidden" | "edge";
+  passed: boolean;
+  status: "passed" | "failed";
+  message: string;
+  elapsed_ms: number;
+  actual?: readonly Record<string, unknown>[];
+  expected?: readonly Record<string, unknown>[];
+}
+
+export interface PracticeResultView {
+  exerciseKey: string;
+  mode: "run" | "submit";
+  status: "passed" | "failed" | "error";
+  truth: string;
+  elapsed_ms: number;
+  checks: readonly ExerciseCheckView[];
+  runtime?: {
+    adapter: string;
+    engine: string;
+    engine_version: string;
+    session_generation: string;
+  };
+  error?: {
+    type: string;
+    message: string;
+  };
 }
 
 export interface PracticeViewState {
@@ -230,6 +262,7 @@ export type WebviewToHostMessage =
   | { type: "openTerminal" }
   | { type: "openScratch"; kind: ScratchKind }
   | { type: "openExercise"; exerciseKey: string }
+  | { type: "gradeExercise"; exerciseKey: string; mode: "run" | "submit" }
   | { type: "openPipelineSource" }
   | { type: "refreshPipeline" }
   | { type: "runPipeline" }
