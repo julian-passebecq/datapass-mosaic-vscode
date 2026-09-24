@@ -134,6 +134,9 @@ export class WorkbenchPanel {
       case "openExercise":
         await this.openExercise(message.exerciseKey);
         return;
+      case "gradeExercise":
+        await this.gradeExercise(message.exerciseKey, message.mode);
+        return;
       case "openPipelineSource":
         await this.openPipelineSource();
         return;
@@ -384,6 +387,75 @@ export class WorkbenchPanel {
     }
 
     await openTextDocument(starterUri);
+  }
+
+  private async gradeExercise(
+    exerciseKey: string,
+    mode: "run" | "submit"
+  ): Promise<void> {
+    const root = vscode.workspace.workspaceFolders?.[0]?.uri;
+    if (!root) {
+      void vscode.window.showWarningMessage("Open a workspace folder before grading a Datapass exercise.");
+      return;
+    }
+
+    const catalog = await loadExerciseCatalog(this.context.extensionUri);
+    const exercise = catalog.find(item => item.key === exerciseKey);
+    if (!exercise) {
+      void vscode.window.showErrorMessage(`Exercise not found: ${exerciseKey}`);
+      return;
+    }
+
+    const manifest = await readProjectManifest();
+    const exerciseRoot = safeRelativeParts(manifest.manifest?.assets?.exercises, "exercises");
+    const directory = vscode.Uri.joinPath(
+      root,
+      ...exerciseRoot,
+      slug(exercise.id),
+      slug(exercise.language)
+    );
+    const starterUri = vscode.Uri.joinPath(
+      directory,
+      `solution.${extensionFor(exercise.language)}`
+    );
+
+    if (!(await exists(starterUri))) {
+      await this.openExercise(exerciseKey);
+      void vscode.window.showInformationMessage(
+        "Exercise starter created. Edit the native solution file, then run the checks."
+      );
+      return;
+    }
+
+    const openDocument = vscode.workspace.textDocuments.find(
+      document => document.uri.toString() === starterUri.toString()
+    );
+    const code = openDocument
+      ? openDocument.getText()
+      : new TextDecoder().decode(await vscode.workspace.fs.readFile(starterUri));
+
+    if (!code.trim()) {
+      void vscode.window.showWarningMessage("The exercise solution file is empty.");
+      return;
+    }
+
+    try {
+      await this.runtimeManager.gradeExercise(exercise.key, {
+        exercise_id: exercise.id,
+        exercise_version: exercise.version,
+        language: exercise.language,
+        code,
+        mode,
+        notebook_id: `exercise-${slug(exercise.id)}-${slug(exercise.version)}`,
+        cell_id: "solution",
+        source_revision: openDocument?.version ?? 0
+      });
+    } catch (error) {
+      void vscode.window.showErrorMessage(
+        `Exercise grading failed: ${error instanceof Error ? error.message : String(error)}`
+      );
+    }
+    await this.refresh();
   }
 
   private async runPipeline(): Promise<void> {
