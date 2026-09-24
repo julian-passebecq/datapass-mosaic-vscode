@@ -1,0 +1,997 @@
+[
+  {
+    "id": "pipeline-dag-dependencies",
+    "version": 1,
+    "workspace": "pipeline",
+    "categoryId": "dag-orchestration",
+    "title": "DAGs: dependencies are a correctness contract",
+    "summary": "Model what must be true before a task can run, including branches, tests and the final publication gate.",
+    "minutes": 7,
+    "objectives": [
+      "Explain a directed acyclic graph in operational terms.",
+      "Separate dependency order from execution duration.",
+      "Trace how a failed quality gate should affect publication."
+    ],
+    "prerequisites": [
+      "Comfort reading a small table; no running cloud service is required."
+    ],
+    "blocks": [
+      {
+        "kind": "intro",
+        "id": "start",
+        "title": "The problem this solves",
+        "text": "A pipeline diagram is useful only when its arrows express real dependencies. If a dashboard should never see unvalidated data, the publication task must depend on the validation result, not merely appear to its right on a drawing. A DAG makes this agreement explicit. It can also expose work that may run independently, but parallelism is a consequence of correct dependencies rather than the first design goal."
+      },
+      {
+        "kind": "concept",
+        "id": "mental-model",
+        "title": "A useful mental model",
+        "text": "A directed edge says that one task depends on another under the configured scheduling and trigger rules. Acyclic means there is no dependency loop that prevents a valid execution order. The orchestration system tracks task instances, scheduling and state; the task itself performs the work. Retry behavior, branching and join trigger rules need explicit handling, especially when some upstream branches are intentionally skipped.",
+        "mentalModel": "A DAG is a set of permission slips. A task becomes eligible only when its dependency conditions are satisfied; the picture is not a stopwatch or a guarantee of available capacity."
+      },
+      {
+        "kind": "diagram",
+        "id": "flow",
+        "title": "Follow the flow",
+        "diagram": {
+          "label": "DAGs: dependencies are a correctness contract - a simplified teaching flow",
+          "nodes": [
+            {
+              "id": "n0",
+              "label": "Extract partition",
+              "detail": "read a bounded input"
+            },
+            {
+              "id": "n1",
+              "label": "Validate output",
+              "detail": "check the data contract"
+            },
+            {
+              "id": "n2",
+              "label": "Publish partition",
+              "detail": "make approved data visible"
+            }
+          ],
+          "edges": [
+            {
+              "from": "n0",
+              "to": "n1"
+            },
+            {
+              "from": "n1",
+              "to": "n2"
+            }
+          ]
+        },
+        "caption": "Read each box as a responsibility or state, not as a mandatory product. The arrows show the order of reasoning; a real implementation can have additional checks and branches."
+      },
+      {
+        "kind": "steps",
+        "id": "method",
+        "title": "Work through it deliberately",
+        "steps": [
+          {
+            "title": "Define task boundaries",
+            "text": "Choose independently observable and retryable units. Include the input partition or data interval so a rerun has a clear scope."
+          },
+          {
+            "title": "Draw actual prerequisites",
+            "text": "Publication should wait for both transformation and validation when both are required. Do not use an unrelated successful task as a substitute for a data-quality gate."
+          },
+          {
+            "title": "Review branches and joins",
+            "text": "A join after branching may encounter skipped tasks. Choose a trigger rule that matches the intended paths rather than assuming every upstream task must have run."
+          }
+        ]
+      },
+      {
+        "kind": "code",
+        "id": "example-code",
+        "title": "A small concrete example",
+        "language": "Orchestration pseudocode",
+        "code": "extract = Task('extract', partition=run_partition)\ntransform = Task('transform', input=extract.output)\nvalidate = Task('validate', input=transform.output)\npublish = Task('publish', input=transform.output)\n\nextract >> transform >> validate >> publish\n# publish is eligible only after the required validation succeeds.",
+        "caption": "This is dependency pseudocode, not a drop-in scheduler API. The existing Pipeline lab uses a bounded DAG simulator; it is not a running Airflow installation."
+      },
+      {
+        "kind": "table",
+        "id": "compare",
+        "title": "Keep these distinctions clear",
+        "columns": [
+          "Concern",
+          "DAG-level question",
+          "Task-level question"
+        ],
+        "rows": [
+          [
+            "Dependency",
+            "What must succeed before publication?",
+            "What data does this task produce?"
+          ],
+          [
+            "Retry",
+            "Which failed instance is rerun?",
+            "Is its write safe to repeat?"
+          ],
+          [
+            "Branch",
+            "Which path is chosen?",
+            "What condition determines the choice?"
+          ],
+          [
+            "Observability",
+            "Which node first failed or was blocked?",
+            "What input and error caused its failure?"
+          ]
+        ]
+      },
+      {
+        "kind": "workedExample",
+        "id": "worked-example",
+        "title": "Reason through the example",
+        "steps": [
+          "An extract task succeeds and produces 100 source rows for one daily partition. A transform task produces 98 accepted rows and 2 quarantined rows.",
+          "The validation task checks that the rejected-row threshold and key rules are satisfied. Suppose the agreed threshold is zero rejected critical records: validation fails.",
+          "Publication is downstream of validation, so the new partition is not made available as certified output. A success on extract alone is not enough.",
+          "After correcting the source or approved rule, rerun the bounded partition. Preserve evidence of the failed attempt and verify that the publish step does not duplicate previous output."
+        ],
+        "result": "The pipeline protects the consumer boundary because the quality condition is a real prerequisite of publication."
+      },
+      {
+        "kind": "whenToUse",
+        "id": "when-to-use",
+        "title": "When this approach fits",
+        "items": [
+          {
+            "signal": "Several tasks have explicit upstream artifacts",
+            "choice": "Represent those dependencies so orchestration can schedule and explain them."
+          },
+          {
+            "signal": "Conditional work rejoins a common downstream path",
+            "choice": "Specify branch and trigger behavior, then test success, failure and skipped-path scenarios."
+          }
+        ]
+      },
+      {
+        "kind": "pitfall",
+        "id": "pitfall",
+        "title": "A mistake worth catching",
+        "text": "A diagram that draws validation beside publication but leaves no dependency edge can publish bad data. Adding an edge after the fact may still be insufficient if the publish task uses a trigger rule that tolerates the failed validation.",
+        "correction": "Test the failure path intentionally. A release gate is proven by showing that a failed validation blocks the consumer-visible action."
+      },
+      {
+        "kind": "checkpoint",
+        "id": "checkpoint",
+        "title": "Check your understanding",
+        "question": "Extract and transform succeeded, but a required uniqueness test failed. Should publication run because most tasks are green?",
+        "answer": "No. A required quality gate must block publication.",
+        "explanation": "Task success is not decided by majority vote. The specific dependency and trigger contract determines whether the downstream action is eligible."
+      },
+      {
+        "kind": "keyTakeaways",
+        "id": "takeaways",
+        "title": "Key takeaways",
+        "items": [
+          "Arrows express prerequisites, not decorative sequence.",
+          "Branch and trigger rules are part of correctness.",
+          "Test that required validation failures block publication."
+        ]
+      },
+      {
+        "kind": "relatedPractice",
+        "id": "practice",
+        "title": "Put it into practice",
+        "exerciseIds": [
+          "v2-airflow-branch",
+          "dag-data-quality"
+        ]
+      }
+    ],
+    "sources": [
+      {
+        "label": "Apache Airflow: DAGs",
+        "url": "https://airflow.apache.org/docs/apache-airflow/stable/core-concepts/dags.html"
+      },
+      {
+        "label": "Apache Airflow: best practices",
+        "url": "https://airflow.apache.org/docs/apache-airflow/3.1.0/best-practices.html"
+      }
+    ]
+  },
+  {
+    "id": "pipeline-incremental-idempotent",
+    "version": 1,
+    "workspace": "pipeline",
+    "categoryId": "incremental-cdc",
+    "title": "Incremental loads that are safe to replay",
+    "summary": "Separate extraction progress from business state, and design writes that tolerate retries and late-arriving changes.",
+    "minutes": 7,
+    "objectives": [
+      "Explain a watermark and its limitations.",
+      "Distinguish incremental extraction from idempotent loading.",
+      "Choose keys and commit points that make retries safe."
+    ],
+    "prerequisites": [
+      "Comfort reading a small table; no running cloud service is required."
+    ],
+    "blocks": [
+      {
+        "kind": "intro",
+        "id": "start",
+        "title": "The problem this solves",
+        "text": "An incremental pipeline tries to avoid rereading all history on every run. That is useful, but the extraction boundary alone does not make the pipeline reliable. A failure can happen after data is written but before the checkpoint advances, causing the same records to be read again. Updates can also arrive late or share the same timestamp. A robust design asks both what to read next and what happens when yesterday's records are delivered again."
+      },
+      {
+        "kind": "concept",
+        "id": "mental-model",
+        "title": "A useful mental model",
+        "text": "A watermark records progress through an ordering field, often a timestamp or source sequence. Change data capture provides a stream or log of changes with source-specific semantics. Idempotency means applying the same logical input again does not create a different final state. A keyed merge, bounded partition replacement or transactional event ledger can support this property, but the correct choice depends on whether the target stores current state or immutable events.",
+        "mentalModel": "The watermark is a bookmark in the source. The target write is a filing rule. A reliable pipeline needs both, because a bookmark does not prevent duplicate filing."
+      },
+      {
+        "kind": "diagram",
+        "id": "flow",
+        "title": "Follow the flow",
+        "diagram": {
+          "label": "Incremental loads that are safe to replay - a simplified teaching flow",
+          "nodes": [
+            {
+              "id": "n0",
+              "label": "Bounded extraction",
+              "detail": "low and high boundary"
+            },
+            {
+              "id": "n1",
+              "label": "Deduplicate and merge",
+              "detail": "stable identity + version"
+            },
+            {
+              "id": "n2",
+              "label": "Commit progress",
+              "detail": "after durable target write"
+            }
+          ],
+          "edges": [
+            {
+              "from": "n0",
+              "to": "n1"
+            },
+            {
+              "from": "n1",
+              "to": "n2"
+            }
+          ]
+        },
+        "caption": "Read each box as a responsibility or state, not as a mandatory product. The arrows show the order of reasoning; a real implementation can have additional checks and branches."
+      },
+      {
+        "kind": "steps",
+        "id": "method",
+        "title": "Work through it deliberately",
+        "steps": [
+          {
+            "title": "Choose a stable boundary",
+            "text": "Capture a high watermark for the run and read a bounded interval. If timestamps can tie, use a composite boundary or overlap plus deterministic deduplication."
+          },
+          {
+            "title": "Make the sink replay-safe",
+            "text": "For current-state data, merge by business key with an explicit version rule. For events, use a stable event identity or a replaceable partition."
+          },
+          {
+            "title": "Advance only after success",
+            "text": "Record the new checkpoint after the required target write is durable. A transactional coupling is ideal where supported; otherwise make the possible replay harmless."
+          }
+        ]
+      },
+      {
+        "kind": "code",
+        "id": "example-code",
+        "title": "A small concrete example",
+        "language": "SQL pseudocode",
+        "code": "-- Source extraction uses a bounded, replayable window.\nSELECT *\nFROM source_changes\nWHERE modified_at > :low_watermark\n  AND modified_at <= :high_watermark;\n\n-- Deduplicate each key by a deterministic source version first.\n-- Then MERGE into target ON target.customer_id = batch.customer_id.\n-- Update only when the incoming version is newer.\n-- Save :high_watermark only after the target write succeeds.",
+        "caption": "The strict lower bound is illustrative and needs a tie/late-arrival policy. Do not use this timestamp-only pattern unchanged when the source can deliver equal or late timestamps."
+      },
+      {
+        "kind": "table",
+        "id": "compare",
+        "title": "Keep these distinctions clear",
+        "columns": [
+          "Mechanism",
+          "What it solves",
+          "What it does not solve alone"
+        ],
+        "rows": [
+          [
+            "Watermark",
+            "Remember how far extraction progressed",
+            "Late arrivals, duplicates or unsafe target appends"
+          ],
+          [
+            "Overlap window",
+            "Revisit a recent interval for late data",
+            "Changes older than the overlap horizon"
+          ],
+          [
+            "Keyed merge",
+            "Apply an update to the intended entity",
+            "Conflicting or ambiguous versions in the source batch"
+          ],
+          [
+            "CDC log position",
+            "Track ordered source changes when supported",
+            "Consumer checkpoint and sink atomicity automatically"
+          ]
+        ]
+      },
+      {
+        "kind": "workedExample",
+        "id": "worked-example",
+        "title": "Reason through the example",
+        "steps": [
+          "A run reads customer A version 7 and writes it to the target. The process crashes before saving its new watermark.",
+          "The next run rereads version 7. With append-only writes into a current-state table, A appears twice; with a keyed version-aware merge, A remains one current row.",
+          "A late version 6 then arrives. A rule that updates only when the incoming version is newer keeps version 7 rather than reverting the customer.",
+          "For a deleted customer, define a tombstone or deletion rule. Ignoring deletion events can leave stale entities permanently visible even when updates otherwise work."
+        ],
+        "result": "The pipeline can replay its bounded input without duplicating or regressing the target state."
+      },
+      {
+        "kind": "whenToUse",
+        "id": "when-to-use",
+        "title": "When this approach fits",
+        "items": [
+          {
+            "signal": "The source exposes a trustworthy modification field",
+            "choice": "Use a tested watermark strategy with explicit equal-timestamp and late-data handling."
+          },
+          {
+            "signal": "You need every change including deletions",
+            "choice": "Evaluate the source's CDC semantics and retain the ordering and checkpoint information needed to consume them safely."
+          }
+        ]
+      },
+      {
+        "kind": "pitfall",
+        "id": "pitfall",
+        "title": "A mistake worth catching",
+        "text": "Advancing the watermark before the target write succeeds can skip data permanently after a crash. Conversely, writing first with a non-idempotent append can duplicate data after a retry.",
+        "correction": "Treat the checkpoint and target write as a consistency problem. Where they cannot be committed atomically, design the recovery path around safe replay."
+      },
+      {
+        "kind": "checkpoint",
+        "id": "checkpoint",
+        "title": "Check your understanding",
+        "question": "The target write succeeded, but checkpoint saving failed. What property makes the retry safe?",
+        "answer": "An idempotent, version-aware target write for the same logical input.",
+        "explanation": "The replay is expected in this failure window. Correctness should not depend on preventing every repeated delivery; it should depend on handling repeated delivery safely."
+      },
+      {
+        "kind": "keyTakeaways",
+        "id": "takeaways",
+        "title": "Key takeaways",
+        "items": [
+          "Incremental extraction and idempotent loading are separate contracts.",
+          "Use stable identity, ordering and an explicit late-data policy.",
+          "Advance progress only after the required durable write."
+        ]
+      },
+      {
+        "kind": "relatedPractice",
+        "id": "practice",
+        "title": "Put it into practice",
+        "exerciseIds": [
+          "adf-watermark",
+          "dag-idempotency",
+          "v2-concept-watermark"
+        ]
+      }
+    ],
+    "sources": [
+      {
+        "label": "Microsoft: incremental copy with a watermark",
+        "url": "https://learn.microsoft.com/en-us/azure/data-factory/tutorial-incremental-copy-overview"
+      },
+      {
+        "label": "Delta Lake: table updates and merges",
+        "url": "https://docs.delta.io/latest/delta-update.html"
+      },
+      {
+        "label": "Apache Airflow: best practices",
+        "url": "https://airflow.apache.org/docs/apache-airflow/3.1.0/best-practices.html"
+      }
+    ]
+  },
+  {
+    "id": "pipeline-quality-contracts",
+    "version": 1,
+    "workspace": "pipeline",
+    "categoryId": "quality-contracts",
+    "title": "Data contracts: make assumptions executable",
+    "summary": "Turn hidden expectations about columns, keys and freshness into checks at the boundary where data becomes trusted.",
+    "minutes": 7,
+    "objectives": [
+      "Distinguish schema checks from business data tests.",
+      "Choose critical checks that should block publication.",
+      "Handle rejected records without silently losing them."
+    ],
+    "prerequisites": [
+      "Comfort reading a small table; no running cloud service is required."
+    ],
+    "blocks": [
+      {
+        "kind": "intro",
+        "id": "start",
+        "title": "The problem this solves",
+        "text": "A successful file read does not prove that a dataset is fit for its consumers. The expected columns may exist while customer keys are duplicated, units have changed or yesterday's partition is missing. A data contract makes these assumptions visible between producers and consumers. It should say what is required, how violations are handled and who owns the response. More tests are not automatically better; the tests should protect meaningful boundaries."
+      },
+      {
+        "kind": "concept",
+        "id": "mental-model",
+        "title": "A useful mental model",
+        "text": "A schema contract checks structural expectations such as columns and data types. Data tests check properties of the values, such as uniqueness, non-null keys and allowed statuses. Freshness and reconciliation add temporal and business expectations. These checks complement one another: a numeric amount column can still contain the wrong currency, and a perfectly unique table can still be incomplete.",
+        "mentalModel": "A contract is an entry checklist at a trusted boundary. Passing the shape check gets the package through one door; identity, completeness and business checks guard the next doors."
+      },
+      {
+        "kind": "diagram",
+        "id": "flow",
+        "title": "Follow the flow",
+        "diagram": {
+          "label": "Data contracts: make assumptions executable - a simplified teaching flow",
+          "nodes": [
+            {
+              "id": "n0",
+              "label": "Incoming batch",
+              "detail": "untrusted producer output"
+            },
+            {
+              "id": "n1",
+              "label": "Contract checks",
+              "detail": "shape, keys, business rules"
+            },
+            {
+              "id": "n2",
+              "label": "Trusted publication",
+              "detail": "approved rows + evidence"
+            }
+          ],
+          "edges": [
+            {
+              "from": "n0",
+              "to": "n1"
+            },
+            {
+              "from": "n1",
+              "to": "n2"
+            }
+          ]
+        },
+        "caption": "Read each box as a responsibility or state, not as a mandatory product. The arrows show the order of reasoning; a real implementation can have additional checks and branches."
+      },
+      {
+        "kind": "steps",
+        "id": "method",
+        "title": "Work through it deliberately",
+        "steps": [
+          {
+            "title": "Name the consumer promise",
+            "text": "For example: one row per order, amounts in agreed minor units, a non-null customer key and a complete daily partition by 07:00."
+          },
+          {
+            "title": "Choose severity and ownership",
+            "text": "A duplicate primary key may block publication. A new optional attribute may only need a warning. Assign an owner for each response rather than leaving failed checks untriaged."
+          },
+          {
+            "title": "Preserve evidence",
+            "text": "Record accepted, rejected and source row counts with a run identifier. Quarantine invalid rows with reasons when appropriate, and avoid exposing sensitive values in ordinary logs."
+          }
+        ]
+      },
+      {
+        "kind": "code",
+        "id": "example-code",
+        "title": "A small concrete example",
+        "language": "dbt YAML",
+        "code": "version: 2\nmodels:\n  - name: trusted_orders\n    columns:\n      - name: order_id\n        data_tests:\n          - not_null\n          - unique\n      - name: status\n        data_tests:\n          - accepted_values:\n              arguments:\n                values: ['paid', 'pending', 'cancelled']",
+        "caption": "This illustrates value tests, not a complete enforced schema contract. Adapter support and dbt version affect available contract features; verify the project configuration."
+      },
+      {
+        "kind": "table",
+        "id": "compare",
+        "title": "Keep these distinctions clear",
+        "columns": [
+          "Check",
+          "Question",
+          "Example failure"
+        ],
+        "rows": [
+          [
+            "Schema / type",
+            "Can the consumer interpret this structure?",
+            "amount changed from numeric to free text"
+          ],
+          [
+            "Uniqueness",
+            "Does the stated key identify one row?",
+            "Two current rows for the same order"
+          ],
+          [
+            "Referential integrity",
+            "Can related entities be resolved?",
+            "Unknown product_key in a fact"
+          ],
+          [
+            "Freshness / completeness",
+            "Is the expected interval present?",
+            "A technically valid but stale daily table"
+          ]
+        ]
+      },
+      {
+        "kind": "workedExample",
+        "id": "worked-example",
+        "title": "Reason through the example",
+        "steps": [
+          "A batch contains 1,000 order rows. Three rows have null order_id and two rows repeat the same non-null order key.",
+          "The structural schema is correct, but the identity contract is not. Simply counting rows or checking column names would miss the problem.",
+          "The pipeline records the source count, quarantines the null-key rows and reports the conflicting key. Because key uniqueness is a critical publication rule, the certified table is not replaced.",
+          "After the producer fixes the batch, rerun the same bounded interval. Reconcile source, accepted and rejected counts and retain the earlier failure evidence for diagnosis."
+        ],
+        "result": "The consumer boundary remains trustworthy because a defined violation has a defined publication and recovery outcome."
+      },
+      {
+        "kind": "whenToUse",
+        "id": "when-to-use",
+        "title": "When this approach fits",
+        "items": [
+          {
+            "signal": "Multiple teams exchange a dataset",
+            "choice": "Publish a contract that connects technical checks to consumer expectations and ownership."
+          },
+          {
+            "signal": "A source schema changes",
+            "choice": "Classify the change as compatible or breaking based on consumers, then test the boundary rather than silently accepting every new shape."
+          }
+        ]
+      },
+      {
+        "kind": "pitfall",
+        "id": "pitfall",
+        "title": "A mistake worth catching",
+        "text": "Dropping invalid rows and marking the whole pipeline green can hide material data loss. A quarantine table is not a complete strategy unless someone monitors it and the acceptance threshold is explicit.",
+        "correction": "Report rejected counts, severity and the affected interval. Treat silent row loss as a correctness risk, even when the surviving rows pass every test."
+      },
+      {
+        "kind": "checkpoint",
+        "id": "checkpoint",
+        "title": "Check your understanding",
+        "question": "A table has correct columns and types, but today's partition is absent. Has it satisfied a daily reporting contract?",
+        "answer": "No. Structural validity does not prove freshness or completeness.",
+        "explanation": "The consumer promise includes a time interval and delivery expectation. Add a check that identifies the missing partition and define whether the previous published version remains visible."
+      },
+      {
+        "kind": "keyTakeaways",
+        "id": "takeaways",
+        "title": "Key takeaways",
+        "items": [
+          "Schema, identity, value and freshness checks protect different assumptions.",
+          "Severity and ownership make a failed test actionable.",
+          "Never hide rejected records or missing intervals behind a green run."
+        ]
+      },
+      {
+        "kind": "relatedPractice",
+        "id": "practice",
+        "title": "Put it into practice",
+        "exerciseIds": [
+          "dag-data-quality",
+          "v2-sql-quality"
+        ]
+      }
+    ],
+    "sources": [
+      {
+        "label": "dbt: data tests",
+        "url": "https://docs.getdbt.com/docs/build/data-tests"
+      },
+      {
+        "label": "dbt: model contracts",
+        "url": "https://docs.getdbt.com/docs/mesh/govern/model-contracts"
+      }
+    ]
+  },
+  {
+    "id": "pipeline-retries-observability",
+    "version": 1,
+    "workspace": "pipeline",
+    "categoryId": "retries-observability",
+    "title": "Retries need evidence and safe side effects",
+    "summary": "Find the first meaningful failure, distinguish transient faults from bad data, and recover without duplicating the work.",
+    "minutes": 7,
+    "objectives": [
+      "Trace an upstream cause instead of chasing blocked downstream tasks.",
+      "Choose a bounded retry policy for transient failures.",
+      "Explain why a retryable task also needs an idempotent write."
+    ],
+    "prerequisites": [
+      "Comfort reading a small table; no running cloud service is required."
+    ],
+    "blocks": [
+      {
+        "kind": "intro",
+        "id": "start",
+        "title": "The problem this solves",
+        "text": "A pipeline can show many red or skipped tasks even when there is only one original failure. For example, a source timeout may prevent extraction, which blocks transformation and publication. Retrying the publication task does not repair the missing input. Good observability lets you identify the first meaningful failure, the affected partition, the attempt number and the side effects already committed. Good recovery then acts on that evidence rather than on the color of the final dashboard."
+      },
+      {
+        "kind": "concept",
+        "id": "mental-model",
+        "title": "A useful mental model",
+        "text": "A transient failure may succeed later without changing the input or code, such as a brief service timeout. A deterministic failure, such as an invalid schema or a reproducible syntax error, usually needs correction rather than repeated attempts. Retry policy controls count, delay and escalation. Idempotency controls the effect of repeated execution. They solve different problems and should be reviewed together.",
+        "mentalModel": "A retry is another delivery attempt, not an eraser. Before sending the job again, check whether its previous attempt already changed the destination."
+      },
+      {
+        "kind": "diagram",
+        "id": "flow",
+        "title": "Follow the flow",
+        "diagram": {
+          "label": "Retries need evidence and safe side effects - a simplified teaching flow",
+          "nodes": [
+            {
+              "id": "n0",
+              "label": "Failure evidence",
+              "detail": "run, task, partition, attempt"
+            },
+            {
+              "id": "n1",
+              "label": "Classify cause",
+              "detail": "transient or deterministic"
+            },
+            {
+              "id": "n2",
+              "label": "Recover safely",
+              "detail": "bounded retry or correction"
+            }
+          ],
+          "edges": [
+            {
+              "from": "n0",
+              "to": "n1"
+            },
+            {
+              "from": "n1",
+              "to": "n2"
+            }
+          ]
+        },
+        "caption": "Read each box as a responsibility or state, not as a mandatory product. The arrows show the order of reasoning; a real implementation can have additional checks and branches."
+      },
+      {
+        "kind": "steps",
+        "id": "method",
+        "title": "Work through it deliberately",
+        "steps": [
+          {
+            "title": "Locate the first cause",
+            "text": "Read the dependency states and the earliest relevant error. Distinguish failed tasks from tasks that never ran because an upstream gate failed."
+          },
+          {
+            "title": "Inspect committed effects",
+            "text": "A timeout after a successful remote write can leave the caller uncertain. Check the destination using a stable operation or batch identity before blindly appending again."
+          },
+          {
+            "title": "Retry with a limit",
+            "text": "Use a bounded delay policy and surface persistent failure. Preserve logs for each attempt; a later success should not erase the evidence needed to understand instability."
+          }
+        ]
+      },
+      {
+        "kind": "code",
+        "id": "example-code",
+        "title": "A small concrete example",
+        "language": "Python pseudocode",
+        "code": "for attempt in range(1, 4):\n    try:\n        write_batch_idempotently(batch_id, rows)\n        record_success(batch_id, attempt)\n        break\n    except TemporaryServiceError as error:\n        record_failure(batch_id, attempt, error)\n        if attempt == 3:\n            raise\n        sleep(backoff_seconds(attempt))\n# Validation errors are not caught and endlessly retried here.",
+        "caption": "The helper names express required behavior, not a ready-made retry library. Production implementations should include cancellation, timeouts and appropriate jitter without logging secrets."
+      },
+      {
+        "kind": "table",
+        "id": "compare",
+        "title": "Keep these distinctions clear",
+        "columns": [
+          "Signal",
+          "Likely next action",
+          "Wrong reflex"
+        ],
+        "rows": [
+          [
+            "Temporary service timeout",
+            "Bounded retry; inspect uncertain writes",
+            "Append the same batch indefinitely"
+          ],
+          [
+            "Schema mismatch",
+            "Fix or quarantine the incompatible input",
+            "Increase retries to 100"
+          ],
+          [
+            "Downstream blocked",
+            "Inspect the failed prerequisite",
+            "Treat every blocked task as a separate root cause"
+          ],
+          [
+            "Slow repeated success",
+            "Investigate latency and retry metrics",
+            "Assume green means healthy"
+          ]
+        ]
+      },
+      {
+        "kind": "workedExample",
+        "id": "worked-example",
+        "title": "Reason through the example",
+        "steps": [
+          "Extract succeeds for partition 2026-01-15. A transform produces a valid output, but the remote write response times out.",
+          "The destination may already contain the batch. A stable batch_id lets the task check or safely reapply the same logical write.",
+          "The second attempt succeeds. Observability records both attempts, total latency and the affected partition instead of replacing the first error with a single green status.",
+          "A later run fails a deterministic uniqueness test. That error is routed to data correction; repeatedly writing the same invalid batch would not make it valid."
+        ],
+        "result": "Recovery is bounded, preserves evidence and avoids treating repeated execution as automatically safe."
+      },
+      {
+        "kind": "whenToUse",
+        "id": "when-to-use",
+        "title": "When this approach fits",
+        "items": [
+          {
+            "signal": "A dependency is occasionally unavailable",
+            "choice": "Use targeted bounded retries with timeouts and escalation."
+          },
+          {
+            "signal": "The error reproduces with the same input",
+            "choice": "Fix the data or code, then rerun the affected scope with explicit provenance."
+          }
+        ]
+      },
+      {
+        "kind": "pitfall",
+        "id": "pitfall",
+        "title": "A mistake worth catching",
+        "text": "Catching every exception and returning success can make a broken pipeline appear healthy. Logging only the final attempt also hides how often the system is failing before it eventually succeeds.",
+        "correction": "Classify failures, keep attempt history and separate successful business output from mere completion of the orchestration process."
+      },
+      {
+        "kind": "checkpoint",
+        "id": "checkpoint",
+        "title": "Check your understanding",
+        "question": "A task times out after sending an append request. Is it safe to retry because the caller saw no success response?",
+        "answer": "Not necessarily. The remote append may have succeeded before the response was lost.",
+        "explanation": "Use a stable operation identity and replay-safe destination semantics. A missing acknowledgement is uncertainty about the write, not proof that nothing happened."
+      },
+      {
+        "kind": "keyTakeaways",
+        "id": "takeaways",
+        "title": "Key takeaways",
+        "items": [
+          "Find the first cause and the affected data interval.",
+          "Retry transient failures, not every error indiscriminately.",
+          "Bound retries and make repeated side effects safe."
+        ]
+      },
+      {
+        "kind": "relatedPractice",
+        "id": "practice",
+        "title": "Put it into practice",
+        "exerciseIds": [
+          "v2-dbt-failure",
+          "dag-idempotency"
+        ]
+      }
+    ],
+    "sources": [
+      {
+        "label": "Apache Airflow: best practices",
+        "url": "https://airflow.apache.org/docs/apache-airflow/3.1.0/best-practices.html"
+      },
+      {
+        "label": "dbt: build command",
+        "url": "https://docs.getdbt.com/reference/commands/build"
+      }
+    ]
+  },
+  {
+    "id": "pipeline-dbt-elt-deployment",
+    "version": 1,
+    "workspace": "pipeline",
+    "categoryId": "elt-deployment",
+    "title": "ELT deployment: lineage, tests and promotion",
+    "summary": "Treat transformations as versioned dependencies, and promote only artifacts whose data and code contracts have been checked.",
+    "minutes": 7,
+    "objectives": [
+      "Explain how model references form a transformation graph.",
+      "Distinguish building a model from validating its output.",
+      "Outline a small, reversible promotion workflow."
+    ],
+    "prerequisites": [
+      "Comfort reading a small table; no running cloud service is required."
+    ],
+    "blocks": [
+      {
+        "kind": "intro",
+        "id": "start",
+        "title": "The problem this solves",
+        "text": "An ELT project does more than run SQL files in a convenient order. It turns raw data into reusable models with explicit dependencies and tests. A model that builds successfully may still produce duplicate keys or the wrong grain. A safe deployment therefore connects code version, selected dependency graph, environment and validation evidence. The goal is to know exactly what changed and why the resulting data is acceptable to consumers."
+      },
+      {
+        "kind": "concept",
+        "id": "mental-model",
+        "title": "A useful mental model",
+        "text": "A model reference expresses a dependency on another project model and allows the tool to resolve its relation in the current environment. Source declarations identify upstream inputs. Data tests evaluate properties of the materialized or queried data. A build workflow can combine selected models and tests in dependency order, but selection syntax, adapter behavior and failure handling still matter. A passing subset is not proof that every downstream consumer remains compatible.",
+        "mentalModel": "The project is a recipe book with named ingredients. Lineage explains which recipes depend on a changed ingredient; tests decide whether the prepared result meets its promise."
+      },
+      {
+        "kind": "diagram",
+        "id": "flow",
+        "title": "Follow the flow",
+        "diagram": {
+          "label": "ELT deployment: lineage, tests and promotion - a simplified teaching flow",
+          "nodes": [
+            {
+              "id": "n0",
+              "label": "Versioned models",
+              "detail": "refs and source inputs"
+            },
+            {
+              "id": "n1",
+              "label": "Build and test",
+              "detail": "selected dependency graph"
+            },
+            {
+              "id": "n2",
+              "label": "Promote with evidence",
+              "detail": "known version + rollback"
+            }
+          ],
+          "edges": [
+            {
+              "from": "n0",
+              "to": "n1"
+            },
+            {
+              "from": "n1",
+              "to": "n2"
+            }
+          ]
+        },
+        "caption": "Read each box as a responsibility or state, not as a mandatory product. The arrows show the order of reasoning; a real implementation can have additional checks and branches."
+      },
+      {
+        "kind": "steps",
+        "id": "method",
+        "title": "Work through it deliberately",
+        "steps": [
+          {
+            "title": "Make dependencies explicit",
+            "text": "Use model references rather than hard-coded environment-specific table names where the framework supports them. Keep the declared grain visible beside the model."
+          },
+          {
+            "title": "Test a representative change",
+            "text": "Run the affected model and relevant downstream checks in an isolated environment. Include schema compatibility, key tests and a business reconciliation."
+          },
+          {
+            "title": "Promote deliberately",
+            "text": "Record the code revision, environment and test results. Define how consumers are switched and how to return to the previous known-good state if a problem appears."
+          }
+        ]
+      },
+      {
+        "kind": "code",
+        "id": "example-code",
+        "title": "A small concrete example",
+        "language": "dbt SQL and shell",
+        "code": "-- models/customer_revenue.sql\nSELECT customer_id, SUM(amount) AS revenue\nFROM {{ ref('stg_paid_orders') }}\nGROUP BY customer_id\n\n-- Illustrative shell command, run separately from the SQL file:\n-- dbt build --select customer_revenue+\n-- Review the selected graph and test results before promotion.",
+        "caption": "The plus suffix includes downstream dependencies in dbt selection syntax. This lesson does not run dbt in the browser; the Pipeline lab retains its fixture-based simulator."
+      },
+      {
+        "kind": "table",
+        "id": "compare",
+        "title": "Keep these distinctions clear",
+        "columns": [
+          "Artifact",
+          "Purpose",
+          "Evidence to keep"
+        ],
+        "rows": [
+          [
+            "Model SQL",
+            "Define a transformation at a known grain",
+            "Code revision and relation definition"
+          ],
+          [
+            "Reference graph",
+            "Resolve dependencies and impact",
+            "Selected nodes and downstream consumers"
+          ],
+          [
+            "Data tests",
+            "Check properties of output values",
+            "Actual results, not just configured test names"
+          ],
+          [
+            "Promotion record",
+            "Connect release to environment",
+            "Version, validation, owner and rollback path"
+          ]
+        ]
+      },
+      {
+        "kind": "workedExample",
+        "id": "worked-example",
+        "title": "Reason through the example",
+        "steps": [
+          "A change adds a refund adjustment to stg_paid_orders. customer_revenue depends on that staging model, and a dashboard model depends on customer_revenue.",
+          "The team selects the changed model and relevant downstream graph. It checks that the customer summary remains unique by customer_id and that the new revenue reconciles to paid amounts minus approved refunds.",
+          "A schema change that renames revenue to net_amount would break a consumer even if the new SQL runs. The team either preserves compatibility or coordinates a versioned consumer change.",
+          "After validation, the release records the exact revision and target environment. A small post-release check confirms that the expected tables and freshness are visible to consumers."
+        ],
+        "result": "Promotion is tied to tested data behavior and consumer compatibility, not merely to a successful SQL execution."
+      },
+      {
+        "kind": "whenToUse",
+        "id": "when-to-use",
+        "title": "When this approach fits",
+        "items": [
+          {
+            "signal": "Several transformations share upstream business logic",
+            "choice": "Use explicit references and tests to make impact discoverable."
+          },
+          {
+            "signal": "A change affects column names, grain or meaning",
+            "choice": "Treat it as a consumer contract change, not only as a code refactor."
+          }
+        ]
+      },
+      {
+        "kind": "pitfall",
+        "id": "pitfall",
+        "title": "A mistake worth catching",
+        "text": "A green test report can be misleading when it covers only an unrelated selection or a stale build. Hard-coded production table names can also make a development run modify or read the wrong environment.",
+        "correction": "Record the selected graph, environment and exact code revision. Verify that the tests actually executed against the outputs being considered for promotion."
+      },
+      {
+        "kind": "checkpoint",
+        "id": "checkpoint",
+        "title": "Check your understanding",
+        "question": "A changed staging model passes its own tests. Is that enough to guarantee every downstream model still works?",
+        "answer": "No. Downstream dependencies and consumer contracts may still be affected.",
+        "explanation": "Trace the graph and validate the affected scope. A local property such as non-null keys does not prove that a downstream calculation, column reference or business total remains correct."
+      },
+      {
+        "kind": "keyTakeaways",
+        "id": "takeaways",
+        "title": "Key takeaways",
+        "items": [
+          "Lineage makes change impact explicit.",
+          "Successful execution and valid data are different gates.",
+          "Promote a known version with actual evidence and a recovery path."
+        ]
+      },
+      {
+        "kind": "relatedPractice",
+        "id": "practice",
+        "title": "Put it into practice",
+        "exerciseIds": [
+          "dbt-lineage",
+          "v2-dbt-failure"
+        ]
+      }
+    ],
+    "sources": [
+      {
+        "label": "dbt: build command",
+        "url": "https://docs.getdbt.com/reference/commands/build"
+      },
+      {
+        "label": "dbt: data tests",
+        "url": "https://docs.getdbt.com/docs/build/data-tests"
+      }
+    ]
+  }
+]

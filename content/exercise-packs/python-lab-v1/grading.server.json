@@ -1,0 +1,1222 @@
+{
+  "py-load-mode": {
+    "solution": "result = []\nfor row in table_stats:\n    if row[\"row_count\"] == 0:\n        mode = \"full\"\n    elif row[\"row_count\"] > 1_000_000:\n        mode = \"large_incremental\"\n    else:\n        mode = \"incremental\"\n    result.append({\"table_name\": row[\"table_name\"], \"row_count\": row[\"row_count\"], \"mode\": mode})\ndisplay(result)",
+    "fixtures": [
+      {
+        "id": "example",
+        "visibility": "visible",
+        "input_rows": [],
+        "tables": {
+          "table_stats": [
+            {
+              "table_name": "customers",
+              "row_count": 0
+            },
+            {
+              "table_name": "orders",
+              "row_count": 125000
+            },
+            {
+              "table_name": "events",
+              "row_count": 5000000
+            }
+          ]
+        },
+        "expected": [
+          {
+            "table_name": "customers",
+            "row_count": 0,
+            "mode": "full"
+          },
+          {
+            "table_name": "orders",
+            "row_count": 125000,
+            "mode": "incremental"
+          },
+          {
+            "table_name": "events",
+            "row_count": 5000000,
+            "mode": "large_incremental"
+          }
+        ]
+      },
+      {
+        "id": "boundaries",
+        "visibility": "hidden",
+        "input_rows": [],
+        "tables": {
+          "table_stats": [
+            {
+              "table_name": "a",
+              "row_count": 1000000
+            },
+            {
+              "table_name": "b",
+              "row_count": 1000001
+            },
+            {
+              "table_name": "c",
+              "row_count": 1
+            }
+          ]
+        },
+        "expected": [
+          {
+            "table_name": "a",
+            "row_count": 1000000,
+            "mode": "incremental"
+          },
+          {
+            "table_name": "b",
+            "row_count": 1000001,
+            "mode": "large_incremental"
+          },
+          {
+            "table_name": "c",
+            "row_count": 1,
+            "mode": "incremental"
+          }
+        ]
+      },
+      {
+        "id": "single",
+        "visibility": "edge",
+        "input_rows": [],
+        "tables": {
+          "table_stats": [
+            {
+              "table_name": "z",
+              "row_count": 0
+            }
+          ]
+        },
+        "expected": [
+          {
+            "table_name": "z",
+            "row_count": 0,
+            "mode": "full"
+          }
+        ]
+      }
+    ]
+  },
+  "py-safe-int": {
+    "solution": "result = []\nfor row in raw_values:\n    try:\n        parsed = int(row[\"raw_value\"])\n    except ValueError:\n        parsed = None\n    result.append({\"raw_value\": row[\"raw_value\"], \"parsed\": parsed})\ndisplay(result)",
+    "fixtures": [
+      {
+        "id": "example",
+        "visibility": "visible",
+        "input_rows": [],
+        "tables": {
+          "raw_values": [
+            {
+              "raw_value": "42"
+            },
+            {
+              "raw_value": "not-a-number"
+            },
+            {
+              "raw_value": "-7"
+            }
+          ]
+        },
+        "expected": [
+          {
+            "raw_value": "42",
+            "parsed": 42
+          },
+          {
+            "raw_value": "not-a-number",
+            "parsed": null
+          },
+          {
+            "raw_value": "-7",
+            "parsed": -7
+          }
+        ]
+      },
+      {
+        "id": "tricky-strings",
+        "visibility": "hidden",
+        "input_rows": [],
+        "tables": {
+          "raw_values": [
+            {
+              "raw_value": " 12 "
+            },
+            {
+              "raw_value": "3.5"
+            },
+            {
+              "raw_value": ""
+            },
+            {
+              "raw_value": "0"
+            }
+          ]
+        },
+        "expected": [
+          {
+            "raw_value": " 12 ",
+            "parsed": 12
+          },
+          {
+            "raw_value": "3.5",
+            "parsed": null
+          },
+          {
+            "raw_value": "",
+            "parsed": null
+          },
+          {
+            "raw_value": "0",
+            "parsed": 0
+          }
+        ]
+      },
+      {
+        "id": "all-valid",
+        "visibility": "edge",
+        "input_rows": [],
+        "tables": {
+          "raw_values": [
+            {
+              "raw_value": "1"
+            }
+          ]
+        },
+        "expected": [
+          {
+            "raw_value": "1",
+            "parsed": 1
+          }
+        ]
+      }
+    ]
+  },
+  "py-set-validate": {
+    "solution": "allowed_status = {\"NEW\", \"READY\", \"DONE\"}\nresult = [{\"status\": row[\"status\"], \"is_valid\": row[\"status\"] in allowed_status} for row in statuses]\ndisplay(result)",
+    "fixtures": [
+      {
+        "id": "example",
+        "visibility": "visible",
+        "input_rows": [],
+        "tables": {
+          "statuses": [
+            {
+              "status": "READY"
+            },
+            {
+              "status": "LOST"
+            },
+            {
+              "status": "NEW"
+            }
+          ]
+        },
+        "expected": [
+          {
+            "status": "READY",
+            "is_valid": true
+          },
+          {
+            "status": "LOST",
+            "is_valid": false
+          },
+          {
+            "status": "NEW",
+            "is_valid": true
+          }
+        ]
+      },
+      {
+        "id": "case-and-duplicates",
+        "visibility": "hidden",
+        "input_rows": [],
+        "tables": {
+          "statuses": [
+            {
+              "status": "done"
+            },
+            {
+              "status": "DONE"
+            },
+            {
+              "status": "DONE"
+            }
+          ]
+        },
+        "expected": [
+          {
+            "status": "done",
+            "is_valid": false
+          },
+          {
+            "status": "DONE",
+            "is_valid": true
+          },
+          {
+            "status": "DONE",
+            "is_valid": true
+          }
+        ]
+      },
+      {
+        "id": "none-valid",
+        "visibility": "edge",
+        "input_rows": [],
+        "tables": {
+          "statuses": [
+            {
+              "status": "X"
+            }
+          ]
+        },
+        "expected": [
+          {
+            "status": "X",
+            "is_valid": false
+          }
+        ]
+      }
+    ]
+  },
+  "py-frequency": {
+    "solution": "counts = {}\nfor row in events:\n    counts[row[\"status\"]] = counts.get(row[\"status\"], 0) + 1\ndisplay([{\"status\": status, \"count\": count} for status, count in counts.items()])",
+    "fixtures": [
+      {
+        "id": "example",
+        "visibility": "visible",
+        "input_rows": [],
+        "tables": {
+          "events": [
+            {
+              "status": "OK"
+            },
+            {
+              "status": "ERROR"
+            },
+            {
+              "status": "OK"
+            },
+            {
+              "status": "OK"
+            }
+          ]
+        },
+        "expected": [
+          {
+            "status": "OK",
+            "count": 3
+          },
+          {
+            "status": "ERROR",
+            "count": 1
+          }
+        ]
+      },
+      {
+        "id": "many",
+        "visibility": "hidden",
+        "input_rows": [],
+        "tables": {
+          "events": [
+            {
+              "status": "A"
+            },
+            {
+              "status": "B"
+            },
+            {
+              "status": "A"
+            },
+            {
+              "status": "C"
+            },
+            {
+              "status": "B"
+            },
+            {
+              "status": "A"
+            }
+          ]
+        },
+        "expected": [
+          {
+            "status": "A",
+            "count": 3
+          },
+          {
+            "status": "B",
+            "count": 2
+          },
+          {
+            "status": "C",
+            "count": 1
+          }
+        ]
+      },
+      {
+        "id": "single",
+        "visibility": "edge",
+        "input_rows": [],
+        "tables": {
+          "events": [
+            {
+              "status": "OK"
+            }
+          ]
+        },
+        "expected": [
+          {
+            "status": "OK",
+            "count": 1
+          }
+        ]
+      }
+    ]
+  },
+  "py-dedupe-order": {
+    "solution": "seen = set()\nunique = []\nfor row in ids:\n    if row[\"id\"] not in seen:\n        seen.add(row[\"id\"])\n        unique.append({\"id\": row[\"id\"]})\ndisplay(unique)",
+    "fixtures": [
+      {
+        "id": "example",
+        "visibility": "visible",
+        "input_rows": [],
+        "tables": {
+          "ids": [
+            {
+              "id": 3
+            },
+            {
+              "id": 1
+            },
+            {
+              "id": 3
+            },
+            {
+              "id": 2
+            },
+            {
+              "id": 1
+            }
+          ]
+        },
+        "expected": [
+          {
+            "id": 3
+          },
+          {
+            "id": 1
+          },
+          {
+            "id": 2
+          }
+        ]
+      },
+      {
+        "id": "late-duplicates",
+        "visibility": "hidden",
+        "input_rows": [],
+        "tables": {
+          "ids": [
+            {
+              "id": 9
+            },
+            {
+              "id": 8
+            },
+            {
+              "id": 7
+            },
+            {
+              "id": 8
+            },
+            {
+              "id": 9
+            },
+            {
+              "id": 6
+            }
+          ]
+        },
+        "expected": [
+          {
+            "id": 9
+          },
+          {
+            "id": 8
+          },
+          {
+            "id": 7
+          },
+          {
+            "id": 6
+          }
+        ]
+      },
+      {
+        "id": "single",
+        "visibility": "edge",
+        "input_rows": [],
+        "tables": {
+          "ids": [
+            {
+              "id": 5
+            }
+          ]
+        },
+        "expected": [
+          {
+            "id": 5
+          }
+        ]
+      }
+    ]
+  },
+  "py-batching": {
+    "solution": "values = [row[\"id\"] for row in ids]\nbatch_size = 3\nresult = []\nfor number, start in enumerate(range(0, len(values), batch_size), start=1):\n    batch = values[start:start + batch_size]\n    result.append({\"batch_number\": number, \"first_id\": batch[0], \"last_id\": batch[-1], \"size\": len(batch)})\ndisplay(result)",
+    "fixtures": [
+      {
+        "id": "example",
+        "visibility": "visible",
+        "input_rows": [],
+        "tables": {
+          "ids": [
+            {
+              "id": 1
+            },
+            {
+              "id": 2
+            },
+            {
+              "id": 3
+            },
+            {
+              "id": 4
+            },
+            {
+              "id": 5
+            },
+            {
+              "id": 6
+            },
+            {
+              "id": 7
+            },
+            {
+              "id": 8
+            },
+            {
+              "id": 9
+            },
+            {
+              "id": 10
+            }
+          ]
+        },
+        "expected": [
+          {
+            "batch_number": 1,
+            "first_id": 1,
+            "last_id": 3,
+            "size": 3
+          },
+          {
+            "batch_number": 2,
+            "first_id": 4,
+            "last_id": 6,
+            "size": 3
+          },
+          {
+            "batch_number": 3,
+            "first_id": 7,
+            "last_id": 9,
+            "size": 3
+          },
+          {
+            "batch_number": 4,
+            "first_id": 10,
+            "last_id": 10,
+            "size": 1
+          }
+        ]
+      },
+      {
+        "id": "exact-multiple",
+        "visibility": "hidden",
+        "input_rows": [],
+        "tables": {
+          "ids": [
+            {
+              "id": 20
+            },
+            {
+              "id": 21
+            },
+            {
+              "id": 22
+            },
+            {
+              "id": 23
+            },
+            {
+              "id": 24
+            },
+            {
+              "id": 25
+            }
+          ]
+        },
+        "expected": [
+          {
+            "batch_number": 1,
+            "first_id": 20,
+            "last_id": 22,
+            "size": 3
+          },
+          {
+            "batch_number": 2,
+            "first_id": 23,
+            "last_id": 25,
+            "size": 3
+          }
+        ]
+      },
+      {
+        "id": "smaller-than-batch",
+        "visibility": "edge",
+        "input_rows": [],
+        "tables": {
+          "ids": [
+            {
+              "id": 7
+            },
+            {
+              "id": 8
+            }
+          ]
+        },
+        "expected": [
+          {
+            "batch_number": 1,
+            "first_id": 7,
+            "last_id": 8,
+            "size": 2
+          }
+        ]
+      }
+    ]
+  },
+  "py-binary-search": {
+    "solution": "from bisect import bisect_left\nvalues = [row[\"value\"] for row in sorted_values]\nresult = []\nfor row in targets:\n    position = bisect_left(values, row[\"target\"])\n    found = position < len(values) and values[position] == row[\"target\"]\n    result.append({\"target\": row[\"target\"], \"position\": position, \"found\": found})\ndisplay(result)",
+    "fixtures": [
+      {
+        "id": "example",
+        "visibility": "visible",
+        "input_rows": [],
+        "tables": {
+          "sorted_values": [
+            {
+              "value": 10
+            },
+            {
+              "value": 20
+            },
+            {
+              "value": 30
+            },
+            {
+              "value": 40
+            },
+            {
+              "value": 50
+            }
+          ],
+          "targets": [
+            {
+              "target": 30
+            },
+            {
+              "target": 35
+            },
+            {
+              "target": 5
+            }
+          ]
+        },
+        "expected": [
+          {
+            "target": 30,
+            "position": 2,
+            "found": true
+          },
+          {
+            "target": 35,
+            "position": 3,
+            "found": false
+          },
+          {
+            "target": 5,
+            "position": 0,
+            "found": false
+          }
+        ]
+      },
+      {
+        "id": "duplicates-and-end",
+        "visibility": "hidden",
+        "input_rows": [],
+        "tables": {
+          "sorted_values": [
+            {
+              "value": 1
+            },
+            {
+              "value": 2
+            },
+            {
+              "value": 2
+            },
+            {
+              "value": 2
+            },
+            {
+              "value": 9
+            }
+          ],
+          "targets": [
+            {
+              "target": 2
+            },
+            {
+              "target": 10
+            },
+            {
+              "target": 9
+            }
+          ]
+        },
+        "expected": [
+          {
+            "target": 2,
+            "position": 1,
+            "found": true
+          },
+          {
+            "target": 10,
+            "position": 5,
+            "found": false
+          },
+          {
+            "target": 9,
+            "position": 4,
+            "found": true
+          }
+        ]
+      },
+      {
+        "id": "single",
+        "visibility": "edge",
+        "input_rows": [],
+        "tables": {
+          "sorted_values": [
+            {
+              "value": 7
+            }
+          ],
+          "targets": [
+            {
+              "target": 7
+            }
+          ]
+        },
+        "expected": [
+          {
+            "target": 7,
+            "position": 0,
+            "found": true
+          }
+        ]
+      }
+    ]
+  },
+  "py-hash-join": {
+    "solution": "customer_by_id = {c[\"customer_id\"]: c for c in customers}\nresult = []\nfor order in orders:\n    customer = customer_by_id.get(order[\"customer_id\"])\n    result.append({\"order_id\": order[\"order_id\"], \"customer_id\": order[\"customer_id\"], \"customer_name\": customer[\"name\"] if customer else None})\ndisplay(result)",
+    "fixtures": [
+      {
+        "id": "example",
+        "visibility": "visible",
+        "input_rows": [],
+        "tables": {
+          "orders": [
+            {
+              "order_id": 1,
+              "customer_id": 10
+            },
+            {
+              "order_id": 2,
+              "customer_id": 11
+            },
+            {
+              "order_id": 3,
+              "customer_id": 99
+            }
+          ],
+          "customers": [
+            {
+              "customer_id": 10,
+              "name": "Ada"
+            },
+            {
+              "customer_id": 11,
+              "name": "Grace"
+            }
+          ]
+        },
+        "expected": [
+          {
+            "order_id": 1,
+            "customer_id": 10,
+            "customer_name": "Ada"
+          },
+          {
+            "order_id": 2,
+            "customer_id": 11,
+            "customer_name": "Grace"
+          },
+          {
+            "order_id": 3,
+            "customer_id": 99,
+            "customer_name": null
+          }
+        ]
+      },
+      {
+        "id": "repeat-customer",
+        "visibility": "hidden",
+        "input_rows": [],
+        "tables": {
+          "orders": [
+            {
+              "order_id": 4,
+              "customer_id": 12
+            },
+            {
+              "order_id": 5,
+              "customer_id": 12
+            },
+            {
+              "order_id": 6,
+              "customer_id": 13
+            }
+          ],
+          "customers": [
+            {
+              "customer_id": 12,
+              "name": "Linus"
+            },
+            {
+              "customer_id": 14,
+              "name": "Mia"
+            }
+          ]
+        },
+        "expected": [
+          {
+            "order_id": 4,
+            "customer_id": 12,
+            "customer_name": "Linus"
+          },
+          {
+            "order_id": 5,
+            "customer_id": 12,
+            "customer_name": "Linus"
+          },
+          {
+            "order_id": 6,
+            "customer_id": 13,
+            "customer_name": null
+          }
+        ]
+      },
+      {
+        "id": "all-known",
+        "visibility": "edge",
+        "input_rows": [],
+        "tables": {
+          "orders": [
+            {
+              "order_id": 7,
+              "customer_id": 1
+            }
+          ],
+          "customers": [
+            {
+              "customer_id": 1,
+              "name": "Zed"
+            }
+          ]
+        },
+        "expected": [
+          {
+            "order_id": 7,
+            "customer_id": 1,
+            "customer_name": "Zed"
+          }
+        ]
+      }
+    ]
+  },
+  "py-prefix-filter": {
+    "solution": "dims = [{\"table_name\": row[\"table_name\"]} for row in tables_list if row[\"table_name\"].startswith(\"dim_\")]\n# columns=... keeps the schema when no table matches\ndisplay(dims, columns=[\"table_name\"])",
+    "fixtures": [
+      {
+        "id": "example",
+        "visibility": "visible",
+        "input_rows": [],
+        "tables": {
+          "tables_list": [
+            {
+              "table_name": "dim_customer"
+            },
+            {
+              "table_name": "fact_sales"
+            },
+            {
+              "table_name": "dim_product"
+            }
+          ]
+        },
+        "expected": [
+          {
+            "table_name": "dim_customer"
+          },
+          {
+            "table_name": "dim_product"
+          }
+        ]
+      },
+      {
+        "id": "look-alikes",
+        "visibility": "hidden",
+        "input_rows": [],
+        "tables": {
+          "tables_list": [
+            {
+              "table_name": "DIM_date"
+            },
+            {
+              "table_name": "xdim_a"
+            },
+            {
+              "table_name": "dim_"
+            },
+            {
+              "table_name": "dimension"
+            }
+          ]
+        },
+        "expected": [
+          {
+            "table_name": "dim_"
+          }
+        ]
+      },
+      {
+        "id": "no-dims",
+        "visibility": "edge",
+        "input_rows": [],
+        "tables": {
+          "tables_list": [
+            {
+              "table_name": "fact_orders"
+            }
+          ]
+        },
+        "expected": []
+      }
+    ]
+  },
+  "py-sort-key": {
+    "solution": "sorted_jobs = sorted(jobs, key=lambda job: job[\"priority\"])\ndisplay([{\"name\": j[\"name\"], \"priority\": j[\"priority\"]} for j in sorted_jobs])",
+    "fixtures": [
+      {
+        "id": "example",
+        "visibility": "visible",
+        "input_rows": [],
+        "tables": {
+          "jobs": [
+            {
+              "name": "gold",
+              "priority": 3
+            },
+            {
+              "name": "bronze",
+              "priority": 1
+            },
+            {
+              "name": "silver",
+              "priority": 2
+            }
+          ]
+        },
+        "expected": [
+          {
+            "name": "bronze",
+            "priority": 1
+          },
+          {
+            "name": "silver",
+            "priority": 2
+          },
+          {
+            "name": "gold",
+            "priority": 3
+          }
+        ]
+      },
+      {
+        "id": "stable-ties",
+        "visibility": "hidden",
+        "input_rows": [],
+        "tables": {
+          "jobs": [
+            {
+              "name": "c",
+              "priority": 2
+            },
+            {
+              "name": "d",
+              "priority": 1
+            },
+            {
+              "name": "b",
+              "priority": 2
+            },
+            {
+              "name": "a",
+              "priority": 1
+            }
+          ]
+        },
+        "expected": [
+          {
+            "name": "d",
+            "priority": 1
+          },
+          {
+            "name": "a",
+            "priority": 1
+          },
+          {
+            "name": "c",
+            "priority": 2
+          },
+          {
+            "name": "b",
+            "priority": 2
+          }
+        ]
+      },
+      {
+        "id": "single",
+        "visibility": "edge",
+        "input_rows": [],
+        "tables": {
+          "jobs": [
+            {
+              "name": "only",
+              "priority": 5
+            }
+          ]
+        },
+        "expected": [
+          {
+            "name": "only",
+            "priority": 5
+          }
+        ]
+      }
+    ]
+  },
+  "py-parse-timestamp": {
+    "solution": "from datetime import datetime\nresult = []\nfor row in raw_times:\n    ts = datetime.strptime(row[\"raw\"], \"%Y-%m-%d %H:%M:%S\")\n    result.append({\"raw\": row[\"raw\"], \"date\": ts.date().isoformat(), \"hour\": ts.hour, \"weekday\": ts.weekday()})\ndisplay(result)",
+    "fixtures": [
+      {
+        "id": "example",
+        "visibility": "visible",
+        "input_rows": [],
+        "tables": {
+          "raw_times": [
+            {
+              "raw": "2026-09-03 14:30:00"
+            },
+            {
+              "raw": "2026-09-07 00:05:00"
+            }
+          ]
+        },
+        "expected": [
+          {
+            "raw": "2026-09-03 14:30:00",
+            "date": "2026-09-03",
+            "hour": 14,
+            "weekday": 3
+          },
+          {
+            "raw": "2026-09-07 00:05:00",
+            "date": "2026-09-07",
+            "hour": 0,
+            "weekday": 0
+          }
+        ]
+      },
+      {
+        "id": "month-and-year-edges",
+        "visibility": "hidden",
+        "input_rows": [],
+        "tables": {
+          "raw_times": [
+            {
+              "raw": "2026-12-31 23:59:59"
+            },
+            {
+              "raw": "2027-01-01 00:00:00"
+            },
+            {
+              "raw": "2028-02-29 12:00:00"
+            }
+          ]
+        },
+        "expected": [
+          {
+            "raw": "2026-12-31 23:59:59",
+            "date": "2026-12-31",
+            "hour": 23,
+            "weekday": 3
+          },
+          {
+            "raw": "2027-01-01 00:00:00",
+            "date": "2027-01-01",
+            "hour": 0,
+            "weekday": 4
+          },
+          {
+            "raw": "2028-02-29 12:00:00",
+            "date": "2028-02-29",
+            "hour": 12,
+            "weekday": 1
+          }
+        ]
+      },
+      {
+        "id": "single",
+        "visibility": "edge",
+        "input_rows": [],
+        "tables": {
+          "raw_times": [
+            {
+              "raw": "2026-01-01 08:00:00"
+            }
+          ]
+        },
+        "expected": [
+          {
+            "raw": "2026-01-01 08:00:00",
+            "date": "2026-01-01",
+            "hour": 8,
+            "weekday": 3
+          }
+        ]
+      }
+    ]
+  },
+  "py-numpy-vectorize": {
+    "solution": "import numpy as np\nvalues = np.array([row[\"amount\"] for row in amounts], dtype=float)\nnet = values * 0.8\ndisplay([{\"amount\": float(a), \"net_amount\": float(n)} for a, n in zip(values, net)])",
+    "fixtures": [
+      {
+        "id": "example",
+        "visibility": "visible",
+        "input_rows": [],
+        "tables": {
+          "amounts": [
+            {
+              "amount": 10.0
+            },
+            {
+              "amount": 20.0
+            },
+            {
+              "amount": 30.0
+            }
+          ]
+        },
+        "expected": [
+          {
+            "amount": 10.0,
+            "net_amount": 8.0
+          },
+          {
+            "amount": 20.0,
+            "net_amount": 16.0
+          },
+          {
+            "amount": 30.0,
+            "net_amount": 24.0
+          }
+        ]
+      },
+      {
+        "id": "negatives-and-zero",
+        "visibility": "hidden",
+        "input_rows": [],
+        "tables": {
+          "amounts": [
+            {
+              "amount": -5.0
+            },
+            {
+              "amount": 0.0
+            },
+            {
+              "amount": 1.25
+            }
+          ]
+        },
+        "expected": [
+          {
+            "amount": -5.0,
+            "net_amount": -4.0
+          },
+          {
+            "amount": 0.0,
+            "net_amount": 0.0
+          },
+          {
+            "amount": 1.25,
+            "net_amount": 1.0
+          }
+        ]
+      },
+      {
+        "id": "single",
+        "visibility": "edge",
+        "input_rows": [],
+        "tables": {
+          "amounts": [
+            {
+              "amount": 100.0
+            }
+          ]
+        },
+        "expected": [
+          {
+            "amount": 100.0,
+            "net_amount": 80.0
+          }
+        ]
+      }
+    ]
+  }
+}

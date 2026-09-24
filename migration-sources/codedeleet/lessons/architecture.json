@@ -1,0 +1,1001 @@
+[
+  {
+    "id": "systems-lakehouse-serving",
+    "version": 1,
+    "workspace": "architecture",
+    "categoryId": "lakehouse-serving",
+    "title": "Lakehouse architecture: storage is not the whole system",
+    "summary": "Separate durable data, table semantics, compute and serving so an architecture diagram explains responsibilities rather than logos.",
+    "minutes": 7,
+    "objectives": [
+      "Identify storage, table, compute and serving responsibilities.",
+      "Explain bronze, silver and gold as refinement stages.",
+      "Connect a consumer requirement to a suitable serving boundary."
+    ],
+    "prerequisites": [
+      "Comfort reading a small table; no running cloud service is required."
+    ],
+    "blocks": [
+      {
+        "kind": "intro",
+        "id": "start",
+        "title": "The problem this solves",
+        "text": "A lakehouse diagram often begins with object storage and ends with a dashboard, but the important design decisions are in between. Raw files need interpretation, updates need reliable table semantics, transformations need compute and users need an appropriate serving path. A folder called gold is not automatically trustworthy. The architecture should explain how data becomes validated, how changes are applied and what guarantees consumers can rely on."
+      },
+      {
+        "kind": "concept",
+        "id": "mental-model",
+        "title": "A useful mental model",
+        "text": "Storage preserves bytes; a table format adds metadata and table-level behavior such as snapshots or transactions according to its implementation. Compute reads and transforms the data. Catalog and governance services help identify and control access to assets. Serving makes prepared data usable through SQL, semantic models, applications or other interfaces. Medallion stages are a useful refinement pattern: raw capture, validated integration and business-ready outputs, not three mandatory physical copies of every dataset.",
+        "mentalModel": "A lakehouse is a workshop around a durable stockroom. The stockroom holds material, workbenches transform it, and the delivery counter exposes products under a clear contract."
+      },
+      {
+        "kind": "diagram",
+        "id": "flow",
+        "title": "Follow the flow",
+        "diagram": {
+          "label": "Lakehouse architecture: storage is not the whole system - a simplified teaching flow",
+          "nodes": [
+            {
+              "id": "n0",
+              "label": "Bronze capture",
+              "detail": "retain source evidence"
+            },
+            {
+              "id": "n1",
+              "label": "Silver integration",
+              "detail": "validate and standardize"
+            },
+            {
+              "id": "n2",
+              "label": "Gold serving",
+              "detail": "business-grain outputs"
+            }
+          ],
+          "edges": [
+            {
+              "from": "n0",
+              "to": "n1"
+            },
+            {
+              "from": "n1",
+              "to": "n2"
+            }
+          ]
+        },
+        "caption": "Read each box as a responsibility or state, not as a mandatory product. The arrows show the order of reasoning; a real implementation can have additional checks and branches."
+      },
+      {
+        "kind": "steps",
+        "id": "method",
+        "title": "Work through it deliberately",
+        "steps": [
+          {
+            "title": "Preserve recoverable input",
+            "text": "Keep enough source identity and ingestion metadata to explain where a row came from and to replay a bounded interval when permitted."
+          },
+          {
+            "title": "Define refinement contracts",
+            "text": "At each stage, specify keys, accepted schema, quality rules and treatment of rejected records. A naming convention does not enforce these rules."
+          },
+          {
+            "title": "Design for consumption",
+            "text": "Choose the output grain and serving interface from actual use cases. A dashboard summary, a data-science feature table and an operational API may need different outputs."
+          }
+        ]
+      },
+      {
+        "kind": "code",
+        "id": "example-code",
+        "title": "A small concrete example",
+        "language": "Architecture notes",
+        "code": "bronze_orders: source rows + ingestion identity\nsilver_orders: validated keys + normalized amounts\ngold_daily_sales: one row per business date and region\n\nEach published table records:\n  grain | owner | quality gate | freshness | access policy",
+        "caption": "This sketch is platform-neutral. Delta, Iceberg and other table technologies have different feature and interoperability details that must be verified for the selected engines."
+      },
+      {
+        "kind": "table",
+        "id": "compare",
+        "title": "Keep these distinctions clear",
+        "columns": [
+          "Responsibility",
+          "What it answers",
+          "What not to assume"
+        ],
+        "rows": [
+          [
+            "Storage",
+            "Where are durable bytes kept?",
+            "Files alone provide every table-level guarantee"
+          ],
+          [
+            "Table semantics",
+            "How are snapshots and changes represented?",
+            "Every engine supports every format feature equally"
+          ],
+          [
+            "Compute",
+            "Where do transformations and queries execute?",
+            "Shared storage makes all workloads resource-independent"
+          ],
+          [
+            "Serving",
+            "How do consumers access meaningful outputs?",
+            "A raw table is already a governed business model"
+          ]
+        ]
+      },
+      {
+        "kind": "workedExample",
+        "id": "worked-example",
+        "title": "Reason through the example",
+        "steps": [
+          "A retailer receives order changes from several systems. Bronze retains source records with origin and ingestion identifiers.",
+          "Silver standardizes amounts and keys, selects valid current versions and keeps rejected records visible to operators.",
+          "Gold creates daily regional sales at an explicitly declared grain. Its publication depends on reconciliation and completeness checks.",
+          "A BI semantic model defines reusable measures over gold. An investigation tool may use controlled silver access instead of trying to recover transaction details from an aggregated gold table."
+        ],
+        "result": "Different consumers get appropriate products from the same refinement chain without confusing raw capture with certified analytical meaning."
+      },
+      {
+        "kind": "whenToUse",
+        "id": "when-to-use",
+        "title": "When this approach fits",
+        "items": [
+          {
+            "signal": "Several workloads need access to durable shared data",
+            "choice": "Separate storage and table contracts from the compute engines consuming them."
+          },
+          {
+            "signal": "Data moves from raw capture to business reporting",
+            "choice": "Use explicit refinement stages and publication gates, even if physical implementation differs by platform."
+          }
+        ]
+      },
+      {
+        "kind": "pitfall",
+        "id": "pitfall",
+        "title": "A mistake worth catching",
+        "text": "Treating bronze, silver and gold as mandatory folders can create copies without improving quality. Conversely, overwriting raw input too early can make failures difficult to reproduce.",
+        "correction": "Give every stage a reason: recoverability, validation, integration or serving. Keep only the copies and retention that support those responsibilities and governance requirements."
+      },
+      {
+        "kind": "checkpoint",
+        "id": "checkpoint",
+        "title": "Check your understanding",
+        "question": "A table is stored in a folder named gold but has duplicate business keys and no freshness check. Is it business-ready?",
+        "answer": "Not merely because of its folder name.",
+        "explanation": "Readiness is established by a documented grain, tests, ownership and a consumer contract. A medallion label describes intended responsibility, not proof that the responsibility was fulfilled."
+      },
+      {
+        "kind": "keyTakeaways",
+        "id": "takeaways",
+        "title": "Key takeaways",
+        "items": [
+          "Separate storage, table semantics, compute and serving.",
+          "Refinement stages need real contracts, not only names.",
+          "Choose output grain and access paths from consumer needs."
+        ]
+      },
+      {
+        "kind": "relatedPractice",
+        "id": "practice",
+        "title": "Put it into practice",
+        "exerciseIds": [
+          "arch-fabric",
+          "arch-databricks",
+          "arch-table-formats"
+        ]
+      }
+    ],
+    "sources": [
+      {
+        "label": "Databricks: medallion architecture",
+        "url": "https://docs.databricks.com/aws/en/lakehouse/medallion"
+      },
+      {
+        "label": "Microsoft: Direct Lake overview",
+        "url": "https://learn.microsoft.com/en-us/fabric/fundamentals/direct-lake-overview"
+      }
+    ]
+  },
+  {
+    "id": "systems-platform-tradeoffs",
+    "version": 1,
+    "workspace": "architecture",
+    "categoryId": "platform-tradeoffs",
+    "title": "Compare platforms by constraints, not by a winner",
+    "summary": "Build a defensible Fabric, Databricks, Snowflake and BigQuery comparison around workload, team, governance and cost assumptions.",
+    "minutes": 7,
+    "objectives": [
+      "Separate common responsibilities from product-specific integration.",
+      "Choose comparison dimensions that matter to a real workload.",
+      "Explain why a benchmark must state its assumptions."
+    ],
+    "prerequisites": [
+      "Comfort reading a small table; no running cloud service is required."
+    ],
+    "blocks": [
+      {
+        "kind": "intro",
+        "id": "start",
+        "title": "The problem this solves",
+        "text": "“Which platform is best?” is usually the wrong first question. A small Power BI team, a Spark-heavy engineering group and a SQL analytics organization may value different operational paths. All need dependable ingestion, transformation, governance and consumption, but they do not need the same combination of interfaces or controls. A useful comparison starts with constraints and an existing estate, then tests a small representative workload instead of relying on a feature checklist."
+      },
+      {
+        "kind": "concept",
+        "id": "mental-model",
+        "title": "A useful mental model",
+        "text": "Fabric emphasizes an integrated Microsoft analytics experience including OneLake and Power BI. Databricks provides a lakehouse-oriented platform with strong data-engineering and machine-learning workflows. Snowflake separates storage, compute and cloud-service responsibilities in its architecture. BigQuery is a managed Google Cloud analytical service with its own compute, storage and operating model. These descriptions are orientation points, not exclusive capability boundaries or permanent pricing claims.",
+        "mentalModel": "Compare routes to the same destination. The shortest route depends on where the team starts, what it carries and which checkpoints it must pass."
+      },
+      {
+        "kind": "diagram",
+        "id": "flow",
+        "title": "Follow the flow",
+        "diagram": {
+          "label": "Compare platforms by constraints, not by a winner - a simplified teaching flow",
+          "nodes": [
+            {
+              "id": "n0",
+              "label": "Workload constraints",
+              "detail": "data, users, freshness"
+            },
+            {
+              "id": "n1",
+              "label": "Candidate paths",
+              "detail": "integration + operations"
+            },
+            {
+              "id": "n2",
+              "label": "Measured decision",
+              "detail": "evidence + trade-offs"
+            }
+          ],
+          "edges": [
+            {
+              "from": "n0",
+              "to": "n1"
+            },
+            {
+              "from": "n1",
+              "to": "n2"
+            }
+          ]
+        },
+        "caption": "Read each box as a responsibility or state, not as a mandatory product. The arrows show the order of reasoning; a real implementation can have additional checks and branches."
+      },
+      {
+        "kind": "steps",
+        "id": "method",
+        "title": "Work through it deliberately",
+        "steps": [
+          {
+            "title": "Define a workload envelope",
+            "text": "Record data volume and shape, refresh frequency, query concurrency, latency expectations and the expected engineering skill set."
+          },
+          {
+            "title": "Compare full operating paths",
+            "text": "Include identity, catalog, deployment, observability, recovery and serving integration. A fast isolated query is only one part of the cost and reliability story."
+          },
+          {
+            "title": "Test the uncertain assumptions",
+            "text": "Run a small representative benchmark and document cache state, dataset, configuration and pricing basis. Avoid declaring a universal winner from a favorable default demo."
+          }
+        ]
+      },
+      {
+        "kind": "code",
+        "id": "example-code",
+        "title": "A small concrete example",
+        "language": "Decision worksheet",
+        "code": "Requirement: daily sales + interactive BI\nMust have: governed access, replayable loads, known freshness\nExisting skills: SQL, Python, Power BI\nCompare: end-to-end build effort, query experience, operations\nMeasure: correctness, latency, refresh, resource consumption\nRecord: assumptions, unsupported needs, exit / migration costs",
+        "caption": "No current price, quota or service-level guarantee is asserted here. Verify the exact region, edition, capacity and contract before a purchasing or migration decision."
+      },
+      {
+        "kind": "table",
+        "id": "compare",
+        "title": "Keep these distinctions clear",
+        "columns": [
+          "Platform",
+          "Orientation to investigate",
+          "Question for your proof of concept"
+        ],
+        "rows": [
+          [
+            "Fabric",
+            "Integrated Microsoft analytics and BI path",
+            "Does the supported serving mode fit the data and capacity?"
+          ],
+          [
+            "Databricks",
+            "Lakehouse engineering, Spark and ML workflows",
+            "Which compute and governance choices fit the team?"
+          ],
+          [
+            "Snowflake",
+            "Managed SQL analytics with separated responsibilities",
+            "How do workload isolation and consumption behave?"
+          ],
+          [
+            "BigQuery",
+            "Managed analytical SQL in Google Cloud",
+            "How do query shape and the chosen pricing model affect operations?"
+          ]
+        ]
+      },
+      {
+        "kind": "workedExample",
+        "id": "worked-example",
+        "title": "Reason through the example",
+        "steps": [
+          "Team A already owns governed Power BI reports and needs a daily financial summary. Integration and semantic-model ownership are major comparison dimensions.",
+          "Team B processes complex event data with Spark and maintains ML pipelines. Engineering and model-lifecycle workflows carry more weight for that workload.",
+          "Both teams run the same correctness checks on a sample dataset, but their evaluation scores need not use identical weights.",
+          "A recommendation records which assumptions would reverse the decision, such as a new cloud restriction, a different concurrency profile or a material change in team skills."
+        ],
+        "result": "The comparison becomes explainable because it ties platform choices to concrete constraints and acknowledges the cost of alternatives."
+      },
+      {
+        "kind": "whenToUse",
+        "id": "when-to-use",
+        "title": "When this approach fits",
+        "items": [
+          {
+            "signal": "A team is choosing or consolidating a platform",
+            "choice": "Use a weighted decision record grounded in actual workloads and operational ownership."
+          },
+          {
+            "signal": "A current platform seems expensive or slow",
+            "choice": "Investigate workload design and configuration before assuming migration is the only remedy."
+          }
+        ]
+      },
+      {
+        "kind": "pitfall",
+        "id": "pitfall",
+        "title": "A mistake worth catching",
+        "text": "Comparing one warm cached query on one platform with a cold full scan on another does not support a fair performance conclusion. Feature names also hide differences in limits and operational responsibility.",
+        "correction": "Publish the benchmark conditions and compare equivalent business outcomes. Use current primary documentation for capabilities and a measured trial for the uncertain workload behavior."
+      },
+      {
+        "kind": "checkpoint",
+        "id": "checkpoint",
+        "title": "Check your understanding",
+        "question": "Should the platform with the shortest isolated query time automatically win the architecture decision?",
+        "answer": "No. Query latency is one dimension among correctness, integration, governance, reliability and total operating effort.",
+        "explanation": "A faster query may come with a poor deployment path or an unsuitable cost profile for the real concurrency pattern. The decision must match the whole workload and organization."
+      },
+      {
+        "kind": "keyTakeaways",
+        "id": "takeaways",
+        "title": "Key takeaways",
+        "items": [
+          "Start with constraints and existing capabilities.",
+          "Compare end-to-end operating paths, not only product features.",
+          "State benchmark conditions and the assumptions behind the decision."
+        ]
+      },
+      {
+        "kind": "relatedPractice",
+        "id": "practice",
+        "title": "Put it into practice",
+        "exerciseIds": [
+          "v2-cloud-compare"
+        ]
+      }
+    ],
+    "sources": [
+      {
+        "label": "Microsoft: Direct Lake overview",
+        "url": "https://learn.microsoft.com/en-us/fabric/fundamentals/direct-lake-overview"
+      },
+      {
+        "label": "Databricks: medallion architecture",
+        "url": "https://docs.databricks.com/aws/en/lakehouse/medallion"
+      },
+      {
+        "label": "Snowflake: key concepts and architecture",
+        "url": "https://docs.snowflake.com/en/user-guide/intro-key-concepts"
+      },
+      {
+        "label": "Google Cloud: BigQuery introduction",
+        "url": "https://docs.cloud.google.com/bigquery/docs/introduction"
+      }
+    ]
+  },
+  {
+    "id": "systems-spark-distributed-compute",
+    "version": 1,
+    "workspace": "architecture",
+    "categoryId": "spark-compute",
+    "title": "Distributed compute: partitions, skew and small files",
+    "summary": "Diagnose uneven work before adding more machines, and distinguish a hot partition from an excess of tiny tasks.",
+    "minutes": 7,
+    "objectives": [
+      "Explain why one long task can dominate a distributed stage.",
+      "Distinguish data skew from a small-file problem.",
+      "Match a measured bottleneck to a targeted intervention."
+    ],
+    "prerequisites": [
+      "Comfort reading a small table; no running cloud service is required."
+    ],
+    "blocks": [
+      {
+        "kind": "intro",
+        "id": "start",
+        "title": "The problem this solves",
+        "text": "A distributed job finishes only when its required work finishes. If most tasks complete quickly but one task handles a dominant key, the stage can remain slow even with many idle cores. Another job may spend its time opening thousands of tiny files and scheduling short tasks. Both are performance problems, but they need different diagnoses. “Add workers” is not an explanation of either problem and may waste resources without changing the bottleneck."
+      },
+      {
+        "kind": "concept",
+        "id": "mental-model",
+        "title": "A useful mental model",
+        "text": "Partitions determine units of distributed work, but equal partition counts do not guarantee equal work. Skew occurs when some keys or partitions receive disproportionately much data or expensive computation. Small files introduce metadata, scheduling and file-open overhead relative to useful processing. Adaptive execution and engine optimizations can help in supported situations, but their effect must be checked in the actual plan and metrics.",
+        "mentalModel": "A group assignment finishes at the pace of its slowest required member. Giving everyone another chair does not divide one person's oversized task."
+      },
+      {
+        "kind": "diagram",
+        "id": "flow",
+        "title": "Follow the flow",
+        "diagram": {
+          "label": "Distributed compute: partitions, skew and small files - a simplified teaching flow",
+          "nodes": [
+            {
+              "id": "n0",
+              "label": "Measure task spread",
+              "detail": "median versus tail"
+            },
+            {
+              "id": "n1",
+              "label": "Classify bottleneck",
+              "detail": "skew, files, memory or I/O"
+            },
+            {
+              "id": "n2",
+              "label": "Target the change",
+              "detail": "retest equivalent workload"
+            }
+          ],
+          "edges": [
+            {
+              "from": "n0",
+              "to": "n1"
+            },
+            {
+              "from": "n1",
+              "to": "n2"
+            }
+          ]
+        },
+        "caption": "Read each box as a responsibility or state, not as a mandatory product. The arrows show the order of reasoning; a real implementation can have additional checks and branches."
+      },
+      {
+        "kind": "steps",
+        "id": "method",
+        "title": "Work through it deliberately",
+        "steps": [
+          {
+            "title": "Inspect distributions",
+            "text": "Look at task duration, input bytes, shuffle bytes and spill, not just total duration. A large maximum relative to typical tasks suggests uneven work."
+          },
+          {
+            "title": "Check key and file shape",
+            "text": "Profile dominant grouping or join keys and file-size distributions. Confirm whether the time is spent processing one hot key or coordinating too many tiny inputs."
+          },
+          {
+            "title": "Apply a specific remedy",
+            "text": "Consider pre-aggregation, a different join strategy, appropriate partitioning or compaction according to the measured cause. Retest correctness as well as speed."
+          }
+        ]
+      },
+      {
+        "kind": "code",
+        "id": "example-code",
+        "title": "A small concrete example",
+        "language": "PySpark",
+        "code": "from pyspark.sql import functions as F\n\n# Find candidate hot keys before choosing a skew strategy.\n(events.groupBy('customer_id')\n       .count()\n       .orderBy(F.desc('count'))\n       .show(10))\n\n# Also inspect the physical plan and stage metrics.\n# Do not add repartition() merely because it is available.",
+        "caption": "The profiling query itself performs distributed work. Run it on an appropriate sample or environment and include its cost in the investigation. This app does not start a Spark cluster."
+      },
+      {
+        "kind": "table",
+        "id": "compare",
+        "title": "Keep these distinctions clear",
+        "columns": [
+          "Observed pattern",
+          "Hypothesis",
+          "Targeted investigation"
+        ],
+        "rows": [
+          [
+            "One task is much slower than the rest",
+            "Skew or unusually expensive records",
+            "Per-key counts, partition sizes and task metrics"
+          ],
+          [
+            "Many tiny tasks with little data",
+            "Small-file or scheduling overhead",
+            "File count, file size and scan planning time"
+          ],
+          [
+            "Heavy spill across tasks",
+            "Memory pressure or oversized partitions",
+            "Row width, partition size and aggregation state"
+          ],
+          [
+            "Large shuffle traffic",
+            "Expensive redistribution",
+            "Join plan, filtering and pre-aggregation opportunities"
+          ]
+        ]
+      },
+      {
+        "kind": "workedExample",
+        "id": "worked-example",
+        "title": "Reason through the example",
+        "steps": [
+          "A stage has 100 tasks. Ninety-nine finish in about 8 seconds, while one takes 4 minutes and reads much more data.",
+          "The hot task contains a default customer key used for a large share of unmatched events. Doubling worker count does not automatically split that key's aggregation.",
+          "The team investigates whether the default-key records should be separated, whether a supported skew strategy applies, or whether partial aggregation can reduce the exchange. Each option must preserve the intended total.",
+          "A different pipeline has no long tail but opens 80,000 tiny files. Its investigation focuses on file layout and compaction rather than on customer-key salting."
+        ],
+        "result": "The intervention follows the measured shape of the work instead of treating every slow distributed job as a shortage of machines."
+      },
+      {
+        "kind": "whenToUse",
+        "id": "when-to-use",
+        "title": "When this approach fits",
+        "items": [
+          {
+            "signal": "Task duration has a very large tail",
+            "choice": "Investigate skew and expensive partitions before scaling the cluster."
+          },
+          {
+            "signal": "Scan overhead dominates useful work",
+            "choice": "Investigate file sizing and write patterns; do not merge everything into a single giant file."
+          }
+        ]
+      },
+      {
+        "kind": "pitfall",
+        "id": "pitfall",
+        "title": "A mistake worth catching",
+        "text": "Blindly coalescing to one partition can remove parallelism and create a new bottleneck. Salting a key without a correct recombination step can also change the meaning of an aggregate.",
+        "correction": "State how the proposed change redistributes work and how the final result remains equivalent. Compare against the same dataset and representative query after the change."
+      },
+      {
+        "kind": "checkpoint",
+        "id": "checkpoint",
+        "title": "Check your understanding",
+        "question": "Most tasks are idle while one hot-key task runs. Why may adding workers fail to improve the stage?",
+        "answer": "The remaining work is concentrated in one task rather than evenly available to the new workers.",
+        "explanation": "Extra capacity helps only when work can use it. The key distribution or physical plan may need to change before additional workers can process the bottleneck in parallel."
+      },
+      {
+        "kind": "keyTakeaways",
+        "id": "takeaways",
+        "title": "Key takeaways",
+        "items": [
+          "Distributed performance depends on work distribution, not just worker count.",
+          "Skew and small files are distinct problems.",
+          "Measure task and data shape, then validate a targeted change."
+        ]
+      },
+      {
+        "kind": "relatedPractice",
+        "id": "practice",
+        "title": "Put it into practice",
+        "exerciseIds": [
+          "arch-spark-skew",
+          "v2-spark-files"
+        ]
+      }
+    ],
+    "sources": [
+      {
+        "label": "Apache Spark: RDD programming and shuffles",
+        "url": "https://spark.apache.org/docs/4.1.1/rdd-programming-guide.html"
+      },
+      {
+        "label": "Apache Spark: SQL performance tuning",
+        "url": "https://spark.apache.org/docs/latest/sql-performance-tuning.html"
+      }
+    ]
+  },
+  {
+    "id": "systems-security-governance",
+    "version": 1,
+    "workspace": "architecture",
+    "categoryId": "security-governance",
+    "title": "Access boundaries: identity, permissions and state",
+    "summary": "Trace who can do what at each layer, and treat deployment state and logs as sensitive parts of the data system.",
+    "minutes": 7,
+    "objectives": [
+      "Distinguish authentication from authorization.",
+      "Identify storage, compute and serving access boundaries.",
+      "Explain why hidden UI values can still exist in state or logs."
+    ],
+    "prerequisites": [
+      "Comfort reading a small table; no running cloud service is required."
+    ],
+    "blocks": [
+      {
+        "kind": "intro",
+        "id": "start",
+        "title": "The problem this solves",
+        "text": "A secure architecture cannot be inferred from the presence of a login screen. The same data can be reachable through storage, a query endpoint, a semantic model, an export or a deployment artifact. Each path needs an identity and an authorization decision. A report that hides a column does not necessarily prevent direct access to the underlying table. Likewise, a tool that masks a secret in its console may still retain that secret in state."
+      },
+      {
+        "kind": "concept",
+        "id": "mental-model",
+        "title": "A useful mental model",
+        "text": "Authentication establishes an identity; authorization decides which actions that identity may perform on which resources. Least privilege limits those permissions to the required scope. Governance adds ownership, classification, lineage and lifecycle expectations. Infrastructure state can include sensitive resource attributes, so its storage, encryption, access and recovery controls matter alongside the deployed system itself. Marking a value sensitive is not the same as ensuring it never exists in persisted state.",
+        "mentalModel": "Every door needs its own key policy. Hiding a room on the building map does not lock the door, and the maintenance office may hold keys that are just as sensitive as the rooms."
+      },
+      {
+        "kind": "diagram",
+        "id": "flow",
+        "title": "Follow the flow",
+        "diagram": {
+          "label": "Access boundaries: identity, permissions and state - a simplified teaching flow",
+          "nodes": [
+            {
+              "id": "n0",
+              "label": "Identity",
+              "detail": "person or workload"
+            },
+            {
+              "id": "n1",
+              "label": "Scoped permission",
+              "detail": "resource and allowed action"
+            },
+            {
+              "id": "n2",
+              "label": "Audited boundary",
+              "detail": "storage, compute or serving"
+            }
+          ],
+          "edges": [
+            {
+              "from": "n0",
+              "to": "n1"
+            },
+            {
+              "from": "n1",
+              "to": "n2"
+            }
+          ]
+        },
+        "caption": "Read each box as a responsibility or state, not as a mandatory product. The arrows show the order of reasoning; a real implementation can have additional checks and branches."
+      },
+      {
+        "kind": "steps",
+        "id": "method",
+        "title": "Work through it deliberately",
+        "steps": [
+          {
+            "title": "Enumerate access paths",
+            "text": "List human users, service identities, administrators and automated jobs. Include exports, state files, backups and diagnostic logs, not just the main application."
+          },
+          {
+            "title": "Define minimum rights",
+            "text": "Separate read, write and administrative privileges. Scope a pipeline identity to the data and operations it needs instead of granting broad ownership by default."
+          },
+          {
+            "title": "Test as the intended identity",
+            "text": "A successful administrator test proves little about reader restrictions. Verify allowed and denied operations with representative identities and record auditable outcomes without exposing secrets."
+          }
+        ]
+      },
+      {
+        "kind": "code",
+        "id": "example-code",
+        "title": "A small concrete example",
+        "language": "Access review checklist",
+        "code": "Identity: daily-orders-loader\nAllowed: read landing/orders, write trusted/orders\nDenied: read payroll, change access policies\nSecrets: retrieved through an approved secret mechanism\nState: restricted backend, encryption and recovery policy\nEvidence: successful allowed action + rejected denied action",
+        "caption": "This is a design checklist, not an access policy for a specific cloud. Exact identity and permission semantics depend on the platform and resource type."
+      },
+      {
+        "kind": "table",
+        "id": "compare",
+        "title": "Keep these distinctions clear",
+        "columns": [
+          "Boundary",
+          "Question",
+          "Common false assurance"
+        ],
+        "rows": [
+          [
+            "Authentication",
+            "Who is making the request?",
+            "A login automatically grants the correct scope"
+          ],
+          [
+            "Authorization",
+            "Which resource actions are permitted?",
+            "A hidden menu item prevents API access"
+          ],
+          [
+            "Serving layer",
+            "What can this reader query or export?",
+            "A report-only test covers direct table access"
+          ],
+          [
+            "State and logs",
+            "Where can sensitive values persist?",
+            "Masked output means no secret is stored anywhere"
+          ]
+        ]
+      },
+      {
+        "kind": "workedExample",
+        "id": "worked-example",
+        "title": "Reason through the example",
+        "steps": [
+          "A BI reader is allowed to view approved sales summaries but not raw payroll data. The report interface exposes only sales pages.",
+          "The team also checks the reader's direct storage and SQL permissions, because those paths can bypass the report interface.",
+          "A deployment identity provisions resources. Its state backend is restricted and protected, since state may contain sensitive attributes even when command output is masked.",
+          "An incident drill verifies that the team can revoke an identity, inspect audit evidence and restore required encrypted state using the approved key-recovery process."
+        ],
+        "result": "The security argument covers real access paths and operational artifacts instead of relying on the appearance of the user interface."
+      },
+      {
+        "kind": "whenToUse",
+        "id": "when-to-use",
+        "title": "When this approach fits",
+        "items": [
+          {
+            "signal": "A new ingestion or reporting path is introduced",
+            "choice": "Review identity and permissions at every boundary, including exports and diagnostics."
+          },
+          {
+            "signal": "Infrastructure is managed as code",
+            "choice": "Protect plan and state artifacts as part of the system, and verify the encryption and recovery configuration actually used."
+          }
+        ]
+      },
+      {
+        "kind": "pitfall",
+        "id": "pitfall",
+        "title": "A mistake worth catching",
+        "text": "Copying raw state or logs into a public issue or source repository can expose secrets and internal identifiers. Encryption also creates a recovery dependency: losing the required key can make protected state unusable.",
+        "correction": "Keep sensitive artifacts out of public deliverables, use restricted storage, and test a documented recovery path. Share redacted evidence rather than raw production state."
+      },
+      {
+        "kind": "checkpoint",
+        "id": "checkpoint",
+        "title": "Check your understanding",
+        "question": "A secret is masked in a deployment tool's output. Can you assume it is absent from the tool's saved state?",
+        "answer": "No. Display masking and persisted-state protection are different controls.",
+        "explanation": "Review what the tool stores and how the backend protects it. Use appropriate encryption, access restriction and retention; do not publish state because its console output looked harmless."
+      },
+      {
+        "kind": "keyTakeaways",
+        "id": "takeaways",
+        "title": "Key takeaways",
+        "items": [
+          "Authentication identifies; authorization permits.",
+          "Review every data path, not only the main UI.",
+          "Protect state, logs and backups with explicit access and recovery controls."
+        ]
+      },
+      {
+        "kind": "relatedPractice",
+        "id": "practice",
+        "title": "Put it into practice",
+        "exerciseIds": [
+          "arch-tofu",
+          "v2-tofu-replacement"
+        ]
+      }
+    ],
+    "sources": [
+      {
+        "label": "Microsoft: Zero Trust overview",
+        "url": "https://learn.microsoft.com/en-us/security/zero-trust/zero-trust-overview"
+      },
+      {
+        "label": "OpenTofu: sensitive state data",
+        "url": "https://opentofu.org/docs/language/state/sensitive-data/"
+      }
+    ]
+  },
+  {
+    "id": "systems-cost-reliability-operations",
+    "version": 1,
+    "workspace": "architecture",
+    "categoryId": "cost-operations",
+    "title": "Operate with evidence: cost, reliability and recovery",
+    "summary": "Use a small diagnostic loop to connect symptoms to measurements, make a bounded change and verify the result.",
+    "minutes": 7,
+    "objectives": [
+      "Separate user-visible symptoms from a proposed cause.",
+      "Use query and service evidence before changing capacity.",
+      "Define a reversible intervention and a success measure."
+    ],
+    "prerequisites": [
+      "Comfort reading a small table; no running cloud service is required."
+    ],
+    "blocks": [
+      {
+        "kind": "intro",
+        "id": "start",
+        "title": "The problem this solves",
+        "text": "Operational work often begins with a vague symptom: the report is expensive, the service is unreachable or the daily job is late. Jumping immediately to a larger machine or a restart may hide the real cause. A better loop states the expected behavior, gathers a few decisive measurements, forms a hypothesis and changes one thing at a time. Reliability and cost should be evaluated together: a cheap query that misses its deadline is not necessarily a good design."
+      },
+      {
+        "kind": "concept",
+        "id": "mental-model",
+        "title": "A useful mental model",
+        "text": "Cost depends on the platform's charging model and the work actually performed. Reliability depends on whether the service meets its intended behavior over time and can recover from failure. Performance measurements help connect both to specific mechanisms. For a query, investigate scanned data, partition pruning and execution shape. For a service, follow the request path through names, selectors, endpoints and listening ports before assuming that more replicas will help.",
+        "mentalModel": "Diagnose like a mechanic: describe the symptom, inspect the relevant gauges, test one hypothesis, and verify the repair under the same conditions."
+      },
+      {
+        "kind": "diagram",
+        "id": "flow",
+        "title": "Follow the flow",
+        "diagram": {
+          "label": "Operate with evidence: cost, reliability and recovery - a simplified teaching flow",
+          "nodes": [
+            {
+              "id": "n0",
+              "label": "User symptom",
+              "detail": "expected versus observed"
+            },
+            {
+              "id": "n1",
+              "label": "Targeted evidence",
+              "detail": "query or request path"
+            },
+            {
+              "id": "n2",
+              "label": "Bounded change",
+              "detail": "verify and retain rollback"
+            }
+          ],
+          "edges": [
+            {
+              "from": "n0",
+              "to": "n1"
+            },
+            {
+              "from": "n1",
+              "to": "n2"
+            }
+          ]
+        },
+        "caption": "Read each box as a responsibility or state, not as a mandatory product. The arrows show the order of reasoning; a real implementation can have additional checks and branches."
+      },
+      {
+        "kind": "steps",
+        "id": "method",
+        "title": "Work through it deliberately",
+        "steps": [
+          {
+            "title": "Make the symptom measurable",
+            "text": "Replace “slow” with a defined query, input interval and observed latency. Replace “expensive” with the relevant resource or billing measure under the chosen pricing model."
+          },
+          {
+            "title": "Trace the actual path",
+            "text": "For partitioned data, check whether the query filters the partitioning field in a supported way. For a service, verify selected endpoints and port mapping before changing replica counts."
+          },
+          {
+            "title": "Test and record the change",
+            "text": "Use a representative before-and-after comparison. Keep a rollback path and monitor for regressions in correctness, latency, availability and consumption."
+          }
+        ]
+      },
+      {
+        "kind": "code",
+        "id": "example-code",
+        "title": "A small concrete example",
+        "language": "SQL and operations checklist",
+        "code": "-- Select only needed columns and the required date interval.\nSELECT region, SUM(amount) AS revenue\nFROM daily_sales\nWHERE business_date = DATE '2026-01-15'\nGROUP BY region;\n\n-- Before execution: inspect the plan / estimate where supported.\n-- After execution: record result checks, latency and resource use.\n-- For a service: inspect selector -> endpoints -> target port.",
+        "caption": "The SQL is generic. In BigQuery, use the tools and cost controls appropriate to the selected pricing model; a LIMIT alone is not a general guarantee of a cheaper scan."
+      },
+      {
+        "kind": "table",
+        "id": "compare",
+        "title": "Keep these distinctions clear",
+        "columns": [
+          "Symptom",
+          "Useful evidence",
+          "Potentially misleading fix"
+        ],
+        "rows": [
+          [
+            "High scan consumption",
+            "Selected columns, partition filter, estimated bytes",
+            "Add LIMIT and assume the scan is now small"
+          ],
+          [
+            "Service has no reachable backends",
+            "Selector labels and EndpointSlices",
+            "Add replicas with the same mismatched labels"
+          ],
+          [
+            "Job misses its deadline",
+            "Critical path, retries and task distribution",
+            "Increase every task's resources equally"
+          ],
+          [
+            "Frequent manual recovery",
+            "Failure classes and replay safety",
+            "Hide alerts instead of fixing repeatable causes"
+          ]
+        ]
+      },
+      {
+        "kind": "workedExample",
+        "id": "worked-example",
+        "title": "Reason through the example",
+        "steps": [
+          "A daily regional query scans far more data than expected. The intended output is one business day, but the original query reads all history and filters the date only in a later client step.",
+          "The team moves the valid date restriction into the query and selects only needed columns. It checks the engine's estimate and compares actual results against the original day's output.",
+          "Separately, a service has healthy pods but no endpoints selected by its service label. The team fixes the selector mismatch instead of adding more pods.",
+          "Both changes are narrow and reversible. The record includes the hypothesis, measurements, exact configuration change and the checks that established improvement."
+        ],
+        "result": "Operational changes are justified by evidence and verified against the original user-visible problem."
+      },
+      {
+        "kind": "whenToUse",
+        "id": "when-to-use",
+        "title": "When this approach fits",
+        "items": [
+          {
+            "signal": "A cost or latency regression appears",
+            "choice": "Compare equivalent workloads and investigate the resource path before buying more capacity."
+          },
+          {
+            "signal": "A service is unreachable despite healthy processes",
+            "choice": "Trace routing and selection boundaries; process health is only one part of reachability."
+          }
+        ]
+      },
+      {
+        "kind": "pitfall",
+        "id": "pitfall",
+        "title": "A mistake worth catching",
+        "text": "A green process-health check does not prove the whole request path works. Similarly, a query returning ten rows may still scan a large dataset; output size and processing work are different measurements.",
+        "correction": "Measure the end-to-end outcome and the relevant internal work. Avoid treating a small result or a running process as complete evidence of efficiency or reliability."
+      },
+      {
+        "kind": "checkpoint",
+        "id": "checkpoint",
+        "title": "Check your understanding",
+        "question": "A query returns ten rows after LIMIT 10. Does that prove it scanned only ten rows and therefore cost very little?",
+        "answer": "No. The engine may still read much more data to produce those rows.",
+        "explanation": "Inspect the query plan or estimate and actual resource metrics. Projection, partitioning, clustering and the pricing model influence cost; result-row count alone is not enough."
+      },
+      {
+        "kind": "keyTakeaways",
+        "id": "takeaways",
+        "title": "Key takeaways",
+        "items": [
+          "Turn symptoms into measurable expectations.",
+          "Trace the actual query or request path before scaling.",
+          "Make bounded, reversible changes and verify the end-to-end result."
+        ]
+      },
+      {
+        "kind": "relatedPractice",
+        "id": "practice",
+        "title": "Put it into practice",
+        "exerciseIds": [
+          "arch-bigquery",
+          "v2-k8-selector",
+          "arch-kubernetes"
+        ]
+      }
+    ],
+    "sources": [
+      {
+        "label": "Google Cloud: control BigQuery costs",
+        "url": "https://docs.cloud.google.com/bigquery/docs/best-practices-costs"
+      },
+      {
+        "label": "Kubernetes: debugging services",
+        "url": "https://kubernetes.io/docs/tasks/debug/debug-application/debug-service/"
+      }
+    ]
+  }
+]

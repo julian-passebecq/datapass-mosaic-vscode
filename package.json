@@ -1,0 +1,94 @@
+{
+  "name": "datapass-mosaic-vscode",
+  "displayName": "Datapass Workbench",
+  "description": "Local-first data-engineering practice workbench for VS Code.",
+  "version": "0.1.0",
+  "publisher": "datapass",
+  "engines": {
+    "vscode": "^1.95.0"
+  },
+  "categories": [
+    "Education",
+    "Data Science"
+  ],
+  "main": "./dist/extension.js",
+  "extensionPack": [
+    "ms-python.python",
+    "ms-toolsai.jupyter"
+  ],
+  "contributes": {
+    "commands": [
+      {
+        "command": "datapass.openMosaic",
+        "title": "Datapass: Open Mosaic"
+      },
+      {
+        "command": "datapass.openPractice",
+        "title": "Datapass: Open Practice"
+      },
+      {
+        "command": "datapass.openFabricLab",
+        "title": "Datapass: Open Fabric Lab"
+      },
+      {
+        "command": "datapass.openSparkLab",
+        "title": "Datapass: Open SparkLab"
+      },
+      {
+        "command": "datapass.openDbtLab",
+        "title": "Datapass: Open dbt Lab"
+      },
+      {
+        "command": "datapass.openAirflowLab",
+        "title": "Datapass: Open Airflow Lab"
+      },
+      {
+        "command": "datapass.openPipelineLab",
+        "title": "Datapass: Open Pipeline Lab"
+      }
+    ],
+    "viewsContainers": {
+      "activitybar": [
+        {
+          "id": "datapass",
+          "title": "Datapass",
+          "icon": "media/datapass.svg"
+        }
+      ]
+    },
+    "views": {
+      "datapass": [
+        {
+          "id": "datapass.labs",
+          "name": "Labs"
+        }
+      ]
+    }
+  },
+  "scripts": {
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "build": "node scripts/build.mjs",
+    "compile": "npm run typecheck && npm run build",
+    "watch": "node scripts/build.mjs --watch",
+    "vscode:prepublish": "npm run compile",
+    "test:host": "npm run build && node scripts/extension_host_e2e.mjs",
+    "test": "node scripts/scaffold_smoke.mjs && node scripts/runtime_endpoint_smoke.mjs && node scripts/package_smoke.mjs && node scripts/runtime_environment_smoke.mjs && node scripts/trust_smoke.mjs && node scripts/mosaic_layout_smoke.mjs"
+  },
+  "dependencies": {
+    "@fluentui/react-components": "^9.68.0",
+    "@xyflow/react": "12.8.5",
+    "react": "^19.1.1",
+    "react-dom": "^19.1.1",
+    "react-grid-layout": "2.2.3",
+    "react-resizable": "3.0.5"
+  },
+  "devDependencies": {
+    "@types/node": "^22.10.0",
+    "@types/react": "^19.1.10",
+    "@types/react-dom": "^19.1.7",
+    "@types/vscode": "^1.95.0",
+    "@vscode/test-electron": "^3.1.0",
+    "esbuild": "^0.25.9",
+    "typescript": "^5.7.2"
+  }
+}

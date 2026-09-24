@@ -1,0 +1,9 @@
+{
+  "schemaVersion": 1,
+  "files": [
+    "code.json",
+    "model.json",
+    "pipeline.json",
+    "architecture.json"
+  ]
+}

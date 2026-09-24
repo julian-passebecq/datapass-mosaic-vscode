@@ -1,0 +1,1677 @@
+[
+  {
+    "schema_version": 1,
+    "id": "py-load-mode",
+    "version": "1",
+    "title": "Choose a load mode with if / elif / else",
+    "difficulty": "easy",
+    "topics": [
+      "conditionals",
+      "python"
+    ],
+    "tags": [
+      "python-lab",
+      "trusted-local-python"
+    ],
+    "origin": "migrated",
+    "language": "python",
+    "runtime": "shared-python-v1",
+    "prompt": "For each row of table_stats return table_name, row_count, mode: 'full' when row_count is 0, 'large_incremental' when row_count is above 1,000,000, otherwise 'incremental'.",
+    "sections": [
+      {
+        "title": "Input",
+        "body": "Each table (table_stats) is available as a variable of the same name: a list of row dictionaries."
+      },
+      {
+        "title": "Output",
+        "body": "display(...) a list of row dictionaries with keys in this order: table_name, row_count, mode. If the result can be empty, pass columns=[...] to display so the schema survives."
+      },
+      {
+        "title": "Common pitfall",
+        "body": "Using >= for the large threshold misclassifies exactly one million rows."
+      },
+      {
+        "title": "Execution",
+        "body": "Graded as real local Python; requires trusted local Python for this workspace."
+      }
+    ],
+    "starter_source": "result = []\nfor row in table_stats:\n    # choose the mode\n    result.append({\"table_name\": row[\"table_name\"], \"row_count\": row[\"row_count\"], \"mode\": \"incremental\"})\ndisplay(result)",
+    "fixtures": [
+      {
+        "id": "py-load-mode-fixtures",
+        "version": "1"
+      }
+    ],
+    "visible_checks": [
+      {
+        "id": "example",
+        "description": "Public example: the tables shown in data_context."
+      }
+    ],
+    "hidden_check_refs": [
+      "boundaries"
+    ],
+    "edge_check_refs": [
+      "single"
+    ],
+    "hints": [
+      "Check the most specific condition first.",
+      "1,000,000 exactly is not above 1,000,000."
+    ],
+    "solution": {
+      "available": true,
+      "reveal": "explicit"
+    },
+    "explanation": "if / elif / else picks exactly one branch, in order.",
+    "follow_ups": [
+      "How would you drive the thresholds from configuration?"
+    ],
+    "canonical_placement": {
+      "domain": "python",
+      "topic": "conditionals"
+    },
+    "related_associations": [
+      "python/python"
+    ],
+    "recommendation": {
+      "rank": 1,
+      "reason": "Python lab progression"
+    },
+    "validator_version": "rows-v2",
+    "validation": {
+      "kind": "rows",
+      "ordered": false,
+      "duplicate_sensitive": true,
+      "relative_tolerance": 1e-09,
+      "absolute_tolerance": 1e-09,
+      "required_columns": [
+        "table_name",
+        "row_count",
+        "mode"
+      ],
+      "exact_schema": [
+        "table_name",
+        "row_count",
+        "mode"
+      ],
+      "forbidden_extra_columns": true,
+      "null_semantics": "equal"
+    },
+    "data_context": [
+      {
+        "name": "table_stats",
+        "columns": {
+          "table_name": "VARCHAR",
+          "row_count": "BIGINT"
+        },
+        "sample_rows": [
+          {
+            "table_name": "customers",
+            "row_count": 0
+          },
+          {
+            "table_name": "orders",
+            "row_count": 125000
+          },
+          {
+            "table_name": "events",
+            "row_count": 5000000
+          }
+        ]
+      }
+    ],
+    "output_schema": {
+      "table_name": "value",
+      "row_count": "value",
+      "mode": "value"
+    },
+    "runtime_requirements": [
+      "trusted-local-python"
+    ],
+    "provenance": {
+      "source": "Datapass leetcodedataeng curriculum (f-if), reframed as a graded data transform",
+      "fixtures": "Authored for Datapass; expected rows computed from the reference solution and reviewed"
+    },
+    "constraints": {
+      "security": "Python runs as trusted local code; the worker is not a security sandbox."
+    }
+  },
+  {
+    "schema_version": 1,
+    "id": "py-safe-int",
+    "version": "1",
+    "title": "Parse integers with try / except",
+    "difficulty": "medium",
+    "topics": [
+      "exceptions",
+      "parsing",
+      "python"
+    ],
+    "tags": [
+      "python-lab",
+      "trusted-local-python"
+    ],
+    "origin": "migrated",
+    "language": "python",
+    "runtime": "shared-python-v1",
+    "prompt": "For each raw_value return raw_value and parsed: int(raw_value) when it is a valid integer string (surrounding spaces allowed by int()), otherwise None. Catch only ValueError.",
+    "sections": [
+      {
+        "title": "Input",
+        "body": "Each table (raw_values) is available as a variable of the same name: a list of row dictionaries."
+      },
+      {
+        "title": "Output",
+        "body": "display(...) a list of row dictionaries with keys in this order: raw_value, parsed. If the result can be empty, pass columns=[...] to display so the schema survives."
+      },
+      {
+        "title": "Common pitfall",
+        "body": "A bare except: also swallows bugs such as a KeyError from a typo."
+      },
+      {
+        "title": "Execution",
+        "body": "Graded as real local Python; requires trusted local Python for this workspace."
+      }
+    ],
+    "starter_source": "result = []\nfor row in raw_values:\n    parsed = row[\"raw_value\"]  # convert safely\n    result.append({\"raw_value\": row[\"raw_value\"], \"parsed\": parsed})\ndisplay(result)",
+    "fixtures": [
+      {
+        "id": "py-safe-int-fixtures",
+        "version": "1"
+      }
+    ],
+    "visible_checks": [
+      {
+        "id": "example",
+        "description": "Public example: the tables shown in data_context."
+      }
+    ],
+    "hidden_check_refs": [
+      "tricky-strings"
+    ],
+    "edge_check_refs": [
+      "all-valid"
+    ],
+    "hints": [
+      "Wrap only the risky conversion in try.",
+      "'3.5' is not a valid int() string."
+    ],
+    "solution": {
+      "available": true,
+      "reveal": "explicit"
+    },
+    "explanation": "try / except ValueError turns a bad value into None without hiding other errors.",
+    "follow_ups": [
+      "Where would you log the rejected values in a real pipeline?"
+    ],
+    "canonical_placement": {
+      "domain": "python",
+      "topic": "exceptions"
+    },
+    "related_associations": [
+      "python/parsing",
+      "python/python"
+    ],
+    "recommendation": {
+      "rank": 2,
+      "reason": "Python lab progression"
+    },
+    "validator_version": "rows-v2",
+    "validation": {
+      "kind": "rows",
+      "ordered": false,
+      "duplicate_sensitive": true,
+      "relative_tolerance": 1e-09,
+      "absolute_tolerance": 1e-09,
+      "required_columns": [
+        "raw_value",
+        "parsed"
+      ],
+      "exact_schema": [
+        "raw_value",
+        "parsed"
+      ],
+      "forbidden_extra_columns": true,
+      "null_semantics": "equal"
+    },
+    "data_context": [
+      {
+        "name": "raw_values",
+        "columns": {
+          "raw_value": "VARCHAR"
+        },
+        "sample_rows": [
+          {
+            "raw_value": "42"
+          },
+          {
+            "raw_value": "not-a-number"
+          },
+          {
+            "raw_value": "-7"
+          }
+        ]
+      }
+    ],
+    "output_schema": {
+      "raw_value": "value",
+      "parsed": "value"
+    },
+    "runtime_requirements": [
+      "trusted-local-python"
+    ],
+    "provenance": {
+      "source": "Datapass leetcodedataeng curriculum (f-try), reframed as a graded data transform",
+      "fixtures": "Authored for Datapass; expected rows computed from the reference solution and reviewed"
+    },
+    "constraints": {
+      "security": "Python runs as trusted local code; the worker is not a security sandbox."
+    }
+  },
+  {
+    "schema_version": 1,
+    "id": "py-set-validate",
+    "version": "1",
+    "title": "Validate statuses with a set",
+    "difficulty": "easy",
+    "topics": [
+      "sets",
+      "membership",
+      "python"
+    ],
+    "tags": [
+      "python-lab",
+      "trusted-local-python"
+    ],
+    "origin": "migrated",
+    "language": "python",
+    "runtime": "shared-python-v1",
+    "prompt": "Return status and is_valid (True/False) for each row, where valid statuses are NEW, READY and DONE (case-sensitive).",
+    "sections": [
+      {
+        "title": "Input",
+        "body": "Each table (statuses) is available as a variable of the same name: a list of row dictionaries."
+      },
+      {
+        "title": "Output",
+        "body": "display(...) a list of row dictionaries with keys in this order: status, is_valid. If the result can be empty, pass columns=[...] to display so the schema survives."
+      },
+      {
+        "title": "Common pitfall",
+        "body": "Lowercasing or trimming changes which statuses are considered valid."
+      },
+      {
+        "title": "Execution",
+        "body": "Graded as real local Python; requires trusted local Python for this workspace."
+      }
+    ],
+    "starter_source": "allowed_status = {}\nresult = [{\"status\": row[\"status\"], \"is_valid\": False} for row in statuses]\ndisplay(result)",
+    "fixtures": [
+      {
+        "id": "py-set-validate-fixtures",
+        "version": "1"
+      }
+    ],
+    "visible_checks": [
+      {
+        "id": "example",
+        "description": "Public example: the tables shown in data_context."
+      }
+    ],
+    "hidden_check_refs": [
+      "case-and-duplicates"
+    ],
+    "edge_check_refs": [
+      "none-valid"
+    ],
+    "hints": [
+      "A set literal uses braces with values: {\"NEW\", ...}.",
+      "{} alone is an empty dict, not a set."
+    ],
+    "solution": {
+      "available": true,
+      "reveal": "explicit"
+    },
+    "explanation": "Set membership is a constant-time lookup and states the intent 'is this one of these values'.",
+    "follow_ups": [
+      "When is a list the better container, despite slower membership?"
+    ],
+    "canonical_placement": {
+      "domain": "python",
+      "topic": "sets"
+    },
+    "related_associations": [
+      "python/membership",
+      "python/python"
+    ],
+    "recommendation": {
+      "rank": 3,
+      "reason": "Python lab progression"
+    },
+    "validator_version": "rows-v2",
+    "validation": {
+      "kind": "rows",
+      "ordered": false,
+      "duplicate_sensitive": true,
+      "relative_tolerance": 1e-09,
+      "absolute_tolerance": 1e-09,
+      "required_columns": [
+        "status",
+        "is_valid"
+      ],
+      "exact_schema": [
+        "status",
+        "is_valid"
+      ],
+      "forbidden_extra_columns": true,
+      "null_semantics": "equal"
+    },
+    "data_context": [
+      {
+        "name": "statuses",
+        "columns": {
+          "status": "VARCHAR"
+        },
+        "sample_rows": [
+          {
+            "status": "READY"
+          },
+          {
+            "status": "LOST"
+          },
+          {
+            "status": "NEW"
+          }
+        ]
+      }
+    ],
+    "output_schema": {
+      "status": "value",
+      "is_valid": "value"
+    },
+    "runtime_requirements": [
+      "trusted-local-python"
+    ],
+    "provenance": {
+      "source": "Datapass leetcodedataeng curriculum (f-set), reframed as a graded data transform",
+      "fixtures": "Authored for Datapass; expected rows computed from the reference solution and reviewed"
+    },
+    "constraints": {
+      "security": "Python runs as trusted local code; the worker is not a security sandbox."
+    }
+  },
+  {
+    "schema_version": 1,
+    "id": "py-frequency",
+    "version": "1",
+    "title": "Count frequencies with a dictionary",
+    "difficulty": "medium",
+    "topics": [
+      "dictionaries",
+      "counting",
+      "python"
+    ],
+    "tags": [
+      "python-lab",
+      "trusted-local-python"
+    ],
+    "origin": "migrated",
+    "language": "python",
+    "runtime": "shared-python-v1",
+    "prompt": "Return one row per distinct status with status and count (number of occurrences).",
+    "sections": [
+      {
+        "title": "Input",
+        "body": "Each table (events) is available as a variable of the same name: a list of row dictionaries."
+      },
+      {
+        "title": "Output",
+        "body": "display(...) a list of row dictionaries with keys in this order: status, count. If the result can be empty, pass columns=[...] to display so the schema survives."
+      },
+      {
+        "title": "Common pitfall",
+        "body": "Counting only distinct values (a set) loses the counts."
+      },
+      {
+        "title": "Execution",
+        "body": "Graded as real local Python; requires trusted local Python for this workspace."
+      }
+    ],
+    "starter_source": "counts = {}\n# count each status\ndisplay([{\"status\": status, \"count\": count} for status, count in counts.items()])",
+    "fixtures": [
+      {
+        "id": "py-frequency-fixtures",
+        "version": "1"
+      }
+    ],
+    "visible_checks": [
+      {
+        "id": "example",
+        "description": "Public example: the tables shown in data_context."
+      }
+    ],
+    "hidden_check_refs": [
+      "many"
+    ],
+    "edge_check_refs": [
+      "single"
+    ],
+    "hints": [
+      "dict.get(key, 0) + 1 avoids a KeyError on first sight.",
+      "collections.Counter does the same."
+    ],
+    "solution": {
+      "available": true,
+      "reveal": "explicit"
+    },
+    "explanation": "A frequency map is one pass with a dictionary keyed by the value.",
+    "follow_ups": [
+      "How would you return the three most frequent statuses?"
+    ],
+    "canonical_placement": {
+      "domain": "python",
+      "topic": "dictionaries"
+    },
+    "related_associations": [
+      "python/counting",
+      "python/python"
+    ],
+    "recommendation": {
+      "rank": 4,
+      "reason": "Python lab progression"
+    },
+    "validator_version": "rows-v2",
+    "validation": {
+      "kind": "rows",
+      "ordered": false,
+      "duplicate_sensitive": true,
+      "relative_tolerance": 1e-09,
+      "absolute_tolerance": 1e-09,
+      "required_columns": [
+        "status",
+        "count"
+      ],
+      "exact_schema": [
+        "status",
+        "count"
+      ],
+      "forbidden_extra_columns": true,
+      "null_semantics": "equal"
+    },
+    "data_context": [
+      {
+        "name": "events",
+        "columns": {
+          "status": "VARCHAR"
+        },
+        "sample_rows": [
+          {
+            "status": "OK"
+          },
+          {
+            "status": "ERROR"
+          },
+          {
+            "status": "OK"
+          },
+          {
+            "status": "OK"
+          }
+        ]
+      }
+    ],
+    "output_schema": {
+      "status": "value",
+      "count": "value"
+    },
+    "runtime_requirements": [
+      "trusted-local-python"
+    ],
+    "provenance": {
+      "source": "Datapass leetcodedataeng curriculum (al-frequency-map), reframed as a graded data transform",
+      "fixtures": "Authored for Datapass; expected rows computed from the reference solution and reviewed"
+    },
+    "constraints": {
+      "security": "Python runs as trusted local code; the worker is not a security sandbox."
+    }
+  },
+  {
+    "schema_version": 1,
+    "id": "py-dedupe-order",
+    "version": "1",
+    "title": "Deduplicate while preserving order",
+    "difficulty": "medium",
+    "topics": [
+      "sets",
+      "ordering",
+      "python"
+    ],
+    "tags": [
+      "python-lab",
+      "trusted-local-python"
+    ],
+    "origin": "migrated",
+    "language": "python",
+    "runtime": "shared-python-v1",
+    "prompt": "Return the distinct id values in first-seen order as rows with a single column id. Row order is graded.",
+    "sections": [
+      {
+        "title": "Input",
+        "body": "Each table (ids) is available as a variable of the same name: a list of row dictionaries."
+      },
+      {
+        "title": "Output",
+        "body": "display(...) a list of row dictionaries with keys in this order: id. Row order is graded. If the result can be empty, pass columns=[...] to display so the schema survives."
+      },
+      {
+        "title": "Common pitfall",
+        "body": "sorted(set(...)) deduplicates but changes the order."
+      },
+      {
+        "title": "Execution",
+        "body": "Graded as real local Python; requires trusted local Python for this workspace."
+      }
+    ],
+    "starter_source": "unique = [{\"id\": row[\"id\"]} for row in ids]\ndisplay(unique)",
+    "fixtures": [
+      {
+        "id": "py-dedupe-order-fixtures",
+        "version": "1"
+      }
+    ],
+    "visible_checks": [
+      {
+        "id": "example",
+        "description": "Public example: the tables shown in data_context."
+      }
+    ],
+    "hidden_check_refs": [
+      "late-duplicates"
+    ],
+    "edge_check_refs": [
+      "single"
+    ],
+    "hints": [
+      "Track seen values in a set.",
+      "Append only the first occurrence."
+    ],
+    "solution": {
+      "available": true,
+      "reveal": "explicit"
+    },
+    "explanation": "A set for membership plus a list for order gives order-preserving deduplication in one pass.",
+    "follow_ups": [
+      "What does dict.fromkeys(values) give you here?"
+    ],
+    "canonical_placement": {
+      "domain": "python",
+      "topic": "sets"
+    },
+    "related_associations": [
+      "python/ordering",
+      "python/python"
+    ],
+    "recommendation": {
+      "rank": 5,
+      "reason": "Python lab progression"
+    },
+    "validator_version": "rows-v2",
+    "validation": {
+      "kind": "rows",
+      "ordered": true,
+      "duplicate_sensitive": true,
+      "relative_tolerance": 1e-09,
+      "absolute_tolerance": 1e-09,
+      "required_columns": [
+        "id"
+      ],
+      "exact_schema": [
+        "id"
+      ],
+      "forbidden_extra_columns": true,
+      "null_semantics": "equal"
+    },
+    "data_context": [
+      {
+        "name": "ids",
+        "columns": {
+          "id": "INTEGER"
+        },
+        "sample_rows": [
+          {
+            "id": 3
+          },
+          {
+            "id": 1
+          },
+          {
+            "id": 3
+          },
+          {
+            "id": 2
+          },
+          {
+            "id": 1
+          }
+        ]
+      }
+    ],
+    "output_schema": {
+      "id": "value"
+    },
+    "runtime_requirements": [
+      "trusted-local-python"
+    ],
+    "provenance": {
+      "source": "Datapass leetcodedataeng curriculum (al-dedupe-order), reframed as a graded data transform",
+      "fixtures": "Authored for Datapass; expected rows computed from the reference solution and reviewed"
+    },
+    "constraints": {
+      "security": "Python runs as trusted local code; the worker is not a security sandbox."
+    }
+  },
+  {
+    "schema_version": 1,
+    "id": "py-batching",
+    "version": "1",
+    "title": "Chunk work into batches",
+    "difficulty": "medium",
+    "topics": [
+      "slicing",
+      "batching",
+      "python"
+    ],
+    "tags": [
+      "python-lab",
+      "trusted-local-python"
+    ],
+    "origin": "migrated",
+    "language": "python",
+    "runtime": "shared-python-v1",
+    "prompt": "Split the ids (in input order) into batches of batch_size = 3. Return batch_number (starting at 1), first_id, last_id, size. Row order is graded.",
+    "sections": [
+      {
+        "title": "Input",
+        "body": "Each table (ids) is available as a variable of the same name: a list of row dictionaries."
+      },
+      {
+        "title": "Output",
+        "body": "display(...) a list of row dictionaries with keys in this order: batch_number, first_id, last_id, size. Row order is graded. If the result can be empty, pass columns=[...] to display so the schema survives."
+      },
+      {
+        "title": "Common pitfall",
+        "body": "range(1, ...) or a fixed number of batches drops or duplicates items."
+      },
+      {
+        "title": "Execution",
+        "body": "Graded as real local Python; requires trusted local Python for this workspace."
+      }
+    ],
+    "starter_source": "values = [row[\"id\"] for row in ids]\nbatch_size = 3\nresult = []\n# slice values into batches\ndisplay(result)",
+    "fixtures": [
+      {
+        "id": "py-batching-fixtures",
+        "version": "1"
+      }
+    ],
+    "visible_checks": [
+      {
+        "id": "example",
+        "description": "Public example: the tables shown in data_context."
+      }
+    ],
+    "hidden_check_refs": [
+      "exact-multiple"
+    ],
+    "edge_check_refs": [
+      "smaller-than-batch"
+    ],
+    "hints": [
+      "range(0, len(values), batch_size) gives each start index.",
+      "The last batch may be smaller."
+    ],
+    "solution": {
+      "available": true,
+      "reveal": "explicit"
+    },
+    "explanation": "Slicing with a stepped range produces batches without off-by-one index arithmetic.",
+    "follow_ups": [
+      "Why should Spark jobs not batch rows on the driver like this?"
+    ],
+    "canonical_placement": {
+      "domain": "python",
+      "topic": "slicing"
+    },
+    "related_associations": [
+      "python/batching",
+      "python/python"
+    ],
+    "recommendation": {
+      "rank": 6,
+      "reason": "Python lab progression"
+    },
+    "validator_version": "rows-v2",
+    "validation": {
+      "kind": "rows",
+      "ordered": true,
+      "duplicate_sensitive": true,
+      "relative_tolerance": 1e-09,
+      "absolute_tolerance": 1e-09,
+      "required_columns": [
+        "batch_number",
+        "first_id",
+        "last_id",
+        "size"
+      ],
+      "exact_schema": [
+        "batch_number",
+        "first_id",
+        "last_id",
+        "size"
+      ],
+      "forbidden_extra_columns": true,
+      "null_semantics": "equal"
+    },
+    "data_context": [
+      {
+        "name": "ids",
+        "columns": {
+          "id": "INTEGER"
+        },
+        "sample_rows": [
+          {
+            "id": 1
+          },
+          {
+            "id": 2
+          },
+          {
+            "id": 3
+          },
+          {
+            "id": 4
+          },
+          {
+            "id": 5
+          },
+          {
+            "id": 6
+          },
+          {
+            "id": 7
+          },
+          {
+            "id": 8
+          },
+          {
+            "id": 9
+          },
+          {
+            "id": 10
+          }
+        ]
+      }
+    ],
+    "output_schema": {
+      "batch_number": "value",
+      "first_id": "value",
+      "last_id": "value",
+      "size": "value"
+    },
+    "runtime_requirements": [
+      "trusted-local-python"
+    ],
+    "provenance": {
+      "source": "Datapass leetcodedataeng curriculum (al-batching), reframed as a graded data transform",
+      "fixtures": "Authored for Datapass; expected rows computed from the reference solution and reviewed"
+    },
+    "constraints": {
+      "security": "Python runs as trusted local code; the worker is not a security sandbox."
+    }
+  },
+  {
+    "schema_version": 1,
+    "id": "py-binary-search",
+    "version": "1",
+    "title": "Binary search with bisect",
+    "difficulty": "hard",
+    "topics": [
+      "algorithms",
+      "binary-search",
+      "python"
+    ],
+    "tags": [
+      "python-lab",
+      "trusted-local-python"
+    ],
+    "origin": "migrated",
+    "language": "python",
+    "runtime": "shared-python-v1",
+    "prompt": "sorted_values holds ascending numbers. For each row of targets return target, position (bisect_left insertion index) and found (True when the value exists).",
+    "sections": [
+      {
+        "title": "Input",
+        "body": "Each table (sorted_values, targets) is available as a variable of the same name: a list of row dictionaries."
+      },
+      {
+        "title": "Output",
+        "body": "display(...) a list of row dictionaries with keys in this order: target, position, found. If the result can be empty, pass columns=[...] to display so the schema survives."
+      },
+      {
+        "title": "Common pitfall",
+        "body": "bisect_right points after duplicates; reading values[position] without a bounds check fails at the end."
+      },
+      {
+        "title": "Execution",
+        "body": "Graded as real local Python; requires trusted local Python for this workspace."
+      }
+    ],
+    "starter_source": "values = [row[\"value\"] for row in sorted_values]\nresult = []\nfor row in targets:\n    result.append({\"target\": row[\"target\"], \"position\": 0, \"found\": row[\"target\"] in values})\ndisplay(result)",
+    "fixtures": [
+      {
+        "id": "py-binary-search-fixtures",
+        "version": "1"
+      }
+    ],
+    "visible_checks": [
+      {
+        "id": "example",
+        "description": "Public example: the tables shown in data_context."
+      }
+    ],
+    "hidden_check_refs": [
+      "duplicates-and-end"
+    ],
+    "edge_check_refs": [
+      "single"
+    ],
+    "hints": [
+      "bisect_left returns the leftmost insertion point.",
+      "Check bounds before reading values[position]."
+    ],
+    "solution": {
+      "available": true,
+      "reveal": "explicit"
+    },
+    "explanation": "Binary search finds positions in O(log n) on sorted data; bisect_left points at the first equal value.",
+    "follow_ups": [
+      "When does sorting just to binary-search once cost more than a linear scan?"
+    ],
+    "canonical_placement": {
+      "domain": "python",
+      "topic": "algorithms"
+    },
+    "related_associations": [
+      "python/binary-search",
+      "python/python"
+    ],
+    "recommendation": {
+      "rank": 7,
+      "reason": "Python lab progression"
+    },
+    "validator_version": "rows-v2",
+    "validation": {
+      "kind": "rows",
+      "ordered": false,
+      "duplicate_sensitive": true,
+      "relative_tolerance": 1e-09,
+      "absolute_tolerance": 1e-09,
+      "required_columns": [
+        "target",
+        "position",
+        "found"
+      ],
+      "exact_schema": [
+        "target",
+        "position",
+        "found"
+      ],
+      "forbidden_extra_columns": true,
+      "null_semantics": "equal"
+    },
+    "data_context": [
+      {
+        "name": "sorted_values",
+        "columns": {
+          "value": "INTEGER"
+        },
+        "sample_rows": [
+          {
+            "value": 10
+          },
+          {
+            "value": 20
+          },
+          {
+            "value": 30
+          },
+          {
+            "value": 40
+          },
+          {
+            "value": 50
+          }
+        ]
+      },
+      {
+        "name": "targets",
+        "columns": {
+          "target": "INTEGER"
+        },
+        "sample_rows": [
+          {
+            "target": 30
+          },
+          {
+            "target": 35
+          },
+          {
+            "target": 5
+          }
+        ]
+      }
+    ],
+    "output_schema": {
+      "target": "value",
+      "position": "value",
+      "found": "value"
+    },
+    "runtime_requirements": [
+      "trusted-local-python"
+    ],
+    "provenance": {
+      "source": "Datapass leetcodedataeng curriculum (al-binary-search), reframed as a graded data transform",
+      "fixtures": "Authored for Datapass; expected rows computed from the reference solution and reviewed"
+    },
+    "constraints": {
+      "security": "Python runs as trusted local code; the worker is not a security sandbox."
+    }
+  },
+  {
+    "schema_version": 1,
+    "id": "py-hash-join",
+    "version": "1",
+    "title": "Enrich rows without a nested loop",
+    "difficulty": "hard",
+    "topics": [
+      "dictionaries",
+      "joins",
+      "python"
+    ],
+    "tags": [
+      "python-lab",
+      "trusted-local-python"
+    ],
+    "origin": "migrated",
+    "language": "python",
+    "runtime": "shared-python-v1",
+    "prompt": "Return order_id, customer_id, customer_name for every order: build a dictionary keyed by customer_id once, then look each order up. Unknown customers get customer_name None.",
+    "sections": [
+      {
+        "title": "Input",
+        "body": "Each table (orders, customers) is available as a variable of the same name: a list of row dictionaries."
+      },
+      {
+        "title": "Output",
+        "body": "display(...) a list of row dictionaries with keys in this order: order_id, customer_id, customer_name. If the result can be empty, pass columns=[...] to display so the schema survives."
+      },
+      {
+        "title": "Common pitfall",
+        "body": "Indexing with customer_by_id[key] raises KeyError for unknown customers."
+      },
+      {
+        "title": "Execution",
+        "body": "Graded as real local Python; requires trusted local Python for this workspace."
+      }
+    ],
+    "starter_source": "result = []\nfor order in orders:\n    # look up the customer name\n    result.append({\"order_id\": order[\"order_id\"], \"customer_id\": order[\"customer_id\"], \"customer_name\": None})\ndisplay(result)",
+    "fixtures": [
+      {
+        "id": "py-hash-join-fixtures",
+        "version": "1"
+      }
+    ],
+    "visible_checks": [
+      {
+        "id": "example",
+        "description": "Public example: the tables shown in data_context."
+      }
+    ],
+    "hidden_check_refs": [
+      "repeat-customer"
+    ],
+    "edge_check_refs": [
+      "all-known"
+    ],
+    "hints": [
+      "Build the lookup dictionary once, outside the loop.",
+      "dict.get returns None for unknown keys."
+    ],
+    "solution": {
+      "available": true,
+      "reveal": "explicit"
+    },
+    "explanation": "A dictionary turns an O(n x m) nested loop into an O(n + m) hash join, which is what join engines do internally.",
+    "follow_ups": [
+      "When should you stop writing Python loops and use a DataFrame join?"
+    ],
+    "canonical_placement": {
+      "domain": "python",
+      "topic": "dictionaries"
+    },
+    "related_associations": [
+      "python/joins",
+      "python/python"
+    ],
+    "recommendation": {
+      "rank": 8,
+      "reason": "Python lab progression"
+    },
+    "validator_version": "rows-v2",
+    "validation": {
+      "kind": "rows",
+      "ordered": false,
+      "duplicate_sensitive": true,
+      "relative_tolerance": 1e-09,
+      "absolute_tolerance": 1e-09,
+      "required_columns": [
+        "order_id",
+        "customer_id",
+        "customer_name"
+      ],
+      "exact_schema": [
+        "order_id",
+        "customer_id",
+        "customer_name"
+      ],
+      "forbidden_extra_columns": true,
+      "null_semantics": "equal"
+    },
+    "data_context": [
+      {
+        "name": "orders",
+        "columns": {
+          "order_id": "INTEGER",
+          "customer_id": "INTEGER"
+        },
+        "sample_rows": [
+          {
+            "order_id": 1,
+            "customer_id": 10
+          },
+          {
+            "order_id": 2,
+            "customer_id": 11
+          },
+          {
+            "order_id": 3,
+            "customer_id": 99
+          }
+        ]
+      },
+      {
+        "name": "customers",
+        "columns": {
+          "customer_id": "INTEGER",
+          "name": "VARCHAR"
+        },
+        "sample_rows": [
+          {
+            "customer_id": 10,
+            "name": "Ada"
+          },
+          {
+            "customer_id": 11,
+            "name": "Grace"
+          }
+        ]
+      }
+    ],
+    "output_schema": {
+      "order_id": "value",
+      "customer_id": "value",
+      "customer_name": "value"
+    },
+    "runtime_requirements": [
+      "trusted-local-python"
+    ],
+    "provenance": {
+      "source": "Datapass leetcodedataeng curriculum (al-hash-join), reframed as a graded data transform",
+      "fixtures": "Authored for Datapass; expected rows computed from the reference solution and reviewed"
+    },
+    "constraints": {
+      "security": "Python runs as trusted local code; the worker is not a security sandbox."
+    }
+  },
+  {
+    "schema_version": 1,
+    "id": "py-prefix-filter",
+    "version": "1",
+    "title": "Filter with a list comprehension",
+    "difficulty": "medium",
+    "topics": [
+      "comprehensions",
+      "python"
+    ],
+    "tags": [
+      "python-lab",
+      "trusted-local-python"
+    ],
+    "origin": "migrated",
+    "language": "python",
+    "runtime": "shared-python-v1",
+    "prompt": "Return table_name for the tables whose name starts with 'dim_' (case-sensitive), in input order. Row order is graded.",
+    "sections": [
+      {
+        "title": "Input",
+        "body": "Each table (tables_list) is available as a variable of the same name: a list of row dictionaries."
+      },
+      {
+        "title": "Output",
+        "body": "display(...) a list of row dictionaries with keys in this order: table_name. Row order is graded. If the result can be empty, pass columns=[...] to display so the schema survives."
+      },
+      {
+        "title": "Common pitfall",
+        "body": "'dim_' in name matches 'xdim_a'; lowercasing matches 'DIM_date'."
+      },
+      {
+        "title": "Execution",
+        "body": "Graded as real local Python; requires trusted local Python for this workspace."
+      }
+    ],
+    "starter_source": "display([{\"table_name\": row[\"table_name\"]} for row in tables_list])",
+    "fixtures": [
+      {
+        "id": "py-prefix-filter-fixtures",
+        "version": "1"
+      }
+    ],
+    "visible_checks": [
+      {
+        "id": "example",
+        "description": "Public example: the tables shown in data_context."
+      }
+    ],
+    "hidden_check_refs": [
+      "look-alikes"
+    ],
+    "edge_check_refs": [
+      "no-dims"
+    ],
+    "hints": [
+      "Add an if clause at the end of the comprehension.",
+      "str.startswith is clearer than slicing.",
+      "An empty list has no columns: pass columns=[...] to display."
+    ],
+    "solution": {
+      "available": true,
+      "reveal": "explicit"
+    },
+    "explanation": "A comprehension with a condition is a compact, readable filter-and-map.",
+    "follow_ups": [
+      "When does a plain for loop read better than a comprehension?"
+    ],
+    "canonical_placement": {
+      "domain": "python",
+      "topic": "comprehensions"
+    },
+    "related_associations": [
+      "python/python"
+    ],
+    "recommendation": {
+      "rank": 9,
+      "reason": "Python lab progression"
+    },
+    "validator_version": "rows-v2",
+    "validation": {
+      "kind": "rows",
+      "ordered": true,
+      "duplicate_sensitive": true,
+      "relative_tolerance": 1e-09,
+      "absolute_tolerance": 1e-09,
+      "required_columns": [
+        "table_name"
+      ],
+      "exact_schema": [
+        "table_name"
+      ],
+      "forbidden_extra_columns": true,
+      "null_semantics": "equal"
+    },
+    "data_context": [
+      {
+        "name": "tables_list",
+        "columns": {
+          "table_name": "VARCHAR"
+        },
+        "sample_rows": [
+          {
+            "table_name": "dim_customer"
+          },
+          {
+            "table_name": "fact_sales"
+          },
+          {
+            "table_name": "dim_product"
+          }
+        ]
+      }
+    ],
+    "output_schema": {
+      "table_name": "value"
+    },
+    "runtime_requirements": [
+      "trusted-local-python"
+    ],
+    "provenance": {
+      "source": "Datapass leetcodedataeng curriculum (py-comprehension), reframed as a graded data transform",
+      "fixtures": "Authored for Datapass; expected rows computed from the reference solution and reviewed"
+    },
+    "constraints": {
+      "security": "Python runs as trusted local code; the worker is not a security sandbox."
+    }
+  },
+  {
+    "schema_version": 1,
+    "id": "py-sort-key",
+    "version": "1",
+    "title": "Sort records with a key function",
+    "difficulty": "medium",
+    "topics": [
+      "sorting",
+      "lambda",
+      "python"
+    ],
+    "tags": [
+      "python-lab",
+      "trusted-local-python"
+    ],
+    "origin": "migrated",
+    "language": "python",
+    "runtime": "shared-python-v1",
+    "prompt": "Return name and priority sorted by priority ascending; jobs with equal priority keep their input order (stable sort). Row order is graded.",
+    "sections": [
+      {
+        "title": "Input",
+        "body": "Each table (jobs) is available as a variable of the same name: a list of row dictionaries."
+      },
+      {
+        "title": "Output",
+        "body": "display(...) a list of row dictionaries with keys in this order: name, priority. Row order is graded. If the result can be empty, pass columns=[...] to display so the schema survives."
+      },
+      {
+        "title": "Common pitfall",
+        "body": "Sorting by (priority, name) changes the order of ties; reverse=True sorts descending."
+      },
+      {
+        "title": "Execution",
+        "body": "Graded as real local Python; requires trusted local Python for this workspace."
+      }
+    ],
+    "starter_source": "display([{\"name\": j[\"name\"], \"priority\": j[\"priority\"]} for j in jobs])",
+    "fixtures": [
+      {
+        "id": "py-sort-key-fixtures",
+        "version": "1"
+      }
+    ],
+    "visible_checks": [
+      {
+        "id": "example",
+        "description": "Public example: the tables shown in data_context."
+      }
+    ],
+    "hidden_check_refs": [
+      "stable-ties"
+    ],
+    "edge_check_refs": [
+      "single"
+    ],
+    "hints": [
+      "sorted(items, key=lambda item: ...).",
+      "Python's sort is stable."
+    ],
+    "solution": {
+      "available": true,
+      "reveal": "explicit"
+    },
+    "explanation": "A key function tells sorted what to compare; stability keeps equal keys in their original order.",
+    "follow_ups": [
+      "How would you sort by priority descending but name ascending?"
+    ],
+    "canonical_placement": {
+      "domain": "python",
+      "topic": "sorting"
+    },
+    "related_associations": [
+      "python/lambda",
+      "python/python"
+    ],
+    "recommendation": {
+      "rank": 10,
+      "reason": "Python lab progression"
+    },
+    "validator_version": "rows-v2",
+    "validation": {
+      "kind": "rows",
+      "ordered": true,
+      "duplicate_sensitive": true,
+      "relative_tolerance": 1e-09,
+      "absolute_tolerance": 1e-09,
+      "required_columns": [
+        "name",
+        "priority"
+      ],
+      "exact_schema": [
+        "name",
+        "priority"
+      ],
+      "forbidden_extra_columns": true,
+      "null_semantics": "equal"
+    },
+    "data_context": [
+      {
+        "name": "jobs",
+        "columns": {
+          "name": "VARCHAR",
+          "priority": "INTEGER"
+        },
+        "sample_rows": [
+          {
+            "name": "gold",
+            "priority": 3
+          },
+          {
+            "name": "bronze",
+            "priority": 1
+          },
+          {
+            "name": "silver",
+            "priority": 2
+          }
+        ]
+      }
+    ],
+    "output_schema": {
+      "name": "value",
+      "priority": "value"
+    },
+    "runtime_requirements": [
+      "trusted-local-python"
+    ],
+    "provenance": {
+      "source": "Datapass leetcodedataeng curriculum (py-sort-key), reframed as a graded data transform",
+      "fixtures": "Authored for Datapass; expected rows computed from the reference solution and reviewed"
+    },
+    "constraints": {
+      "security": "Python runs as trusted local code; the worker is not a security sandbox."
+    }
+  },
+  {
+    "schema_version": 1,
+    "id": "py-parse-timestamp",
+    "version": "1",
+    "title": "Parse timestamps with datetime",
+    "difficulty": "medium",
+    "topics": [
+      "datetime",
+      "parsing",
+      "python"
+    ],
+    "tags": [
+      "python-lab",
+      "trusted-local-python"
+    ],
+    "origin": "migrated",
+    "language": "python",
+    "runtime": "shared-python-v1",
+    "prompt": "Each raw value has the format 'YYYY-MM-DD HH:MM:SS'. Return raw, date (ISO 'YYYY-MM-DD' string), hour (int) and weekday (Monday = 0) using datetime.strptime.",
+    "sections": [
+      {
+        "title": "Input",
+        "body": "Each table (raw_times) is available as a variable of the same name: a list of row dictionaries."
+      },
+      {
+        "title": "Output",
+        "body": "display(...) a list of row dictionaries with keys in this order: raw, date, hour, weekday. If the result can be empty, pass columns=[...] to display so the schema survives."
+      },
+      {
+        "title": "Common pitfall",
+        "body": "Using isoweekday() shifts every weekday by one; naive datetimes carry no timezone."
+      },
+      {
+        "title": "Execution",
+        "body": "Graded as real local Python; requires trusted local Python for this workspace."
+      }
+    ],
+    "starter_source": "result = []\nfor row in raw_times:\n    result.append({\"raw\": row[\"raw\"], \"date\": row[\"raw\"][:10], \"hour\": 0, \"weekday\": 0})\ndisplay(result)",
+    "fixtures": [
+      {
+        "id": "py-parse-timestamp-fixtures",
+        "version": "1"
+      }
+    ],
+    "visible_checks": [
+      {
+        "id": "example",
+        "description": "Public example: the tables shown in data_context."
+      }
+    ],
+    "hidden_check_refs": [
+      "month-and-year-edges"
+    ],
+    "edge_check_refs": [
+      "single"
+    ],
+    "hints": [
+      "The format string mirrors the input: %Y-%m-%d %H:%M:%S.",
+      "weekday(): Monday is 0; isoweekday(): Monday is 1."
+    ],
+    "solution": {
+      "available": true,
+      "reveal": "explicit"
+    },
+    "explanation": "Parsing into datetime makes calendar logic (weekday, leap years) correct instead of string slicing.",
+    "follow_ups": [
+      "How would you attach a timezone explicitly?"
+    ],
+    "canonical_placement": {
+      "domain": "python",
+      "topic": "datetime"
+    },
+    "related_associations": [
+      "python/parsing",
+      "python/python"
+    ],
+    "recommendation": {
+      "rank": 11,
+      "reason": "Python lab progression"
+    },
+    "validator_version": "rows-v2",
+    "validation": {
+      "kind": "rows",
+      "ordered": false,
+      "duplicate_sensitive": true,
+      "relative_tolerance": 1e-09,
+      "absolute_tolerance": 1e-09,
+      "required_columns": [
+        "raw",
+        "date",
+        "hour",
+        "weekday"
+      ],
+      "exact_schema": [
+        "raw",
+        "date",
+        "hour",
+        "weekday"
+      ],
+      "forbidden_extra_columns": true,
+      "null_semantics": "equal"
+    },
+    "data_context": [
+      {
+        "name": "raw_times",
+        "columns": {
+          "raw": "VARCHAR"
+        },
+        "sample_rows": [
+          {
+            "raw": "2026-09-03 14:30:00"
+          },
+          {
+            "raw": "2026-09-07 00:05:00"
+          }
+        ]
+      }
+    ],
+    "output_schema": {
+      "raw": "value",
+      "date": "value",
+      "hour": "value",
+      "weekday": "value"
+    },
+    "runtime_requirements": [
+      "trusted-local-python"
+    ],
+    "provenance": {
+      "source": "Datapass leetcodedataeng curriculum (py-datetime), reframed as a graded data transform",
+      "fixtures": "Authored for Datapass; expected rows computed from the reference solution and reviewed"
+    },
+    "constraints": {
+      "security": "Python runs as trusted local code; the worker is not a security sandbox."
+    }
+  },
+  {
+    "schema_version": 1,
+    "id": "py-numpy-vectorize",
+    "version": "1",
+    "title": "Vectorize with NumPy",
+    "difficulty": "hard",
+    "topics": [
+      "numpy",
+      "vectorization",
+      "python"
+    ],
+    "tags": [
+      "python-lab",
+      "trusted-local-python"
+    ],
+    "origin": "migrated",
+    "language": "python",
+    "runtime": "shared-python-v1",
+    "prompt": "Return amount and net_amount = amount * 0.8 for every row, computed on a NumPy array without a Python loop over the values.",
+    "sections": [
+      {
+        "title": "Input",
+        "body": "Each table (amounts) is available as a variable of the same name: a list of row dictionaries."
+      },
+      {
+        "title": "Output",
+        "body": "display(...) a list of row dictionaries with keys in this order: amount, net_amount. If the result can be empty, pass columns=[...] to display so the schema survives."
+      },
+      {
+        "title": "Common pitfall",
+        "body": "Multiplying by 0.2 computes the discount, not the net amount."
+      },
+      {
+        "title": "Execution",
+        "body": "Graded as real local Python; requires trusted local Python for this workspace."
+      }
+    ],
+    "starter_source": "import numpy as np\nvalues = np.array([row[\"amount\"] for row in amounts], dtype=float)\ndisplay([{\"amount\": float(a), \"net_amount\": float(a)} for a in values])",
+    "fixtures": [
+      {
+        "id": "py-numpy-vectorize-fixtures",
+        "version": "1"
+      }
+    ],
+    "visible_checks": [
+      {
+        "id": "example",
+        "description": "Public example: the tables shown in data_context."
+      }
+    ],
+    "hidden_check_refs": [
+      "negatives-and-zero"
+    ],
+    "edge_check_refs": [
+      "single"
+    ],
+    "hints": [
+      "Arithmetic on an ndarray applies element-wise.",
+      "Convert NumPy scalars with float() before displaying rows."
+    ],
+    "solution": {
+      "available": true,
+      "reveal": "explicit"
+    },
+    "explanation": "Vectorized arithmetic runs in compiled code over the whole array at once.",
+    "follow_ups": [
+      "At what data size would you move this from NumPy to a distributed engine?"
+    ],
+    "canonical_placement": {
+      "domain": "python",
+      "topic": "numpy"
+    },
+    "related_associations": [
+      "python/vectorization",
+      "python/python"
+    ],
+    "recommendation": {
+      "rank": 12,
+      "reason": "Python lab progression"
+    },
+    "validator_version": "rows-v2",
+    "validation": {
+      "kind": "rows",
+      "ordered": false,
+      "duplicate_sensitive": true,
+      "relative_tolerance": 1e-09,
+      "absolute_tolerance": 1e-09,
+      "required_columns": [
+        "amount",
+        "net_amount"
+      ],
+      "exact_schema": [
+        "amount",
+        "net_amount"
+      ],
+      "forbidden_extra_columns": true,
+      "null_semantics": "equal"
+    },
+    "data_context": [
+      {
+        "name": "amounts",
+        "columns": {
+          "amount": "DOUBLE"
+        },
+        "sample_rows": [
+          {
+            "amount": 10.0
+          },
+          {
+            "amount": 20.0
+          },
+          {
+            "amount": 30.0
+          }
+        ]
+      }
+    ],
+    "output_schema": {
+      "amount": "value",
+      "net_amount": "value"
+    },
+    "runtime_requirements": [
+      "trusted-local-python"
+    ],
+    "provenance": {
+      "source": "Datapass leetcodedataeng curriculum (np-vector), reframed as a graded data transform",
+      "fixtures": "Authored for Datapass; expected rows computed from the reference solution and reviewed"
+    },
+    "constraints": {
+      "security": "Python runs as trusted local code; the worker is not a security sandbox."
+    }
+  }
+]

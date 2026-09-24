@@ -1,0 +1,185 @@
+[
+  {
+    "schema_version": 1,
+    "id": "spark-account-window",
+    "version": "1",
+    "title": "Account running balance",
+    "difficulty": "easy",
+    "topics": [
+      "windows"
+    ],
+    "tags": [
+      "sparklab",
+      "finance",
+      "nulls"
+    ],
+    "origin": "authored",
+    "language": "sparklab",
+    "runtime": "shared-sparklab-v1",
+    "prompt": "Return all transactions with previous_amount and running_net partitioned by account_id and ordered by transaction_ts. Use a ROWS frame.",
+    "sections": [
+      {
+        "title": "Input schema",
+        "body": "input(value INTEGER), including duplicates and NULL."
+      }
+    ],
+    "starter_source": "from pyspark.sql import functions as F\nfrom pyspark.sql import Window\nresult = spark.table(\"input\")",
+    "fixtures": [
+      {
+        "id": "finance-window",
+        "version": "1"
+      }
+    ],
+    "visible_checks": [
+      {
+        "id": "example",
+        "description": "Eight bounded transactions across three accounts."
+      }
+    ],
+    "hidden_check_refs": [
+      "changed-amounts"
+    ],
+    "edge_check_refs": [
+      "empty-input"
+    ],
+    "hints": [
+      "Partition by account_id and order by transaction_ts."
+    ],
+    "solution": {
+      "available": true,
+      "reveal": "explicit"
+    },
+    "explanation": "Lag uses the preceding transaction within the account. The running sum uses an explicit row frame.",
+    "follow_ups": [
+      "Why can AQE not split an ordered account?"
+    ],
+    "canonical_placement": {
+      "domain": "sparklab",
+      "topic": "windows"
+    },
+    "related_associations": [
+      "sql/nulls",
+      "interview/aggregation"
+    ],
+    "recommendation": {
+      "rank": 1,
+      "reason": "Small contract demonstration"
+    },
+    "validator_version": "rows-v2",
+    "data_context": [
+      {
+        "name": "input",
+        "columns": {
+          "transaction_id": "VARCHAR",
+          "account_id": "VARCHAR",
+          "transaction_ts": "VARCHAR",
+          "amount": "DOUBLE",
+          "balance": "DOUBLE",
+          "loaded_at": "VARCHAR"
+        },
+        "sample_rows": [
+          {
+            "transaction_id": "F-001",
+            "account_id": "A001",
+            "transaction_ts": "2026-09-17T09:00:00",
+            "amount": 100.0,
+            "balance": 100.0,
+            "loaded_at": "2026-09-17T09:01:00"
+          },
+          {
+            "transaction_id": "F-002",
+            "account_id": "A001",
+            "transaction_ts": "2026-09-17T10:00:00",
+            "amount": -20.0,
+            "balance": 80.0,
+            "loaded_at": "2026-09-17T10:01:00"
+          },
+          {
+            "transaction_id": "F-003",
+            "account_id": "A001",
+            "transaction_ts": "2026-09-17T11:00:00",
+            "amount": 50.0,
+            "balance": 130.0,
+            "loaded_at": "2026-09-17T11:01:00"
+          },
+          {
+            "transaction_id": "F-004",
+            "account_id": "A002",
+            "transaction_ts": "2026-09-17T09:15:00",
+            "amount": 200.0,
+            "balance": 200.0,
+            "loaded_at": "2026-09-17T09:16:00"
+          },
+          {
+            "transaction_id": "F-005",
+            "account_id": "A002",
+            "transaction_ts": "2026-09-17T10:15:00",
+            "amount": -75.0,
+            "balance": 125.0,
+            "loaded_at": "2026-09-17T10:16:00"
+          },
+          {
+            "transaction_id": "F-006",
+            "account_id": "A-HOT-001",
+            "transaction_ts": "2026-09-17T08:30:00",
+            "amount": 10.0,
+            "balance": 10.0,
+            "loaded_at": "2026-09-17T08:31:00"
+          },
+          {
+            "transaction_id": "F-007",
+            "account_id": "A-HOT-001",
+            "transaction_ts": "2026-09-17T09:30:00",
+            "amount": 15.0,
+            "balance": 25.0,
+            "loaded_at": "2026-09-17T09:31:00"
+          },
+          {
+            "transaction_id": "F-008",
+            "account_id": "A-HOT-001",
+            "transaction_ts": "2026-09-17T10:30:00",
+            "amount": -5.0,
+            "balance": 20.0,
+            "loaded_at": "2026-09-17T10:31:00"
+          }
+        ]
+      }
+    ],
+    "output_schema": {
+      "transaction_id": "VARCHAR",
+      "account_id": "VARCHAR",
+      "transaction_ts": "VARCHAR",
+      "amount": "DOUBLE",
+      "balance": "DOUBLE",
+      "loaded_at": "VARCHAR",
+      "previous_amount": "DOUBLE",
+      "running_net": "DOUBLE"
+    },
+    "runtime_requirements": [
+      "sparklab"
+    ],
+    "provenance": {
+      "source": "Retained SparkLab finance fixture; authored shared pack adaptation"
+    },
+    "truth": "semantic-emulation",
+    "validation": {
+      "ordered": false,
+      "duplicate_sensitive": true,
+      "required_columns": [
+        "transaction_id",
+        "account_id",
+        "transaction_ts",
+        "amount",
+        "balance",
+        "loaded_at",
+        "previous_amount",
+        "running_net"
+      ]
+    },
+    "constraints": {
+      "volume": "At most 200 fixture rows; shared preview limits apply.",
+      "quality": "Preserve declared NULL and duplicate semantics.",
+      "security": "Python/Polars require trusted-local opt-in; not a hostile-code sandbox."
+    }
+  }
+]

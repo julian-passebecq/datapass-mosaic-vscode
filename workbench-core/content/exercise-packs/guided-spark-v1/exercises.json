@@ -1,0 +1,132 @@
+[
+  {
+    "schema_version": 1,
+    "id": "guided-retail-filter",
+    "version": "1",
+    "title": "Guided Spark: filter valid retail orders",
+    "difficulty": "easy",
+    "topics": [
+      "filtering",
+      "spark-semantics"
+    ],
+    "tags": [
+      "guided",
+      "fastapispark",
+      "bounded"
+    ],
+    "origin": "authored",
+    "language": "sparklab",
+    "runtime": "fastapispark-guided-v1",
+    "truth": "semantic-emulation",
+    "prompt": "Read orders, keep net_amount > 0, then return order_id, customer_id, net_amount. Preserve duplicates; output ordering does not matter.",
+    "sections": [
+      {
+        "title": "Qualified source subset",
+        "body": "One DataFrame assignment/call per line. Literal filter, select, orderBy and limit only. Chained calls, imports and actions are rejected, never ignored."
+      }
+    ],
+    "starter_source": "df = spark.table(\"orders\")",
+    "fixtures": [
+      {
+        "id": "guided-retail-filter-fixtures",
+        "version": "1"
+      }
+    ],
+    "visible_checks": [
+      {
+        "id": "example",
+        "description": "Two positive orders and one negative adjustment."
+      }
+    ],
+    "hidden_check_refs": [
+      "different-values"
+    ],
+    "edge_check_refs": [
+      "duplicate-orders",
+      "empty-result"
+    ],
+    "hints": [
+      "Use a literal SQL filter string for this service adapter.",
+      "Select all three business columns without LIMIT."
+    ],
+    "solution": {
+      "available": true,
+      "reveal": "explicit"
+    },
+    "explanation": "The service computes complete bounded results using DuckDB. A separate deterministic teaching model estimates distributed stages; those numbers are not measurements.",
+    "follow_ups": [
+      "How does a filter change results without a shuffle?"
+    ],
+    "canonical_placement": {
+      "domain": "data-engineering",
+      "topic": "filtering"
+    },
+    "related_associations": [
+      "pipeline",
+      "spark-semantics"
+    ],
+    "validator_version": "guided-rows-v1",
+    "validation": {
+      "kind": "rows",
+      "ordered": false,
+      "duplicate_sensitive": true,
+      "relative_tolerance": 1e-09,
+      "absolute_tolerance": 1e-08,
+      "required_columns": [
+        "order_id",
+        "customer_id",
+        "net_amount"
+      ],
+      "exact_schema": [
+        "order_id",
+        "customer_id",
+        "net_amount"
+      ],
+      "forbidden_extra_columns": true
+    },
+    "runtime_requirements": [
+      "explicit service URL",
+      "consent",
+      "fastapispark 0.1.0 connection qualification"
+    ],
+    "data_context": [
+      {
+        "name": "orders",
+        "columns": {
+          "order_id": "INTEGER",
+          "customer_id": "INTEGER",
+          "net_amount": "INTEGER"
+        },
+        "sample_rows": [
+          {
+            "order_id": 1,
+            "customer_id": 101,
+            "net_amount": 420
+          },
+          {
+            "order_id": 2,
+            "customer_id": 102,
+            "net_amount": 275
+          },
+          {
+            "order_id": 3,
+            "customer_id": 101,
+            "net_amount": -10
+          }
+        ]
+      }
+    ],
+    "output_schema": {
+      "order_id": "INTEGER",
+      "customer_id": "INTEGER",
+      "net_amount": "INTEGER"
+    },
+    "constraints": {
+      "input": "This curated service fixture is always nonempty; empty results are tested. General empty-table support is unavailable in service 0.1.0."
+    },
+    "provenance": {
+      "author": "Datapass",
+      "runtime_source_commit": "80ebbbcaf58b1d1922d014a83c9aab49943a81e1"
+    }
+  }
+]

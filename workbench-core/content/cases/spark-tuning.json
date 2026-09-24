@@ -1,0 +1,94 @@
+{
+  "id": "spark-tuning",
+  "title": "SparkLab broadcast join",
+  "subtitle": "Real fixture results, virtual scale",
+  "domain": "Retail",
+  "difficulty": "Intermediate",
+  "minutes": 20,
+  "modules": [
+    "sparklab"
+  ],
+  "description": "Reuse the uploaded SparkLab compiler, truth fixture and cluster cost model. Simulation is scenario-grounded, not benchmark-calibrated against a real Spark cluster.",
+  "physical_data": "12 fact rows + 4 dimension rows",
+  "scale_note": "Virtual model: 184,229,821 fact rows / 26.4 GB. These are NOT physical data or measured Spark performance.",
+  "steps": [
+    {
+      "id": "seed_orders",
+      "title": "Load the reference fact fixture",
+      "module": "sparklab",
+      "language": "sql",
+      "code": "SELECT * FROM source.orders",
+      "solution": "SELECT * FROM source.orders",
+      "output_asset": "silver.orders",
+      "depends_on": [],
+      "concept": "",
+      "task": "Load the reference fact fixture",
+      "hint": "",
+      "check": null
+    },
+    {
+      "id": "seed_dimension",
+      "title": "Load the reference dimension fixture",
+      "module": "sparklab",
+      "language": "sql",
+      "code": "SELECT * FROM source.dim_customer_segment",
+      "solution": "SELECT * FROM source.dim_customer_segment",
+      "output_asset": "silver.dim_customer_segment",
+      "depends_on": [],
+      "concept": "",
+      "task": "Load the reference dimension fixture",
+      "hint": "",
+      "check": null
+    },
+    {
+      "id": "broadcast",
+      "title": "Compare a broadcast join plan",
+      "module": "sparklab",
+      "language": "sparklab",
+      "code": "from pyspark.sql import functions as F\norders = spark.table(\"silver.orders\").filter(F.col(\"net_amount\") > 0)\nsegments = spark.table(\"silver.dim_customer_segment\")\njoined = orders.join(F.broadcast(segments), \"segment_id\", \"inner\")\nresult = joined.groupBy(\"customer_id\").agg(F.sum(\"net_amount\").alias(\"revenue\"), F.count(\"order_id\").alias(\"orders\"))",
+      "solution": "from pyspark.sql import functions as F\norders = spark.table(\"silver.orders\").filter(F.col(\"net_amount\") > 0)\nsegments = spark.table(\"silver.dim_customer_segment\")\njoined = orders.join(F.broadcast(segments), \"segment_id\", \"inner\")\nresult = joined.groupBy(\"customer_id\").agg(F.sum(\"net_amount\").alias(\"revenue\"), F.count(\"order_id\").alias(\"orders\"))",
+      "output_asset": "gold.customer_revenue",
+      "depends_on": [
+        "seed_orders",
+        "seed_dimension"
+      ],
+      "concept": "Rows are physically executed. The 26.4 GB fact and virtual workers are scenario inputs, not data stored on this machine.",
+      "task": "Compare a broadcast join plan",
+      "hint": "",
+      "check": {
+        "sql": "SELECT customer_id, revenue, orders FROM gold.customer_revenue ORDER BY customer_id",
+        "expected": [
+          {
+            "customer_id": "C001",
+            "revenue": 150.0,
+            "orders": 2
+          },
+          {
+            "customer_id": "C002",
+            "revenue": 225.0,
+            "orders": 2
+          },
+          {
+            "customer_id": "C005",
+            "revenue": 100.0,
+            "orders": 2
+          },
+          {
+            "customer_id": "C006",
+            "revenue": 10.0,
+            "orders": 1
+          },
+          {
+            "customer_id": "CORPORATE_ACCOUNT_01",
+            "revenue": 4500.0,
+            "orders": 3
+          }
+        ]
+      },
+      "truth_pack": "retail_broadcast_join_03"
+    }
+  ],
+  "schema_version": 1,
+  "version": "2026-09-17",
+  "status": "foundation"
+}

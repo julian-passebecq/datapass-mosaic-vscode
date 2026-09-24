@@ -1,0 +1,108 @@
+{
+  "id": "airflow-batch",
+  "title": "Airflow-style batch orchestration",
+  "subtitle": "A portable task graph over real data",
+  "domain": "Retail",
+  "difficulty": "Foundation",
+  "minutes": 18,
+  "modules": [
+    "airflow"
+  ],
+  "description": "Author and inspect an Airflow DAG in Datapass. The Fluent DAG surface can optionally execute the generated DAG with real Airflow 3 on an ephemeral GitHub Actions runner; SQL/data results remain separate workspace exercises.",
+  "physical_data": "12 physical orders",
+  "steps": [
+    {
+      "id": "ingest",
+      "title": "Copy source orders into Bronze",
+      "module": "airflow",
+      "language": "sql",
+      "code": "SELECT * FROM source.orders",
+      "solution": "SELECT * FROM source.orders",
+      "output_asset": "bronze.orders",
+      "depends_on": [],
+      "concept": "Copy moves records; it does not clean them. A stored procedure belongs to the source database, not to Data Factory.",
+      "task": "Retain all 12 source orders, including the negative and zero amounts.",
+      "hint": "Keep Bronze unchanged. Cleaning belongs in Silver.",
+      "check": {
+        "sql": "SELECT COUNT(*) AS n FROM bronze.orders",
+        "expected": [
+          {
+            "n": 12
+          }
+        ]
+      }
+    },
+    {
+      "id": "clean",
+      "title": "Clean orders as a SQL task",
+      "module": "airflow",
+      "language": "sql",
+      "code": "SELECT * FROM bronze.orders WHERE net_amount > 0",
+      "solution": "SELECT * FROM bronze.orders WHERE net_amount > 0",
+      "output_asset": "silver.orders",
+      "depends_on": [
+        "ingest"
+      ],
+      "concept": "The orchestrator schedules a task; SQL performs the transformation.",
+      "task": "Clean orders as a SQL task",
+      "hint": "",
+      "check": {
+        "sql": "SELECT COUNT(*) AS n, SUM(net_amount) AS revenue FROM silver.orders",
+        "expected": [
+          {
+            "n": 10,
+            "revenue": 4985
+          }
+        ]
+      }
+    },
+    {
+      "id": "aggregate",
+      "title": "Aggregate the scheduled batch",
+      "module": "airflow",
+      "language": "sql",
+      "code": "SELECT customer_id, SUM(net_amount) AS revenue, COUNT(*) AS orders FROM silver.orders GROUP BY customer_id",
+      "solution": "SELECT customer_id, SUM(net_amount) AS revenue, COUNT(*) AS orders FROM silver.orders GROUP BY customer_id",
+      "output_asset": "gold.customer_revenue",
+      "depends_on": [
+        "clean"
+      ],
+      "concept": "Airflow owns orchestration and task dependency semantics. Datapass can optionally validate/run the generated DAG with real Airflow 3 on GitHub Actions, but no persistent scheduler is claimed.",
+      "task": "Aggregate the scheduled batch",
+      "hint": "",
+      "check": {
+        "sql": "SELECT customer_id, revenue, orders FROM gold.customer_revenue ORDER BY customer_id",
+        "expected": [
+          {
+            "customer_id": "C001",
+            "revenue": 150,
+            "orders": 2
+          },
+          {
+            "customer_id": "C002",
+            "revenue": 225,
+            "orders": 2
+          },
+          {
+            "customer_id": "C005",
+            "revenue": 100,
+            "orders": 2
+          },
+          {
+            "customer_id": "C006",
+            "revenue": 10,
+            "orders": 1
+          },
+          {
+            "customer_id": "CORPORATE_ACCOUNT_01",
+            "revenue": 4500,
+            "orders": 3
+          }
+        ]
+      }
+    }
+  ],
+  "schema_version": 1,
+  "version": "2026-09-20",
+  "status": "foundation"
+}

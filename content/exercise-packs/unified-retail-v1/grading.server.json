@@ -1,0 +1,249 @@
+{
+  "retail-valid-orders": {
+    "solutions": {
+      "sql": "SELECT order_id, customer_id, amount FROM input WHERE customer_id IS NOT NULL AND amount > 0",
+      "python": "import pandas as pd\ndf = pd.DataFrame(input_rows, columns=[\"order_id\", \"customer_id\", \"amount\"])\nvalid = df[df[\"customer_id\"].notna() & (df[\"amount\"] > 0)]\ndisplay(valid[[\"order_id\", \"customer_id\", \"amount\"]])",
+      "polars": "import polars as pl\ndf = pl.DataFrame(input_rows, schema={\"order_id\":pl.Int64,\"customer_id\":pl.Int64,\"amount\":pl.Float64})\nvalid = df.lazy().filter(pl.col(\"customer_id\").is_not_null() & (pl.col(\"amount\") > 0))\ndisplay(valid.select(\"order_id\", \"customer_id\", \"amount\").collect())",
+      "sparklab": "df = spark.table(\"input\")\nvalid = df.filter(F.col(\"customer_id\").isNotNull() & (F.col(\"amount\") > 0))\nvalid.select(\"order_id\", \"customer_id\", \"amount\")",
+      "dbt": "SELECT order_id, customer_id, amount FROM {{ ref('input') }} WHERE customer_id IS NOT NULL AND amount > 0"
+    },
+    "fixtures": [
+      {
+        "id": "example",
+        "visibility": "visible",
+        "input_rows": [
+          {
+            "order_id": 1,
+            "customer_id": 101,
+            "amount": 10.0
+          },
+          {
+            "order_id": 2,
+            "customer_id": 101,
+            "amount": 15.0
+          },
+          {
+            "order_id": 3,
+            "customer_id": 102,
+            "amount": -4.0
+          },
+          {
+            "order_id": 4,
+            "customer_id": null,
+            "amount": 8.0
+          },
+          {
+            "order_id": 5,
+            "customer_id": 102,
+            "amount": null
+          }
+        ],
+        "expected": [
+          {
+            "order_id": 1,
+            "customer_id": 101,
+            "amount": 10.0
+          },
+          {
+            "order_id": 2,
+            "customer_id": 101,
+            "amount": 15.0
+          }
+        ]
+      },
+      {
+        "id": "duplicates-nulls",
+        "visibility": "hidden",
+        "input_rows": [
+          {
+            "order_id": 1,
+            "customer_id": 7,
+            "amount": 2.5
+          },
+          {
+            "order_id": 1,
+            "customer_id": 7,
+            "amount": 2.5
+          },
+          {
+            "order_id": 2,
+            "customer_id": 8,
+            "amount": 0.0
+          },
+          {
+            "order_id": 3,
+            "customer_id": null,
+            "amount": 20.0
+          },
+          {
+            "order_id": 4,
+            "customer_id": 9,
+            "amount": 3.0
+          }
+        ],
+        "expected": [
+          {
+            "order_id": 1,
+            "customer_id": 7,
+            "amount": 2.5
+          },
+          {
+            "order_id": 1,
+            "customer_id": 7,
+            "amount": 2.5
+          },
+          {
+            "order_id": 4,
+            "customer_id": 9,
+            "amount": 3.0
+          }
+        ]
+      },
+      {
+        "id": "empty",
+        "visibility": "edge",
+        "input_rows": [],
+        "expected": []
+      },
+      {
+        "id": "all-invalid",
+        "visibility": "edge",
+        "input_rows": [
+          {
+            "order_id": 1,
+            "customer_id": 7,
+            "amount": null
+          },
+          {
+            "order_id": 2,
+            "customer_id": null,
+            "amount": 12.0
+          },
+          {
+            "order_id": 3,
+            "customer_id": 7,
+            "amount": -2.0
+          }
+        ],
+        "expected": []
+      }
+    ]
+  },
+  "retail-customer-revenue": {
+    "solutions": {
+      "sql": "SELECT customer_id, SUM(amount) AS revenue FROM input WHERE customer_id IS NOT NULL AND amount > 0 GROUP BY customer_id",
+      "python": "import pandas as pd\ndf = pd.DataFrame(input_rows, columns=[\"order_id\", \"customer_id\", \"amount\"])\nvalid = df[df[\"customer_id\"].notna() & (df[\"amount\"] > 0)]\ndisplay(valid.groupby(\"customer_id\", as_index=False)[\"amount\"].sum().rename(columns={\"amount\":\"revenue\"}))",
+      "polars": "import polars as pl\ndf = pl.DataFrame(input_rows, schema={\"order_id\":pl.Int64,\"customer_id\":pl.Int64,\"amount\":pl.Float64})\nvalid = df.lazy().filter(pl.col(\"customer_id\").is_not_null() & (pl.col(\"amount\") > 0))\ndisplay(valid.group_by(\"customer_id\").agg(pl.col(\"amount\").sum().alias(\"revenue\")).collect())",
+      "sparklab": "df = spark.table(\"input\")\nvalid = df.filter(F.col(\"customer_id\").isNotNull() & (F.col(\"amount\") > 0))\nvalid.groupBy(\"customer_id\").agg(F.sum(\"amount\").alias(\"revenue\"))",
+      "dbt": "SELECT customer_id, SUM(amount) AS revenue FROM {{ ref('input') }} WHERE customer_id IS NOT NULL AND amount > 0 GROUP BY customer_id"
+    },
+    "fixtures": [
+      {
+        "id": "example",
+        "visibility": "visible",
+        "input_rows": [
+          {
+            "order_id": 1,
+            "customer_id": 101,
+            "amount": 10.0
+          },
+          {
+            "order_id": 2,
+            "customer_id": 101,
+            "amount": 15.0
+          },
+          {
+            "order_id": 3,
+            "customer_id": 102,
+            "amount": -4.0
+          },
+          {
+            "order_id": 4,
+            "customer_id": null,
+            "amount": 8.0
+          },
+          {
+            "order_id": 5,
+            "customer_id": 102,
+            "amount": null
+          }
+        ],
+        "expected": [
+          {
+            "customer_id": 101,
+            "revenue": 25.0
+          }
+        ]
+      },
+      {
+        "id": "duplicates-nulls",
+        "visibility": "hidden",
+        "input_rows": [
+          {
+            "order_id": 1,
+            "customer_id": 7,
+            "amount": 2.5
+          },
+          {
+            "order_id": 1,
+            "customer_id": 7,
+            "amount": 2.5
+          },
+          {
+            "order_id": 2,
+            "customer_id": 8,
+            "amount": 0.0
+          },
+          {
+            "order_id": 3,
+            "customer_id": null,
+            "amount": 20.0
+          },
+          {
+            "order_id": 4,
+            "customer_id": 9,
+            "amount": 3.0
+          }
+        ],
+        "expected": [
+          {
+            "customer_id": 7,
+            "revenue": 5.0
+          },
+          {
+            "customer_id": 9,
+            "revenue": 3.0
+          }
+        ]
+      },
+      {
+        "id": "empty",
+        "visibility": "edge",
+        "input_rows": [],
+        "expected": []
+      },
+      {
+        "id": "all-invalid",
+        "visibility": "edge",
+        "input_rows": [
+          {
+            "order_id": 1,
+            "customer_id": 7,
+            "amount": null
+          },
+          {
+            "order_id": 2,
+            "customer_id": null,
+            "amount": 12.0
+          },
+          {
+            "order_id": 3,
+            "customer_id": 7,
+            "amount": -2.0
+          }
+        ],
+        "expected": []
+      }
+    ]
+  }
+}

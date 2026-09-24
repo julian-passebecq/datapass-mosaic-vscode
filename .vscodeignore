@@ -1,0 +1,12 @@
+.github/**
+.vscode/**
+src/**
+scripts/**
+legacy-donors/**
+migration-sources/**
+workbench-core/**
+node_modules/**
+runtime/**/__pycache__/**
+runtime/**/*.pyc
+*.vsix
+dist-test/**

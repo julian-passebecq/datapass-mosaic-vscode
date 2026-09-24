@@ -1,0 +1,75 @@
+[
+  {
+    "schema_version": 1,
+    "id": "retail-pipeline-design",
+    "version": "1",
+    "title": "Gate publication on data quality",
+    "difficulty": "easy",
+    "topics": [
+      "pipeline"
+    ],
+    "tags": [
+      "DAG",
+      "retry",
+      "local-orchestrator"
+    ],
+    "origin": "authored",
+    "language": "python",
+    "runtime": "datapass-dag-design-v1",
+    "truth": "design-only",
+    "prompt": "Build extract -> check -> publish. Use SQL tasks extract/publish and a quality task check with two retries and a one-second delay. Task bodies are authored design and are not executed or graded here.",
+    "sections": [
+      {
+        "title": "Design contract",
+        "body": "Use the Pipeline Lab DSL. Variable names and declaration order are irrelevant. Exact task IDs, kinds, retry policies and directed edges are graded. No extra tasks or edges. Schedule is metadata. Task SQL/Python correctness requires a separate real pipeline run."
+      }
+    ],
+    "starter_source": "pipeline(\"retail_quality\")\nextract = sql(\"extract\", \"SELECT 1 AS value\")\ncheck = quality(\"check\", \"SELECT TRUE AS passed\", retries=2, retry_delay=1)\npublish = sql(\"publish\", \"SELECT 1 AS value\")\nextract >> publish\n",
+    "fixtures": [
+      {
+        "id": "retail-pipeline-design-fixtures",
+        "version": "1"
+      }
+    ],
+    "visible_checks": [
+      {
+        "id": "tasks",
+        "description": "Task identities, types and retry policy"
+      }
+    ],
+    "hidden_check_refs": [
+      "dependencies"
+    ],
+    "edge_check_refs": [],
+    "hints": [
+      "Publication must depend on quality, which depends on extraction."
+    ],
+    "solution": {
+      "available": true,
+      "reveal": "explicit"
+    },
+    "explanation": "A dependency prevents publication until upstream quality succeeds. A failed quality task blocks its descendants.",
+    "follow_ups": [
+      "Run the design in Pipeline Lab with real catalog queries."
+    ],
+    "canonical_placement": {
+      "domain": "data-engineering",
+      "topic": "pipeline"
+    },
+    "related_associations": [
+      "pipeline-lab"
+    ],
+    "validator_version": "dag-ir-1",
+    "validation": {
+      "kind": "rows",
+      "ordered": false,
+      "duplicate_sensitive": true,
+      "relative_tolerance": 0,
+      "absolute_tolerance": 0
+    },
+    "runtime_requirements": [],
+    "constraints": {
+      "execution": "Compile-only, design-only; no task source is evaluated."
+    }
+  }
+]

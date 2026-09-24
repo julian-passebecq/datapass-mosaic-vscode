@@ -1,0 +1,113 @@
+{
+  "guided-retail-filter": {
+    "solution": "df = spark.table(\"orders\")\ndf = df.filter(\"net_amount > 0\")\ndf = df.select(\"order_id\", \"customer_id\", \"net_amount\")",
+    "fixtures": [
+      {
+        "id": "example",
+        "visibility": "visible",
+        "input_rows": [
+          {
+            "order_id": 1,
+            "customer_id": 101,
+            "net_amount": 420
+          },
+          {
+            "order_id": 2,
+            "customer_id": 102,
+            "net_amount": 275
+          },
+          {
+            "order_id": 3,
+            "customer_id": 101,
+            "net_amount": -10
+          }
+        ],
+        "expected": [
+          {
+            "order_id": 1,
+            "customer_id": 101,
+            "net_amount": 420
+          },
+          {
+            "order_id": 2,
+            "customer_id": 102,
+            "net_amount": 275
+          }
+        ]
+      },
+      {
+        "id": "different-values",
+        "visibility": "hidden",
+        "input_rows": [
+          {
+            "order_id": 17,
+            "customer_id": 8,
+            "net_amount": 7
+          },
+          {
+            "order_id": 18,
+            "customer_id": 8,
+            "net_amount": 0
+          },
+          {
+            "order_id": 19,
+            "customer_id": 2,
+            "net_amount": 15
+          }
+        ],
+        "expected": [
+          {
+            "order_id": 17,
+            "customer_id": 8,
+            "net_amount": 7
+          },
+          {
+            "order_id": 19,
+            "customer_id": 2,
+            "net_amount": 15
+          }
+        ]
+      },
+      {
+        "id": "duplicate-orders",
+        "visibility": "edge",
+        "input_rows": [
+          {
+            "order_id": 9,
+            "customer_id": 2,
+            "net_amount": 3
+          },
+          {
+            "order_id": 9,
+            "customer_id": 2,
+            "net_amount": 3
+          }
+        ],
+        "expected": [
+          {
+            "order_id": 9,
+            "customer_id": 2,
+            "net_amount": 3
+          },
+          {
+            "order_id": 9,
+            "customer_id": 2,
+            "net_amount": 3
+          }
+        ]
+      },
+      {
+        "id": "empty-result",
+        "visibility": "edge",
+        "input_rows": [
+          {
+            "order_id": 9,
+            "customer_id": 2,
+            "net_amount": -1
+          }
+        ],
+        "expected": []
+      }
+    ]
+  }
+}

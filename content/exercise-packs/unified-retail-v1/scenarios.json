@@ -1,0 +1,381 @@
+[
+  {
+    "semantic": {
+      "id": "retail-valid-orders",
+      "version": "1",
+      "industry": "Retail",
+      "learning_objectives": [
+        "Preserve NULL and duplicate semantics across runtimes",
+        "Grade complete result rows, not source text"
+      ],
+      "figure_family": "partitions",
+      "optimization": "Project and filter before collect; aggregation must include all valid rows.",
+      "reflection": "How would data skew change cost without changing the semantic answer?"
+    },
+    "fixture_version": "1",
+    "common": {
+      "schema_version": 1,
+      "title": "Valid retail orders",
+      "difficulty": "easy",
+      "topics": [
+        "nulls",
+        "filtering"
+      ],
+      "tags": [
+        "retail",
+        "multi-runtime",
+        "shared-fixture"
+      ],
+      "origin": "authored",
+      "prompt": "Keep each input row with non-NULL customer_id and amount > 0. Return order_id, customer_id, amount. Preserve duplicate rows.",
+      "sections": [
+        {
+          "title": "One semantic contract",
+          "body": "All language variants use the same versioned visible, hidden and edge fixtures. Rows are unordered; column order is fixed. No implicit dropping of duplicates."
+        }
+      ],
+      "fixtures": [
+        {
+          "id": "retail-valid-orders-fixtures",
+          "version": "1"
+        }
+      ],
+      "visible_checks": [
+        {
+          "id": "example",
+          "description": "Five input rows include NULL customer IDs, NULL amounts and a negative amount."
+        }
+      ],
+      "hidden_check_refs": [
+        "duplicates-nulls"
+      ],
+      "edge_check_refs": [
+        "empty",
+        "all-invalid"
+      ],
+      "hints": [
+        "Filter invalid rows before projecting or aggregating.",
+        "Explicitly declare schemas for empty pandas/Polars results.",
+        "dbt drills allow literal ref(\"input\") and source(\"fixture\", \"input\") only."
+      ],
+      "solution": {
+        "available": true,
+        "reveal": "explicit"
+      },
+      "explanation": "Filter semantics are identical across adapters. NULL does not satisfy amount > 0. SQL bag semantics preserve duplicates; use group aggregation only in the revenue problem.",
+      "follow_ups": [
+        "Which filters can be pushed before data collection?",
+        "Why is a preview LIMIT unsafe for a grader?"
+      ],
+      "canonical_placement": {
+        "domain": "data-engineering",
+        "topic": "nulls"
+      },
+      "related_associations": [
+        "notebook",
+        "pipeline",
+        "modeling"
+      ],
+      "validator_version": "semantic-rows-v1",
+      "validation": {
+        "kind": "rows",
+        "ordered": false,
+        "duplicate_sensitive": true,
+        "relative_tolerance": 1e-09,
+        "absolute_tolerance": 1e-08,
+        "required_columns": [
+          "order_id",
+          "customer_id",
+          "amount"
+        ],
+        "exact_schema": [
+          "order_id",
+          "customer_id",
+          "amount"
+        ],
+        "forbidden_extra_columns": true,
+        "null_semantics": "forbidden"
+      },
+      "data_context": [
+        {
+          "name": "input",
+          "columns": {
+            "order_id": "INTEGER",
+            "customer_id": "INTEGER",
+            "amount": "DOUBLE"
+          },
+          "sample_rows": [
+            {
+              "order_id": 1,
+              "customer_id": 101,
+              "amount": 10.0
+            },
+            {
+              "order_id": 2,
+              "customer_id": 101,
+              "amount": 15.0
+            },
+            {
+              "order_id": 3,
+              "customer_id": 102,
+              "amount": -4.0
+            },
+            {
+              "order_id": 4,
+              "customer_id": null,
+              "amount": 8.0
+            },
+            {
+              "order_id": 5,
+              "customer_id": 102,
+              "amount": null
+            }
+          ]
+        }
+      ],
+      "output_schema": {
+        "order_id": "INTEGER",
+        "customer_id": "INTEGER",
+        "amount": "DOUBLE"
+      },
+      "provenance": {
+        "author": "Datapass",
+        "licensing": "Original educational example; no external question corpus"
+      },
+      "constraints": {
+        "fixtures": "At most 200 rows; full bounded results required. No truncated result can pass."
+      },
+      "runtime_requirements": []
+    },
+    "variants": {
+      "sql": {
+        "starter_source": "SELECT * FROM input",
+        "supported_operations": [
+          "filter",
+          "select"
+        ]
+      },
+      "python": {
+        "starter_source": "import pandas as pd\ndf = pd.DataFrame(input_rows, columns=[\"order_id\",\"customer_id\",\"amount\"])\ndisplay(df)",
+        "supported_operations": [
+          "filter",
+          "select"
+        ]
+      },
+      "polars": {
+        "starter_source": "import polars as pl\ndf = pl.DataFrame(input_rows, schema={\"order_id\":pl.Int64,\"customer_id\":pl.Int64,\"amount\":pl.Float64})\ndisplay(df)",
+        "supported_operations": [
+          "filter",
+          "select"
+        ]
+      },
+      "sparklab": {
+        "starter_source": "df = spark.table(\"input\")\ndf",
+        "supported_operations": [
+          "filter",
+          "select"
+        ]
+      },
+      "dbt": {
+        "starter_source": "-- Write the model SQL using {{ ref('input') }}\nSELECT * FROM {{ ref('input') }}",
+        "supported_operations": [
+          "filter",
+          "select"
+        ]
+      }
+    }
+  },
+  {
+    "semantic": {
+      "id": "retail-customer-revenue",
+      "version": "1",
+      "industry": "Retail",
+      "learning_objectives": [
+        "Preserve NULL and duplicate semantics across runtimes",
+        "Grade complete result rows, not source text"
+      ],
+      "figure_family": "partitions",
+      "optimization": "Project and filter before collect; aggregation must include all valid rows.",
+      "reflection": "How would data skew change cost without changing the semantic answer?"
+    },
+    "fixture_version": "1",
+    "common": {
+      "schema_version": 1,
+      "title": "Revenue by customer",
+      "difficulty": "medium",
+      "topics": [
+        "aggregation",
+        "nulls"
+      ],
+      "tags": [
+        "retail",
+        "multi-runtime",
+        "shared-fixture"
+      ],
+      "origin": "authored",
+      "prompt": "For rows with non-NULL customer_id and amount > 0, sum amount per customer. Return customer_id, revenue; omit customers with no valid rows. Duplicate rows contribute independently.",
+      "sections": [
+        {
+          "title": "One semantic contract",
+          "body": "All language variants use the same versioned visible, hidden and edge fixtures. Rows are unordered; column order is fixed. No implicit dropping of duplicates."
+        }
+      ],
+      "fixtures": [
+        {
+          "id": "retail-customer-revenue-fixtures",
+          "version": "1"
+        }
+      ],
+      "visible_checks": [
+        {
+          "id": "example",
+          "description": "Five input rows include NULL customer IDs, NULL amounts and a negative amount."
+        }
+      ],
+      "hidden_check_refs": [
+        "duplicates-nulls"
+      ],
+      "edge_check_refs": [
+        "empty",
+        "all-invalid"
+      ],
+      "hints": [
+        "Filter invalid rows before projecting or aggregating.",
+        "Explicitly declare schemas for empty pandas/Polars results.",
+        "dbt drills allow literal ref(\"input\") and source(\"fixture\", \"input\") only."
+      ],
+      "solution": {
+        "available": true,
+        "reveal": "explicit"
+      },
+      "explanation": "Filter semantics are identical across adapters. NULL does not satisfy amount > 0. SQL bag semantics preserve duplicates; use group aggregation only in the revenue problem.",
+      "follow_ups": [
+        "Which filters can be pushed before data collection?",
+        "Why is a preview LIMIT unsafe for a grader?"
+      ],
+      "canonical_placement": {
+        "domain": "data-engineering",
+        "topic": "aggregation"
+      },
+      "related_associations": [
+        "notebook",
+        "pipeline",
+        "modeling"
+      ],
+      "validator_version": "semantic-rows-v1",
+      "validation": {
+        "kind": "rows",
+        "ordered": false,
+        "duplicate_sensitive": true,
+        "relative_tolerance": 1e-09,
+        "absolute_tolerance": 1e-08,
+        "required_columns": [
+          "customer_id",
+          "revenue"
+        ],
+        "exact_schema": [
+          "customer_id",
+          "revenue"
+        ],
+        "forbidden_extra_columns": true,
+        "null_semantics": "forbidden"
+      },
+      "data_context": [
+        {
+          "name": "input",
+          "columns": {
+            "order_id": "INTEGER",
+            "customer_id": "INTEGER",
+            "amount": "DOUBLE"
+          },
+          "sample_rows": [
+            {
+              "order_id": 1,
+              "customer_id": 101,
+              "amount": 10.0
+            },
+            {
+              "order_id": 2,
+              "customer_id": 101,
+              "amount": 15.0
+            },
+            {
+              "order_id": 3,
+              "customer_id": 102,
+              "amount": -4.0
+            },
+            {
+              "order_id": 4,
+              "customer_id": null,
+              "amount": 8.0
+            },
+            {
+              "order_id": 5,
+              "customer_id": 102,
+              "amount": null
+            }
+          ]
+        }
+      ],
+      "output_schema": {
+        "customer_id": "INTEGER",
+        "revenue": "DOUBLE"
+      },
+      "provenance": {
+        "author": "Datapass",
+        "licensing": "Original educational example; no external question corpus"
+      },
+      "constraints": {
+        "fixtures": "At most 200 rows; full bounded results required. No truncated result can pass."
+      },
+      "runtime_requirements": []
+    },
+    "variants": {
+      "sql": {
+        "starter_source": "SELECT * FROM input",
+        "supported_operations": [
+          "filter",
+          "select",
+          "group_by",
+          "sum"
+        ]
+      },
+      "python": {
+        "starter_source": "import pandas as pd\ndf = pd.DataFrame(input_rows, columns=[\"order_id\",\"customer_id\",\"amount\"])\ndisplay(df)",
+        "supported_operations": [
+          "filter",
+          "select",
+          "group_by",
+          "sum"
+        ]
+      },
+      "polars": {
+        "starter_source": "import polars as pl\ndf = pl.DataFrame(input_rows, schema={\"order_id\":pl.Int64,\"customer_id\":pl.Int64,\"amount\":pl.Float64})\ndisplay(df)",
+        "supported_operations": [
+          "filter",
+          "select",
+          "group_by",
+          "sum"
+        ]
+      },
+      "sparklab": {
+        "starter_source": "df = spark.table(\"input\")\ndf",
+        "supported_operations": [
+          "filter",
+          "select",
+          "group_by",
+          "sum"
+        ]
+      },
+      "dbt": {
+        "starter_source": "-- Write the model SQL using {{ ref('input') }}\nSELECT * FROM {{ ref('input') }}",
+        "supported_operations": [
+          "filter",
+          "select",
+          "group_by",
+          "sum"
+        ]
+      }
+    }
+  }
+]

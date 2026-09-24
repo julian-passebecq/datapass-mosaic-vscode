@@ -1,0 +1,84 @@
+{
+  "id": "dbt-marts",
+  "title": "dbt models without Spark",
+  "subtitle": "Source, staging, mart, tests",
+  "domain": "Retail",
+  "difficulty": "Foundation",
+  "minutes": 18,
+  "modules": [
+    "dbt"
+  ],
+  "description": "Compile a supported dbt template subset to executable SQL. This is a teaching adapter, not an installed dbt Core runtime.",
+  "physical_data": "12 physical orders",
+  "steps": [
+    {
+      "id": "stg_orders",
+      "title": "Build the staging model",
+      "module": "dbt",
+      "language": "dbt",
+      "code": "SELECT * FROM {{ source('retail', 'orders') }} WHERE net_amount > 0",
+      "solution": "SELECT * FROM {{ source('retail', 'orders') }} WHERE net_amount > 0",
+      "output_asset": "silver.stg_orders",
+      "depends_on": [],
+      "concept": "A dbt model is a SELECT with dependencies and a materialization. This foundation supports literal ref/source, not arbitrary Jinja.",
+      "task": "Build the staging model",
+      "hint": "",
+      "check": {
+        "sql": "SELECT COUNT(*) AS n FROM silver.stg_orders",
+        "expected": [
+          {
+            "n": 10
+          }
+        ]
+      }
+    },
+    {
+      "id": "fct_revenue",
+      "title": "Build the revenue model",
+      "module": "dbt",
+      "language": "dbt",
+      "code": "SELECT customer_id, SUM(net_amount) AS revenue, COUNT(*) AS orders\nFROM {{ ref('stg_orders') }}\nGROUP BY customer_id",
+      "solution": "SELECT customer_id, SUM(net_amount) AS revenue, COUNT(*) AS orders\nFROM {{ ref('stg_orders') }}\nGROUP BY customer_id",
+      "output_asset": "gold.fct_revenue",
+      "depends_on": [
+        "stg_orders"
+      ],
+      "concept": "ref resolves a registered model to an asset, and the root records lineage from the actual materialization.",
+      "task": "Build the revenue model",
+      "hint": "",
+      "check": {
+        "sql": "SELECT customer_id, revenue, orders FROM gold.fct_revenue ORDER BY customer_id",
+        "expected": [
+          {
+            "customer_id": "C001",
+            "revenue": 150.0,
+            "orders": 2
+          },
+          {
+            "customer_id": "C002",
+            "revenue": 225.0,
+            "orders": 2
+          },
+          {
+            "customer_id": "C005",
+            "revenue": 100.0,
+            "orders": 2
+          },
+          {
+            "customer_id": "C006",
+            "revenue": 10.0,
+            "orders": 1
+          },
+          {
+            "customer_id": "CORPORATE_ACCOUNT_01",
+            "revenue": 4500.0,
+            "orders": 3
+          }
+        ]
+      }
+    }
+  ],
+  "schema_version": 1,
+  "version": "2026-09-17",
+  "status": "foundation"
+}

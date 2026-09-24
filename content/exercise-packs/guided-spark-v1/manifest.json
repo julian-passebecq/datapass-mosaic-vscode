@@ -1,0 +1,7 @@
+{
+  "schema_version": 1,
+  "id": "guided-spark-v1",
+  "version": "1",
+  "title": "Curated fastapispark service lesson",
+  "enabled": true
+}

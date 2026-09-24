@@ -1,0 +1,13 @@
+name: datapass_retail
+version: '1.0.0'
+config-version: 2
+profile: datapass_retail
+model-paths: [models]
+seed-paths: [seeds]
+test-paths: [tests]
+models:
+  datapass_retail:
+    staging:
+      +materialized: view
+    marts:
+      +materialized: table

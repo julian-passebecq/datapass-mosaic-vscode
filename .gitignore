@@ -1,0 +1,12 @@
+node_modules/
+dist/
+*.vsix
+.vscode-test/
+.venv/
+runtime/.venv/
+.datapass/
+__pycache__/
+*.pyc
+runtime/build/
+*.egg-info/
+dist-test/

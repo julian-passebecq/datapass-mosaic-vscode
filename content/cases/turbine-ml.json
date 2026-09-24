@@ -1,0 +1,169 @@
+{
+  "id": "turbine-ml",
+  "title": "Turbine regression notebook",
+  "subtitle": "A Databricks-inspired Python workspace",
+  "domain": "Renewable energy",
+  "difficulty": "Intermediate",
+  "minutes": 20,
+  "modules": [
+    "databricks-notebook"
+  ],
+  "description": "Train a deliberately simple regression on synthetic data with a chronological holdout. Python runs in an opt-in trusted local worker. No Databricks cluster, MLlib or MLflow server is claimed.",
+  "physical_data": "18 synthetic readings; 12 train / 6 test",
+  "steps": [
+    {
+      "id": "features",
+      "title": "Create the feature table",
+      "module": "databricks-notebook",
+      "language": "sql",
+      "code": "SELECT * FROM source.turbine_readings",
+      "solution": "SELECT * FROM source.turbine_readings",
+      "output_asset": "features.turbine",
+      "depends_on": [],
+      "concept": "Keep train/test separation visible before fitting.",
+      "task": "Create the feature table",
+      "hint": "",
+      "check": {
+        "sql": "SELECT * FROM features.turbine",
+        "expected": [
+          {
+            "sample_id": 1,
+            "turbine_id": "T-01",
+            "wind_speed": 4.0,
+            "actual_power": 12.0
+          },
+          {
+            "sample_id": 2,
+            "turbine_id": "T-01",
+            "wind_speed": 5.0,
+            "actual_power": 14.0
+          },
+          {
+            "sample_id": 3,
+            "turbine_id": "T-01",
+            "wind_speed": 6.0,
+            "actual_power": 16.0
+          },
+          {
+            "sample_id": 4,
+            "turbine_id": "T-01",
+            "wind_speed": 7.0,
+            "actual_power": 18.0
+          },
+          {
+            "sample_id": 5,
+            "turbine_id": "T-01",
+            "wind_speed": 8.0,
+            "actual_power": 20.0
+          },
+          {
+            "sample_id": 6,
+            "turbine_id": "T-01",
+            "wind_speed": 9.0,
+            "actual_power": 22.0
+          },
+          {
+            "sample_id": 7,
+            "turbine_id": "T-01",
+            "wind_speed": 10.0,
+            "actual_power": 24.0
+          },
+          {
+            "sample_id": 8,
+            "turbine_id": "T-01",
+            "wind_speed": 11.0,
+            "actual_power": 26.0
+          },
+          {
+            "sample_id": 9,
+            "turbine_id": "T-01",
+            "wind_speed": 12.0,
+            "actual_power": 28.0
+          },
+          {
+            "sample_id": 10,
+            "turbine_id": "T-01",
+            "wind_speed": 13.0,
+            "actual_power": 30.0
+          },
+          {
+            "sample_id": 11,
+            "turbine_id": "T-01",
+            "wind_speed": 14.0,
+            "actual_power": 32.0
+          },
+          {
+            "sample_id": 12,
+            "turbine_id": "T-01",
+            "wind_speed": 15.0,
+            "actual_power": 34.0
+          },
+          {
+            "sample_id": 13,
+            "turbine_id": "T-01",
+            "wind_speed": 16.0,
+            "actual_power": 36.0
+          },
+          {
+            "sample_id": 14,
+            "turbine_id": "T-01",
+            "wind_speed": 17.0,
+            "actual_power": 38.0
+          },
+          {
+            "sample_id": 15,
+            "turbine_id": "T-01",
+            "wind_speed": 18.0,
+            "actual_power": 40.0
+          },
+          {
+            "sample_id": 16,
+            "turbine_id": "T-01",
+            "wind_speed": 19.0,
+            "actual_power": 42.0
+          },
+          {
+            "sample_id": 17,
+            "turbine_id": "T-01",
+            "wind_speed": 20.0,
+            "actual_power": 44.0
+          },
+          {
+            "sample_id": 18,
+            "turbine_id": "T-01",
+            "wind_speed": 21.0,
+            "actual_power": 46.0
+          }
+        ]
+      }
+    },
+    {
+      "id": "fit",
+      "title": "Fit and evaluate a small regression",
+      "module": "databricks-notebook",
+      "language": "python",
+      "code": "rows = query(\"SELECT wind_speed, actual_power, sample_id FROM features.turbine ORDER BY sample_id\")\ntrain = [r for r in rows if r[\"sample_id\"] <= 12]\ntest = [r for r in rows if r[\"sample_id\"] > 12]\nmean_x = sum(r[\"wind_speed\"] for r in train) / len(train)\nmean_y = sum(r[\"actual_power\"] for r in train) / len(train)\nslope = sum((r[\"wind_speed\"] - mean_x) * (r[\"actual_power\"] - mean_y) for r in train) / sum((r[\"wind_speed\"] - mean_x) ** 2 for r in train)\nintercept = mean_y - slope * mean_x\nmse = sum((r[\"actual_power\"] - (intercept + slope * r[\"wind_speed\"])) ** 2 for r in test) / len(test)\nresult = [{\"train_rows\": len(train), \"test_rows\": len(test), \"holdout_mse\": round(mse, 6), \"slope\": round(slope, 6)}]\ndisplay(result)",
+      "solution": "rows = query(\"SELECT wind_speed, actual_power, sample_id FROM features.turbine ORDER BY sample_id\")\ntrain = [r for r in rows if r[\"sample_id\"] <= 12]\ntest = [r for r in rows if r[\"sample_id\"] > 12]\nmean_x = sum(r[\"wind_speed\"] for r in train) / len(train)\nmean_y = sum(r[\"actual_power\"] for r in train) / len(train)\nslope = sum((r[\"wind_speed\"] - mean_x) * (r[\"actual_power\"] - mean_y) for r in train) / sum((r[\"wind_speed\"] - mean_x) ** 2 for r in train)\nintercept = mean_y - slope * mean_x\nmse = sum((r[\"actual_power\"] - (intercept + slope * r[\"wind_speed\"])) ** 2 for r in test) / len(test)\nresult = [{\"train_rows\": len(train), \"test_rows\": len(test), \"holdout_mse\": round(mse, 6), \"slope\": round(slope, 6)}]\ndisplay(result)",
+      "output_asset": "metrics.evaluation",
+      "depends_on": [
+        "features"
+      ],
+      "concept": "Only the first 12 readings fit the model. The last 6 are held out. Synthetic linear data is not a realistic performance benchmark.",
+      "task": "Fit and evaluate a small regression",
+      "hint": "",
+      "check": {
+        "sql": "SELECT train_rows, test_rows, holdout_mse FROM metrics.evaluation",
+        "expected": [
+          {
+            "train_rows": 12,
+            "test_rows": 6,
+            "holdout_mse": 0.0
+          }
+        ]
+      }
+    }
+  ],
+  "schema_version": 1,
+  "version": "2026-09-17",
+  "status": "foundation"
+}

@@ -1,0 +1,79 @@
+{
+  "retail-pipeline-design": {
+    "solution": "pipeline(\"retail_quality\")\nextract = sql(\"extract\", \"SELECT 1 AS value\")\ncheck = quality(\"check\", \"SELECT TRUE AS passed\", retries=2, retry_delay=1)\npublish = sql(\"publish\", \"SELECT 1 AS value\")\nextract >> check >> publish\n",
+    "fixtures": [
+      {
+        "id": "tasks",
+        "visibility": "visible",
+        "input_rows": [
+          {
+            "element": "task"
+          }
+        ],
+        "expected": [
+          {
+            "element": "task",
+            "id": "check",
+            "target": "",
+            "kind": "quality",
+            "retries": 2,
+            "retry_delay": 1,
+            "resource": "",
+            "action": ""
+          },
+          {
+            "element": "task",
+            "id": "extract",
+            "target": "",
+            "kind": "sql",
+            "retries": 0,
+            "retry_delay": 0,
+            "resource": "",
+            "action": ""
+          },
+          {
+            "element": "task",
+            "id": "publish",
+            "target": "",
+            "kind": "sql",
+            "retries": 0,
+            "retry_delay": 0,
+            "resource": "",
+            "action": ""
+          }
+        ]
+      },
+      {
+        "id": "dependencies",
+        "visibility": "hidden",
+        "input_rows": [
+          {
+            "element": "edge"
+          }
+        ],
+        "expected": [
+          {
+            "element": "edge",
+            "id": "check",
+            "target": "publish",
+            "kind": "",
+            "retries": 0,
+            "retry_delay": 0,
+            "resource": "",
+            "action": ""
+          },
+          {
+            "element": "edge",
+            "id": "extract",
+            "target": "check",
+            "kind": "",
+            "retries": 0,
+            "retry_delay": 0,
+            "resource": "",
+            "action": ""
+          }
+        ]
+      }
+    ]
+  }
+}

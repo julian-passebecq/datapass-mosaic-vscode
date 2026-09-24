@@ -1,0 +1,373 @@
+{
+  "demo-sum": {
+    "solution": "SELECT COALESCE(SUM(value), 0) AS total FROM input",
+    "fixtures": [
+      {
+        "id": "example",
+        "visibility": "visible",
+        "input_rows": [
+          {
+            "value": 1
+          },
+          {
+            "value": 2
+          },
+          {
+            "value": 2
+          },
+          {
+            "value": null
+          }
+        ],
+        "expected": [
+          {
+            "total": 5
+          }
+        ]
+      },
+      {
+        "id": "hidden-values",
+        "visibility": "hidden",
+        "input_rows": [
+          {
+            "value": -3
+          },
+          {
+            "value": 7
+          },
+          {
+            "value": 7
+          },
+          {
+            "value": 5
+          },
+          {
+            "value": null
+          }
+        ],
+        "expected": [
+          {
+            "total": 16
+          }
+        ]
+      },
+      {
+        "id": "empty-input",
+        "visibility": "edge",
+        "input_rows": [],
+        "expected": [
+          {
+            "total": 0
+          }
+        ]
+      }
+    ]
+  },
+  "demo-count": {
+    "solution": "SELECT COUNT(value) AS count_values FROM input",
+    "fixtures": [
+      {
+        "id": "example",
+        "visibility": "visible",
+        "input_rows": [
+          {
+            "value": 1
+          },
+          {
+            "value": 2
+          },
+          {
+            "value": 2
+          },
+          {
+            "value": null
+          }
+        ],
+        "expected": [
+          {
+            "count_values": 3
+          }
+        ]
+      },
+      {
+        "id": "hidden-values",
+        "visibility": "hidden",
+        "input_rows": [
+          {
+            "value": -3
+          },
+          {
+            "value": 7
+          },
+          {
+            "value": 7
+          },
+          {
+            "value": 5
+          },
+          {
+            "value": null
+          }
+        ],
+        "expected": [
+          {
+            "count_values": 4
+          }
+        ]
+      },
+      {
+        "id": "empty-input",
+        "visibility": "edge",
+        "input_rows": [],
+        "expected": [
+          {
+            "count_values": 0
+          }
+        ]
+      }
+    ]
+  },
+  "demo-python": {
+    "solution": "display(input_rows, columns=['value'])",
+    "fixtures": [
+      {
+        "id": "example",
+        "visibility": "visible",
+        "input_rows": [
+          {
+            "value": 1
+          },
+          {
+            "value": 2
+          },
+          {
+            "value": 2
+          },
+          {
+            "value": null
+          }
+        ],
+        "expected": [
+          {
+            "value": 1
+          },
+          {
+            "value": 2
+          },
+          {
+            "value": 2
+          },
+          {
+            "value": null
+          }
+        ]
+      },
+      {
+        "id": "hidden-values",
+        "visibility": "hidden",
+        "input_rows": [
+          {
+            "value": -3
+          },
+          {
+            "value": 7
+          },
+          {
+            "value": 7
+          },
+          {
+            "value": 5
+          },
+          {
+            "value": null
+          }
+        ],
+        "expected": [
+          {
+            "value": -3
+          },
+          {
+            "value": 7
+          },
+          {
+            "value": 7
+          },
+          {
+            "value": 5
+          },
+          {
+            "value": null
+          }
+        ]
+      },
+      {
+        "id": "empty-input",
+        "visibility": "edge",
+        "input_rows": [],
+        "expected": []
+      }
+    ]
+  },
+  "demo-polars": {
+    "solution": "import polars as pl\ndisplay(pl.DataFrame(input_rows, schema={\"value\": pl.Int64}))",
+    "fixtures": [
+      {
+        "id": "example",
+        "visibility": "visible",
+        "input_rows": [
+          {
+            "value": 1
+          },
+          {
+            "value": 2
+          },
+          {
+            "value": 2
+          },
+          {
+            "value": null
+          }
+        ],
+        "expected": [
+          {
+            "value": 1
+          },
+          {
+            "value": 2
+          },
+          {
+            "value": 2
+          },
+          {
+            "value": null
+          }
+        ]
+      },
+      {
+        "id": "hidden-values",
+        "visibility": "hidden",
+        "input_rows": [
+          {
+            "value": -3
+          },
+          {
+            "value": 7
+          },
+          {
+            "value": 7
+          },
+          {
+            "value": 5
+          },
+          {
+            "value": null
+          }
+        ],
+        "expected": [
+          {
+            "value": -3
+          },
+          {
+            "value": 7
+          },
+          {
+            "value": 7
+          },
+          {
+            "value": 5
+          },
+          {
+            "value": null
+          }
+        ]
+      },
+      {
+        "id": "empty-input",
+        "visibility": "edge",
+        "input_rows": [],
+        "expected": []
+      }
+    ]
+  },
+  "demo-sparklab": {
+    "solution": "result = spark.table(\"input\").select(\"value\")",
+    "fixtures": [
+      {
+        "id": "example",
+        "visibility": "visible",
+        "input_rows": [
+          {
+            "value": 1
+          },
+          {
+            "value": 2
+          },
+          {
+            "value": 2
+          },
+          {
+            "value": null
+          }
+        ],
+        "expected": [
+          {
+            "value": 1
+          },
+          {
+            "value": 2
+          },
+          {
+            "value": 2
+          },
+          {
+            "value": null
+          }
+        ]
+      },
+      {
+        "id": "hidden-values",
+        "visibility": "hidden",
+        "input_rows": [
+          {
+            "value": -3
+          },
+          {
+            "value": 7
+          },
+          {
+            "value": 7
+          },
+          {
+            "value": 5
+          },
+          {
+            "value": null
+          }
+        ],
+        "expected": [
+          {
+            "value": -3
+          },
+          {
+            "value": 7
+          },
+          {
+            "value": 7
+          },
+          {
+            "value": 5
+          },
+          {
+            "value": null
+          }
+        ]
+      },
+      {
+        "id": "empty-input",
+        "visibility": "edge",
+        "input_rows": [],
+        "expected": []
+      }
+    ]
+  }
+}

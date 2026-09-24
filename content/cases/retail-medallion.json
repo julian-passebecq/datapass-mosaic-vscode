@@ -1,0 +1,282 @@
+{
+  "id": "retail-medallion",
+  "title": "Retail revenue lakehouse",
+  "subtitle": "Raw orders to a trusted KPI",
+  "domain": "Retail",
+  "difficulty": "Foundation",
+  "minutes": 25,
+  "modules": [
+    "fabric-notebook",
+    "power-bi"
+  ],
+  "description": "Twelve physical rows make the business rules visible. Load Bronze in the Fabric-style notebook, clean with SparkLab, aggregate Gold and inspect the resulting data.",
+  "physical_data": "12 orders + 4 customer segments",
+  "scale_note": "No large-scale metrics are inferred from these 12 rows.",
+  "steps": [
+    {
+      "id": "ingest",
+      "title": "Load source orders into Bronze",
+      "module": "fabric-notebook",
+      "language": "sql",
+      "code": "SELECT * FROM source.orders",
+      "solution": "SELECT * FROM source.orders",
+      "output_asset": "bronze.orders",
+      "depends_on": [],
+      "concept": "Use the Fabric-style notebook workspace to establish an unchanged Bronze table. Datapass does not reproduce Fabric/Data Factory pipelines; practice those in Microsoft Fabric itself.",
+      "task": "Retain all 12 source orders, including the negative and zero amounts.",
+      "hint": "Keep Bronze unchanged. Cleaning belongs in Silver.",
+      "check": {
+        "sql": "SELECT * FROM bronze.orders",
+        "expected": [
+          {
+            "order_id": "O-001",
+            "customer_id": "C001",
+            "segment_id": 1,
+            "net_amount": 100,
+            "loaded_at": "2026-09-17T01:00:00"
+          },
+          {
+            "order_id": "O-002",
+            "customer_id": "C001",
+            "segment_id": 1,
+            "net_amount": 50,
+            "loaded_at": "2026-09-17T01:01:00"
+          },
+          {
+            "order_id": "O-003",
+            "customer_id": "C002",
+            "segment_id": 2,
+            "net_amount": 200,
+            "loaded_at": "2026-09-17T01:02:00"
+          },
+          {
+            "order_id": "O-004",
+            "customer_id": "C003",
+            "segment_id": 2,
+            "net_amount": -10,
+            "loaded_at": "2026-09-17T01:03:00"
+          },
+          {
+            "order_id": "O-005",
+            "customer_id": "CORPORATE_ACCOUNT_01",
+            "segment_id": 3,
+            "net_amount": 1000,
+            "loaded_at": "2026-09-17T01:04:00"
+          },
+          {
+            "order_id": "O-006",
+            "customer_id": "CORPORATE_ACCOUNT_01",
+            "segment_id": 3,
+            "net_amount": 1500,
+            "loaded_at": "2026-09-17T01:05:00"
+          },
+          {
+            "order_id": "O-007",
+            "customer_id": "CORPORATE_ACCOUNT_01",
+            "segment_id": 3,
+            "net_amount": 2000,
+            "loaded_at": "2026-09-17T01:06:00"
+          },
+          {
+            "order_id": "O-008",
+            "customer_id": "C002",
+            "segment_id": 2,
+            "net_amount": 25,
+            "loaded_at": "2026-09-17T01:07:00"
+          },
+          {
+            "order_id": "O-009",
+            "customer_id": "C004",
+            "segment_id": 1,
+            "net_amount": 0,
+            "loaded_at": "2026-09-17T01:08:00"
+          },
+          {
+            "order_id": "O-010",
+            "customer_id": "C005",
+            "segment_id": 2,
+            "net_amount": 75,
+            "loaded_at": "2026-09-17T01:09:00"
+          },
+          {
+            "order_id": "O-011",
+            "customer_id": "C005",
+            "segment_id": 2,
+            "net_amount": 25,
+            "loaded_at": "2026-09-17T01:10:00"
+          },
+          {
+            "order_id": "O-012",
+            "customer_id": "C006",
+            "segment_id": 4,
+            "net_amount": 10,
+            "loaded_at": "2026-09-17T01:11:00"
+          }
+        ]
+      }
+    },
+    {
+      "id": "clean",
+      "title": "Prepare valid Silver orders",
+      "module": "fabric-notebook",
+      "language": "sparklab",
+      "code": "from pyspark.sql import functions as F\norders = spark.table(\"bronze.orders\")\nvalid_orders = orders.filter(F.col(\"net_amount\") > 0)",
+      "solution": "from pyspark.sql import functions as F\norders = spark.table(\"bronze.orders\")\nvalid_orders = orders.filter(F.col(\"net_amount\") > 0)",
+      "output_asset": "silver.orders",
+      "depends_on": [
+        "ingest"
+      ],
+      "concept": "A filter is a narrow transformation. The notebook preview triggers bounded local SQL execution; the cluster is simulated.",
+      "task": "Keep strictly positive amounts; preserve the original columns.",
+      "hint": "Use > 0, not >= 0.",
+      "check": {
+        "sql": "SELECT * FROM silver.orders",
+        "expected": [
+          {
+            "order_id": "O-001",
+            "customer_id": "C001",
+            "segment_id": 1,
+            "net_amount": 100,
+            "loaded_at": "2026-09-17T01:00:00"
+          },
+          {
+            "order_id": "O-002",
+            "customer_id": "C001",
+            "segment_id": 1,
+            "net_amount": 50,
+            "loaded_at": "2026-09-17T01:01:00"
+          },
+          {
+            "order_id": "O-003",
+            "customer_id": "C002",
+            "segment_id": 2,
+            "net_amount": 200,
+            "loaded_at": "2026-09-17T01:02:00"
+          },
+          {
+            "order_id": "O-005",
+            "customer_id": "CORPORATE_ACCOUNT_01",
+            "segment_id": 3,
+            "net_amount": 1000,
+            "loaded_at": "2026-09-17T01:04:00"
+          },
+          {
+            "order_id": "O-006",
+            "customer_id": "CORPORATE_ACCOUNT_01",
+            "segment_id": 3,
+            "net_amount": 1500,
+            "loaded_at": "2026-09-17T01:05:00"
+          },
+          {
+            "order_id": "O-007",
+            "customer_id": "CORPORATE_ACCOUNT_01",
+            "segment_id": 3,
+            "net_amount": 2000,
+            "loaded_at": "2026-09-17T01:06:00"
+          },
+          {
+            "order_id": "O-008",
+            "customer_id": "C002",
+            "segment_id": 2,
+            "net_amount": 25,
+            "loaded_at": "2026-09-17T01:07:00"
+          },
+          {
+            "order_id": "O-010",
+            "customer_id": "C005",
+            "segment_id": 2,
+            "net_amount": 75,
+            "loaded_at": "2026-09-17T01:09:00"
+          },
+          {
+            "order_id": "O-011",
+            "customer_id": "C005",
+            "segment_id": 2,
+            "net_amount": 25,
+            "loaded_at": "2026-09-17T01:10:00"
+          },
+          {
+            "order_id": "O-012",
+            "customer_id": "C006",
+            "segment_id": 4,
+            "net_amount": 10,
+            "loaded_at": "2026-09-17T01:11:00"
+          }
+        ]
+      }
+    },
+    {
+      "id": "aggregate",
+      "title": "Build customer revenue in Gold",
+      "module": "fabric-notebook",
+      "language": "sparklab",
+      "code": "from pyspark.sql import functions as F\norders = spark.table(\"silver.orders\")\ncustomer_revenue = orders.groupBy(\"customer_id\").agg(F.sum(\"net_amount\").alias(\"revenue\"), F.count(\"order_id\").alias(\"orders\"))",
+      "solution": "from pyspark.sql import functions as F\norders = spark.table(\"silver.orders\")\ncustomer_revenue = orders.groupBy(\"customer_id\").agg(F.sum(\"net_amount\").alias(\"revenue\"), F.count(\"order_id\").alias(\"orders\"))",
+      "output_asset": "gold.customer_revenue",
+      "depends_on": [
+        "clean"
+      ],
+      "concept": "A groupBy can introduce a shuffle in distributed Spark. Here the actual result is computed over the small workspace fixture.",
+      "task": "Produce one row per customer with revenue and order count.",
+      "hint": "Group by customer_id, not by order_id.",
+      "check": {
+        "sql": "SELECT customer_id, revenue, orders FROM gold.customer_revenue ORDER BY customer_id",
+        "expected": [
+          {
+            "customer_id": "C001",
+            "revenue": 150,
+            "orders": 2
+          },
+          {
+            "customer_id": "C002",
+            "revenue": 225,
+            "orders": 2
+          },
+          {
+            "customer_id": "C005",
+            "revenue": 100,
+            "orders": 2
+          },
+          {
+            "customer_id": "C006",
+            "revenue": 10,
+            "orders": 1
+          },
+          {
+            "customer_id": "CORPORATE_ACCOUNT_01",
+            "revenue": 4500,
+            "orders": 3
+          }
+        ]
+      }
+    },
+    {
+      "id": "report",
+      "title": "Validate the revenue KPI",
+      "module": "power-bi",
+      "language": "sql",
+      "code": "SELECT SUM(revenue) AS total_revenue, SUM(orders) AS valid_orders, COUNT(*) AS customers FROM gold.customer_revenue",
+      "solution": "SELECT SUM(revenue) AS total_revenue, SUM(orders) AS valid_orders, COUNT(*) AS customers FROM gold.customer_revenue",
+      "output_asset": null,
+      "depends_on": [
+        "aggregate"
+      ],
+      "concept": "This is a SQL-backed KPI preview, not a DAX or VertiPaq engine. The BI module must consume the same Gold asset.",
+      "task": "Confirm total revenue, valid order count and customer count.",
+      "hint": "The negative refund and zero-value order were excluded by the agreed rule.",
+      "check": {
+        "sql": "SELECT SUM(revenue) AS total_revenue, SUM(orders) AS valid_orders, COUNT(*) AS customers FROM gold.customer_revenue",
+        "expected": [
+          {
+            "total_revenue": 4985,
+            "valid_orders": 10,
+            "customers": 5
+          }
+        ]
+      }
+    }
+  ],
+  "schema_version": 1,
+  "version": "2026-09-17",
+  "status": "foundation"
+}
