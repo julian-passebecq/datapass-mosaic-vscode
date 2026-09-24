@@ -175,6 +175,7 @@ export async function run(): Promise<void> {
       const pipeline = await loadPipelineState(runtime!);
       assert.equal(pipeline.compileStatus, "valid", JSON.stringify(pipeline.diagnostics));
       assert.equal(pipeline.graph.nodes.length, 3);
+      assert.ok(pipeline.graph.nodes.every(node => node.truth === "Real local execution"));
       await runtime!.runPipeline(pipelineStarter());
       const run = runtime!.snapshot().pipelineRun;
       assert.equal(run?.status, "success", JSON.stringify(run?.tasks));

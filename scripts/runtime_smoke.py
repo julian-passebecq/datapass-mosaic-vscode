@@ -2,6 +2,7 @@ from importlib import resources
 import os
 from pathlib import Path
 from tempfile import TemporaryDirectory
+import time
 
 # Trusted Python must never be inherited from the environment running the smoke.
 os.environ.pop("DATAPASS_TRUSTED_PYTHON", None)
@@ -127,6 +128,22 @@ extract >> check >> publish
         assert [task["status"] for task in pipeline_run["tasks"]] == ["success", "success", "success"]
         catalog = manager.call("smoke", Path(temp), {"op": "catalog"})
         assert any(item["name"] == "bronze.pipeline_smoke" and item["fresh"] for item in catalog)
+
+        # dbt is declared by the compiler but not wired: it must fail fast and
+        # honestly (no retries burned, no success), and block its downstream.
+        dbt_source = """pipeline("dbt_smoke")
+models = dbt("models", project="retail-dbt", retries=3, retry_delay=5)
+after = sql("after", "SELECT 1 AS ok")
+models >> after
+"""
+        started = time.perf_counter()
+        dbt_run = run_native_pipeline(dbt_source, lambda request: manager.call("smoke", Path(temp), request))
+        assert time.perf_counter() - started < 3, "dbt activity must not sleep through retries"
+        assert dbt_run["status"] == "failed", dbt_run
+        dbt_task, after_task = dbt_run["tasks"]
+        assert dbt_task["status"] == "failed" and dbt_task["attempts"] == 1, dbt_task
+        assert "not wired" in dbt_task["error"] and "Nothing was run" in dbt_task["error"], dbt_task
+        assert after_task["status"] == "skipped", after_task
     finally:
         manager.close()
 
@@ -135,7 +152,7 @@ assert runtime_caps["trusted_local_python"] is False, runtime_caps
 assert runtime_caps["python_sandboxed"] is False, runtime_caps
 
 
-# Mirrors the SparkLab scratch starter created by the extension (workbenchPanel.ts).
+# Mirrors the SparkLab scratch starter written by the extension (src/scaffold/starters.ts).
 SPARKLAB_SCRATCH = """from pyspark.sql import functions as F
 
 orders = spark.table("source.orders")

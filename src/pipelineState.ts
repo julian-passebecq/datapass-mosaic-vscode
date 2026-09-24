@@ -73,7 +73,7 @@ export async function loadPipelineState(
           id: task.id,
           label: task.id,
           detail: `${task.kind} · retries ${task.retries}`,
-          truth: "Compiled design"
+          truth: activityTruth(task.kind)
         })),
         edges: compiled.ir.edges.map((edge, index) => ({
           id: `dependency-${index + 1}`,
@@ -95,6 +95,21 @@ export async function loadPipelineState(
       }],
       graph: EMPTY_GRAPH
     };
+  }
+}
+
+function activityTruth(kind: string): string {
+  switch (kind) {
+    case "sql":
+    case "quality":
+      return "Real local execution";
+    case "python":
+    case "polars":
+      return "Real local execution · trusted Python only";
+    case "dbt":
+      return "Declared only · not executed (use dbt Lab)";
+    default:
+      return "Compiled design · not executable";
   }
 }
 

@@ -101,7 +101,7 @@ Current executable activity bodies:
 - SQL — real local DuckDB execution.
 - Quality — real local query/assertion execution.
 - Python / Polars — only when trusted local Python is effective (see above).
-- dbt — accepted by the design compiler, but native pipeline execution is not wired yet; use dbt Lab for real dbt Core execution.
+- dbt — accepted by the design compiler but deliberately **not executed**. A run fails that task once (no retries), states that nothing was run, and skips its downstream tasks; the graph labels the node *Declared only · not executed*. Use dbt Lab for real dbt Core execution. Wiring it later requires the trusted-local opt-in to cover dbt macros/hooks and strict project/resource validation; the donor `dbt_runner.py` depends on job/document infrastructure that is not part of this runtime.
 
 Scheduling remains metadata/teaching semantics; Datapass is not running a production scheduler.
 

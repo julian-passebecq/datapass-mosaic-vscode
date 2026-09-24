@@ -6,6 +6,11 @@ from typing import Callable
 
 from .pipeline_compiler import compile_pipeline, topological
 
+DBT_NOT_WIRED = (
+    "Not executed: the Pipeline Lab dbt activity is declared by the design compiler but is not wired "
+    "to dbt Core. Nothing was run and no success is reported. Use dbt Lab for real dbt Core execution."
+)
+
 
 def run_native_pipeline(
     source: str,
@@ -37,6 +42,21 @@ def run_native_pipeline(
                 "attempts": 0,
                 "elapsed_ms": 0.0,
                 "error": f"Skipped because upstream task(s) failed: {', '.join(sorted(blocked))}",
+                "result": None,
+            }
+            results[task_id] = row
+            run_rows.append(row)
+            continue
+
+        if task["kind"] == "dbt":
+            # Deterministically unsupported: fail once, never burn retries on it.
+            row = {
+                "id": task_id,
+                "kind": task["kind"],
+                "status": "failed",
+                "attempts": 1,
+                "elapsed_ms": 0.0,
+                "error": DBT_NOT_WIRED,
                 "result": None,
             }
             results[task_id] = row
@@ -78,10 +98,6 @@ def run_native_pipeline(
                         message = error.get("message") if isinstance(error, dict) else "Task execution failed."
                         raise RuntimeError(str(message))
                     result = response.get("result")
-                elif kind == "dbt":
-                    raise ValueError(
-                        "Native pipeline dbt activity is not wired yet. Use dbt Lab for real dbt Core execution."
-                    )
                 else:
                     raise ValueError(f"Unsupported pipeline activity: {kind}")
                 last_error = None

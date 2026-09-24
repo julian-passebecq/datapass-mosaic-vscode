@@ -146,6 +146,6 @@ The runtime is a local IPC/control plane, not a separate Datapass web applicatio
 | SparkLab | whitelist parser, compiled SQL and result rows computed locally | stages, shuffle, duration, credits, cluster behavior |
 | dbt Lab | dbt Core + DuckDB when installed | static lineage fallback is not execution |
 | Airflow Lab | project DAG definition | scheduler/executor/task runtime |
-| Pipeline Lab | source files, bounded compiler, supported local activity execution | scheduler/service semantics; dbt pipeline activity not wired yet |
+| Pipeline Lab | source files, bounded compiler, SQL/quality execution; Python/Polars after trusted-Python opt-in | scheduler/service semantics; dbt activity declared only, never executed or reported as success |
 
 The UI should always preserve this distinction.
