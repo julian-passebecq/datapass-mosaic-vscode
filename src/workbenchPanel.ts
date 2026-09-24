@@ -106,6 +106,9 @@ export class WorkbenchPanel {
       case "runRetailDemo":
         await this.runRetailDemo();
         return;
+      case "refreshCatalog":
+        await this.runtimeManager.refreshCatalog();
+        return;
       case "startRuntime": {
         const manifest = await readProjectManifest();
         const pythonCommand = manifest.manifest?.runtime?.pythonCommand ?? "python";
