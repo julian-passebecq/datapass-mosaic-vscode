@@ -14,7 +14,6 @@ import subprocess
 import sys
 import threading
 import time
-from .content import ROOT
 
 
 class KernelTimeout(TimeoutError):
@@ -23,14 +22,14 @@ class KernelTimeout(TimeoutError):
 
 class Kernel:
     def __init__(self, directory: Path, mode: str, trusted: bool):
-        args = [sys.executable,'-m','apps.api.datapass.worker','--directory',str(directory),'--mode',mode]
+        args = [sys.executable,'-m','datapass_runtime.worker','--directory',str(directory),'--mode',mode]
         if trusted:
             args += ['--trusted-python']
         directory.mkdir(parents=True,exist_ok=True)
         self.log = open(directory / 'worker.stderr.log','a',encoding='utf-8')
         env = {k:v for k,v in os.environ.items() if not any(word in k.upper() for word in ('TOKEN','SECRET','PASSWORD','API_KEY'))}
         env['PYTHONUNBUFFERED'] = '1'
-        self.process = subprocess.Popen(args,cwd=ROOT,stdin=subprocess.PIPE,stdout=subprocess.PIPE,stderr=self.log,text=True,encoding='utf-8',env=env)
+        self.process = subprocess.Popen(args,cwd=directory,stdin=subprocess.PIPE,stdout=subprocess.PIPE,stderr=self.log,text=True,encoding='utf-8',env=env)
         self.lock = threading.Lock()
         self.last_used = time.monotonic()
         self.reservations = 0
