@@ -16,13 +16,30 @@ import time
 from typing import Any
 import uuid
 
-from .catalog import Catalog, json_value, references
+from .catalog import Catalog, json_value, references, statements
 from .content import compile_dbt, get_case, topological_steps
 from sparklab.safe_parser import SafeSparkParser, SparkLabSyntaxError
 from sparklab.sparklab import SparkSession
 from sparklab.runtime import load_cluster_profiles
 
 SPARK_HOME = Path(__file__).resolve().parents[1] / 'sparklab'
+
+
+def subquery_body(sql: str) -> str:
+    """A submission made safe to wrap as `(...) AS submitted`.
+
+    Trailing semicolons (and comments after them) are dropped, and the result
+    ends with a newline so a trailing `-- comment` cannot swallow the closing
+    parenthesis of the wrapper.
+    """
+    try:
+        parts = statements(sql)
+    except ValueError:
+        parts = [sql]
+    body = (parts[0] if len(parts) == 1 else sql).rstrip()
+    while body.endswith(';'):
+        body = body[:-1].rstrip()
+    return body + '\n'
 
 
 class BoundedText(io.StringIO):
@@ -363,9 +380,9 @@ class Engine:
             if compiled_sql is not None:
                 # Server-owned exercise fixture scope; never accepted by API models.
                 if request.get('_exercise_fixture_ctes'):
-                    compiled_sql = f"WITH {request['_exercise_fixture_ctes']} SELECT * FROM ({compiled_sql.rstrip().rstrip(';')}) AS submitted"
+                    compiled_sql = f"WITH {request['_exercise_fixture_ctes']} SELECT * FROM ({subquery_body(compiled_sql)}) AS submitted"
                 elif request.get('_exercise_fixture_sql'):
-                    compiled_sql = f"WITH input AS ({request['_exercise_fixture_sql']}) SELECT * FROM ({compiled_sql.rstrip().rstrip(';')}) AS submitted"
+                    compiled_sql = f"WITH input AS ({request['_exercise_fixture_sql']}) SELECT * FROM ({subquery_body(compiled_sql)}) AS submitted"
                 if request.get('output_asset'):
                     result = self.catalog.materialize(request['output_asset'], compiled_sql, request['cell_id'])
                 elif language in {'sparklab','dbt'}:

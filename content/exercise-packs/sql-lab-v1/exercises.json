@@ -2205,7 +2205,7 @@
         "body": "Without ELSE, full-price rows contribute NULL and their group total becomes NULL."
       }
     ],
-    "starter_source": "SELECT discount_code, SUM(quantity * price_per_unit) AS total_revenue\nFROM sales\n-- apply the discount\n",
+    "starter_source": "SELECT discount_code, SUM(quantity * price_per_unit) AS total_revenue\nFROM sales\nGROUP BY discount_code\n-- apply the discount inside SUM\n",
     "fixtures": [
       {
         "id": "sql-lab-case-inside-sum-fixtures",

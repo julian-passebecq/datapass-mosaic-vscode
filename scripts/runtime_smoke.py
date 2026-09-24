@@ -114,6 +114,16 @@ with TemporaryDirectory(prefix="datapass-kernel-smoke-") as temp:
         assert len(grading["checks"]) == 3
         assert all(check["passed"] for check in grading["checks"])
 
+        # Trailing comments and semicolons must not break the grading wrapper.
+        for suffix in (" -- done", ";", "; -- done", "\n-- keep every row\n", " /* note */;"):
+            wrapped = manager.call("smoke", Path(temp), {
+                "op": "exercise", "exercise_id": "demo-sum", "exercise_version": "1", "language": "sql",
+                "code": "SELECT COALESCE(SUM(value), 0) AS total FROM input" + suffix, "mode": "submit",
+                "notebook_id": "exercise-demo-sum-1", "cell_id": "solution", "source_revision": 2,
+                "profile": "generic_8x8", "aqe": True,
+            })
+            assert wrapped["status"] == "passed", (suffix, wrapped["checks"])
+
         pipeline_source = """pipeline("smoke_pipeline")
 extract = sql("extract", "CREATE OR REPLACE TABLE bronze.pipeline_smoke AS SELECT order_id FROM source.orders WHERE net_amount > 0")
 check = quality("check", "SELECT * FROM bronze.pipeline_smoke WHERE order_id IS NULL")

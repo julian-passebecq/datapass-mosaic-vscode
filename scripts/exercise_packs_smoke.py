@@ -22,6 +22,9 @@ from datapass_runtime.exercises import definitions, solution
 from datapass_runtime.kernels import KernelManager
 
 SKIP_RUNTIMES = {"fastapispark-guided-v1"}  # requires an explicitly qualified remote connection
+# Packs whose starters must run cleanly and fail only on their results, so a
+# learner never starts from a parse error.
+RUNNABLE_STARTER_PACKS = {"sql-lab-v1", "engine-lab-v1", "python-lab-v1"}
 
 # Plausible wrong answers per exercise id. Each must fail submission.
 MUTANTS: dict[str, list[str]] = {
@@ -431,8 +434,12 @@ def main() -> None:
                 starter = spec.get("starter_source", "")
                 if starter.strip():
                     counts["starters"] += 1
-                    if grade(manager, workspace, spec, starter)["status"] == "passed":
+                    graded = grade(manager, workspace, spec, starter)
+                    if graded["status"] == "passed":
                         failures.append(f"{spec['id']}: starter already passes")
+                    elif spec.get("pack", {}).get("id") in RUNNABLE_STARTER_PACKS and any(
+                            check["execution_status"] != "success" for check in graded["checks"]):
+                        failures.append(f"{spec['id']}: starter does not execute ({summary(graded)})")
                 for index, mutant in enumerate(MUTANTS.get(spec["id"], [])):
                     counts["mutants"] += 1
                     graded = grade(manager, workspace, spec, mutant)
