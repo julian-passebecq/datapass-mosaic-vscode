@@ -71,8 +71,8 @@ export const MODULES: readonly WorkbenchModule[] = [
     label:"Pipeline Lab",
     description:"Visual orchestration of notebooks, SQL, copy and procedure-like activities.",
     command:"datapass.openPipelineLab",
-    execution:"Local workflow engine",
-    mode:"simulated",
+    execution:"Bounded compiler + real local activity execution",
+    mode:"hybrid",
     highlights:["React Flow orchestration","Notebook / SQL / copy activities","Run history and dependency validation"]
   }
 ] as const;
