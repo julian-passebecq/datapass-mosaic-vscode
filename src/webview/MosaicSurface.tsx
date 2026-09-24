@@ -85,7 +85,35 @@ export function MosaicSurface({
                     {runtime.status}
                   </Badge>
                   <span className="muted">{runtime.detail ?? "Start the Datapass runtime from the header."}</span>
+                  <Button
+                    appearance="subtle"
+                    size="small"
+                    disabled={runtime.status !== "running"}
+                    onClick={() => vscode.postMessage({ type: "refreshCatalog" })}
+                  >
+                    Refresh
+                  </Button>
                 </div>
+                {runtime.catalog && runtime.catalog.length > 0 ? (
+                  <div className="catalog-list">
+                    {runtime.catalog.map(asset => (
+                      <div className="catalog-row" key={asset.name}>
+                        <div>
+                          <strong>{asset.name}</strong>
+                          <small>{asset.producer ?? "local catalog"}</small>
+                        </div>
+                        <span>{asset.row_count} rows</span>
+                        <Badge appearance="outline" color={asset.fresh ? "success" : "informative"}>
+                          {asset.fresh ? "fresh" : "untracked"}
+                        </Badge>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="muted catalog-empty">
+                    {runtime.status === "running" ? "No catalog assets reported." : "Start the runtime to load the catalog."}
+                  </div>
+                )}
               </MosaicBlock>
             </div>
 
