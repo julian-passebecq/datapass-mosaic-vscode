@@ -8,6 +8,7 @@ from datapass_runtime.guided_spark import compile_guard
 from datapass_runtime.content import cases, content_root
 from datapass_runtime.exercises import definitions
 from datapass_runtime.retail_demo import run_retail_demo
+from datapass_runtime.kernels import KernelManager
 from sparklab.capabilities import SUPPORT
 
 
@@ -69,11 +70,23 @@ with TemporaryDirectory(prefix="datapass-retail-smoke-") as temp:
             os.environ["DATAPASS_WORKSPACE_ROOT"] = previous_workspace
 
     assert retail["status"] == "success"
-    assert retail["database_path"] == ".datapass/data/datapass.duckdb"
+    assert retail["database_path"] == ".datapass/data/workspace.duckdb"
     assert [stage["rows"] for stage in retail["stages"]] == [5, 5, 3, 2]
     assert retail["polars_quality"] == {"rows": 3, "customers": 2, "revenue": 350.0}
     assert retail["preview"]["rows"][0]["customer_id"] == "C002"
     assert retail["preview"]["rows"][0]["revenue"] == 200.0
-    assert (workspace / ".datapass" / "data" / "datapass.duckdb").is_file()
+    assert (workspace / ".datapass" / "data" / "workspace.duckdb").is_file()
+
+
+with TemporaryDirectory(prefix="datapass-kernel-smoke-") as temp:
+    manager = KernelManager(mode="duckdb", trusted=False, timeout=8.0, max_workers=1)
+    try:
+        capability = manager.call("smoke", Path(temp), {"op": "capabilities"})
+        assert capability["storage"] == "duckdb"
+        assert any(kernel["id"] == "sql" and kernel["available"] for kernel in capability["kernels"])
+        catalog = manager.call("smoke", Path(temp), {"op": "catalog"})
+        assert any(item["name"] == "source.orders" for item in catalog)
+    finally:
+        manager.close()
 
 print("Datapass runtime smoke passed.")
