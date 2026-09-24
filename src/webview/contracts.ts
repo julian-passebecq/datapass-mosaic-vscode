@@ -36,12 +36,30 @@ export interface LocalCatalogAssetView {
   producer?: string;
 }
 
+export interface LocalCellRunView {
+  id: string;
+  status: "success" | "error";
+  language: string;
+  elapsed_ms: number;
+  stdout: string;
+  result?: {
+    columns: readonly string[];
+    rows: readonly Record<string, string | number | boolean | null>[];
+    truncated?: boolean;
+  };
+  error?: {
+    type: string;
+    message: string;
+  };
+}
+
 export interface RuntimeViewState {
   status: RuntimeStatus;
   url?: string;
   detail?: string;
   retailDemo?: RetailDemoRunView;
   catalog?: readonly LocalCatalogAssetView[];
+  lastRun?: LocalCellRunView;
 }
 
 export interface WorkspaceViewState {
@@ -179,6 +197,7 @@ export type WebviewToHostMessage =
   | { type: "createRetailDemo" }
   | { type: "runRetailDemo" }
   | { type: "refreshCatalog" }
+  | { type: "runActiveSql" }
   | { type: "startRuntime" }
   | { type: "stopRuntime" }
   | { type: "openTerminal" }
