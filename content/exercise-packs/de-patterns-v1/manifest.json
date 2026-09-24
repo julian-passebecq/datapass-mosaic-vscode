@@ -1,0 +1,10 @@
+{
+  "schema_version": 1,
+  "id": "de-patterns-v1",
+  "version": "1",
+  "title": "Data-engineering SQL patterns: cleaning, CDC, sessions, SCD2, upserts, quality (DuckDB)",
+  "enabled": true,
+  "provenance": {
+    "source": "Authored for Datapass Workbench"
+  }
+}

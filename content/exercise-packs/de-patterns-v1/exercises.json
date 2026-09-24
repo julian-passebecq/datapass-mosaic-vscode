@@ -1,0 +1,2345 @@
+[
+  {
+    "schema_version": 1,
+    "id": "de-clean-imported-text",
+    "version": "1",
+    "title": "Type the text columns of an imported CSV",
+    "difficulty": "easy",
+    "topics": [
+      "casting",
+      "data-quality",
+      "nulls"
+    ],
+    "tags": [
+      "de-patterns",
+      "duckdb",
+      "data-engineering"
+    ],
+    "origin": "authored",
+    "language": "sql",
+    "runtime": "shared-sql-v1",
+    "prompt": "Mosaic's Import CSV stores every column as text. Turn raw_orders into typed columns: order_id as INTEGER; amount as DOUBLE, or NULL when it is blank or not a number; status trimmed and lower-cased, or NULL when blank. Keep every row.",
+    "sections": [
+      {
+        "title": "Tables",
+        "body": "raw_orders(order_id VARCHAR, amount VARCHAR, status VARCHAR)"
+      },
+      {
+        "title": "Output",
+        "body": "Columns in this order: order_id, amount, status. Row order does not matter."
+      },
+      {
+        "title": "Common pitfall",
+        "body": "CAST fails the whole query on one bad value; TRY_CAST returns NULL instead. An empty string is not NULL, and ' Shipped' is not 'shipped'."
+      }
+    ],
+    "starter_source": "SELECT order_id, amount, status\nFROM raw_orders\n",
+    "fixtures": [
+      {
+        "id": "de-clean-imported-text-fixtures",
+        "version": "1"
+      }
+    ],
+    "visible_checks": [
+      {
+        "id": "example",
+        "description": "Public example: the tables shown in data_context."
+      }
+    ],
+    "hidden_check_refs": [
+      "messy-values"
+    ],
+    "edge_check_refs": [
+      "empty-file"
+    ],
+    "hints": [
+      "TRY_CAST(x AS DOUBLE) returns NULL instead of raising an error.",
+      "NULLIF(value, '') turns an empty string into NULL."
+    ],
+    "solution": {
+      "available": true,
+      "reveal": "explicit"
+    },
+    "explanation": "Imported text needs explicit, forgiving typing: TRY_CAST for numbers, TRIM/LOWER to normalise categories and NULLIF so blanks become real NULLs that aggregates ignore.",
+    "follow_ups": [
+      "How would you count the rows whose amount failed to parse?",
+      "When should a bad value stop the pipeline instead of becoming NULL?"
+    ],
+    "canonical_placement": {
+      "domain": "sql",
+      "topic": "casting"
+    },
+    "related_associations": [
+      "sql/data-engineering-patterns"
+    ],
+    "recommendation": {
+      "rank": 1,
+      "reason": "Data-engineering patterns progression"
+    },
+    "validator_version": "rows-v2",
+    "validation": {
+      "kind": "rows",
+      "ordered": false,
+      "duplicate_sensitive": true,
+      "relative_tolerance": 1e-09,
+      "absolute_tolerance": 1e-06,
+      "required_columns": [
+        "order_id",
+        "amount",
+        "status"
+      ],
+      "exact_schema": [
+        "order_id",
+        "amount",
+        "status"
+      ],
+      "forbidden_extra_columns": true,
+      "null_semantics": "equal"
+    },
+    "data_context": [
+      {
+        "name": "raw_orders",
+        "columns": {
+          "order_id": "VARCHAR",
+          "amount": "VARCHAR",
+          "status": "VARCHAR"
+        },
+        "sample_rows": [
+          {
+            "order_id": "1",
+            "amount": "19.90",
+            "status": "shipped"
+          },
+          {
+            "order_id": "2",
+            "amount": " 5 ",
+            "status": "  Shipped "
+          },
+          {
+            "order_id": "3",
+            "amount": "",
+            "status": "pending"
+          },
+          {
+            "order_id": "4",
+            "amount": "n/a",
+            "status": ""
+          }
+        ]
+      }
+    ],
+    "output_schema": {
+      "order_id": "value",
+      "amount": "value",
+      "status": "value"
+    },
+    "runtime_requirements": [
+      "sql"
+    ],
+    "provenance": {
+      "source": "Authored for Datapass Workbench: data-engineering SQL patterns on DuckDB",
+      "fixtures": "Authored for Datapass; expected rows computed from the reference solution and reviewed"
+    },
+    "constraints": {
+      "fixtures": "At most 200 rows per table; complete results are graded, truncated results never pass."
+    }
+  },
+  {
+    "schema_version": 1,
+    "id": "de-latest-cdc-record",
+    "version": "1",
+    "title": "Keep the latest change per key from a CDC feed",
+    "difficulty": "medium",
+    "topics": [
+      "row-number",
+      "deduplication",
+      "ties"
+    ],
+    "tags": [
+      "de-patterns",
+      "duckdb",
+      "data-engineering"
+    ],
+    "origin": "authored",
+    "language": "sql",
+    "runtime": "shared-sql-v1",
+    "prompt": "customer_changes is a change feed. Return the current row per customer: the change with the latest updated_at; when two changes share updated_at, the one with the higher ingest_seq wins. Output customer_id, email, updated_at.",
+    "sections": [
+      {
+        "title": "Tables",
+        "body": "customer_changes(customer_id INTEGER, email VARCHAR, updated_at TIMESTAMP, ingest_seq INTEGER)"
+      },
+      {
+        "title": "Output",
+        "body": "Columns in this order: customer_id, email, updated_at. Row order does not matter."
+      },
+      {
+        "title": "Common pitfall",
+        "body": "Joining back on MAX(updated_at) or filtering RANK() = 1 returns two rows when timestamps tie; ordering by ingest_seq alone picks late-arriving old data."
+      }
+    ],
+    "starter_source": "SELECT customer_id, email, updated_at\nFROM customer_changes\n",
+    "fixtures": [
+      {
+        "id": "de-latest-cdc-record-fixtures",
+        "version": "1"
+      }
+    ],
+    "visible_checks": [
+      {
+        "id": "example",
+        "description": "Public example: the tables shown in data_context."
+      }
+    ],
+    "hidden_check_refs": [
+      "tie-and-late-arrival"
+    ],
+    "edge_check_refs": [
+      "single-change"
+    ],
+    "hints": [
+      "ROW_NUMBER() gives exactly one row number 1 per partition, even on ties.",
+      "Order by the business timestamp first, then by the tie-breaker."
+    ],
+    "solution": {
+      "available": true,
+      "reveal": "explicit"
+    },
+    "explanation": "Deduplicating a change feed needs a total order per key: the business timestamp decides, and a deterministic tie-breaker (ingest sequence) resolves equal timestamps. QUALIFY filters on the window result directly.",
+    "follow_ups": [
+      "What if the feed also contains deletes?",
+      "Why is ingest order alone unsafe with late-arriving data?"
+    ],
+    "canonical_placement": {
+      "domain": "sql",
+      "topic": "row-number"
+    },
+    "related_associations": [
+      "sql/data-engineering-patterns"
+    ],
+    "recommendation": {
+      "rank": 2,
+      "reason": "Data-engineering patterns progression"
+    },
+    "validator_version": "rows-v2",
+    "validation": {
+      "kind": "rows",
+      "ordered": false,
+      "duplicate_sensitive": true,
+      "relative_tolerance": 1e-09,
+      "absolute_tolerance": 1e-06,
+      "required_columns": [
+        "customer_id",
+        "email",
+        "updated_at"
+      ],
+      "exact_schema": [
+        "customer_id",
+        "email",
+        "updated_at"
+      ],
+      "forbidden_extra_columns": true,
+      "null_semantics": "equal"
+    },
+    "data_context": [
+      {
+        "name": "customer_changes",
+        "columns": {
+          "customer_id": "INTEGER",
+          "email": "VARCHAR",
+          "updated_at": "TIMESTAMP",
+          "ingest_seq": "INTEGER"
+        },
+        "sample_rows": [
+          {
+            "customer_id": 1,
+            "email": "ana@old.io",
+            "updated_at": "2026-09-01 08:00:00",
+            "ingest_seq": 1
+          },
+          {
+            "customer_id": 1,
+            "email": "ana@new.io",
+            "updated_at": "2026-09-03 09:30:00",
+            "ingest_seq": 2
+          },
+          {
+            "customer_id": 2,
+            "email": "bo@mail.io",
+            "updated_at": "2026-09-02 10:00:00",
+            "ingest_seq": 3
+          }
+        ]
+      }
+    ],
+    "output_schema": {
+      "customer_id": "value",
+      "email": "value",
+      "updated_at": "value"
+    },
+    "runtime_requirements": [
+      "sql"
+    ],
+    "provenance": {
+      "source": "Authored for Datapass Workbench: data-engineering SQL patterns on DuckDB",
+      "fixtures": "Authored for Datapass; expected rows computed from the reference solution and reviewed"
+    },
+    "constraints": {
+      "fixtures": "At most 200 rows per table; complete results are graded, truncated results never pass."
+    }
+  },
+  {
+    "schema_version": 1,
+    "id": "de-not-in-null-trap",
+    "version": "1",
+    "title": "Find customers without orders when keys can be NULL",
+    "difficulty": "medium",
+    "topics": [
+      "anti-join",
+      "nulls",
+      "subquery"
+    ],
+    "tags": [
+      "de-patterns",
+      "duckdb",
+      "data-engineering"
+    ],
+    "origin": "authored",
+    "language": "sql",
+    "runtime": "shared-sql-v1",
+    "prompt": "Return the customers who never placed an order. Guest checkouts store orders.customer_id as NULL. Output customer_id, name.",
+    "sections": [
+      {
+        "title": "Tables",
+        "body": "customers(customer_id INTEGER, name VARCHAR); orders(order_id INTEGER, customer_id INTEGER)"
+      },
+      {
+        "title": "Output",
+        "body": "Columns in this order: customer_id, name. Row order does not matter."
+      },
+      {
+        "title": "Common pitfall",
+        "body": "x NOT IN (subquery) is never true once the subquery contains a NULL, so one guest order silently empties the result."
+      }
+    ],
+    "starter_source": "SELECT customer_id, name\nFROM customers\n",
+    "fixtures": [
+      {
+        "id": "de-not-in-null-trap-fixtures",
+        "version": "1"
+      }
+    ],
+    "visible_checks": [
+      {
+        "id": "example",
+        "description": "Public example: the tables shown in data_context."
+      }
+    ],
+    "hidden_check_refs": [
+      "guest-order"
+    ],
+    "edge_check_refs": [
+      "no-orders"
+    ],
+    "hints": [
+      "NOT EXISTS compares row by row and is not affected by NULLs elsewhere.",
+      "Try the NOT IN version on the guest-order case and compare."
+    ],
+    "solution": {
+      "available": true,
+      "reveal": "explicit"
+    },
+    "explanation": "NOT IN expands to a chain of <> comparisons; any comparison with NULL is unknown, so the whole predicate is never true. NOT EXISTS (or a LEFT JOIN ... IS NULL) is the NULL-safe anti-join.",
+    "follow_ups": [
+      "Rewrite it as a LEFT JOIN anti-join.",
+      "Which other operators behave surprisingly with NULLs?"
+    ],
+    "canonical_placement": {
+      "domain": "sql",
+      "topic": "anti-join"
+    },
+    "related_associations": [
+      "sql/data-engineering-patterns"
+    ],
+    "recommendation": {
+      "rank": 3,
+      "reason": "Data-engineering patterns progression"
+    },
+    "validator_version": "rows-v2",
+    "validation": {
+      "kind": "rows",
+      "ordered": false,
+      "duplicate_sensitive": true,
+      "relative_tolerance": 1e-09,
+      "absolute_tolerance": 1e-06,
+      "required_columns": [
+        "customer_id",
+        "name"
+      ],
+      "exact_schema": [
+        "customer_id",
+        "name"
+      ],
+      "forbidden_extra_columns": true,
+      "null_semantics": "equal"
+    },
+    "data_context": [
+      {
+        "name": "customers",
+        "columns": {
+          "customer_id": "INTEGER",
+          "name": "VARCHAR"
+        },
+        "sample_rows": [
+          {
+            "customer_id": 1,
+            "name": "Ana"
+          },
+          {
+            "customer_id": 2,
+            "name": "Bo"
+          },
+          {
+            "customer_id": 3,
+            "name": "Cy"
+          }
+        ]
+      },
+      {
+        "name": "orders",
+        "columns": {
+          "order_id": "INTEGER",
+          "customer_id": "INTEGER"
+        },
+        "sample_rows": [
+          {
+            "order_id": 100,
+            "customer_id": 1
+          },
+          {
+            "order_id": 101,
+            "customer_id": 1
+          }
+        ]
+      }
+    ],
+    "output_schema": {
+      "customer_id": "value",
+      "name": "value"
+    },
+    "runtime_requirements": [
+      "sql"
+    ],
+    "provenance": {
+      "source": "Authored for Datapass Workbench: data-engineering SQL patterns on DuckDB",
+      "fixtures": "Authored for Datapass; expected rows computed from the reference solution and reviewed"
+    },
+    "constraints": {
+      "fixtures": "At most 200 rows per table; complete results are graded, truncated results never pass."
+    }
+  },
+  {
+    "schema_version": 1,
+    "id": "de-login-streaks",
+    "version": "1",
+    "title": "Turn login days into streaks (gaps and islands)",
+    "difficulty": "hard",
+    "topics": [
+      "gaps-and-islands",
+      "row-number",
+      "dates"
+    ],
+    "tags": [
+      "de-patterns",
+      "duckdb",
+      "data-engineering"
+    ],
+    "origin": "authored",
+    "language": "sql",
+    "runtime": "shared-sql-v1",
+    "prompt": "A user can log in several times a day. For each user, return every streak of consecutive calendar days with at least one login: user_id, streak_start, streak_end (DATEs) and days (the streak length).",
+    "sections": [
+      {
+        "title": "Tables",
+        "body": "logins(user_id INTEGER, login_at TIMESTAMP)"
+      },
+      {
+        "title": "Output",
+        "body": "Columns in this order: user_id, streak_start, streak_end, days. Row order does not matter."
+      },
+      {
+        "title": "Common pitfall",
+        "body": "Numbering raw logins instead of distinct days breaks a streak whenever someone logs in twice a day; numbering without PARTITION BY user_id mixes users."
+      }
+    ],
+    "starter_source": "SELECT user_id, CAST(login_at AS DATE) AS streak_start, CAST(login_at AS DATE) AS streak_end, 1 AS days\nFROM logins\n",
+    "fixtures": [
+      {
+        "id": "de-login-streaks-fixtures",
+        "version": "1"
+      }
+    ],
+    "visible_checks": [
+      {
+        "id": "example",
+        "description": "Public example: the tables shown in data_context."
+      }
+    ],
+    "hidden_check_refs": [
+      "same-day-and-interleaved"
+    ],
+    "edge_check_refs": [
+      "no-logins"
+    ],
+    "hints": [
+      "Reduce to one row per user and day first.",
+      "Consecutive days minus their row number give the same constant: group by it."
+    ],
+    "solution": {
+      "available": true,
+      "reveal": "explicit"
+    },
+    "explanation": "In an island of consecutive days, day - row_number() is constant, so it identifies the island. Deduplicating to days first and partitioning by user are both essential.",
+    "follow_ups": [
+      "Return only each user's longest streak.",
+      "How would you allow one missed day inside a streak?"
+    ],
+    "canonical_placement": {
+      "domain": "sql",
+      "topic": "gaps-and-islands"
+    },
+    "related_associations": [
+      "sql/data-engineering-patterns"
+    ],
+    "recommendation": {
+      "rank": 4,
+      "reason": "Data-engineering patterns progression"
+    },
+    "validator_version": "rows-v2",
+    "validation": {
+      "kind": "rows",
+      "ordered": false,
+      "duplicate_sensitive": true,
+      "relative_tolerance": 1e-09,
+      "absolute_tolerance": 1e-06,
+      "required_columns": [
+        "user_id",
+        "streak_start",
+        "streak_end",
+        "days"
+      ],
+      "exact_schema": [
+        "user_id",
+        "streak_start",
+        "streak_end",
+        "days"
+      ],
+      "forbidden_extra_columns": true,
+      "null_semantics": "equal"
+    },
+    "data_context": [
+      {
+        "name": "logins",
+        "columns": {
+          "user_id": "INTEGER",
+          "login_at": "TIMESTAMP"
+        },
+        "sample_rows": [
+          {
+            "user_id": 1,
+            "login_at": "2026-09-01 08:00:00"
+          },
+          {
+            "user_id": 1,
+            "login_at": "2026-09-02 09:00:00"
+          },
+          {
+            "user_id": 1,
+            "login_at": "2026-09-03 07:30:00"
+          },
+          {
+            "user_id": 1,
+            "login_at": "2026-09-05 12:00:00"
+          },
+          {
+            "user_id": 2,
+            "login_at": "2026-09-02 18:00:00"
+          }
+        ]
+      }
+    ],
+    "output_schema": {
+      "user_id": "value",
+      "streak_start": "value",
+      "streak_end": "value",
+      "days": "value"
+    },
+    "runtime_requirements": [
+      "sql"
+    ],
+    "provenance": {
+      "source": "Authored for Datapass Workbench: data-engineering SQL patterns on DuckDB",
+      "fixtures": "Authored for Datapass; expected rows computed from the reference solution and reviewed"
+    },
+    "constraints": {
+      "fixtures": "At most 200 rows per table; complete results are graded, truncated results never pass."
+    }
+  },
+  {
+    "schema_version": 1,
+    "id": "de-sessionize-clicks",
+    "version": "1",
+    "title": "Sessionize clicks with a 30-minute inactivity gap",
+    "difficulty": "hard",
+    "topics": [
+      "sessionization",
+      "lag",
+      "running-total"
+    ],
+    "tags": [
+      "de-patterns",
+      "duckdb",
+      "data-engineering"
+    ],
+    "origin": "authored",
+    "language": "sql",
+    "runtime": "shared-sql-v1",
+    "prompt": "A new session starts at a user's first click and whenever more than 30 minutes passed since that user's previous click (exactly 30 minutes stays in the same session). Return user_id, session_no (1, 2, ... per user), session_start, session_end and events.",
+    "sections": [
+      {
+        "title": "Tables",
+        "body": "clicks(user_id INTEGER, event_at TIMESTAMP)"
+      },
+      {
+        "title": "Output",
+        "body": "Columns in this order: user_id, session_no, session_start, session_end, events. Row order does not matter."
+      },
+      {
+        "title": "Common pitfall",
+        "body": "Using >= splits sessions at exactly 30 minutes; LAG without PARTITION BY user_id compares one user's click with another user's."
+      }
+    ],
+    "starter_source": "SELECT user_id, 1 AS session_no, MIN(event_at) AS session_start, MAX(event_at) AS session_end, COUNT(*) AS events\nFROM clicks\nGROUP BY user_id\n",
+    "fixtures": [
+      {
+        "id": "de-sessionize-clicks-fixtures",
+        "version": "1"
+      }
+    ],
+    "visible_checks": [
+      {
+        "id": "example",
+        "description": "Public example: the tables shown in data_context."
+      }
+    ],
+    "hidden_check_refs": [
+      "exact-gap-and-interleaved"
+    ],
+    "edge_check_refs": [
+      "single-click"
+    ],
+    "hints": [
+      "LAG(event_at) OVER (PARTITION BY user_id ORDER BY event_at) gives the previous click.",
+      "A running SUM of 'starts a session' flags numbers the sessions."
+    ],
+    "solution": {
+      "available": true,
+      "reveal": "explicit"
+    },
+    "explanation": "Flag each click that opens a session (first click, or gap over the threshold), then a running sum of the flags is the session number. The boundary condition (> vs >=) is part of the business definition.",
+    "follow_ups": [
+      "Add a session duration in minutes.",
+      "How would a maximum session length of 4 hours change the query?"
+    ],
+    "canonical_placement": {
+      "domain": "sql",
+      "topic": "sessionization"
+    },
+    "related_associations": [
+      "sql/data-engineering-patterns"
+    ],
+    "recommendation": {
+      "rank": 5,
+      "reason": "Data-engineering patterns progression"
+    },
+    "validator_version": "rows-v2",
+    "validation": {
+      "kind": "rows",
+      "ordered": false,
+      "duplicate_sensitive": true,
+      "relative_tolerance": 1e-09,
+      "absolute_tolerance": 1e-06,
+      "required_columns": [
+        "user_id",
+        "session_no",
+        "session_start",
+        "session_end",
+        "events"
+      ],
+      "exact_schema": [
+        "user_id",
+        "session_no",
+        "session_start",
+        "session_end",
+        "events"
+      ],
+      "forbidden_extra_columns": true,
+      "null_semantics": "equal"
+    },
+    "data_context": [
+      {
+        "name": "clicks",
+        "columns": {
+          "user_id": "INTEGER",
+          "event_at": "TIMESTAMP"
+        },
+        "sample_rows": [
+          {
+            "user_id": 1,
+            "event_at": "2026-09-01 10:00:00"
+          },
+          {
+            "user_id": 1,
+            "event_at": "2026-09-01 10:10:00"
+          },
+          {
+            "user_id": 1,
+            "event_at": "2026-09-01 11:00:00"
+          },
+          {
+            "user_id": 2,
+            "event_at": "2026-09-01 10:05:00"
+          }
+        ]
+      }
+    ],
+    "output_schema": {
+      "user_id": "value",
+      "session_no": "value",
+      "session_start": "value",
+      "session_end": "value",
+      "events": "value"
+    },
+    "runtime_requirements": [
+      "sql"
+    ],
+    "provenance": {
+      "source": "Authored for Datapass Workbench: data-engineering SQL patterns on DuckDB",
+      "fixtures": "Authored for Datapass; expected rows computed from the reference solution and reviewed"
+    },
+    "constraints": {
+      "fixtures": "At most 200 rows per table; complete results are graded, truncated results never pass."
+    }
+  },
+  {
+    "schema_version": 1,
+    "id": "de-asof-trade-prices",
+    "version": "1",
+    "title": "Price each trade with the last quote before it (ASOF join)",
+    "difficulty": "medium",
+    "topics": [
+      "asof-join",
+      "joins",
+      "time-series"
+    ],
+    "tags": [
+      "de-patterns",
+      "duckdb",
+      "data-engineering"
+    ],
+    "origin": "authored",
+    "language": "sql",
+    "runtime": "shared-sql-v1",
+    "prompt": "For every trade, attach the latest price of the same symbol quoted at or before traded_at. Trades with no earlier quote keep price NULL. Output trade_id, symbol, traded_at, price.",
+    "sections": [
+      {
+        "title": "Tables",
+        "body": "trades(trade_id INTEGER, symbol VARCHAR, traded_at TIMESTAMP); prices(symbol VARCHAR, quoted_at TIMESTAMP, price DOUBLE)"
+      },
+      {
+        "title": "Output",
+        "body": "Columns in this order: trade_id, symbol, traded_at, price. Row order does not matter."
+      },
+      {
+        "title": "Common pitfall",
+        "body": "An inner ASOF JOIN drops trades that happened before the first quote; a strict > misses a quote at exactly the trade time."
+      }
+    ],
+    "starter_source": "SELECT t.trade_id, t.symbol, t.traded_at, NULL::DOUBLE AS price\nFROM trades AS t\n",
+    "fixtures": [
+      {
+        "id": "de-asof-trade-prices-fixtures",
+        "version": "1"
+      }
+    ],
+    "visible_checks": [
+      {
+        "id": "example",
+        "description": "Public example: the tables shown in data_context."
+      }
+    ],
+    "hidden_check_refs": [
+      "early-and-exact"
+    ],
+    "edge_check_refs": [
+      "no-quotes"
+    ],
+    "hints": [
+      "DuckDB's ASOF JOIN matches the nearest row satisfying the inequality.",
+      "Use ASOF LEFT JOIN to keep unmatched trades."
+    ],
+    "solution": {
+      "available": true,
+      "reveal": "explicit"
+    },
+    "explanation": "An as-of join picks, per left row, the closest right row that satisfies one inequality, after equality keys. It replaces a correlated MAX() subquery or a window over a union.",
+    "follow_ups": [
+      "Write the same query without ASOF using a correlated subquery.",
+      "How would you reject quotes older than 5 minutes?"
+    ],
+    "canonical_placement": {
+      "domain": "sql",
+      "topic": "asof-join"
+    },
+    "related_associations": [
+      "sql/data-engineering-patterns"
+    ],
+    "recommendation": {
+      "rank": 6,
+      "reason": "Data-engineering patterns progression"
+    },
+    "validator_version": "rows-v2",
+    "validation": {
+      "kind": "rows",
+      "ordered": false,
+      "duplicate_sensitive": true,
+      "relative_tolerance": 1e-09,
+      "absolute_tolerance": 1e-06,
+      "required_columns": [
+        "trade_id",
+        "symbol",
+        "traded_at",
+        "price"
+      ],
+      "exact_schema": [
+        "trade_id",
+        "symbol",
+        "traded_at",
+        "price"
+      ],
+      "forbidden_extra_columns": true,
+      "null_semantics": "equal"
+    },
+    "data_context": [
+      {
+        "name": "trades",
+        "columns": {
+          "trade_id": "INTEGER",
+          "symbol": "VARCHAR",
+          "traded_at": "TIMESTAMP"
+        },
+        "sample_rows": [
+          {
+            "trade_id": 1,
+            "symbol": "ACME",
+            "traded_at": "2026-09-01 10:05:00"
+          },
+          {
+            "trade_id": 2,
+            "symbol": "ACME",
+            "traded_at": "2026-09-01 10:20:00"
+          },
+          {
+            "trade_id": 3,
+            "symbol": "INIT",
+            "traded_at": "2026-09-01 10:20:00"
+          }
+        ]
+      },
+      {
+        "name": "prices",
+        "columns": {
+          "symbol": "VARCHAR",
+          "quoted_at": "TIMESTAMP",
+          "price": "DOUBLE"
+        },
+        "sample_rows": [
+          {
+            "symbol": "ACME",
+            "quoted_at": "2026-09-01 10:00:00",
+            "price": 10.0
+          },
+          {
+            "symbol": "ACME",
+            "quoted_at": "2026-09-01 10:15:00",
+            "price": 10.5
+          },
+          {
+            "symbol": "INIT",
+            "quoted_at": "2026-09-01 09:00:00",
+            "price": 99.0
+          }
+        ]
+      }
+    ],
+    "output_schema": {
+      "trade_id": "value",
+      "symbol": "value",
+      "traded_at": "value",
+      "price": "value"
+    },
+    "runtime_requirements": [
+      "sql"
+    ],
+    "provenance": {
+      "source": "Authored for Datapass Workbench: data-engineering SQL patterns on DuckDB",
+      "fixtures": "Authored for Datapass; expected rows computed from the reference solution and reviewed"
+    },
+    "constraints": {
+      "fixtures": "At most 200 rows per table; complete results are graded, truncated results never pass."
+    }
+  },
+  {
+    "schema_version": 1,
+    "id": "de-scd2-validity",
+    "version": "1",
+    "title": "Build SCD type 2 validity ranges from a change log",
+    "difficulty": "medium",
+    "topics": [
+      "scd2",
+      "lead",
+      "window-functions"
+    ],
+    "tags": [
+      "de-patterns",
+      "duckdb",
+      "data-engineering"
+    ],
+    "origin": "authored",
+    "language": "sql",
+    "runtime": "shared-sql-v1",
+    "prompt": "tier_changes lists each tier a customer moved to and the day it happened. Build the SCD2 history: customer_id, tier, valid_from (the change day), valid_to (the next change day for that customer, NULL for the current row) and is_current.",
+    "sections": [
+      {
+        "title": "Tables",
+        "body": "tier_changes(customer_id INTEGER, tier VARCHAR, changed_on DATE)"
+      },
+      {
+        "title": "Output",
+        "body": "Columns in this order: customer_id, tier, valid_from, valid_to, is_current. Row order does not matter."
+      },
+      {
+        "title": "Common pitfall",
+        "body": "LEAD without PARTITION BY customer_id hands one customer's next change to another customer."
+      }
+    ],
+    "starter_source": "SELECT customer_id, tier, changed_on AS valid_from, NULL::DATE AS valid_to, TRUE AS is_current\nFROM tier_changes\n",
+    "fixtures": [
+      {
+        "id": "de-scd2-validity-fixtures",
+        "version": "1"
+      }
+    ],
+    "visible_checks": [
+      {
+        "id": "example",
+        "description": "Public example: the tables shown in data_context."
+      }
+    ],
+    "hidden_check_refs": [
+      "interleaved-customers"
+    ],
+    "edge_check_refs": [
+      "single-version"
+    ],
+    "hints": [
+      "LEAD(changed_on) looks at the next change.",
+      "The current version is the one with no next change."
+    ],
+    "solution": {
+      "available": true,
+      "reveal": "explicit"
+    },
+    "explanation": "SCD2 ranges come from the next change per key: valid_to = LEAD(changed_on) within the customer. Keeping valid_to exclusive (the next start) avoids off-by-one gaps.",
+    "follow_ups": [
+      "Find the tier a customer had on 2026-05-01.",
+      "How would you collapse consecutive rows with the same tier?"
+    ],
+    "canonical_placement": {
+      "domain": "sql",
+      "topic": "scd2"
+    },
+    "related_associations": [
+      "sql/data-engineering-patterns"
+    ],
+    "recommendation": {
+      "rank": 7,
+      "reason": "Data-engineering patterns progression"
+    },
+    "validator_version": "rows-v2",
+    "validation": {
+      "kind": "rows",
+      "ordered": false,
+      "duplicate_sensitive": true,
+      "relative_tolerance": 1e-09,
+      "absolute_tolerance": 1e-06,
+      "required_columns": [
+        "customer_id",
+        "tier",
+        "valid_from",
+        "valid_to",
+        "is_current"
+      ],
+      "exact_schema": [
+        "customer_id",
+        "tier",
+        "valid_from",
+        "valid_to",
+        "is_current"
+      ],
+      "forbidden_extra_columns": true,
+      "null_semantics": "equal"
+    },
+    "data_context": [
+      {
+        "name": "tier_changes",
+        "columns": {
+          "customer_id": "INTEGER",
+          "tier": "VARCHAR",
+          "changed_on": "DATE"
+        },
+        "sample_rows": [
+          {
+            "customer_id": 1,
+            "tier": "bronze",
+            "changed_on": "2026-01-10"
+          },
+          {
+            "customer_id": 1,
+            "tier": "silver",
+            "changed_on": "2026-04-02"
+          },
+          {
+            "customer_id": 1,
+            "tier": "gold",
+            "changed_on": "2026-08-15"
+          },
+          {
+            "customer_id": 2,
+            "tier": "silver",
+            "changed_on": "2026-03-01"
+          }
+        ]
+      }
+    ],
+    "output_schema": {
+      "customer_id": "value",
+      "tier": "value",
+      "valid_from": "value",
+      "valid_to": "value",
+      "is_current": "value"
+    },
+    "runtime_requirements": [
+      "sql"
+    ],
+    "provenance": {
+      "source": "Authored for Datapass Workbench: data-engineering SQL patterns on DuckDB",
+      "fixtures": "Authored for Datapass; expected rows computed from the reference solution and reviewed"
+    },
+    "constraints": {
+      "fixtures": "At most 200 rows per table; complete results are graded, truncated results never pass."
+    }
+  },
+  {
+    "schema_version": 1,
+    "id": "de-upsert-result",
+    "version": "1",
+    "title": "Compute the table after an upsert (MERGE) batch",
+    "difficulty": "medium",
+    "topics": [
+      "merge",
+      "upsert",
+      "union"
+    ],
+    "tags": [
+      "de-patterns",
+      "duckdb",
+      "data-engineering"
+    ],
+    "origin": "authored",
+    "language": "sql",
+    "runtime": "shared-sql-v1",
+    "prompt": "Apply the updates batch to target as a full-row upsert: an update replaces the whole target row with the same id (including NULLs it carries), target rows without an update stay unchanged, and new ids are inserted. ids are unique in each table. Return the resulting rows: id, name, city.",
+    "sections": [
+      {
+        "title": "Tables",
+        "body": "target(id INTEGER, name VARCHAR, city VARCHAR); updates(id INTEGER, name VARCHAR, city VARCHAR)"
+      },
+      {
+        "title": "Output",
+        "body": "Columns in this order: id, name, city. Row order does not matter."
+      },
+      {
+        "title": "Common pitfall",
+        "body": "COALESCE(u.city, t.city) keeps the old value when the update deliberately clears a column; a LEFT JOIN from target drops inserts."
+      }
+    ],
+    "starter_source": "SELECT id, name, city\nFROM target\n",
+    "fixtures": [
+      {
+        "id": "de-upsert-result-fixtures",
+        "version": "1"
+      }
+    ],
+    "visible_checks": [
+      {
+        "id": "example",
+        "description": "Public example: the tables shown in data_context."
+      }
+    ],
+    "hidden_check_refs": [
+      "update-clears-city"
+    ],
+    "edge_check_refs": [
+      "empty-target"
+    ],
+    "hints": [
+      "Every update row ends up in the result as is.",
+      "Keep only target rows whose id is not in the batch."
+    ],
+    "solution": {
+      "available": true,
+      "reveal": "explicit"
+    },
+    "explanation": "A full-row upsert is 'all incoming rows' plus 'untouched existing rows'. Column-wise COALESCE implements a partial update, which is a different contract.",
+    "follow_ups": [
+      "How would a partial update (only non-NULL columns) differ?",
+      "Add a deletes batch to the same result."
+    ],
+    "canonical_placement": {
+      "domain": "sql",
+      "topic": "merge"
+    },
+    "related_associations": [
+      "sql/data-engineering-patterns"
+    ],
+    "recommendation": {
+      "rank": 8,
+      "reason": "Data-engineering patterns progression"
+    },
+    "validator_version": "rows-v2",
+    "validation": {
+      "kind": "rows",
+      "ordered": false,
+      "duplicate_sensitive": true,
+      "relative_tolerance": 1e-09,
+      "absolute_tolerance": 1e-06,
+      "required_columns": [
+        "id",
+        "name",
+        "city"
+      ],
+      "exact_schema": [
+        "id",
+        "name",
+        "city"
+      ],
+      "forbidden_extra_columns": true,
+      "null_semantics": "equal"
+    },
+    "data_context": [
+      {
+        "name": "target",
+        "columns": {
+          "id": "INTEGER",
+          "name": "VARCHAR",
+          "city": "VARCHAR"
+        },
+        "sample_rows": [
+          {
+            "id": 1,
+            "name": "Ana",
+            "city": "Lyon"
+          },
+          {
+            "id": 2,
+            "name": "Bo",
+            "city": "Nice"
+          }
+        ]
+      },
+      {
+        "name": "updates",
+        "columns": {
+          "id": "INTEGER",
+          "name": "VARCHAR",
+          "city": "VARCHAR"
+        },
+        "sample_rows": [
+          {
+            "id": 2,
+            "name": "Bo",
+            "city": "Paris"
+          },
+          {
+            "id": 3,
+            "name": "Cy",
+            "city": "Lille"
+          }
+        ]
+      }
+    ],
+    "output_schema": {
+      "id": "value",
+      "name": "value",
+      "city": "value"
+    },
+    "runtime_requirements": [
+      "sql"
+    ],
+    "provenance": {
+      "source": "Authored for Datapass Workbench: data-engineering SQL patterns on DuckDB",
+      "fixtures": "Authored for Datapass; expected rows computed from the reference solution and reviewed"
+    },
+    "constraints": {
+      "fixtures": "At most 200 rows per table; complete results are graded, truncated results never pass."
+    }
+  },
+  {
+    "schema_version": 1,
+    "id": "de-dq-rule-violations",
+    "version": "1",
+    "title": "List every data-quality rule each order breaks",
+    "difficulty": "medium",
+    "topics": [
+      "data-quality",
+      "union",
+      "nulls"
+    ],
+    "tags": [
+      "de-patterns",
+      "duckdb",
+      "data-engineering"
+    ],
+    "origin": "authored",
+    "language": "sql",
+    "runtime": "shared-sql-v1",
+    "prompt": "Check each order against three rules for the batch dated 2026-09-30: missing_email (NULL or blank), negative_amount (amount below 0; zero is allowed) and future_date (order_date after 2026-09-30). Return one row per broken rule: order_id, rule.",
+    "sections": [
+      {
+        "title": "Tables",
+        "body": "orders(order_id INTEGER, email VARCHAR, amount DOUBLE, order_date DATE)"
+      },
+      {
+        "title": "Output",
+        "body": "Columns in this order: order_id, rule. Row order does not matter."
+      },
+      {
+        "title": "Common pitfall",
+        "body": "A CASE expression reports only the first rule an order breaks; checking email IS NULL misses blank strings."
+      }
+    ],
+    "starter_source": "SELECT order_id, 'missing_email' AS rule\nFROM orders\nWHERE email IS NULL\n",
+    "fixtures": [
+      {
+        "id": "de-dq-rule-violations-fixtures",
+        "version": "1"
+      }
+    ],
+    "visible_checks": [
+      {
+        "id": "example",
+        "description": "Public example: the tables shown in data_context."
+      }
+    ],
+    "hidden_check_refs": [
+      "several-rules-and-blanks"
+    ],
+    "edge_check_refs": [
+      "all-clean"
+    ],
+    "hints": [
+      "Write one SELECT per rule and UNION ALL them.",
+      "TRIM(email) = '' catches blank strings."
+    ],
+    "solution": {
+      "available": true,
+      "reveal": "explicit"
+    },
+    "explanation": "A rule-per-query UNION ALL keeps every violation, is easy to extend with new rules, and makes each rule's condition explicit, including boundaries such as zero amounts and the batch date itself.",
+    "follow_ups": [
+      "Count violations per rule.",
+      "Store the rules in a table instead of hard-coding them."
+    ],
+    "canonical_placement": {
+      "domain": "sql",
+      "topic": "data-quality"
+    },
+    "related_associations": [
+      "sql/data-engineering-patterns"
+    ],
+    "recommendation": {
+      "rank": 9,
+      "reason": "Data-engineering patterns progression"
+    },
+    "validator_version": "rows-v2",
+    "validation": {
+      "kind": "rows",
+      "ordered": false,
+      "duplicate_sensitive": true,
+      "relative_tolerance": 1e-09,
+      "absolute_tolerance": 1e-06,
+      "required_columns": [
+        "order_id",
+        "rule"
+      ],
+      "exact_schema": [
+        "order_id",
+        "rule"
+      ],
+      "forbidden_extra_columns": true,
+      "null_semantics": "equal"
+    },
+    "data_context": [
+      {
+        "name": "orders",
+        "columns": {
+          "order_id": "INTEGER",
+          "email": "VARCHAR",
+          "amount": "DOUBLE",
+          "order_date": "DATE"
+        },
+        "sample_rows": [
+          {
+            "order_id": 1,
+            "email": "a@x.io",
+            "amount": 10.0,
+            "order_date": "2026-09-01"
+          },
+          {
+            "order_id": 2,
+            "email": null,
+            "amount": 5.0,
+            "order_date": "2026-09-02"
+          },
+          {
+            "order_id": 3,
+            "email": "c@x.io",
+            "amount": -1.0,
+            "order_date": "2026-09-03"
+          }
+        ]
+      }
+    ],
+    "output_schema": {
+      "order_id": "value",
+      "rule": "value"
+    },
+    "runtime_requirements": [
+      "sql"
+    ],
+    "provenance": {
+      "source": "Authored for Datapass Workbench: data-engineering SQL patterns on DuckDB",
+      "fixtures": "Authored for Datapass; expected rows computed from the reference solution and reviewed"
+    },
+    "constraints": {
+      "fixtures": "At most 200 rows per table; complete results are graded, truncated results never pass."
+    }
+  },
+  {
+    "schema_version": 1,
+    "id": "de-monthly-revenue-gaps",
+    "version": "1",
+    "title": "Monthly revenue with zero-filled empty months",
+    "difficulty": "medium",
+    "topics": [
+      "dates",
+      "generate-series",
+      "left-join"
+    ],
+    "tags": [
+      "de-patterns",
+      "duckdb",
+      "data-engineering"
+    ],
+    "origin": "authored",
+    "language": "sql",
+    "runtime": "shared-sql-v1",
+    "prompt": "Report revenue for every month from January to June 2026, including months without sales (revenue 0). Ignore sales outside that range. Output month (the first day of the month, as a DATE) and revenue.",
+    "sections": [
+      {
+        "title": "Tables",
+        "body": "sales(sold_on DATE, amount DOUBLE)"
+      },
+      {
+        "title": "Output",
+        "body": "Columns in this order: month, revenue. Row order does not matter."
+      },
+      {
+        "title": "Common pitfall",
+        "body": "GROUP BY over the sales alone can only return months that have sales; SUM over no rows is NULL, not 0."
+      }
+    ],
+    "starter_source": "SELECT CAST(date_trunc('month', sold_on) AS DATE) AS month, SUM(amount) AS revenue\nFROM sales\nGROUP BY 1\n",
+    "fixtures": [
+      {
+        "id": "de-monthly-revenue-gaps-fixtures",
+        "version": "1"
+      }
+    ],
+    "visible_checks": [
+      {
+        "id": "example",
+        "description": "Public example: the tables shown in data_context."
+      }
+    ],
+    "hidden_check_refs": [
+      "outside-range"
+    ],
+    "edge_check_refs": [
+      "no-sales"
+    ],
+    "hints": [
+      "generate_series(start, stop, INTERVAL 1 MONTH) produces a calendar.",
+      "LEFT JOIN the sales to the calendar, then COALESCE the sum."
+    ],
+    "solution": {
+      "available": true,
+      "reveal": "explicit"
+    },
+    "explanation": "Reports need a calendar spine: generate the expected periods first, LEFT JOIN the facts to it, and turn missing sums into 0 explicitly.",
+    "follow_ups": [
+      "Add a running year-to-date total.",
+      "Make the range start at the first sale's month."
+    ],
+    "canonical_placement": {
+      "domain": "sql",
+      "topic": "dates"
+    },
+    "related_associations": [
+      "sql/data-engineering-patterns"
+    ],
+    "recommendation": {
+      "rank": 10,
+      "reason": "Data-engineering patterns progression"
+    },
+    "validator_version": "rows-v2",
+    "validation": {
+      "kind": "rows",
+      "ordered": false,
+      "duplicate_sensitive": true,
+      "relative_tolerance": 1e-09,
+      "absolute_tolerance": 1e-06,
+      "required_columns": [
+        "month",
+        "revenue"
+      ],
+      "exact_schema": [
+        "month",
+        "revenue"
+      ],
+      "forbidden_extra_columns": true,
+      "null_semantics": "equal"
+    },
+    "data_context": [
+      {
+        "name": "sales",
+        "columns": {
+          "sold_on": "DATE",
+          "amount": "DOUBLE"
+        },
+        "sample_rows": [
+          {
+            "sold_on": "2026-01-05",
+            "amount": 100.0
+          },
+          {
+            "sold_on": "2026-01-20",
+            "amount": 50.0
+          },
+          {
+            "sold_on": "2026-03-02",
+            "amount": 70.0
+          },
+          {
+            "sold_on": "2026-06-30",
+            "amount": 10.0
+          }
+        ]
+      }
+    ],
+    "output_schema": {
+      "month": "value",
+      "revenue": "value"
+    },
+    "runtime_requirements": [
+      "sql"
+    ],
+    "provenance": {
+      "source": "Authored for Datapass Workbench: data-engineering SQL patterns on DuckDB",
+      "fixtures": "Authored for Datapass; expected rows computed from the reference solution and reviewed"
+    },
+    "constraints": {
+      "fixtures": "At most 200 rows per table; complete results are graded, truncated results never pass."
+    }
+  },
+  {
+    "schema_version": 1,
+    "id": "de-funnel-conversion",
+    "version": "1",
+    "title": "Measure a view → cart → purchase funnel",
+    "difficulty": "medium",
+    "topics": [
+      "conditional-aggregation",
+      "funnel",
+      "distinct"
+    ],
+    "tags": [
+      "de-patterns",
+      "duckdb",
+      "data-engineering"
+    ],
+    "origin": "authored",
+    "language": "sql",
+    "runtime": "shared-sql-v1",
+    "prompt": "events has one row per user action (view, cart, purchase), with repeats. A user counts at a step only if they also did every earlier step. Return step, users and pct_of_viewers (users / viewers * 100, rounded to 1 decimal; NULL when there are no viewers).",
+    "sections": [
+      {
+        "title": "Tables",
+        "body": "events(user_id INTEGER, step VARCHAR)"
+      },
+      {
+        "title": "Output",
+        "body": "Columns in this order: step, users, pct_of_viewers. Row order does not matter."
+      },
+      {
+        "title": "Common pitfall",
+        "body": "Counting events instead of distinct users inflates every step; counting buyers who never added to cart overstates conversion."
+      }
+    ],
+    "starter_source": "SELECT step, COUNT(*) AS users, NULL::DOUBLE AS pct_of_viewers\nFROM events\nGROUP BY step\n",
+    "fixtures": [
+      {
+        "id": "de-funnel-conversion-fixtures",
+        "version": "1"
+      }
+    ],
+    "visible_checks": [
+      {
+        "id": "example",
+        "description": "Public example: the tables shown in data_context."
+      }
+    ],
+    "hidden_check_refs": [
+      "repeats-and-skips"
+    ],
+    "edge_check_refs": [
+      "no-events"
+    ],
+    "hints": [
+      "Collapse to one row per user with BOOL_OR flags first.",
+      "COUNT(*) FILTER (WHERE ...) counts the users at each step."
+    ],
+    "solution": {
+      "available": true,
+      "reveal": "explicit"
+    },
+    "explanation": "Funnels are user-level: reduce events to per-user step flags, then require the earlier flags for each later step. NULLIF guards the division when nobody viewed.",
+    "follow_ups": [
+      "Require the steps to happen in time order.",
+      "Split the funnel by acquisition channel."
+    ],
+    "canonical_placement": {
+      "domain": "sql",
+      "topic": "conditional-aggregation"
+    },
+    "related_associations": [
+      "sql/data-engineering-patterns"
+    ],
+    "recommendation": {
+      "rank": 11,
+      "reason": "Data-engineering patterns progression"
+    },
+    "validator_version": "rows-v2",
+    "validation": {
+      "kind": "rows",
+      "ordered": false,
+      "duplicate_sensitive": true,
+      "relative_tolerance": 1e-09,
+      "absolute_tolerance": 1e-06,
+      "required_columns": [
+        "step",
+        "users",
+        "pct_of_viewers"
+      ],
+      "exact_schema": [
+        "step",
+        "users",
+        "pct_of_viewers"
+      ],
+      "forbidden_extra_columns": true,
+      "null_semantics": "equal"
+    },
+    "data_context": [
+      {
+        "name": "events",
+        "columns": {
+          "user_id": "INTEGER",
+          "step": "VARCHAR"
+        },
+        "sample_rows": [
+          {
+            "user_id": 1,
+            "step": "view"
+          },
+          {
+            "user_id": 1,
+            "step": "cart"
+          },
+          {
+            "user_id": 1,
+            "step": "purchase"
+          },
+          {
+            "user_id": 2,
+            "step": "view"
+          },
+          {
+            "user_id": 2,
+            "step": "cart"
+          },
+          {
+            "user_id": 3,
+            "step": "view"
+          },
+          {
+            "user_id": 4,
+            "step": "view"
+          }
+        ]
+      }
+    ],
+    "output_schema": {
+      "step": "value",
+      "users": "value",
+      "pct_of_viewers": "value"
+    },
+    "runtime_requirements": [
+      "sql"
+    ],
+    "provenance": {
+      "source": "Authored for Datapass Workbench: data-engineering SQL patterns on DuckDB",
+      "fixtures": "Authored for Datapass; expected rows computed from the reference solution and reviewed"
+    },
+    "constraints": {
+      "fixtures": "At most 200 rows per table; complete results are graded, truncated results never pass."
+    }
+  },
+  {
+    "schema_version": 1,
+    "id": "de-median-delivery",
+    "version": "1",
+    "title": "Median delivery time per carrier",
+    "difficulty": "easy",
+    "topics": [
+      "aggregation",
+      "median",
+      "outliers"
+    ],
+    "tags": [
+      "de-patterns",
+      "duckdb",
+      "data-engineering"
+    ],
+    "origin": "authored",
+    "language": "sql",
+    "runtime": "shared-sql-v1",
+    "prompt": "Return each carrier's median delivery time in days: carrier, median_days (a DOUBLE; with an even count, the mean of the two middle values).",
+    "sections": [
+      {
+        "title": "Tables",
+        "body": "deliveries(carrier VARCHAR, days INTEGER)"
+      },
+      {
+        "title": "Output",
+        "body": "Columns in this order: carrier, median_days. Row order does not matter."
+      },
+      {
+        "title": "Common pitfall",
+        "body": "AVG is pulled by one lost parcel; quantile_disc(0.5) returns an existing value instead of interpolating an even count."
+      }
+    ],
+    "starter_source": "SELECT carrier, AVG(days) AS median_days\nFROM deliveries\nGROUP BY carrier\n",
+    "fixtures": [
+      {
+        "id": "de-median-delivery-fixtures",
+        "version": "1"
+      }
+    ],
+    "visible_checks": [
+      {
+        "id": "example",
+        "description": "Public example: the tables shown in data_context."
+      }
+    ],
+    "hidden_check_refs": [
+      "even-count"
+    ],
+    "edge_check_refs": [
+      "single-parcel"
+    ],
+    "hints": [
+      "DuckDB has MEDIAN(x), the same as quantile_cont(x, 0.5).",
+      "Compare with AVG on the example to see the outlier effect."
+    ],
+    "solution": {
+      "available": true,
+      "reveal": "explicit"
+    },
+    "explanation": "The median is robust to outliers such as a parcel lost for a month, which is why delivery SLAs are usually reported as medians or percentiles.",
+    "follow_ups": [
+      "Report the 90th percentile too.",
+      "Which carriers have a median above 3 days?"
+    ],
+    "canonical_placement": {
+      "domain": "sql",
+      "topic": "aggregation"
+    },
+    "related_associations": [
+      "sql/data-engineering-patterns"
+    ],
+    "recommendation": {
+      "rank": 12,
+      "reason": "Data-engineering patterns progression"
+    },
+    "validator_version": "rows-v2",
+    "validation": {
+      "kind": "rows",
+      "ordered": false,
+      "duplicate_sensitive": true,
+      "relative_tolerance": 1e-09,
+      "absolute_tolerance": 1e-06,
+      "required_columns": [
+        "carrier",
+        "median_days"
+      ],
+      "exact_schema": [
+        "carrier",
+        "median_days"
+      ],
+      "forbidden_extra_columns": true,
+      "null_semantics": "equal"
+    },
+    "data_context": [
+      {
+        "name": "deliveries",
+        "columns": {
+          "carrier": "VARCHAR",
+          "days": "INTEGER"
+        },
+        "sample_rows": [
+          {
+            "carrier": "Rapid",
+            "days": 1
+          },
+          {
+            "carrier": "Rapid",
+            "days": 2
+          },
+          {
+            "carrier": "Rapid",
+            "days": 30
+          },
+          {
+            "carrier": "Slow",
+            "days": 4
+          },
+          {
+            "carrier": "Slow",
+            "days": 6
+          }
+        ]
+      }
+    ],
+    "output_schema": {
+      "carrier": "value",
+      "median_days": "value"
+    },
+    "runtime_requirements": [
+      "sql"
+    ],
+    "provenance": {
+      "source": "Authored for Datapass Workbench: data-engineering SQL patterns on DuckDB",
+      "fixtures": "Authored for Datapass; expected rows computed from the reference solution and reviewed"
+    },
+    "constraints": {
+      "fixtures": "At most 200 rows per table; complete results are graded, truncated results never pass."
+    }
+  },
+  {
+    "schema_version": 1,
+    "id": "de-cohort-retention",
+    "version": "1",
+    "title": "Monthly cohort retention counts",
+    "difficulty": "hard",
+    "topics": [
+      "cohorts",
+      "dates",
+      "aggregation"
+    ],
+    "tags": [
+      "de-patterns",
+      "duckdb",
+      "data-engineering"
+    ],
+    "origin": "authored",
+    "language": "sql",
+    "runtime": "shared-sql-v1",
+    "prompt": "A customer's cohort is the month of their first order. For each cohort and each month_offset (0 = the cohort month, 1 = the next month, ...), count the distinct customers who ordered in that month. Output cohort_month (DATE, first day of month), month_offset (INTEGER), customers. Only list offsets with activity.",
+    "sections": [
+      {
+        "title": "Tables",
+        "body": "orders(customer_id INTEGER, ordered_on DATE)"
+      },
+      {
+        "title": "Output",
+        "body": "Columns in this order: cohort_month, month_offset, customers. Row order does not matter."
+      },
+      {
+        "title": "Common pitfall",
+        "body": "COUNT(*) counts orders, not customers; deriving the cohort from each order's own month puts every order at offset 0."
+      }
+    ],
+    "starter_source": "SELECT CAST(date_trunc('month', ordered_on) AS DATE) AS cohort_month, 0 AS month_offset, COUNT(*) AS customers\nFROM orders\nGROUP BY 1\n",
+    "fixtures": [
+      {
+        "id": "de-cohort-retention-fixtures",
+        "version": "1"
+      }
+    ],
+    "visible_checks": [
+      {
+        "id": "example",
+        "description": "Public example: the tables shown in data_context."
+      }
+    ],
+    "hidden_check_refs": [
+      "repeat-orders"
+    ],
+    "edge_check_refs": [
+      "no-orders"
+    ],
+    "hints": [
+      "First find each customer's first order month.",
+      "date_diff('month', a, b) counts month boundaries between two dates."
+    ],
+    "solution": {
+      "available": true,
+      "reveal": "explicit"
+    },
+    "explanation": "Cohort tables fix each customer's starting month once, then measure later activity relative to it. Distinct customers, not orders, make retention comparable across cohorts.",
+    "follow_ups": [
+      "Turn the counts into retention percentages of the offset-0 size.",
+      "Pivot offsets 0-3 into columns."
+    ],
+    "canonical_placement": {
+      "domain": "sql",
+      "topic": "cohorts"
+    },
+    "related_associations": [
+      "sql/data-engineering-patterns"
+    ],
+    "recommendation": {
+      "rank": 13,
+      "reason": "Data-engineering patterns progression"
+    },
+    "validator_version": "rows-v2",
+    "validation": {
+      "kind": "rows",
+      "ordered": false,
+      "duplicate_sensitive": true,
+      "relative_tolerance": 1e-09,
+      "absolute_tolerance": 1e-06,
+      "required_columns": [
+        "cohort_month",
+        "month_offset",
+        "customers"
+      ],
+      "exact_schema": [
+        "cohort_month",
+        "month_offset",
+        "customers"
+      ],
+      "forbidden_extra_columns": true,
+      "null_semantics": "equal"
+    },
+    "data_context": [
+      {
+        "name": "orders",
+        "columns": {
+          "customer_id": "INTEGER",
+          "ordered_on": "DATE"
+        },
+        "sample_rows": [
+          {
+            "customer_id": 1,
+            "ordered_on": "2026-01-05"
+          },
+          {
+            "customer_id": 1,
+            "ordered_on": "2026-02-10"
+          },
+          {
+            "customer_id": 2,
+            "ordered_on": "2026-01-20"
+          },
+          {
+            "customer_id": 3,
+            "ordered_on": "2026-02-03"
+          },
+          {
+            "customer_id": 3,
+            "ordered_on": "2026-04-01"
+          }
+        ]
+      }
+    ],
+    "output_schema": {
+      "cohort_month": "value",
+      "month_offset": "value",
+      "customers": "value"
+    },
+    "runtime_requirements": [
+      "sql"
+    ],
+    "provenance": {
+      "source": "Authored for Datapass Workbench: data-engineering SQL patterns on DuckDB",
+      "fixtures": "Authored for Datapass; expected rows computed from the reference solution and reviewed"
+    },
+    "constraints": {
+      "fixtures": "At most 200 rows per table; complete results are graded, truncated results never pass."
+    }
+  },
+  {
+    "schema_version": 1,
+    "id": "de-split-tags",
+    "version": "1",
+    "title": "Count articles per tag from a comma-separated column",
+    "difficulty": "easy",
+    "topics": [
+      "strings",
+      "unnest",
+      "normalization"
+    ],
+    "tags": [
+      "de-patterns",
+      "duckdb",
+      "data-engineering"
+    ],
+    "origin": "authored",
+    "language": "sql",
+    "runtime": "shared-sql-v1",
+    "prompt": "articles.tags is a comma-separated list such as 'SQL, duckdb,,etl'. Normalise each tag (trim, lower-case), ignore empty tags, and count the distinct articles per tag. Output tag, articles.",
+    "sections": [
+      {
+        "title": "Tables",
+        "body": "articles(article_id INTEGER, tags VARCHAR)"
+      },
+      {
+        "title": "Output",
+        "body": "Columns in this order: tag, articles. Row order does not matter."
+      },
+      {
+        "title": "Common pitfall",
+        "body": "Without TRIM ' duckdb' and 'duckdb' are different tags; an article that repeats a tag must still count once."
+      }
+    ],
+    "starter_source": "SELECT tags AS tag, COUNT(*) AS articles\nFROM articles\nGROUP BY tags\n",
+    "fixtures": [
+      {
+        "id": "de-split-tags-fixtures",
+        "version": "1"
+      }
+    ],
+    "visible_checks": [
+      {
+        "id": "example",
+        "description": "Public example: the tables shown in data_context."
+      }
+    ],
+    "hidden_check_refs": [
+      "messy-lists"
+    ],
+    "edge_check_refs": [
+      "no-tags"
+    ],
+    "hints": [
+      "UNNEST(string_split(tags, ',')) returns one row per list element.",
+      "Normalise before grouping and count DISTINCT article_id."
+    ],
+    "solution": {
+      "available": true,
+      "reveal": "explicit"
+    },
+    "explanation": "Delimited lists are a common import shape. Exploding them to rows, normalising, and dropping empty elements turns them into a proper many-to-many relation you can aggregate.",
+    "follow_ups": [
+      "Return the top 3 tags.",
+      "Store the result as a bronze-to-silver article_tags table."
+    ],
+    "canonical_placement": {
+      "domain": "sql",
+      "topic": "strings"
+    },
+    "related_associations": [
+      "sql/data-engineering-patterns"
+    ],
+    "recommendation": {
+      "rank": 14,
+      "reason": "Data-engineering patterns progression"
+    },
+    "validator_version": "rows-v2",
+    "validation": {
+      "kind": "rows",
+      "ordered": false,
+      "duplicate_sensitive": true,
+      "relative_tolerance": 1e-09,
+      "absolute_tolerance": 1e-06,
+      "required_columns": [
+        "tag",
+        "articles"
+      ],
+      "exact_schema": [
+        "tag",
+        "articles"
+      ],
+      "forbidden_extra_columns": true,
+      "null_semantics": "equal"
+    },
+    "data_context": [
+      {
+        "name": "articles",
+        "columns": {
+          "article_id": "INTEGER",
+          "tags": "VARCHAR"
+        },
+        "sample_rows": [
+          {
+            "article_id": 1,
+            "tags": "sql,duckdb"
+          },
+          {
+            "article_id": 2,
+            "tags": "SQL, etl"
+          },
+          {
+            "article_id": 3,
+            "tags": "etl"
+          }
+        ]
+      }
+    ],
+    "output_schema": {
+      "tag": "value",
+      "articles": "value"
+    },
+    "runtime_requirements": [
+      "sql"
+    ],
+    "provenance": {
+      "source": "Authored for Datapass Workbench: data-engineering SQL patterns on DuckDB",
+      "fixtures": "Authored for Datapass; expected rows computed from the reference solution and reviewed"
+    },
+    "constraints": {
+      "fixtures": "At most 200 rows per table; complete results are graded, truncated results never pass."
+    }
+  },
+  {
+    "schema_version": 1,
+    "id": "de-incremental-watermark",
+    "version": "1",
+    "title": "Select the next incremental batch with a watermark",
+    "difficulty": "easy",
+    "topics": [
+      "incremental-load",
+      "subquery",
+      "nulls"
+    ],
+    "tags": [
+      "de-patterns",
+      "duckdb",
+      "data-engineering"
+    ],
+    "origin": "authored",
+    "language": "sql",
+    "runtime": "shared-sql-v1",
+    "prompt": "watermark stores, per source table, the last updated_at already loaded. Return the source_rows rows to load next for table 'source_rows': updated_at strictly after its watermark, or every row on the first run (no watermark row). Output id, updated_at.",
+    "sections": [
+      {
+        "title": "Tables",
+        "body": "source_rows(id INTEGER, updated_at TIMESTAMP); watermark(table_name VARCHAR, last_loaded_at TIMESTAMP)"
+      },
+      {
+        "title": "Output",
+        "body": "Columns in this order: id, updated_at. Row order does not matter."
+      },
+      {
+        "title": "Common pitfall",
+        "body": ">= reloads the boundary row every run; comparing with a NULL watermark returns nothing on the first run; forgetting table_name uses another table's watermark."
+      }
+    ],
+    "starter_source": "SELECT id, updated_at\nFROM source_rows\n",
+    "fixtures": [
+      {
+        "id": "de-incremental-watermark-fixtures",
+        "version": "1"
+      }
+    ],
+    "visible_checks": [
+      {
+        "id": "example",
+        "description": "Public example: the tables shown in data_context."
+      }
+    ],
+    "hidden_check_refs": [
+      "boundary-and-other-table"
+    ],
+    "edge_check_refs": [
+      "first-run"
+    ],
+    "hints": [
+      "A scalar subquery can read the watermark.",
+      "COALESCE gives the first run a very old default watermark."
+    ],
+    "solution": {
+      "available": true,
+      "reveal": "explicit"
+    },
+    "explanation": "Incremental loads are only correct with a strict > comparison against the table's own watermark and an explicit first-run default; after loading, the watermark advances to the batch's MAX(updated_at).",
+    "follow_ups": [
+      "What goes wrong if two rows share the watermark timestamp but only one was loaded?",
+      "Compute the new watermark value for this batch."
+    ],
+    "canonical_placement": {
+      "domain": "sql",
+      "topic": "incremental-load"
+    },
+    "related_associations": [
+      "sql/data-engineering-patterns"
+    ],
+    "recommendation": {
+      "rank": 15,
+      "reason": "Data-engineering patterns progression"
+    },
+    "validator_version": "rows-v2",
+    "validation": {
+      "kind": "rows",
+      "ordered": false,
+      "duplicate_sensitive": true,
+      "relative_tolerance": 1e-09,
+      "absolute_tolerance": 1e-06,
+      "required_columns": [
+        "id",
+        "updated_at"
+      ],
+      "exact_schema": [
+        "id",
+        "updated_at"
+      ],
+      "forbidden_extra_columns": true,
+      "null_semantics": "equal"
+    },
+    "data_context": [
+      {
+        "name": "source_rows",
+        "columns": {
+          "id": "INTEGER",
+          "updated_at": "TIMESTAMP"
+        },
+        "sample_rows": [
+          {
+            "id": 1,
+            "updated_at": "2026-09-01 10:00:00"
+          },
+          {
+            "id": 2,
+            "updated_at": "2026-09-02 10:00:00"
+          },
+          {
+            "id": 3,
+            "updated_at": "2026-09-03 10:00:00"
+          }
+        ]
+      },
+      {
+        "name": "watermark",
+        "columns": {
+          "table_name": "VARCHAR",
+          "last_loaded_at": "TIMESTAMP"
+        },
+        "sample_rows": [
+          {
+            "table_name": "source_rows",
+            "last_loaded_at": "2026-09-01 12:00:00"
+          }
+        ]
+      }
+    ],
+    "output_schema": {
+      "id": "value",
+      "updated_at": "value"
+    },
+    "runtime_requirements": [
+      "sql"
+    ],
+    "provenance": {
+      "source": "Authored for Datapass Workbench: data-engineering SQL patterns on DuckDB",
+      "fixtures": "Authored for Datapass; expected rows computed from the reference solution and reviewed"
+    },
+    "constraints": {
+      "fixtures": "At most 200 rows per table; complete results are graded, truncated results never pass."
+    }
+  },
+  {
+    "schema_version": 1,
+    "id": "de-pivot-status-filter",
+    "version": "1",
+    "title": "Pivot ticket statuses with COUNT FILTER",
+    "difficulty": "easy",
+    "topics": [
+      "conditional-aggregation",
+      "pivot",
+      "booleans"
+    ],
+    "tags": [
+      "de-patterns",
+      "duckdb",
+      "data-engineering"
+    ],
+    "origin": "authored",
+    "language": "sql",
+    "runtime": "shared-sql-v1",
+    "prompt": "For each opened_on day, return open_count, closed_count and total tickets. Status values are exactly 'open' or 'closed'.",
+    "sections": [
+      {
+        "title": "Tables",
+        "body": "tickets(opened_on DATE, status VARCHAR)"
+      },
+      {
+        "title": "Output",
+        "body": "Columns in this order: opened_on, open_count, closed_count, total. Row order does not matter."
+      },
+      {
+        "title": "Common pitfall",
+        "body": "COUNT(status = 'open') counts every non-NULL boolean, FALSE included, so it equals the total."
+      }
+    ],
+    "starter_source": "SELECT opened_on, 0 AS open_count, 0 AS closed_count, COUNT(*) AS total\nFROM tickets\nGROUP BY opened_on\n",
+    "fixtures": [
+      {
+        "id": "de-pivot-status-filter-fixtures",
+        "version": "1"
+      }
+    ],
+    "visible_checks": [
+      {
+        "id": "example",
+        "description": "Public example: the tables shown in data_context."
+      }
+    ],
+    "hidden_check_refs": [
+      "single-status-days"
+    ],
+    "edge_check_refs": [
+      "one-ticket"
+    ],
+    "hints": [
+      "COUNT(*) FILTER (WHERE condition) counts only matching rows.",
+      "SUM(CASE WHEN ... THEN 1 ELSE 0 END) is the portable equivalent."
+    ],
+    "solution": {
+      "available": true,
+      "reveal": "explicit"
+    },
+    "explanation": "FILTER makes conditional counts explicit. COUNT(expr) counts non-NULL values, and a FALSE boolean is not NULL, which is the classic trap.",
+    "follow_ups": [
+      "Add the share of closed tickets per day.",
+      "Pivot per week instead of per day."
+    ],
+    "canonical_placement": {
+      "domain": "sql",
+      "topic": "conditional-aggregation"
+    },
+    "related_associations": [
+      "sql/data-engineering-patterns"
+    ],
+    "recommendation": {
+      "rank": 16,
+      "reason": "Data-engineering patterns progression"
+    },
+    "validator_version": "rows-v2",
+    "validation": {
+      "kind": "rows",
+      "ordered": false,
+      "duplicate_sensitive": true,
+      "relative_tolerance": 1e-09,
+      "absolute_tolerance": 1e-06,
+      "required_columns": [
+        "opened_on",
+        "open_count",
+        "closed_count",
+        "total"
+      ],
+      "exact_schema": [
+        "opened_on",
+        "open_count",
+        "closed_count",
+        "total"
+      ],
+      "forbidden_extra_columns": true,
+      "null_semantics": "equal"
+    },
+    "data_context": [
+      {
+        "name": "tickets",
+        "columns": {
+          "opened_on": "DATE",
+          "status": "VARCHAR"
+        },
+        "sample_rows": [
+          {
+            "opened_on": "2026-09-01",
+            "status": "open"
+          },
+          {
+            "opened_on": "2026-09-01",
+            "status": "closed"
+          },
+          {
+            "opened_on": "2026-09-01",
+            "status": "closed"
+          },
+          {
+            "opened_on": "2026-09-02",
+            "status": "open"
+          }
+        ]
+      }
+    ],
+    "output_schema": {
+      "opened_on": "value",
+      "open_count": "value",
+      "closed_count": "value",
+      "total": "value"
+    },
+    "runtime_requirements": [
+      "sql"
+    ],
+    "provenance": {
+      "source": "Authored for Datapass Workbench: data-engineering SQL patterns on DuckDB",
+      "fixtures": "Authored for Datapass; expected rows computed from the reference solution and reviewed"
+    },
+    "constraints": {
+      "fixtures": "At most 200 rows per table; complete results are graded, truncated results never pass."
+    }
+  }
+]

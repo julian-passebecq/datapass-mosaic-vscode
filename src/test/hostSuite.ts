@@ -238,6 +238,18 @@ export async function run(): Promise<void> {
       const gated = await submit(pythonLab, "display([])");
       assert.equal(gated.status, "error", "Python exercises must not run while trusted Python is off");
       assert.match(gated.checks[0].message, /Trusted local Python is disabled/);
+
+      // Data-engineering patterns: the NULL-safe anti-join passes, NOT IN fails on the guest order.
+      assert.equal(catalog.filter(item => item.packId === "de-patterns-v1").length, 16);
+      const patterns = JSON.parse(new TextDecoder().decode(await vscode.workspace.fs.readFile(
+        vscode.Uri.joinPath(extension.extensionUri, "content", "exercise-packs", "de-patterns-v1", "grading.server.json")
+      ))) as Record<string, { solution: string }>;
+      const antiJoin2 = catalog.find(item => item.id === "de-not-in-null-trap")!;
+      const nullSafe = await submit(antiJoin2, patterns[antiJoin2.id].solution);
+      assert.equal(nullSafe.status, "passed", JSON.stringify(nullSafe.checks));
+      const notIn = await submit(antiJoin2, "SELECT customer_id, name FROM customers WHERE customer_id NOT IN (SELECT customer_id FROM orders)");
+      assert.equal(notIn.status, "failed", "NOT IN must fail once orders.customer_id contains NULL");
+      assert.deepEqual(notIn.checks.map(check => check.passed), [true, false, true], "only the guest-order fixture catches NOT IN");
     }],
     ["Pipeline starter compiles into a graph and runs its activities", async () => {
       await vscode.workspace.fs.createDirectory(vscode.Uri.joinPath(root, "pipelines"));
