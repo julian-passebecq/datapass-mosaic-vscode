@@ -3,10 +3,36 @@ import type { ModuleId, WorkbenchModule } from "../modules";
 export type RuntimeStatus = "stopped" | "starting" | "running" | "error";
 export type ScratchKind = "sql" | "python" | "notes";
 
+export interface RetailDemoStageView {
+  id: string;
+  label: string;
+  rows: number;
+  engine: string;
+}
+
+export interface RetailDemoRunView {
+  status: "success";
+  truth: string;
+  dataset_path: string;
+  database_path: string;
+  stages: readonly RetailDemoStageView[];
+  polars_quality: {
+    rows: number;
+    customers: number;
+    revenue: number;
+  };
+  preview: {
+    columns: readonly string[];
+    rows: readonly Record<string, string | number | boolean | null>[];
+    truncated: boolean;
+  };
+}
+
 export interface RuntimeViewState {
   status: RuntimeStatus;
   url?: string;
   detail?: string;
+  retailDemo?: RetailDemoRunView;
 }
 
 export interface WorkspaceViewState {
@@ -142,6 +168,7 @@ export type WebviewToHostMessage =
   | { type: "createManifest" }
   | { type: "openManifest" }
   | { type: "createRetailDemo" }
+  | { type: "runRetailDemo" }
   | { type: "startRuntime" }
   | { type: "stopRuntime" }
   | { type: "openTerminal" }
