@@ -9,6 +9,7 @@ from datapass_runtime.content import cases, content_root
 from datapass_runtime.exercises import definitions
 from datapass_runtime.retail_demo import run_retail_demo
 from datapass_runtime.kernels import KernelManager
+from datapass_runtime.native_pipeline import run_native_pipeline
 from sparklab.capabilities import SUPPORT
 
 
@@ -86,6 +87,21 @@ with TemporaryDirectory(prefix="datapass-kernel-smoke-") as temp:
         assert any(kernel["id"] == "sql" and kernel["available"] for kernel in capability["kernels"])
         catalog = manager.call("smoke", Path(temp), {"op": "catalog"})
         assert any(item["name"] == "source.orders" for item in catalog)
+
+        pipeline_source = """pipeline("smoke_pipeline")
+extract = sql("extract", "CREATE OR REPLACE TABLE bronze.pipeline_smoke AS SELECT order_id FROM source.orders WHERE net_amount > 0")
+check = quality("check", "SELECT * FROM bronze.pipeline_smoke WHERE order_id IS NULL")
+publish = sql("publish", "SELECT COUNT(*) AS rows FROM bronze.pipeline_smoke")
+extract >> check >> publish
+"""
+        pipeline_run = run_native_pipeline(
+            pipeline_source,
+            lambda request: manager.call("smoke", Path(temp), request),
+        )
+        assert pipeline_run["status"] == "success", pipeline_run
+        assert [task["status"] for task in pipeline_run["tasks"]] == ["success", "success", "success"]
+        catalog = manager.call("smoke", Path(temp), {"op": "catalog"})
+        assert any(item["name"] == "bronze.pipeline_smoke" and item["fresh"] for item in catalog)
     finally:
         manager.close()
 
