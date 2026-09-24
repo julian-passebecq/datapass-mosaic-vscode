@@ -1,5 +1,6 @@
 import * as vscode from "vscode";
 import { loadExerciseCatalog } from "./exerciseCatalog";
+import { decodeCsvBytes, suggestBronzeAsset, validateBronzeAsset } from "./platform/csvImport";
 import { probeDbtCli } from "./dbtState";
 import { MODULES, type ModuleId } from "./modules";
 import { writeMosaicLayout } from "./mosaicLayoutStore";
@@ -143,6 +144,9 @@ export class WorkbenchPanel {
       case "setupRuntime":
         await this.setupRuntime();
         return;
+      case "importCsv":
+        await this.importCsv();
+        return;
       case "showRuntimeLog":
         this.runtimeManager.showLog();
         return;
@@ -239,6 +243,53 @@ export class WorkbenchPanel {
       void vscode.window.showErrorMessage(
         `Datapass runtime setup failed: ${error instanceof Error ? error.message : String(error)}`
       );
+    }
+    await this.refresh();
+  }
+
+  /** Mosaic: read a user-picked CSV on the host and send its TEXT to a new bronze table. */
+  private async importCsv(): Promise<void> {
+    if (this.runtimeManager.snapshot().status !== "running") {
+      void vscode.window.showWarningMessage("Start the Datapass runtime before importing a CSV.");
+      return;
+    }
+    const picked = await vscode.window.showOpenDialog({
+      canSelectMany: false,
+      canSelectFolders: false,
+      defaultUri: vscode.workspace.workspaceFolders?.[0]?.uri,
+      filters: { "CSV files": ["csv"] },
+      openLabel: "Import into catalog",
+      title: "Import CSV into the local catalog (new bronze table)"
+    });
+    const uri = picked?.[0];
+    if (!uri) return;
+
+    const fileName = uri.path.split("/").pop() ?? "data.csv";
+    let text: string;
+    try {
+      text = decodeCsvBytes(await vscode.workspace.fs.readFile(uri));
+    } catch (error) {
+      void vscode.window.showErrorMessage(error instanceof Error ? error.message : String(error));
+      return;
+    }
+
+    const existing = (this.runtimeManager.snapshot().catalog ?? []).map(asset => asset.name);
+    const asset = await vscode.window.showInputBox({
+      title: `Import ${fileName}`,
+      prompt: "New bronze table name. Imports never overwrite; every column is stored as text.",
+      value: suggestBronzeAsset(fileName, existing),
+      valueSelection: [7, Number.MAX_SAFE_INTEGER],
+      validateInput: value => validateBronzeAsset(value, existing)
+    });
+    if (!asset) return;
+
+    try {
+      const result = await this.runtimeManager.importCsv(asset.trim(), text, fileName);
+      void vscode.window.showInformationMessage(
+        `Imported ${result.rows_imported} rows into ${result.asset}. Columns are text; CAST them in SQL when building silver tables.`
+      );
+    } catch (error) {
+      void vscode.window.showErrorMessage(error instanceof Error ? error.message : String(error));
     }
     await this.refresh();
   }

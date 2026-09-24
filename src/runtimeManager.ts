@@ -3,7 +3,7 @@ import { existsSync } from "node:fs";
 import * as http from "node:http";
 import * as path from "node:path";
 import * as vscode from "vscode";
-import type { RuntimeEnvironmentView, RuntimeViewState } from "./webview/contracts";
+import type { CsvImportView, RuntimeEnvironmentView, RuntimeViewState } from "./webview/contracts";
 import { findFreePort, waitForDatapassHealth } from "./platform/runtimeEndpoint";
 import {
   describeSetupOutputLine,
@@ -317,6 +317,40 @@ export class RuntimeManager implements vscode.Disposable {
     }
   }
 
+  /** Send CSV TEXT (never a path) to create a new bronze table; the runtime refuses overwrites. */
+  async importCsv(asset: string, text: string, fileName: string): Promise<CsvImportView> {
+    const url = this.state.status === "running" ? this.state.url : undefined;
+    if (!url) throw new Error("Start the Datapass runtime before importing a CSV.");
+    let response: Omit<CsvImportView, "fileName">;
+    try {
+      response = await requestJson<Omit<CsvImportView, "fileName">>(
+        `${url}/api/local/import-csv`,
+        "POST",
+        { asset, text },
+        30000
+      );
+    } catch (error) {
+      throw new Error(`CSV import refused: ${runtimeErrorDetail(error)}`);
+    }
+    const csvImport: CsvImportView = {
+      asset: response.asset,
+      fileName,
+      rows_imported: response.rows_imported,
+      sha256: response.sha256,
+      schema: response.schema,
+      truth: response.truth,
+      result: response.result
+    };
+    this.setState({
+      ...this.state,
+      detail: `Imported ${csvImport.rows_imported} rows from ${fileName} into ${csvImport.asset} (all columns are text).`,
+      lastRun: undefined,
+      csvImport
+    });
+    await this.refreshCatalog();
+    return csvImport;
+  }
+
   async runSql(code: string): Promise<void> {
     const url = this.state.status === "running" ? this.state.url : undefined;
     if (!url) throw new Error("Start the Datapass runtime before running SQL.");
@@ -336,7 +370,8 @@ export class RuntimeManager implements vscode.Disposable {
       detail: lastRun.status === "success"
         ? `SQL completed in ${lastRun.elapsed_ms.toFixed(1)} ms.`
         : `SQL failed: ${lastRun.error?.message ?? "Unknown error"}`,
-      lastRun
+      lastRun,
+      csvImport: undefined
     });
     await this.refreshCatalog();
   }
@@ -363,7 +398,8 @@ export class RuntimeManager implements vscode.Disposable {
       detail: lastRun.status === "success"
         ? `Python completed in ${lastRun.elapsed_ms.toFixed(1)} ms (trusted local execution).`
         : `Python failed: ${lastRun.error?.message ?? "Unknown error"}`,
-      lastRun
+      lastRun,
+      csvImport: undefined
     });
     await this.refreshCatalog();
   }
@@ -564,6 +600,25 @@ function requestJson<T>(
   });
 }
 
+
+/** Pull FastAPI's `detail` out of a "Runtime request failed with HTTP 4xx: {...}" error. */
+function runtimeErrorDetail(error: unknown): string {
+  const message = error instanceof Error ? error.message : String(error);
+  const body = /^Runtime request failed with HTTP \d+: (.*)$/s.exec(message)?.[1];
+  if (!body) return message;
+  try {
+    const detail = (JSON.parse(body) as { detail?: unknown }).detail;
+    if (typeof detail === "string") return detail;
+    if (Array.isArray(detail)) {
+      return detail
+        .map(item => (item && typeof item === "object" && "msg" in item ? String(item.msg) : String(item)))
+        .join("; ");
+    }
+  } catch {
+    // Not JSON (e.g. truncated); fall through to the raw message.
+  }
+  return message;
+}
 
 function requestGetJson<T>(url: string, timeoutMs = 3000): Promise<T> {
   return new Promise((resolve, reject) => {
