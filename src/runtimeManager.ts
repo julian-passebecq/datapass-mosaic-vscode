@@ -193,6 +193,40 @@ export class RuntimeManager implements vscode.Disposable {
     }
   }
 
+  async gradeExercise(
+    exerciseKey: string,
+    request: {
+      exercise_id: string;
+      exercise_version: string;
+      language: string;
+      code: string;
+      mode: "run" | "submit";
+      notebook_id: string;
+      cell_id: string;
+      source_revision: number;
+    }
+  ): Promise<void> {
+    const url = this.state.status === "running" ? this.state.url : undefined;
+    if (!url) throw new Error("Start the Datapass runtime before grading an exercise.");
+    const result = await requestJson<Omit<NonNullable<RuntimeViewState["practiceResult"]>, "exerciseKey" | "mode">>(
+      `${url}/api/local/exercise`,
+      "POST",
+      request,
+      30000
+    );
+    this.setState({
+      ...this.state,
+      detail: request.mode === "submit"
+        ? `Exercise submission: ${result.status}.`
+        : `Visible exercise checks: ${result.status}.`,
+      practiceResult: {
+        ...result,
+        exerciseKey,
+        mode: request.mode
+      }
+    });
+  }
+
   async runRetailDemo(datasetPath: string): Promise<void> {
     const url = this.state.status === "running" ? this.state.url : undefined;
     if (!url) throw new Error("Start the Datapass runtime before running the retail demo.");
