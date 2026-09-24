@@ -25,26 +25,27 @@ export function retailOrdersCsv(): string {
 }
 
 export function retailSqlStarter(datasetPath: string): string {
-  const sqlPath = datasetPath.replaceAll("'", "''");
+  // Mosaic SQL runs on the shared catalog; filesystem/network table functions
+  // (read_csv_auto, read_parquet, ...) are blocked by design. The CSV is loaded
+  // into bronze.orders by the retail demo run, so this notebook starts there.
+  const commentPath = datasetPath.replace(/[\r\n]+/g, " ");
   return [
-    "-- Datapass retail medallion starter",
-    "-- Goal: raw CSV -> bronze -> silver -> gold using DuckDB/DuckLake concepts.",
+    "-- Datapass retail medallion (DuckDB SQL on the shared local catalog)",
+    `-- 1. Fabric Lab -> Run retail demo loads ${commentPath} into bronze.orders.`,
+    "--    Mosaic SQL cannot read files directly: file and network table functions are blocked.",
+    "-- 2. Mosaic -> Run active SQL builds your own Silver/Gold tables from bronze.orders.",
     "",
-    "create or replace table bronze_orders as",
-    `select * from read_csv_auto('${sqlPath}');`,
-    "",
-    "create or replace table silver_orders as",
+    "create or replace table silver.mosaic_orders as",
     "select *",
-    "from bronze_orders",
+    "from bronze.orders",
     "where amount > 0 and status = 'completed';",
     "",
-    "create or replace table gold_customer_revenue as",
+    "create or replace table gold.mosaic_customer_revenue as",
     "select customer_id, count(*) as orders, sum(amount) as revenue",
-    "from silver_orders",
-    "group by customer_id",
-    "order by revenue desc;",
+    "from silver.mosaic_orders",
+    "group by customer_id;",
     "",
-    "select * from gold_customer_revenue;",
+    "select * from gold.mosaic_customer_revenue order by revenue desc;",
     ""
   ].join("\n");
 }
@@ -75,7 +76,7 @@ export function retailDemoReadme(paths: RetailDemoPaths): string {
     "## Flow",
     "",
     `1. ${paths.dataset} — raw source rows.`,
-    `2. ${paths.sqlNotebook} — Bronze/Silver/Gold SQL transformations.`,
+    `2. ${paths.sqlNotebook} — Silver/Gold SQL built on bronze.orders (run the retail demo first; Mosaic SQL does not read files directly).`,
     `3. ${paths.pythonNotebook} — Polars quality/KPI check.`,
     `4. ${paths.pipeline} — local orchestration design.`,
     `5. ${paths.airflow} — deterministic scheduling/retry simulation.`,

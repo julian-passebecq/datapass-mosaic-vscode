@@ -28,7 +28,7 @@ import {
 } from "../project/projectManifest";
 import { ACKNOWLEDGED_KEY, PythonTrustController } from "../pythonTrustController";
 import { RuntimeManager } from "../runtimeManager";
-import { retailOrdersCsv } from "../scaffold/retailDemo";
+import { retailOrdersCsv, retailSqlStarter } from "../scaffold/retailDemo";
 import { airflowStarter, pipelineStarter, scratchSpec } from "../scaffold/starters";
 
 const EXTENSION_ID = "datapass.datapass-mosaic-vscode";
@@ -205,6 +205,14 @@ export async function run(): Promise<void> {
       assert.equal(demo?.status, "success");
       assert.ok(demo && demo.stages.length >= 3);
       assert.ok(demo && demo.preview.rows.length > 0);
+
+      // The generated retail SQL notebook then runs through Mosaic on bronze.orders.
+      await runtime!.runSql(retailSqlStarter("datasets/retail_orders.csv"));
+      const sql = runtime!.snapshot().lastRun;
+      assert.equal(sql?.status, "success", sql?.error?.message);
+      assert.deepEqual(sql?.result?.columns, ["customer_id", "orders", "revenue"]);
+      assert.equal(sql?.result?.rows[0]?.customer_id, "C005", "highest revenue customer first");
+      assert.ok(runtime!.snapshot().catalog?.some(asset => asset.name === "gold.mosaic_customer_revenue"));
     }],
     ["explicit trust restarts the runtime and runs Python for real", async () => {
       await runtime!.stopAndWait();

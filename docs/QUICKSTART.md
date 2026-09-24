@@ -64,6 +64,8 @@ Fabric Lab is a local teaching experience. It does not require or impersonate a 
 
 ### Mosaic
 
+After **Run retail demo** (Fabric Lab) has loaded the CSV into `bronze.orders`, open `notebooks/retail_medallion.sql` and choose **Run active SQL**: it builds `silver.mosaic_orders` and `gold.mosaic_customer_revenue` on real DuckDB. Mosaic SQL works on the shared catalog only; file and network table functions such as `read_csv_auto` are blocked by design.
+
 Open the SQL and Python scratch files and compare:
 
 - DuckDB SQL transformations;

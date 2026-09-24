@@ -37,13 +37,17 @@ try {
   const sql = mod.retailSqlStarter(customDataset);
   const python = mod.retailPythonStarter(customDataset);
 
-  assert.match(sql, /read_csv_auto\('assets\/raw\/retail_orders\.csv'\)/);
+  // SQL builds on the catalog: file table functions are blocked in Mosaic SQL.
+  assert.match(sql, /loads assets\/raw\/retail_orders\.csv into bronze\.orders/);
+  assert.match(sql, /from bronze\.orders/);
+  assert.ok(!/read_csv|read_parquet|read_json/i.test(sql), "SQL starter must not use blocked file functions");
   assert.match(python, /pl\.read_csv\("assets\/raw\/retail_orders\.csv"\)/);
   assert.ok(!sql.includes("datasets/retail_orders.csv"));
   assert.ok(!python.includes("datasets/retail_orders.csv"));
 
-  const escapedSql = mod.retailSqlStarter("data/o'brien.csv");
-  assert.match(escapedSql, /read_csv_auto\('data\/o''brien\.csv'\)/);
+  // A path can only appear inside a comment line; newlines cannot inject SQL.
+  const injected = mod.retailSqlStarter("data/x.csv\ndrop table bronze.orders;");
+  assert.ok(!injected.split("\n").some(line => line.startsWith("drop table")));
 
   const readme = mod.retailDemoReadme({
     dataset: "assets/raw/retail_orders.csv",
