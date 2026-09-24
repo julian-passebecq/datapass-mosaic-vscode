@@ -3,9 +3,6 @@ from __future__ import annotations
 import os
 from pathlib import Path, PurePosixPath
 
-import duckdb
-import polars as pl
-
 MAX_PREVIEW_ROWS = 50
 
 
@@ -37,6 +34,10 @@ def _workspace_file(relative_path: str) -> Path:
 
 
 def run_retail_demo(dataset_path: str) -> dict[str, object]:
+    # Imported on use: the API process starts noticeably faster without Polars/DuckDB.
+    import duckdb
+    import polars as pl
+
     source_path = _workspace_file(dataset_path)
     if not source_path.is_file():
         raise FileNotFoundError(f"Retail dataset was not found: {dataset_path}")

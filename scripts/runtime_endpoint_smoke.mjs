@@ -57,6 +57,18 @@ try {
   );
   await new Promise((resolve, reject) => badServer.close(error => error ? reject(error) : resolve()));
 
+  // A dead runtime process aborts the wait immediately instead of burning the timeout.
+  const started = Date.now();
+  await assert.rejects(
+    mod.waitForDatapassHealth(`http://127.0.0.1:${badAddress.port}/api/health`, 60000, () => "Runtime process exited during startup with code 1."),
+    /exited during startup/
+  );
+  assert.ok(Date.now() - started < 2000, "abort must not wait for the timeout");
+  await assert.rejects(
+    mod.waitForDatapassHealth(`http://127.0.0.1:${badAddress.port}/api/health`, 600),
+    /did not become healthy within 1 s/
+  );
+
   console.log("Runtime endpoint smoke tests passed.");
 } finally {
   await rm(dir, { recursive: true, force: true });

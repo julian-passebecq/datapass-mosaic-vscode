@@ -76,23 +76,31 @@ export async function probeDatapassHealth(url: string): Promise<DatapassHealth> 
   });
 }
 
+/**
+ * Poll the health endpoint until it answers or the deadline passes.
+ * `abortReason` is checked between probes so a runtime process that already
+ * exited fails immediately instead of waiting out the whole timeout.
+ */
 export async function waitForDatapassHealth(
   url: string,
-  timeoutMs: number
+  timeoutMs: number,
+  abortReason: () => string | undefined = () => undefined
 ): Promise<DatapassHealth> {
   const deadline = Date.now() + timeoutMs;
   let lastError = "Runtime did not become healthy.";
 
   while (Date.now() < deadline) {
+    const aborted = abortReason();
+    if (aborted) throw new Error(aborted);
     try {
       return await probeDatapassHealth(url);
     } catch (error) {
       lastError = error instanceof Error ? error.message : String(error);
     }
-    await delay(180);
+    await delay(250);
   }
 
-  throw new Error(lastError);
+  throw new Error(`Runtime did not become healthy within ${Math.round(timeoutMs / 1000)} s (${lastError}).`);
 }
 
 function delay(ms: number): Promise<void> {

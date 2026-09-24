@@ -10,6 +10,9 @@ import { runtimeProcessEnv } from "./platform/pythonTrust";
 import { toSparkLabRunView } from "./platform/sparkLabRun";
 
 const HOST = "127.0.0.1";
+// A cold start in a fresh managed venv (FastAPI, DuckDB, Polars, pandas; first
+// bytecode compilation; antivirus scanning on Windows) can exceed ten seconds.
+const STARTUP_TIMEOUT_MS = 90_000;
 
 export interface PipelineCompileResponse {
   valid: boolean;
@@ -133,8 +136,7 @@ export class RuntimeManager implements vscode.Disposable {
     const resolvedPython = existsSync(managedPython) ? managedPython : pythonCommand;
     const port = await findFreePort(HOST);
     const url = `http://${HOST}:${port}`;
-    this.setState({ status: "starting", url, detail: "Starting local FastAPI runtime…" });
-    this.output.show(true);
+    this.setState({ status: "starting", url, detail: "Starting local FastAPI runtime… The first start can take up to a minute." });
     this.output.appendLine(`Starting Datapass runtime with ${resolvedPython}`);
     this.output.appendLine(trustedPython
       ? "Trusted local Python: ENABLED by explicit workspace opt-in. Python/Polars run as real local code; the worker is not a sandbox."
@@ -167,6 +169,10 @@ export class RuntimeManager implements vscode.Disposable {
     );
 
     this.child = child;
+    let exitReason: string | undefined;
+    child.once("exit", (code, signal) => {
+      exitReason = `Runtime process exited during startup${code !== null ? ` with code ${code}` : ""}${signal ? ` (${signal})` : ""}. See the Datapass Runtime output.`;
+    });
     child.stdout?.on("data", chunk => this.output.append(String(chunk)));
     child.stderr?.on("data", chunk => this.output.append(String(chunk)));
 
@@ -188,7 +194,7 @@ export class RuntimeManager implements vscode.Disposable {
     });
 
     try {
-      await waitForDatapassHealth(`${url}/api/health`, 6500);
+      await waitForDatapassHealth(`${url}/api/health`, STARTUP_TIMEOUT_MS, () => exitReason);
       if (this.child === child) {
         const capabilities = await requestGetJson<{ runtime?: { trusted_local_python?: unknown } }>(
           `${url}/api/capabilities`
@@ -205,6 +211,7 @@ export class RuntimeManager implements vscode.Disposable {
     } catch (error) {
       child.kill();
       this.child = undefined;
+      this.output.show(true);
       this.setState({
         status: "error",
         url,
