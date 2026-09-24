@@ -1,7 +1,8 @@
-from fastapi import FastAPI
+from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel, ConfigDict, Field
 
 from .pipeline_compiler import compile_response
+from .retail_demo import run_retail_demo
 
 app = FastAPI(title="Datapass Runtime", version="0.1.0")
 
@@ -9,6 +10,11 @@ app = FastAPI(title="Datapass Runtime", version="0.1.0")
 class PipelineCompileRequest(BaseModel):
     model_config = ConfigDict(extra="forbid", strict=True)
     source: str = Field(min_length=1, max_length=80000)
+
+
+class RetailDemoRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid", strict=True)
+    dataset_path: str = Field(min_length=1, max_length=500)
 
 
 @app.get("/api/health")
@@ -38,3 +44,12 @@ def capabilities() -> dict[str, object]:
 def compile_pipeline(body: PipelineCompileRequest) -> dict[str, object]:
     """Compile the bounded pipeline DSL into design IR without executing source."""
     return compile_response(body.source)
+
+
+@app.post("/api/demo/retail/run")
+def execute_retail_demo(body: RetailDemoRequest) -> dict[str, object]:
+    """Execute the local retail medallion path with Polars + DuckDB."""
+    try:
+        return run_retail_demo(body.dataset_path)
+    except (ValueError, FileNotFoundError, RuntimeError) as error:
+        raise HTTPException(status_code=400, detail=str(error)) from error
