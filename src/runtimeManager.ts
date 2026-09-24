@@ -141,6 +141,30 @@ export class RuntimeManager implements vscode.Disposable {
     }
   }
 
+  async runSql(code: string): Promise<void> {
+    const url = this.state.status === "running" ? this.state.url : undefined;
+    if (!url) throw new Error("Start the Datapass runtime before running SQL.");
+    const lastRun = await requestJson<NonNullable<RuntimeViewState["lastRun"]>>(
+      `${url}/api/local/execute`,
+      "POST",
+      {
+        language: "sql",
+        code,
+        notebook_id: "vscode-sql",
+        cell_id: "active-sql"
+      },
+      10000
+    );
+    this.setState({
+      ...this.state,
+      detail: lastRun.status === "success"
+        ? `SQL completed in ${lastRun.elapsed_ms.toFixed(1)} ms.`
+        : `SQL failed: ${lastRun.error?.message ?? "Unknown error"}`,
+      lastRun
+    });
+    await this.refreshCatalog();
+  }
+
   async refreshCatalog(): Promise<void> {
     const url = this.state.status === "running" ? this.state.url : undefined;
     if (!url) return;
