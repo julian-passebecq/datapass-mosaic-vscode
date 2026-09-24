@@ -74,7 +74,16 @@ Airflow Lab simulates DAG scheduling concepts: dependencies, retries, trigger ru
 
 ## Pipeline Lab
 
-React Flow canvas backed by a small local workflow engine. Initial activity types: notebook, SQL, copy, stored procedure, wait, conditional and for-each.
+Pipeline Lab is hybrid. The Python-like pipeline source is parsed by a bounded AST compiler and is **never eval/exec'd**. Supported activity bodies can then execute against the shared local runtime.
+
+Current executable activity bodies:
+
+- SQL — real local DuckDB execution.
+- Quality — real local query/assertion execution.
+- Python / Polars — only when the explicitly trusted local-Python mode is enabled.
+- dbt — accepted by the design compiler, but native pipeline execution is not wired yet; use dbt Lab for real dbt Core execution.
+
+Scheduling remains metadata/teaching semantics; Datapass is not running a production scheduler.
 
 ## Standalone WorkNotebook
 
