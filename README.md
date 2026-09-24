@@ -51,6 +51,6 @@ See `docs/ARCHITECTURE.md` for the target architecture and `docs/HARVEST_AUDIT.m
 
 ## Try the connected demo
 
-Open **Fabric Lab** and choose **Create retail end-to-end demo** to scaffold a small connected project across CSV, SQL/Polars, Pipeline Lab, Airflow Lab and dbt Lab.
+Open **Fabric Lab** and choose **Create / repair demo files** to scaffold a small connected project across CSV, SQL/Polars, Pipeline Lab, Airflow Lab and dbt Lab.
 
 See `docs/QUICKSTART.md` for the exact local test flow.

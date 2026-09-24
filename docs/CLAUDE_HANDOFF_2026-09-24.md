@@ -2,6 +2,26 @@
 
 Date: 2026-09-24
 
+## 0. Manual F5 pass — Claude, 2026-09-25 (newest)
+
+A real VS Code 1.139 Extension Development Host (fresh profile, disposable workspace, managed runtime set up through the UI) was driven over the Chrome DevTools Protocol: real webview buttons, the real modal dialog, real mouse drags, screenshots. This replaced the "NOT exercised" item from the earlier tranche.
+
+Exercised end to end in the real UI: Labs tree, Create .datapass project, **Setup runtime** (managed venv + pip install), Start/Stop runtime, Mosaic SQL + Python, trusted-Python enable via modal, "requested" state after a lost confirmation, disable, Mosaic drag → `.datapass/mosaic.json` → close/reopen restore, SparkLab (profile/AQE switch, unsupported syntax), Practice (filter, open solution + brief, Run visible, Submit, Python lab), Fabric Lab scaffold + medallion run, generated retail SQL in Mosaic, Pipeline graph + run, Airflow step/run/reset, dbt static lineage with a broken local dbt install.
+
+Bugs found and fixed:
+
+1. **Start runtime always failed on a fresh managed venv**: 6.5 s health timeout vs ~10 s cold start. Now 90 s with fail-fast on process exit; Polars/DuckDB imported lazily in `retail_demo.py` (health in ~1.6 s here).
+2. **Run active SQL/Python failed in the default single tab group**: the Workbench hides the file it shares a group with. Files now open beside the Workbench and the last focused `.sql`/`.py` is remembered.
+3. **Pipeline/Airflow/dbt graph blanked the whole Workbench** (React #185, max update depth): `SharedGraphCanvas` recreated its persisted view object every render → endless `setNodes`. Now keyed on graph content; unrelated host messages no longer reset dragged nodes.
+4. **SQL submissions ending in a `--` comment failed to parse** (every SQL starter did): the grading wrapper put `) AS submitted` on the comment line. Fixed with `subquery_body`; the pack gate now requires runnable starters in the new packs (caught a `GROUP BY`-less starter).
+5. **Guided Spark shown as gradable** → raw HTTP 400. Now labelled not locally gradable, buttons disabled.
+6. **Start runtime without an open folder** started anyway, then HTTP 500s. Now refused with a clear message.
+7. Badges wrapped out of their pills; Output panel popped open on every start; a broken dbt install dumped a 20-line traceback into the dbt card (now one line). QUICKSTART/README used stale button labels.
+
+Known, not fixed: first **Setup runtime** took ~15 min on this Windows machine (pip unpacking under antivirus); only the output channel shows progress. React Flow minimap is light in dark theme. Pipeline header shows the compiler's `compiled_design_only` truth next to executable activities.
+
+The driver lives outside the repo (Playwright over CDP); if you repeat it, launch Code with `--folder-uri`, `--disable-features=CalculateNativeWinOcclusion --disable-backgrounding-occluded-windows`, and `window.dialogStyle: custom`, and use DOM clicks inside webviews.
+
 ## 0a. Content tranche — Claude, 2026-09-24 (newest; read first)
 
 | Commit | Change |

@@ -14,7 +14,7 @@ In the new VS Code window:
 1. Open a folder that can hold a learning workspace.
 2. Open the **Datapass** Activity Bar.
 3. Choose **Fabric Lab**.
-4. Click **Create retail end-to-end demo**.
+4. Click **Create / repair demo files**, start the runtime, then **Run local medallion flow**.
 
 Datapass creates only missing files. Existing learner files are not overwritten.
 
@@ -64,7 +64,7 @@ Fabric Lab is a local teaching experience. It does not require or impersonate a 
 
 ### Mosaic
 
-After **Run retail demo** (Fabric Lab) has loaded the CSV into `bronze.orders`, open `notebooks/retail_medallion.sql` and choose **Run active SQL**: it builds `silver.mosaic_orders` and `gold.mosaic_customer_revenue` on real DuckDB. Mosaic SQL works on the shared catalog only; file and network table functions such as `read_csv_auto` are blocked by design.
+After **Run local medallion flow** (Fabric Lab) has loaded the CSV into `bronze.orders`, open `notebooks/retail_medallion.sql` and choose **Run active SQL**: it builds `silver.mosaic_orders` and `gold.mosaic_customer_revenue` on real DuckDB. Mosaic SQL works on the shared catalog only; file and network table functions such as `read_csv_auto` are blocked by design.
 
 Open the SQL and Python scratch files and compare:
 
