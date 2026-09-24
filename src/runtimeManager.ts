@@ -181,6 +181,25 @@ export class RuntimeManager implements vscode.Disposable {
     }
   }
 
+  async runPipeline(source: string): Promise<void> {
+    const url = this.state.status === "running" ? this.state.url : undefined;
+    if (!url) throw new Error("Start the Datapass runtime before running a pipeline.");
+    const pipelineRun = await requestJson<NonNullable<RuntimeViewState["pipelineRun"]>>(
+      `${url}/api/pipeline/run`,
+      "POST",
+      { source },
+      30000
+    );
+    this.setState({
+      ...this.state,
+      detail: pipelineRun.status === "success"
+        ? `Pipeline ${pipelineRun.pipeline_id} completed.`
+        : `Pipeline ${pipelineRun.pipeline_id} finished with failures.`,
+      pipelineRun
+    });
+    await this.refreshCatalog();
+  }
+
   async compilePipeline(source: string): Promise<PipelineCompileResponse> {
     const url = this.state.status === "running" ? this.state.url : undefined;
     if (!url) throw new Error("Start the Datapass runtime before compiling a pipeline.");
