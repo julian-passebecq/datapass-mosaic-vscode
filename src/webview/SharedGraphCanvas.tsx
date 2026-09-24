@@ -49,19 +49,24 @@ function DatapassGraphNode({ data, selected }: NodeProps) {
 const nodeTypes = { datapass: DatapassGraphNode };
 
 function InnerGraph({ graph, vscode, storageKey }: Props) {
-  const stored = readGraphView(vscode, storageKey);
-  const mapped = useMemo<Node[]>(
-    () => graph.nodes.map((node, index) => ({
+  // Read persisted view state once per graph surface. Recreating it on every render
+  // produced new dependencies each time and an endless setNodes/render loop.
+  const stored = useMemo(() => readGraphView(vscode, storageKey), [vscode, storageKey]);
+  // Host state messages arrive as fresh objects; key on content so unrelated
+  // refreshes (runtime status, catalog) neither loop nor reset dragged nodes.
+  const graphKey = JSON.stringify(graph);
+  const mapped = useMemo<Node[]>(() => {
+    const positions = readGraphView(vscode, storageKey).positions;
+    return graph.nodes.map((node, index) => ({
       id: node.id,
       type: "datapass",
-      position: stored.positions[node.id] ?? {
+      position: positions[node.id] ?? {
         x: (index % 3) * 270,
         y: Math.floor(index / 3) * 150
       },
       data: { ...node }
-    })),
-    [graph, stored.positions]
-  );
+    }));
+  }, [graphKey, storageKey]);
   const [nodes, setNodes] = useState<Node[]>(mapped);
 
   useEffect(() => setNodes(mapped), [mapped]);
@@ -72,7 +77,7 @@ function InnerGraph({ graph, vscode, storageKey }: Props) {
       type: "smoothstep",
       markerEnd: { type: MarkerType.ArrowClosed }
     })),
-    [graph.edges]
+    [graphKey]
   );
 
   const onNodesChange = (changes: NodeChange[]) => {

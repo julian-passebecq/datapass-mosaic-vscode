@@ -1,6 +1,6 @@
 import * as vscode from "vscode";
 import { defaultProbeRunner } from "./platform/detection";
-import { parseDbtVersionOutput } from "./platform/dbtVersion";
+import { parseDbtVersionOutput, summarizeProbeError } from "./platform/dbtVersion";
 import { readProjectManifest } from "./project/projectManifest";
 import type { DbtCliView, DbtViewState, GraphView } from "./webview/contracts";
 
@@ -14,7 +14,7 @@ export async function probeDbtCli(): Promise<DbtCliView> {
     return {
       available: false,
       adapterAvailable: false,
-      detail: result.error
+      detail: summarizeProbeError(result.error)
     };
   }
 

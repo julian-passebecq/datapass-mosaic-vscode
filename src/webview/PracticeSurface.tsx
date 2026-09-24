@@ -67,6 +67,9 @@ export function PracticeSurface({
               </div>
               <Text size={400} weight="semibold">{exercise.title}</Text>
               <p className="practice-prompt">{exercise.prompt}</p>
+              {exercise.gradingNote && (
+                <div className="pipeline-notice">{exercise.gradingNote}</div>
+              )}
               {PYTHON_LANGUAGES.has(exercise.language.toLowerCase()) && runtimeReady && !runtime.trustedPython && (
                 <div className="pipeline-notice">
                   This exercise executes real local Python. Grading reports an error until trusted local Python is
@@ -123,7 +126,7 @@ export function PracticeSurface({
                   <Button
                     appearance="secondary"
                     size="small"
-                    disabled={!runtimeReady}
+                    disabled={!runtimeReady || Boolean(exercise.gradingNote)}
                     onClick={() => vscode.postMessage({
                       type: "gradeExercise",
                       exerciseKey: exercise.key,
@@ -135,7 +138,7 @@ export function PracticeSurface({
                   <Button
                     appearance="primary"
                     size="small"
-                    disabled={!runtimeReady}
+                    disabled={!runtimeReady || Boolean(exercise.gradingNote)}
                     onClick={() => vscode.postMessage({
                       type: "gradeExercise",
                       exerciseKey: exercise.key,

@@ -51,6 +51,8 @@ export class WorkbenchPanel {
 
   private selectedModule: ModuleId;
   private readonly disposables: vscode.Disposable[] = [];
+  /** Last focused file per extension, so "Run active ..." works when the Workbench shares a tab group with it. */
+  private readonly lastDocuments = new Map<string, vscode.Uri>();
 
   private constructor(
     private readonly panel: vscode.WebviewPanel,
@@ -60,6 +62,7 @@ export class WorkbenchPanel {
     initialModule: ModuleId
   ) {
     this.selectedModule = initialModule;
+    this.rememberEditor(vscode.window.activeTextEditor);
     this.panel.webview.html = this.html(this.panel.webview);
     const dbtArtifactWatcher = vscode.workspace.createFileSystemWatcher("**/target/manifest.json");
 
@@ -72,6 +75,7 @@ export class WorkbenchPanel {
         if (this.selectedModule === "dbt") void this.refresh();
       }),
       this.panel.onDidDispose(() => this.dispose()),
+      vscode.window.onDidChangeActiveTextEditor(editor => this.rememberEditor(editor)),
       this.panel.webview.onDidReceiveMessage(message => {
         void this.handleMessage(message as WebviewToHostMessage);
       }),
@@ -185,6 +189,11 @@ export class WorkbenchPanel {
   }
 
   private async startRuntime(): Promise<void> {
+    // The runtime's catalog lives in <workspace>/.datapass/data; without a folder every call would fail.
+    if (!vscode.workspace.workspaceFolders?.length) {
+      void vscode.window.showWarningMessage("Open a folder before starting the Datapass runtime; its local catalog lives in that folder.");
+      return;
+    }
     const manifest = await readProjectManifest();
     const pythonCommand = manifest.manifest?.runtime?.pythonCommand ?? "python";
     const storage = manifest.manifest?.runtime?.storage ?? "duckdb";
@@ -201,6 +210,20 @@ export class WorkbenchPanel {
       await this.startRuntime();
     }
     await this.refresh();
+  }
+
+  private rememberEditor(editor: vscode.TextEditor | undefined): void {
+    if (editor?.document.uri.scheme !== "file") return;
+    const match = /\.(sql|py)$/i.exec(editor.document.fileName);
+    if (match) this.lastDocuments.set("." + match[1].toLowerCase(), editor.document.uri);
+  }
+
+  /** Open a file next to the Workbench so the webview and the file stay visible together. */
+  private async openBeside(uri: vscode.Uri): Promise<void> {
+    const document = await vscode.workspace.openTextDocument(uri);
+    const column = this.panel.viewColumn === vscode.ViewColumn.Two ? vscode.ViewColumn.One : vscode.ViewColumn.Two;
+    const editor = await vscode.window.showTextDocument(document, { preview: false, viewColumn: column });
+    this.rememberEditor(editor);
   }
 
   private async setupRuntime(): Promise<void> {
@@ -231,7 +254,7 @@ export class WorkbenchPanel {
     }
 
     const uri = await writeProjectManifest(createDefaultProjectManifest(folder.name));
-    await openTextDocument(uri);
+    await this.openBeside(uri);
     await this.refresh();
   }
 
@@ -292,7 +315,7 @@ export class WorkbenchPanel {
     await this.openDbtProject();
 
     const readme = vscode.Uri.joinPath(root, "README_DATAPASS_RETAIL.md");
-    await openTextDocument(readme);
+    await this.openBeside(readme);
     void vscode.window.showInformationMessage(
       "Datapass retail demo created: dataset, notebook starters, pipeline, Airflow DAG and dbt sample."
     );
@@ -300,7 +323,7 @@ export class WorkbenchPanel {
   }
 
   private async runActiveSql(): Promise<void> {
-    const document = await activeSavedDocument(".sql", "SQL");
+    const document = await activeSavedDocument(".sql", "SQL", this.lastDocuments.get(".sql"));
     if (!document) return;
 
     try {
@@ -323,7 +346,7 @@ export class WorkbenchPanel {
       );
       return;
     }
-    const document = await activeSavedDocument(".py", "Python");
+    const document = await activeSavedDocument(".py", "Python", this.lastDocuments.get(".py"));
     if (!document) return;
 
     try {
@@ -337,7 +360,7 @@ export class WorkbenchPanel {
   }
 
   private async runActiveSparkLab(profileId: string, aqe: boolean): Promise<void> {
-    const document = await activeSavedDocument(".py", "SparkLab (.py)");
+    const document = await activeSavedDocument(".py", "SparkLab (.py)", this.lastDocuments.get(".py"));
     if (!document) return;
 
     try {
@@ -389,7 +412,7 @@ export class WorkbenchPanel {
       void vscode.window.showInformationMessage("No .datapass/project.json exists yet.");
       return;
     }
-    await openTextDocument(manifest.uri);
+    await this.openBeside(manifest.uri);
   }
 
   private async openScratch(kind: ScratchKind): Promise<void> {
@@ -410,7 +433,7 @@ export class WorkbenchPanel {
     if (!(await exists(uri))) {
       await vscode.workspace.fs.writeFile(uri, new TextEncoder().encode(spec.content));
     }
-    await openTextDocument(uri);
+    await this.openBeside(uri);
   }
 
   private async openExercise(exerciseKey: string): Promise<void> {
@@ -452,7 +475,7 @@ export class WorkbenchPanel {
       );
     }
 
-    await openTextDocument(starterUri);
+    await this.openBeside(starterUri);
   }
 
   private async gradeExercise(
@@ -569,7 +592,7 @@ export class WorkbenchPanel {
       );
     }
 
-    await openTextDocument(uri);
+    await this.openBeside(uri);
     await this.refresh();
   }
 
@@ -593,7 +616,7 @@ export class WorkbenchPanel {
       );
     }
 
-    await openTextDocument(uri);
+    await this.openBeside(uri);
     await this.refresh();
   }
 
@@ -623,7 +646,7 @@ export class WorkbenchPanel {
     }
 
     await ensureDbtProfile(root);
-    await openTextDocument(projectFile);
+    await this.openBeside(projectFile);
     await this.refresh();
   }
 
@@ -806,24 +829,28 @@ function quoteShellArg(value: string): string {
 
 async function activeSavedDocument(
   extension: string,
-  label: string
+  label: string,
+  remembered?: vscode.Uri
 ): Promise<vscode.TextDocument | undefined> {
-  const matches = (candidate: vscode.TextEditor | undefined) =>
-    candidate?.document.fileName.toLowerCase().endsWith(extension) === true;
-  const editor = matches(vscode.window.activeTextEditor)
-    ? vscode.window.activeTextEditor
-    : vscode.window.visibleTextEditors.find(candidate =>
-      candidate.document.uri.scheme === "file" && matches(candidate)
+  const matches = (candidate: vscode.TextDocument | undefined) =>
+    candidate?.uri.scheme === "file" && candidate.fileName.toLowerCase().endsWith(extension);
+  // Clicking the Workbench hides a file that shares its tab group, so fall back
+  // from the active editor to a visible one, then to the last focused file.
+  const document =
+    (matches(vscode.window.activeTextEditor?.document) ? vscode.window.activeTextEditor!.document : undefined) ??
+    vscode.window.visibleTextEditors.map(editor => editor.document).find(matches) ??
+    vscode.workspace.textDocuments.find(candidate =>
+      !candidate.isClosed && matches(candidate) && candidate.uri.toString() === remembered?.toString()
     );
-  if (!editor) {
+  if (!document) {
     void vscode.window.showWarningMessage(`Open a ${label} file in VS Code before running it.`);
     return undefined;
   }
-  if (editor.document.isDirty && !(await editor.document.save())) {
+  if (document.isDirty && !(await document.save())) {
     void vscode.window.showWarningMessage(`Save the ${label} file before running it.`);
     return undefined;
   }
-  return editor.document;
+  return document;
 }
 
 async function exists(uri: vscode.Uri): Promise<boolean> {
@@ -833,9 +860,4 @@ async function exists(uri: vscode.Uri): Promise<boolean> {
   } catch {
     return false;
   }
-}
-
-async function openTextDocument(uri: vscode.Uri): Promise<void> {
-  const document = await vscode.workspace.openTextDocument(uri);
-  await vscode.window.showTextDocument(document, { preview: false });
 }

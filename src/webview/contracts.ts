@@ -183,6 +183,8 @@ export interface ExerciseSummary {
   sections: ExerciseSectionView[];
   hints: string[];
   dataContext: ExerciseTableView[];
+  /** Set when Datapass cannot grade the exercise locally; Run/Submit are disabled. */
+  gradingNote?: string;
 }
 
 export interface ExerciseSectionView {

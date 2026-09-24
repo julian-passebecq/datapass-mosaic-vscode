@@ -1,6 +1,12 @@
 import * as vscode from "vscode";
 import type { ExerciseSectionView, ExerciseSummary, ExerciseTableView } from "./webview/contracts";
 
+/** Runtimes whose grading needs something Datapass does not provide locally. */
+const NOT_LOCALLY_GRADED: Record<string, string> = {
+  "fastapispark-guided-v1":
+    "Graded only against an explicitly qualified remote Spark connection. Datapass has no local fallback for this lesson; read and edit it here, grade it where that connection exists."
+};
+
 interface RawManifest {
   id?: unknown;
   title?: unknown;
@@ -78,7 +84,8 @@ function normalizeExercise(
     starterSource,
     truth: stringValue(value.truth),
     topics: stringArray(value.topics),
-    ...teachingDetails(value)
+    ...teachingDetails(value),
+    gradingNote: NOT_LOCALLY_GRADED[stringValue(value.runtime) ?? ""]
   };
 }
 

@@ -100,6 +100,11 @@ try {
   assert.equal(coreOnly.coreVersion, "1.10.2");
   assert.equal(coreOnly.duckdbAdapterVersion, undefined);
 
+  const traceback = ["Command failed: dbt --version", "Traceback (most recent call last):", '  File "x.py", line 4, in <module>', "ModuleNotFoundError: No module named '_ctypes'", ""].join("\n");
+  assert.equal(dbtMod.summarizeProbeError(traceback), "Command failed: dbt --version: ModuleNotFoundError: No module named '_ctypes'");
+  assert.equal(dbtMod.summarizeProbeError("spawn dbt ENOENT"), "spawn dbt ENOENT");
+  assert.equal(dbtMod.summarizeProbeError(undefined), undefined);
+
   const brief = readmeMod.exerciseReadme({
     key: "sql-lab-v1/x/sql", packId: "sql-lab-v1", packTitle: "SQL lab", id: "x", version: "1",
     title: "Keep customers", difficulty: "easy", language: "sql", prompt: "Return every customer.",

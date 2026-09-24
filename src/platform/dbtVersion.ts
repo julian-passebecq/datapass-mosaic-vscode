@@ -24,3 +24,15 @@ function clean(value: string | undefined): string | undefined {
   const trimmed = value.trim().replace(/[;,]$/, "");
   return trimmed || undefined;
 }
+
+/**
+ * One readable line from a failed `dbt --version` probe. A broken dbt install
+ * prints a full Python traceback; its last line carries the actual cause.
+ */
+export function summarizeProbeError(error: string | undefined): string | undefined {
+  if (!error) return undefined;
+  const lines = error.split(/\r?\n/).map(line => line.trim()).filter(Boolean);
+  const last = lines.at(-1) ?? error.trim();
+  const summary = lines.length > 1 && /^Command failed/i.test(lines[0]) ? `${lines[0]}: ${last}` : last;
+  return summary.length > 240 ? summary.slice(0, 237) + "..." : summary;
+}
