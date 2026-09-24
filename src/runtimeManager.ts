@@ -102,6 +102,7 @@ export class RuntimeManager implements vscode.Disposable {
       await waitForDatapassHealth(`${url}/api/health`, 6500);
       if (this.child === child) {
         this.setState({ status: "running", url, detail: "Local runtime healthy." });
+        await this.refreshCatalog();
       }
     } catch (error) {
       child.kill();
@@ -130,12 +131,29 @@ export class RuntimeManager implements vscode.Disposable {
         detail: "Retail demo completed with real local Polars + DuckDB execution.",
         retailDemo
       });
+      await this.refreshCatalog();
     } catch (error) {
       this.setState({
         ...this.state,
         detail: error instanceof Error ? error.message : String(error)
       });
       throw error;
+    }
+  }
+
+  async refreshCatalog(): Promise<void> {
+    const url = this.state.status === "running" ? this.state.url : undefined;
+    if (!url) return;
+    try {
+      const catalog = await requestGetJson<NonNullable<RuntimeViewState["catalog"]>>(
+        `${url}/api/local/catalog`
+      );
+      this.setState({ ...this.state, catalog });
+    } catch (error) {
+      this.setState({
+        ...this.state,
+        detail: `Catalog refresh failed: ${error instanceof Error ? error.message : String(error)}`
+      });
     }
   }
 
@@ -211,5 +229,29 @@ function requestJson<T>(
     request.setTimeout(timeoutMs, () => request.destroy(new Error("Runtime request timed out.")));
     request.on("error", reject);
     request.end(payload);
+  });
+}
+
+
+function requestGetJson<T>(url: string, timeoutMs = 3000): Promise<T> {
+  return new Promise((resolve, reject) => {
+    const request = http.get(url, response => {
+      const chunks: Buffer[] = [];
+      response.on("data", chunk => chunks.push(Buffer.from(chunk)));
+      response.on("end", () => {
+        const text = Buffer.concat(chunks).toString("utf8");
+        if ((response.statusCode ?? 500) < 200 || (response.statusCode ?? 500) >= 300) {
+          reject(new Error(`Runtime request failed with HTTP ${response.statusCode}: ${text.slice(0, 500)}`));
+          return;
+        }
+        try {
+          resolve(JSON.parse(text) as T);
+        } catch (error) {
+          reject(error);
+        }
+      });
+    });
+    request.setTimeout(timeoutMs, () => request.destroy(new Error("Runtime request timed out.")));
+    request.on("error", reject);
   });
 }
