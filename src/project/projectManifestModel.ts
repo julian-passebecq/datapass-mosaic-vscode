@@ -70,7 +70,7 @@ export function createDefaultProjectManifest(folderName = "data-project"): DataP
       exercises: "exercises"
     },
     runtime: {
-      storage: "ducklake",
+      storage: "duckdb",
       pythonCommand: "python"
     }
   };
