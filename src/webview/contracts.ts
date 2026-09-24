@@ -53,6 +53,24 @@ export interface LocalCellRunView {
   };
 }
 
+export interface PipelineTaskRunView {
+  id: string;
+  kind: string;
+  status: "success" | "failed" | "skipped";
+  attempts: number;
+  elapsed_ms: number;
+  error?: string | null;
+  result?: unknown;
+}
+
+export interface PipelineRunView {
+  run_id: string;
+  pipeline_id: string;
+  status: "success" | "failed";
+  truth: string;
+  tasks: readonly PipelineTaskRunView[];
+}
+
 export interface RuntimeViewState {
   status: RuntimeStatus;
   url?: string;
@@ -60,6 +78,7 @@ export interface RuntimeViewState {
   retailDemo?: RetailDemoRunView;
   catalog?: readonly LocalCatalogAssetView[];
   lastRun?: LocalCellRunView;
+  pipelineRun?: PipelineRunView;
 }
 
 export interface WorkspaceViewState {
@@ -205,6 +224,7 @@ export type WebviewToHostMessage =
   | { type: "openExercise"; exerciseKey: string }
   | { type: "openPipelineSource" }
   | { type: "refreshPipeline" }
+  | { type: "runPipeline" }
   | { type: "openAirflowSource" }
   | { type: "refreshAirflow" }
   | { type: "openDbtProject" }
