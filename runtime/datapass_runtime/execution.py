@@ -212,8 +212,9 @@ class Engine:
         for node in logical_plan(parsed.dataframe):
             if node['operation'] == 'scan':
                 name = node['source']
-                if name == 'input' and request.get('_exercise_fixture_sql'):
-                    count = request.get('_exercise_input_count', 0)
+                fixture_counts = request.get('_exercise_table_counts') or {}
+                if name in fixture_counts or (name == 'input' and request.get('_exercise_fixture_sql')):
+                    count = fixture_counts.get(name, request.get('_exercise_input_count', 0))
                     statistics[name] = {
                         'rows': count,
                         'bytes': count * 128,
@@ -346,6 +347,8 @@ class Engine:
                     tables[asset['name']] = {'columns':self.catalog.query(f"SELECT * FROM {asset['name']} LIMIT 0")['columns']}
                 if request.get('_exercise_columns'):
                     tables['input'] = {'columns':request['_exercise_columns']}
+                for name, fixture_columns in (request.get('_exercise_tables') or {}).items():
+                    tables[name] = {'columns':fixture_columns}
                 parsed = candidate.parse(request['code'])
                 if request.get('profile', 'generic_8x8') not in load_cluster_profiles(str(SPARK_HOME / 'cluster_profiles.json')):
                     raise ValueError('Unknown virtual cluster profile.')

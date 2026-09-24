@@ -31,7 +31,10 @@ class Fixture(Contract):
 # Declared fixture column types are interpolated into CAST(...); allowlist only.
 COLUMN_TYPE = re.compile(r'^(INTEGER|BIGINT|DOUBLE|VARCHAR|BOOLEAN|DATE|TIMESTAMP|DECIMAL\(\d{1,2}, ?\d{1,2}\))$')
 TABLE_NAME = re.compile(r'^[a-z][a-z0-9_]{0,40}$')
-RESERVED_TABLES = {'source', 'bronze', 'silver', 'gold', 'warehouse', 'features', 'metrics'}
+RESERVED_TABLES = {'source', 'bronze', 'silver', 'gold', 'warehouse', 'features', 'metrics',
+                   # Python grading namespace names that a table must not shadow.
+                   'input_rows', 'tables', 'display', 'query', 'publish'}
+NAMED_TABLE_LANGUAGES = {'sql', 'python', 'polars', 'sparklab'}
 
 
 class GradingDefinition(Contract):
@@ -77,8 +80,8 @@ class PackRegistry:
             multi = len(definition.data_context) > 1 or any(f.tables is not None for f in private.fixtures)
             if multi:
                 names = [c.name for c in definition.data_context]
-                if definition.language != 'sql':
-                    raise ValueError('Named multi-table fixtures are SQL-only: '+definition.id)
+                if definition.language not in NAMED_TABLE_LANGUAGES:
+                    raise ValueError('Named multi-table fixtures are unsupported for '+definition.language+': '+definition.id)
                 if len(names) != len(set(names)) or any(not TABLE_NAME.fullmatch(n) or n in RESERVED_TABLES for n in names):
                     raise ValueError('Fixture table names must be unique lowercase identifiers: '+definition.id)
                 for fixture in private.fixtures:

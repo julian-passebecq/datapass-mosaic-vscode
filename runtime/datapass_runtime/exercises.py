@@ -86,12 +86,21 @@ def grade(engine, request):
         internal = {**request, 'notebook_id':namespace, 'output_asset':None}
         columns = list(spec.data_context[0].columns) if spec.data_context else list(fixture.input_rows[0]) if fixture.input_rows else ['value']
         types = dict(spec.data_context[0].columns) if spec.data_context else {}
-        if fixture.tables is not None:
+        if fixture.tables is not None and spec.language in {'sql', 'sparklab'}:
+            # One typed CTE per named table; SparkLab compiles to SQL over the same CTEs.
             internal['_exercise_fixture_ctes'] = _fixture_ctes(spec, fixture)
-            try:
-                validate_sql(code, read_only=True)
-            except ValueError:
-                internal['code'] = 'INVALID SUBMISSION'
+            if spec.language == 'sparklab':
+                internal['_exercise_tables'] = {c.name: list(c.columns) for c in spec.data_context}
+                internal['_exercise_table_counts'] = {name: len(rows) for name, rows in fixture.tables.items()}
+            else:
+                try:
+                    validate_sql(code, read_only=True)
+                except ValueError:
+                    internal['code'] = 'INVALID SUBMISSION'
+        elif fixture.tables is not None:
+            # Python/Polars: each table is a list of row dicts, by name and in `tables`.
+            tables = deepcopy(fixture.tables)
+            engine.python_namespaces[namespace] = {'__name__':'__datapass_exercise__', 'tables':tables, **deepcopy(fixture.tables)}
         elif spec.language in {'sql','sparklab','dbt'}:
             internal['_exercise_fixture_sql'] = _fixture_sql(fixture.input_rows, columns, types)
             internal['_exercise_columns'] = columns
