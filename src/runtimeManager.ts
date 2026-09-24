@@ -72,7 +72,7 @@ export class RuntimeManager implements vscode.Disposable {
       if (!existsSync(managedPython)) {
         this.output.appendLine("Creating isolated Datapass Python environment.");
         await this.runSetupCommand(
-          resolvedPython,
+          pythonCommand,
           ["-m", "venv", venvRoot],
           this.storageUri.fsPath
         );
@@ -128,7 +128,7 @@ export class RuntimeManager implements vscode.Disposable {
     this.output.appendLine(`Starting Datapass runtime with ${resolvedPython}`);
 
     const child = spawn(
-      pythonCommand,
+      resolvedPython,
       [
         "-m",
         "uvicorn",
