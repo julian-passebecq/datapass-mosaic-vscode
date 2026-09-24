@@ -64,6 +64,10 @@ export function WorkbenchApp({ vscode }: { vscode: VsCodeApi }) {
     );
   }
 
+  const environment = state.runtime.environment;
+  const environmentReady = environment?.status === "ready";
+  const environmentSettingUp = environment?.status === "setting-up";
+
   const runtimeTone =
     state.runtime.status === "running"
       ? "success"
@@ -83,15 +87,30 @@ export function WorkbenchApp({ vscode }: { vscode: VsCodeApi }) {
           </div>
           <div className="runtime-status">
             <Badge appearance="tint" color={runtimeTone}>{state.runtime.status}</Badge>
+            {!environmentReady && state.runtime.status !== "running" && (
+              <Button
+                size="small"
+                appearance="primary"
+                disabled={environmentSettingUp}
+                onClick={() => vscode.postMessage({ type: "setupRuntime" })}
+              >
+                {environmentSettingUp ? "Setting up runtime…" : "Setup runtime"}
+              </Button>
+            )}
             {state.runtime.status === "running" ? (
               <Button size="small" appearance="secondary" onClick={() => vscode.postMessage({ type: "stopRuntime" })}>
                 Stop runtime
               </Button>
-            ) : (
-              <Button size="small" appearance="primary" disabled={state.runtime.status === "starting"} onClick={() => vscode.postMessage({ type: "startRuntime" })}>
+            ) : environmentReady ? (
+              <Button
+                size="small"
+                appearance="primary"
+                disabled={state.runtime.status === "starting"}
+                onClick={() => vscode.postMessage({ type: "startRuntime" })}
+              >
                 Start runtime
               </Button>
-            )}
+            ) : null}
           </div>
         </header>
 
@@ -179,9 +198,23 @@ export function WorkbenchApp({ vscode }: { vscode: VsCodeApi }) {
             <Card>
               <CardHeader header={<Text weight="semibold">Local runtime</Text>} />
               <div className="stack">
-                <StatusRow label="Status" value={state.runtime.status} />
+                <StatusRow label="Service" value={state.runtime.status} />
+                <StatusRow label="Environment" value={environment?.status ?? "unknown"} />
+                {environment?.python && (
+                  <div className="runtime-python" title={environment.python}>{environment.python}</div>
+                )}
                 {state.runtime.url && <StatusRow label="Endpoint" value={state.runtime.url} />}
+                {environment?.detail && <div className={environment.status === "error" ? "error-text" : "muted"}>{environment.detail}</div>}
                 {state.runtime.detail && <div className={state.runtime.status === "error" ? "error-text" : "muted"}>{state.runtime.detail}</div>}
+                {state.runtime.status !== "running" && environmentReady && (
+                  <Button
+                    appearance="secondary"
+                    size="small"
+                    onClick={() => vscode.postMessage({ type: "setupRuntime" })}
+                  >
+                    Update runtime environment
+                  </Button>
+                )}
               </div>
             </Card>
           </aside>
