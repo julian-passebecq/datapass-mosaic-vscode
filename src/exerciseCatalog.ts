@@ -1,5 +1,5 @@
 import * as vscode from "vscode";
-import type { ExerciseSummary } from "./webview/contracts";
+import type { ExerciseSectionView, ExerciseSummary, ExerciseTableView } from "./webview/contracts";
 
 interface RawManifest {
   id?: unknown;
@@ -77,7 +77,8 @@ function normalizeExercise(
     prompt: stringValue(value.prompt) ?? "",
     starterSource,
     truth: stringValue(value.truth),
-    topics: stringArray(value.topics)
+    topics: stringArray(value.topics),
+    ...teachingDetails(value)
   };
 }
 
@@ -108,7 +109,8 @@ function normalizeScenario(
       key: `${packId}/${id}/${language}`,
       packId,
       packTitle,
-      id,
+      // The runtime registers each semantic variant as `<scenario>-<language>`.
+      id: `${id}-${language}`,
       version,
       title,
       difficulty: stringValue(common.difficulty) ?? "unspecified",
@@ -116,10 +118,44 @@ function normalizeScenario(
       prompt: stringValue(common.prompt) ?? "",
       starterSource,
       truth: stringValue(common.truth),
-      topics: stringArray(common.topics)
+      topics: stringArray(common.topics),
+      ...teachingDetails(common)
     });
   }
   return result;
+}
+
+function teachingDetails(value: Record<string, unknown>): {
+  sections: ExerciseSectionView[];
+  hints: string[];
+  dataContext: ExerciseTableView[];
+} {
+  const sections = (Array.isArray(value.sections) ? value.sections : []).flatMap(raw => {
+    const section = objectValue(raw);
+    const title = stringValue(section?.title);
+    const body = stringValue(section?.body);
+    return title && body ? [{ title, body }] : [];
+  });
+  const dataContext = (Array.isArray(value.data_context) ? value.data_context : []).flatMap(raw => {
+    const table = objectValue(raw);
+    const name = stringValue(table?.name);
+    const columns = objectValue(table?.columns);
+    if (!name || !columns) return [];
+    const sampleRows = (Array.isArray(table?.sample_rows) ? table.sample_rows : [])
+      .map(row => objectValue(row))
+      .filter((row): row is Record<string, unknown> => row !== undefined)
+      .map(row => Object.fromEntries(Object.keys(columns).map(column => [column, scalar(row[column])])));
+    return [{
+      name,
+      columns: Object.fromEntries(Object.entries(columns).map(([column, type]) => [column, String(type)])),
+      sampleRows
+    }];
+  });
+  return { sections, hints: stringArray(value.hints), dataContext };
+}
+
+function scalar(value: unknown): string | number | boolean | null {
+  return typeof value === "string" || typeof value === "number" || typeof value === "boolean" ? value : null;
 }
 
 async function readOptionalJson<T>(uri: vscode.Uri): Promise<T | undefined> {

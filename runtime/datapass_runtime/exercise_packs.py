@@ -23,6 +23,15 @@ class Fixture(Contract):
     visibility: Literal['visible','hidden','edge']
     input_rows: list[dict[str, Any]]
     expected: list[dict[str, Any]]
+    # Named fixture tables for multi-table SQL exercises. When present, the
+    # public data_context declares one entry per table and input_rows is empty.
+    tables: dict[str, list[dict[str, Any]]] | None = None
+
+
+# Declared fixture column types are interpolated into CAST(...); allowlist only.
+COLUMN_TYPE = re.compile(r'^(INTEGER|BIGINT|DOUBLE|VARCHAR|BOOLEAN|DATE|TIMESTAMP|DECIMAL\(\d{1,2}, ?\d{1,2}\))$')
+TABLE_NAME = re.compile(r'^[a-z][a-z0-9_]{0,40}$')
+RESERVED_TABLES = {'source', 'bronze', 'silver', 'gold', 'warehouse', 'features', 'metrics'}
 
 
 class GradingDefinition(Contract):
@@ -60,15 +69,31 @@ class PackRegistry:
             for visibility, required in refs.items():
                 if len(required) != len(set(required)) or set(required) != {f.id for f in private.fixtures if f.visibility == visibility}:
                     raise ValueError('Public/private check references disagree')
-            if any(len(f.input_rows)>200 or len(f.expected)>200 for f in private.fixtures):
+            if any(len(f.input_rows)>200 or len(f.expected)>200 or any(len(t)>200 for t in (f.tables or {}).values()) for f in private.fixtures):
                 raise ValueError('Exercise fixtures exceed shared bounded preview')
+            for context in definition.data_context:
+                if any(not COLUMN_TYPE.fullmatch(t) for t in context.columns.values()):
+                    raise ValueError('Unsupported fixture column type in '+definition.id)
+            multi = len(definition.data_context) > 1 or any(f.tables is not None for f in private.fixtures)
+            if multi:
+                names = [c.name for c in definition.data_context]
+                if definition.language != 'sql':
+                    raise ValueError('Named multi-table fixtures are SQL-only: '+definition.id)
+                if len(names) != len(set(names)) or any(not TABLE_NAME.fullmatch(n) or n in RESERVED_TABLES for n in names):
+                    raise ValueError('Fixture table names must be unique lowercase identifiers: '+definition.id)
+                for fixture in private.fixtures:
+                    if fixture.input_rows or fixture.tables is None or set(fixture.tables) != set(names):
+                        raise ValueError('Every fixture must supply exactly the declared tables: '+definition.id)
+                    for context in definition.data_context:
+                        if any(set(row) != set(context.columns) for row in fixture.tables[context.name]):
+                            raise ValueError('Fixture table schema disagrees with data_context: '+definition.id+'.'+context.name)
             for fixture in private.fixtures:
-                for rows in (fixture.input_rows,fixture.expected):
+                for rows in (fixture.input_rows,fixture.expected,*(fixture.tables or {}).values()):
                     if rows and any(set(row)!=set(rows[0]) for row in rows):
                         raise ValueError('Fixture tables must be rectangular')
                     if any(not isinstance(v,(str,int,float,bool,type(None))) or isinstance(v,float) and not math.isfinite(v) for row in rows for v in row.values()):
                         raise ValueError('Fixture values must be finite JSON scalars')
-                if definition.data_context and any(set(row)!=set(definition.data_context[0].columns) for row in fixture.input_rows):
+                if not multi and definition.data_context and any(set(row)!=set(definition.data_context[0].columns) for row in fixture.input_rows):
                     raise ValueError('Fixture input schema disagrees with public input schema')
             definition.pack = VersionRef(id=manifest.id, version=manifest.version)
             candidate[definition.id] = (definition, private, manifest.id)

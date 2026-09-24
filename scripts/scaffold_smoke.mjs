@@ -8,6 +8,7 @@ import * as esbuild from "esbuild";
 const dir = await mkdtemp(path.join(tmpdir(), "datapass-scaffold-"));
 const outfile = path.join(dir, "retail-demo.mjs");
 const dbtOutfile = path.join(dir, "dbt-version.mjs");
+const readmeOutfile = path.join(dir, "exercise-readme.mjs");
 
 try {
   await esbuild.build({
@@ -30,7 +31,18 @@ try {
     logLevel: "silent"
   });
 
+  await esbuild.build({
+    entryPoints: ["src/scaffold/exerciseReadme.ts"],
+    bundle: true,
+    platform: "node",
+    format: "esm",
+    target: "node20",
+    outfile: readmeOutfile,
+    logLevel: "silent"
+  });
+
   const mod = await import(pathToFileURL(outfile).href + `?v=${Date.now()}`);
+  const readmeMod = await import(pathToFileURL(readmeOutfile).href + `?v=${Date.now()}`);
   const dbtMod = await import(pathToFileURL(dbtOutfile).href + `?v=${Date.now()}`);
 
   const customDataset = "assets/raw/retail_orders.csv";
@@ -88,7 +100,28 @@ try {
   assert.equal(coreOnly.coreVersion, "1.10.2");
   assert.equal(coreOnly.duckdbAdapterVersion, undefined);
 
-  console.log("Retail scaffold and dbt detection smoke tests passed.");
+  const brief = readmeMod.exerciseReadme({
+    key: "sql-lab-v1/x/sql", packId: "sql-lab-v1", packTitle: "SQL lab", id: "x", version: "1",
+    title: "Keep customers", difficulty: "easy", language: "sql", prompt: "Return every customer.",
+    starterSource: "SELECT 1", truth: "real", topics: ["left-join"],
+    sections: [{ title: "Common pitfall", body: "WHERE removes NULL rows." }],
+    hints: ["Put the preserved table on the left."],
+    dataContext: [
+      { name: "customers", columns: { customer_id: "INTEGER", note: "VARCHAR" },
+        sampleRows: [{ customer_id: 1, note: "a|b" }, { customer_id: 2, note: null }] },
+      { name: "orders", columns: { order_id: "INTEGER" }, sampleRows: [] }
+    ]
+  });
+  assert.match(brief, /## Input table `customers`/);
+  assert.match(brief, /\| customer_id \| note \|/);
+  assert.ok(brief.includes("| 1 | a\\|b |"), "pipes inside cells are escaped");
+  assert.match(brief, /\| 2 \| _NULL_ \|/, "NULL is shown explicitly");
+  assert.match(brief, /_Empty in the public example\._/);
+  assert.match(brief, /<details><summary>Hint 1<\/summary>/);
+  assert.match(brief, /## Common pitfall/);
+  assert.match(brief, /hidden and edge-case fixtures that are not shown/);
+
+  console.log("Retail scaffold, exercise brief and dbt detection smoke tests passed.");
 } finally {
   await rm(dir, { recursive: true, force: true });
 }

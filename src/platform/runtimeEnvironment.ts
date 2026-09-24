@@ -24,7 +24,7 @@ export function runtimeVerifyArgs(): string[] {
   return [
     "-c",
     [
-      "import fastapi, uvicorn, duckdb, polars",
+      "import fastapi, uvicorn, duckdb, polars, pandas",
       "import datapass_runtime",
       "print('Datapass runtime environment ready')"
     ].join("; ")

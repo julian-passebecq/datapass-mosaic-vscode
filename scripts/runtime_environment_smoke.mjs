@@ -35,6 +35,7 @@ try {
   assert.match(verify[1], /datapass_runtime/);
   assert.match(verify[1], /duckdb/);
   assert.match(verify[1], /polars/);
+  assert.match(verify[1], /pandas/);
 
   console.log("Managed runtime environment smoke passed.");
 } finally {

@@ -8,9 +8,10 @@ import type { PythonTrustController } from "./pythonTrustController";
 import type { RuntimeManager } from "./runtimeManager";
 import { retailDemoReadme, retailOrdersCsv, retailPythonStarter, retailSqlStarter } from "./scaffold/retailDemo";
 import { airflowStarter, pipelineStarter, scratchSpec } from "./scaffold/starters";
+import { exerciseReadme } from "./scaffold/exerciseReadme";
 import { collectWorkbenchState } from "./workbenchState";
 import { contentSecurityPolicy, makeNonce } from "./webview/security";
-import type { ExerciseSummary, ScratchKind, WebviewToHostMessage } from "./webview/contracts";
+import type { ScratchKind, WebviewToHostMessage } from "./webview/contracts";
 
 export class WorkbenchPanel {
   private static current?: WorkbenchPanel;
@@ -704,28 +705,6 @@ export class WorkbenchPanel {
       this.disposables.pop()?.dispose();
     }
   }
-}
-
-function exerciseReadme(exercise: ExerciseSummary): string {
-  const topics = exercise.topics.length ? exercise.topics.join(", ") : "—";
-  return [
-    `# ${exercise.title}`,
-    "",
-    `- Pack: ${exercise.packTitle}`,
-    `- Language: ${exercise.language}`,
-    `- Difficulty: ${exercise.difficulty}`,
-    `- Truth: ${exercise.truth ?? "not specified"}`,
-    `- Topics: ${topics}`,
-    "",
-    "## Task",
-    "",
-    exercise.prompt,
-    "",
-    "## Workspace rule",
-    "",
-    "Edit the solution file next to this brief. Datapass will not overwrite an existing learner solution.",
-    ""
-  ].join("\n");
 }
 
 function extensionFor(language: string): string {

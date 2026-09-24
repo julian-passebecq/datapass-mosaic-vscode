@@ -38,7 +38,10 @@ def solution(id):
     return {'exercise_id': id, 'exercise_version': spec.version, 'source': private.solution}
 
 
-def _fixture_sql(rows, columns):
+def _fixture_sql(rows, columns, types=None):
+    """Literal fixture relation. Declared data_context types (registry-allowlisted)
+    are applied with CAST so dates, decimals and empty fixtures stay typed."""
+    types = types or {}
     def literal(value):
         if value is None: return 'NULL'
         if isinstance(value, bool): return 'TRUE' if value else 'FALSE'
@@ -47,9 +50,20 @@ def _fixture_sql(rows, columns):
         return "'" + str(value).replace("'", "''") + "'"
     def identifier(name):
         return '"' + name.replace('"', '""') + '"'
+    def typed(value, column):
+        text = literal(value)
+        return f'CAST({text} AS {types[column]})' if column in types else text
     if not rows:
-        return 'SELECT ' + ', '.join('NULL AS '+identifier(c) for c in columns) + ' WHERE 1=0'
-    return ' UNION ALL '.join('SELECT '+', '.join(literal(row.get(c))+' AS '+identifier(c) for c in columns) for row in rows)
+        return 'SELECT ' + ', '.join(typed(None, c)+' AS '+identifier(c) for c in columns) + ' WHERE 1=0'
+    return ' UNION ALL '.join('SELECT '+', '.join(typed(row.get(c), c)+' AS '+identifier(c) for c in columns) for row in rows)
+
+
+def _fixture_ctes(spec, fixture):
+    """One CTE per named fixture table (multi-table SQL exercises)."""
+    return ', '.join(
+        '"' + context.name + '" AS (' + _fixture_sql(fixture.tables[context.name], list(context.columns), context.columns) + ')'
+        for context in spec.data_context
+    )
 
 
 def grade(engine, request):
@@ -71,8 +85,15 @@ def grade(engine, request):
         namespace = 'grading-' + uuid.uuid4().hex
         internal = {**request, 'notebook_id':namespace, 'output_asset':None}
         columns = list(spec.data_context[0].columns) if spec.data_context else list(fixture.input_rows[0]) if fixture.input_rows else ['value']
-        if spec.language in {'sql','sparklab','dbt'}:
-            internal['_exercise_fixture_sql'] = _fixture_sql(fixture.input_rows, columns)
+        types = dict(spec.data_context[0].columns) if spec.data_context else {}
+        if fixture.tables is not None:
+            internal['_exercise_fixture_ctes'] = _fixture_ctes(spec, fixture)
+            try:
+                validate_sql(code, read_only=True)
+            except ValueError:
+                internal['code'] = 'INVALID SUBMISSION'
+        elif spec.language in {'sql','sparklab','dbt'}:
+            internal['_exercise_fixture_sql'] = _fixture_sql(fixture.input_rows, columns, types)
             internal['_exercise_columns'] = columns
             internal['_exercise_input_count'] = len(fixture.input_rows)
             if spec.language == 'sql':

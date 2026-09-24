@@ -359,7 +359,9 @@ class Engine:
                 raise ValueError('Unsupported kernel. Markdown is not executable.')
             if compiled_sql is not None:
                 # Server-owned exercise fixture scope; never accepted by API models.
-                if request.get('_exercise_fixture_sql'):
+                if request.get('_exercise_fixture_ctes'):
+                    compiled_sql = f"WITH {request['_exercise_fixture_ctes']} SELECT * FROM ({compiled_sql.rstrip().rstrip(';')}) AS submitted"
+                elif request.get('_exercise_fixture_sql'):
                     compiled_sql = f"WITH input AS ({request['_exercise_fixture_sql']}) SELECT * FROM ({compiled_sql.rstrip().rstrip(';')}) AS submitted"
                 if request.get('output_asset'):
                     result = self.catalog.materialize(request['output_asset'], compiled_sql, request['cell_id'])

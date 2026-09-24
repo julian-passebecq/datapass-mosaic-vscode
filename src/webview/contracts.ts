@@ -180,6 +180,21 @@ export interface ExerciseSummary {
   starterSource: string;
   truth?: string;
   topics: string[];
+  sections: ExerciseSectionView[];
+  hints: string[];
+  dataContext: ExerciseTableView[];
+}
+
+export interface ExerciseSectionView {
+  title: string;
+  body: string;
+}
+
+/** Public input table: schema and the visible example rows only. */
+export interface ExerciseTableView {
+  name: string;
+  columns: Record<string, string>;
+  sampleRows: Record<string, string | number | boolean | null>[];
 }
 
 export interface ExerciseCheckView {
