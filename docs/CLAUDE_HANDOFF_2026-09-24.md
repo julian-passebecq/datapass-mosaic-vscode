@@ -1,6 +1,12 @@
 # Claude handoff — Datapass Workbench VS Code
 
-Date: 2026-09-24
+Date: 2026-09-24 (updated 2026-09-25)
+
+## Current status — `main` is the baseline
+
+PR #1 merged the implementation branch into `main` with a merge commit (`f35dbe4`, all 223 commits preserved). CI on `main` after the merge was green on all three jobs (run 36068237602). `codex/bootstrap-datapass-workbench` is kept for history only.
+
+Workflow from here: branch from `main` for each tranche, keep CI green, merge through a pull request. The dated sections below record how the project got here; branch names and tips in them are historical.
 
 ## 0. Manual F5 pass — Claude, 2026-09-25 (newest)
 
@@ -78,7 +84,7 @@ NOT exercised: a human F5 session clicking through the real webview inside VS Co
 
 ### Recommended next steps
 
-1. Manual F5 pass over the new UI (see "NOT exercised" above), then decide on un-drafting PR #1.
+1. Manual F5 pass over the new UI (see "NOT exercised" above), then decide on un-drafting PR #1. *(Done 2026-09-25; PR #1 merged.)*
 2. P2 content: promote exercises from `legacy-donors/leetcodedataeng`. The grader uses a single `input` fixture table per exercise (`content/exercise-packs/*/grading.server.json`); most donor SQL problems are multi-table, so either extend fixtures to named tables or re-author. Add each exercise to the runtime smoke with its reference solution.
 3. A Mosaic "Import CSV into catalog" action over the existing text-only `import_csv` op (bronze-only, no overwrite) would give learners a sanctioned ingest path besides the retail demo.
 4. If wiring Pipeline dbt later: extend the trusted-local opt-in to dbt, validate the project path against the manifest `assets.dbt`, reuse `dbt_runner` artifact validation, never report success without a qualified manifest/run_results pair.
@@ -88,15 +94,11 @@ NOT exercised: a human F5 session clicking through the real webview inside VS Co
 
 Repository: `julian-passebecq/datapass-mosaic-vscode`
 
-Active implementation branch:
+Baseline branch: `main` (see "Current status" above). Start new work on a branch from `main`.
 
-```text
-codex/bootstrap-datapass-workbench
-```
+History: before PR #1, `main` was the one-line initial repository and all work lived on `codex/bootstrap-datapass-workbench`. The older baseline records below are kept for reference.
 
-Do **not** restart from `main`. At audit time, `main` was effectively the one-line initial repository while the implementation branch was 201 commits ahead.
-
-Known good implementation baseline before this documentation pass:
+Known good implementation baseline before the first documentation pass:
 
 ```text
 ae489cd161e4565808a056de17b42241c63ecc20
@@ -112,11 +114,11 @@ extension: success
 runtime:   success
 ```
 
-This handoff pass subsequently added truth-model/documentation commits. Treat the current tip of `codex/bootstrap-datapass-workbench` as the branch to continue from, subject to CI.
+Later tranches added the work recorded in §0; all of it is now on `main`.
 
-## 2. Why the project looked stopped
+## 2. History: why the project looked stopped
 
-The work did not disappear. It was left on `codex/bootstrap-datapass-workbench` while `main` remained essentially empty.
+The work did not disappear. It was left on `codex/bootstrap-datapass-workbench` while `main` remained essentially empty, until PR #1 merged it on 2026-09-24.
 
 The branch also progressed materially beyond the older checkpoint `abfe28df`. In particular, the execution bridge was completed further than earlier notes implied:
 
@@ -395,14 +397,14 @@ The VSIX intentionally excludes donor/development trees.
 
 Proceed in this order unless a newly reproduced bug blocks the sequence.
 
-### P0 — preserve the working branch
+### P0 — protect `main`
 
-1. Continue from `codex/bootstrap-datapass-workbench`.
+1. Branch from `main` for each tranche; merge back through a pull request.
 2. Keep CI green after every coherent tranche.
-3. Do not force-push/rewrite the long branch history.
-4. Keep the branch-to-main PR as draft until manual F5 smoke testing is satisfactory.
+3. Do not force-push or rewrite `main` history.
+4. For user-facing changes, repeat the manual F5 pass (see §0) before merging.
 
-Status after the 2026-09-24 Claude tranches: P1 trusted Python — done; P1 SparkLab — done; P1 E2E — done (`npm run test:host`); P2 pipeline dbt — decided: explicitly unsupported; P2 Mosaic durability — done; P2 content — donor Practice content promoted: `sql-lab-v1` (60), `engine-lab-v1` (68 variants), `python-lab-v1` (12); non-gradable donor tracks intentionally left to reference material. Remaining: manual F5 pass, further content.
+Status after the 2026-09-24 Claude tranches: P1 trusted Python — done; P1 SparkLab — done; P1 E2E — done (`npm run test:host`); P2 pipeline dbt — decided: explicitly unsupported; P2 Mosaic durability — done; P2 content — donor Practice content promoted: `sql-lab-v1` (60), `engine-lab-v1` (68 variants), `python-lab-v1` (12); non-gradable donor tracks intentionally left to reference material. Manual F5 pass done on 2026-09-25 and PR #1 merged to `main`. Remaining: the known limitations listed in §0 and further content.
 
 ### P1 — trusted Python/Polars UX (done)
 
@@ -529,7 +531,8 @@ A tranche is done when:
 ## 11. What not to do
 
 - Do not restart this project from scratch.
-- Do not develop on the empty `main` branch as if it were authoritative.
+- Do not commit directly to `main` or rewrite its history; branch from it and merge through a pull request with green CI.
+- Do not continue work on the historical `codex/bootstrap-datapass-workbench` branch.
 - Do not silently enable trusted Python.
 - Do not eval/exec pipeline source.
 - Do not claim SparkLab is a real Spark cluster.
