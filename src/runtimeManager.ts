@@ -39,7 +39,7 @@ export class RuntimeManager implements vscode.Disposable {
     return { ...this.state };
   }
 
-  async start(pythonCommand = "python"): Promise<void> {
+  async start(pythonCommand = "python", storage: "duckdb" | "ducklake" = "duckdb"): Promise<void> {
     if (this.state.status === "running" || this.state.status === "starting") return;
 
     const runtimeRoot = path.join(this.extensionUri.fsPath, "runtime");
@@ -69,6 +69,7 @@ export class RuntimeManager implements vscode.Disposable {
         env: {
           ...process.env,
           DATAPASS_CONTENT_ROOT: path.join(this.extensionUri.fsPath, "content"),
+          DATAPASS_STORAGE: storage,
           ...(vscode.workspace.workspaceFolders?.[0]?.uri.fsPath
             ? { DATAPASS_WORKSPACE_ROOT: vscode.workspace.workspaceFolders[0].uri.fsPath }
             : {})
