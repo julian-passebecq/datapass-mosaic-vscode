@@ -126,7 +126,7 @@ export function WorkbenchApp({ vscode }: { vscode: VsCodeApi }) {
             ) : selected.id === "sparklab" ? (
               <SparkLabSurface vscode={vscode} runtime={state.runtime} />
             ) : selected.id === "pipeline" ? (
-              <PipelineSurface vscode={vscode} pipeline={state.pipeline} />
+              <PipelineSurface vscode={vscode} pipeline={state.pipeline} runtime={state.runtime} />
             ) : selected.id === "airflow" ? (
               <AirflowSurface vscode={vscode} airflow={state.airflow} />
             ) : selected.id === "dbt" ? (
