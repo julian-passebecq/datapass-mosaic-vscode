@@ -10,6 +10,7 @@ export function FabricSurface({
   runtime: RuntimeViewState;
 }) {
   const running = runtime.status === "running";
+  const retailDemo = retailDemo;
 
   return (
     <section className="lab-surface">
@@ -95,19 +96,19 @@ export function FabricSurface({
         </Card>
       </div>
 
-      {runtime.retailDemo && (
+      {retailDemo && (
         <div className="retail-result">
           <div className="retail-result-header">
             <div>
               <div className="eyebrow">Executed result</div>
               <Text size={500} weight="semibold">Retail medallion run</Text>
-              <div className="muted">{runtime.retailDemo.truth} · {runtime.retailDemo.database_path}</div>
+              <div className="muted">{retailDemo.truth} · {retailDemo.database_path}</div>
             </div>
             <Badge appearance="tint" color="success">completed</Badge>
           </div>
 
           <div className="retail-stage-grid">
-            {runtime.retailDemo.stages.map(stage => (
+            {retailDemo.stages.map(stage => (
               <div className="retail-stage" key={stage.id}>
                 <span>{stage.engine}</span>
                 <strong>{stage.label}</strong>
@@ -117,20 +118,20 @@ export function FabricSurface({
           </div>
 
           <div className="retail-kpis">
-            <div><span>Silver rows</span><strong>{runtime.retailDemo.polars_quality.rows}</strong></div>
-            <div><span>Customers</span><strong>{runtime.retailDemo.polars_quality.customers}</strong></div>
-            <div><span>Revenue</span><strong>{runtime.retailDemo.polars_quality.revenue.toFixed(2)}</strong></div>
+            <div><span>Silver rows</span><strong>{retailDemo.polars_quality.rows}</strong></div>
+            <div><span>Customers</span><strong>{retailDemo.polars_quality.customers}</strong></div>
+            <div><span>Revenue</span><strong>{retailDemo.polars_quality.revenue.toFixed(2)}</strong></div>
           </div>
 
           <div className="retail-preview-wrap">
             <table className="retail-preview">
               <thead>
-                <tr>{runtime.retailDemo.preview.columns.map(column => <th key={column}>{column}</th>)}</tr>
+                <tr>{retailDemo.preview.columns.map(column => <th key={column}>{column}</th>)}</tr>
               </thead>
               <tbody>
-                {runtime.retailDemo.preview.rows.map((row, index) => (
+                {retailDemo.preview.rows.map((row, index) => (
                   <tr key={index}>
-                    {runtime.retailDemo.preview.columns.map(column => (
+                    {retailDemo.preview.columns.map(column => (
                       <td key={column}>{String(row[column] ?? "")}</td>
                     ))}
                   </tr>
