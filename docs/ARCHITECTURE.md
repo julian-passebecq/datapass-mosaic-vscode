@@ -64,6 +64,26 @@ It does not connect to Microsoft Fabric by default.
 
 SparkLab implements an explicit subset of the PySpark DataFrame API and maps supported operations to local execution. Unsupported distributed semantics must be shown clearly rather than silently approximated.
 
+Direct workflow: the learner edits a native `.py` file (e.g. `notebooks/sparklab.py`) and chooses **Run active SparkLab file**. The source is parsed by the whitelist `SafeSparkParser` (never eval/exec'd, no trusted-Python opt-in needed), compiled to SQL and computed locally on the shared catalog. The UI separates:
+
+- result rows and compiled SQL — real local computation;
+- logical plan — structured teaching plan;
+- stages, shuffle, spill, virtual duration and Datapass Credits — simulated for the selected virtual cluster profile/AQE setting, labeled as such, never presented as Spark telemetry.
+
+Unsupported syntax (SQL-string filters, arbitrary imports, file access, ...) is rejected with a `SparkLabSyntaxError`.
+
+## Trusted local Python
+
+Python/Polars files are real local code. The runtime worker is a separate process for lifecycle management (timeouts, restarts) and is **not** a security sandbox. Trusted Python is therefore effective only when all of these hold:
+
+1. `.datapass/project.json` sets `runtime.trustedLocalPython: true` (default `false`; portable and reviewable);
+2. the user confirmed a modal warning on this machine for this workspace (stored in VS Code `workspaceState`, so a cloned repository that sets the manifest flag cannot enable Python by itself);
+3. VS Code Workspace Trust is granted.
+
+The extension builds the runtime environment itself and always discards an inherited `DATAPASS_TRUSTED_PYTHON`; it sets `DATAPASS_TRUSTED_PYTHON=1` only when the three conditions hold. After start it verifies the runtime's own report (`GET /api/capabilities` → `runtime.trusted_local_python`) and stops the runtime on any mismatch. Changing the setting restarts a running runtime.
+
+When disabled, SQL and bounded SparkLab work normally; Mosaic's **Run active Python**, Python/Polars Practice exercises and Python/Polars Pipeline activities report that trusted Python is disabled instead of executing. When enabled, trusted Python resolves relative paths from the workspace root.
+
 ## dbt Lab
 
 Prefer real dbt Core over a fake dbt engine. Datapass adds project scaffolding, manifest lineage, tests/results UI and learning overlays.
@@ -80,7 +100,7 @@ Current executable activity bodies:
 
 - SQL — real local DuckDB execution.
 - Quality — real local query/assertion execution.
-- Python / Polars — only when the explicitly trusted local-Python mode is enabled.
+- Python / Polars — only when trusted local Python is effective (see above).
 - dbt — accepted by the design compiler, but native pipeline execution is not wired yet; use dbt Lab for real dbt Core execution.
 
 Scheduling remains metadata/teaching semantics; Datapass is not running a production scheduler.

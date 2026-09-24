@@ -1,7 +1,8 @@
 import type { ModuleId, WorkbenchModule } from "../modules";
+import type { PythonTrustState } from "../platform/pythonTrust";
 
 export type RuntimeStatus = "stopped" | "starting" | "running" | "error";
-export type ScratchKind = "sql" | "python" | "notes";
+export type ScratchKind = "sql" | "python" | "sparklab" | "notes";
 
 export interface RetailDemoStageView {
   id: string;
@@ -53,6 +54,63 @@ export interface LocalCellRunView {
   };
 }
 
+export interface SparkLabStageView {
+  stage_id: number;
+  name: string;
+  operator: string;
+  duration_s: number;
+  partitions: number;
+  task_count: number;
+  shuffle_read_gb: number;
+  shuffle_write_gb: number;
+  spill_gb: number;
+  skewed_tasks: number;
+  dependencies: readonly number[];
+  notes: readonly string[];
+}
+
+export interface SparkLabPlanNodeView {
+  id: number;
+  operation: string;
+  source?: string;
+  parents: readonly number[];
+  dependency: string;
+  concept: string;
+}
+
+export interface SparkLabSimulationView {
+  status: "modeled" | "unavailable";
+  truth?: string;
+  reason?: string;
+  totalDurationS?: number;
+  shuffleGb?: number;
+  spillGb?: number;
+  clusterUtilizationPct?: number;
+  credits?: { total: number; unit: string; fictional: boolean };
+  assumptionsKind?: string;
+  calibration?: string;
+  stages: readonly SparkLabStageView[];
+  plan: readonly SparkLabPlanNodeView[];
+  comparisons: readonly { profile_id: string; aqe: boolean; duration_s: number; credits: number }[];
+}
+
+export interface SparkLabRunView {
+  status: "success" | "error";
+  fileName: string;
+  profileId: string;
+  aqe: boolean;
+  elapsed_ms: number;
+  compiledSql?: string;
+  result?: LocalCellRunView["result"];
+  error?: { type: string; message: string };
+  simulation?: SparkLabSimulationView;
+}
+
+export interface SparkLabProfileView {
+  id: string;
+  label: string;
+}
+
 export interface PipelineTaskRunView {
   id: string;
   kind: string;
@@ -81,12 +139,23 @@ export interface RuntimeViewState {
   status: RuntimeStatus;
   url?: string;
   detail?: string;
+  /** Reported by the running runtime itself (GET /api/capabilities), not assumed. */
+  trustedPython?: boolean;
+  sparkRun?: SparkLabRunView;
   retailDemo?: RetailDemoRunView;
   catalog?: readonly LocalCatalogAssetView[];
   lastRun?: LocalCellRunView;
   pipelineRun?: PipelineRunView;
   practiceResult?: PracticeResultView;
   environment?: RuntimeEnvironmentView;
+}
+
+export interface PythonTrustView {
+  state: PythonTrustState;
+  effective: boolean;
+  reason: string;
+  /** The running runtime was started with a different trust setting. */
+  restartRequired: boolean;
 }
 
 export interface WorkspaceViewState {
@@ -236,6 +305,8 @@ export interface WorkbenchViewState {
   modules: readonly WorkbenchModule[];
   workspace: WorkspaceViewState;
   runtime: RuntimeViewState;
+  pythonTrust: PythonTrustView;
+  sparkProfiles?: readonly SparkLabProfileView[];
   practice?: PracticeViewState;
   pipeline?: PipelineViewState;
   airflow?: AirflowViewState;
@@ -256,6 +327,9 @@ export type WebviewToHostMessage =
   | { type: "runRetailDemo" }
   | { type: "refreshCatalog" }
   | { type: "runActiveSql" }
+  | { type: "runActivePython" }
+  | { type: "runActiveSparkLab"; profileId: string; aqe: boolean }
+  | { type: "setTrustedPython"; enabled: boolean }
   | { type: "setupRuntime" }
   | { type: "startRuntime" }
   | { type: "stopRuntime" }

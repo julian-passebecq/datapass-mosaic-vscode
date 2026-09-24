@@ -109,6 +109,8 @@ h2 { margin-bottom: 8px; font-size: 28px; }
 }
 .mosaic-canvas { min-height: 420px; }
 .mosaic-block {
+  display: flex;
+  flex-direction: column;
   height: 100%;
   overflow: hidden;
   border: 1px solid var(--vscode-panel-border);
@@ -140,7 +142,15 @@ h2 { margin-bottom: 8px; font-size: 28px; }
   color: var(--vscode-descriptionForeground);
   font-size: 11px;
 }
-.mosaic-block-body { padding: 12px; }
+.mosaic-block-body {
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+  display: grid;
+  align-content: start;
+  gap: 8px;
+  padding: 12px;
+}
 .mosaic-runtime-line {
   display: flex;
   align-items: center;
@@ -761,4 +771,103 @@ h2 { margin-bottom: 8px; font-size: 28px; }
     align-items: stretch;
     flex-direction: column;
   }
+}
+
+.trust-control {
+  display: grid;
+  gap: 4px;
+  padding: 8px 10px;
+  border-left: 3px solid var(--vscode-editorWarning-foreground);
+  background: var(--vscode-editorWidget-background);
+}
+.trust-control-line {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+.trust-control small { font-size: 11px; line-height: 1.4; }
+.run-stdout {
+  max-height: 140px;
+  margin: 0 0 8px;
+  padding: 8px 10px;
+  overflow: auto;
+  border: 1px solid var(--vscode-panel-border);
+  border-radius: 6px;
+  background: var(--vscode-editor-background);
+  font-family: var(--vscode-editor-font-family);
+  font-size: 11px;
+  white-space: pre-wrap;
+}
+.sparklab-runbar {
+  display: flex;
+  align-items: flex-end;
+  gap: 12px;
+  flex-wrap: wrap;
+  margin-bottom: 14px;
+}
+.sparklab-runbar label {
+  display: grid;
+  gap: 4px;
+  font-size: 11px;
+  color: var(--vscode-descriptionForeground);
+}
+.sparklab-runbar select {
+  min-width: 240px;
+  padding: 4px 6px;
+  color: var(--vscode-dropdown-foreground);
+  background: var(--vscode-dropdown-background);
+  border: 1px solid var(--vscode-dropdown-border);
+  border-radius: 4px;
+}
+.sparklab-result {
+  display: grid;
+  gap: 14px;
+  margin-bottom: 16px;
+  padding: 14px;
+  border: 1px solid var(--vscode-panel-border);
+  border-radius: 7px;
+}
+.sparklab-result h4 {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0 0 8px;
+  font-size: 12px;
+}
+.sparklab-sql {
+  max-height: 120px;
+  margin: 0;
+  padding: 8px 10px;
+  overflow: auto;
+  border-radius: 6px;
+  background: var(--vscode-editor-background);
+  font-family: var(--vscode-editor-font-family);
+  font-size: 11px;
+  white-space: pre-wrap;
+}
+.sparklab-plan {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: stretch;
+  gap: 6px;
+}
+.sparklab-plan-node {
+  display: grid;
+  gap: 2px;
+  min-width: 120px;
+  max-width: 220px;
+  padding: 8px 10px;
+  border: 1px solid var(--vscode-panel-border);
+  border-radius: 6px;
+  background: var(--vscode-editor-background);
+  font-size: 11px;
+}
+.sparklab-plan-node.wide { border-color: var(--vscode-editorWarning-foreground); }
+.sparklab-plan-node small { color: var(--vscode-descriptionForeground); }
+.sparklab-simulated {
+  padding: 12px;
+  border: 1px dashed var(--vscode-editorWarning-foreground);
+  border-radius: 7px;
 }

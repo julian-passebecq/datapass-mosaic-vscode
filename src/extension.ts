@@ -1,11 +1,13 @@
 import * as vscode from "vscode";
 import { LabTreeProvider } from "./labTree";
 import { MODULES } from "./modules";
+import { PythonTrustController } from "./pythonTrustController";
 import { RuntimeManager } from "./runtimeManager";
 import { WorkbenchPanel } from "./workbenchPanel";
 
 export function activate(context: vscode.ExtensionContext): void {
   const runtimeManager = new RuntimeManager(context.extensionUri, context.globalStorageUri);
+  const pythonTrust = new PythonTrustController(context);
 
   context.subscriptions.push(
     runtimeManager,
@@ -15,7 +17,7 @@ export function activate(context: vscode.ExtensionContext): void {
   for (const module of MODULES) {
     context.subscriptions.push(
       vscode.commands.registerCommand(module.command, () => {
-        void WorkbenchPanel.show(context, runtimeManager, module.id);
+        void WorkbenchPanel.show(context, runtimeManager, pythonTrust, module.id);
       })
     );
   }

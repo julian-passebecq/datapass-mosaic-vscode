@@ -137,13 +137,13 @@ export function WorkbenchApp({ vscode }: { vscode: VsCodeApi }) {
             </div>
 
             {selected.id === "mosaic" ? (
-              <MosaicSurface vscode={vscode} runtime={state.runtime} />
+              <MosaicSurface vscode={vscode} runtime={state.runtime} pythonTrust={state.pythonTrust} />
             ) : selected.id === "practice" ? (
               <PracticeSurface vscode={vscode} exercises={state.practice?.exercises ?? []} runtime={state.runtime} />
             ) : selected.id === "fabric" ? (
               <FabricSurface vscode={vscode} runtime={state.runtime} />
             ) : selected.id === "sparklab" ? (
-              <SparkLabSurface vscode={vscode} runtime={state.runtime} />
+              <SparkLabSurface vscode={vscode} runtime={state.runtime} profiles={state.sparkProfiles ?? []} />
             ) : selected.id === "pipeline" ? (
               <PipelineSurface vscode={vscode} pipeline={state.pipeline} runtime={state.runtime} />
             ) : selected.id === "airflow" ? (
@@ -204,6 +204,15 @@ export function WorkbenchApp({ vscode }: { vscode: VsCodeApi }) {
                   <div className="runtime-python" title={environment.python}>{environment.python}</div>
                 )}
                 {state.runtime.url && <StatusRow label="Endpoint" value={state.runtime.url} />}
+                <StatusRow
+                  label="Trusted Python"
+                  value={state.runtime.status === "running"
+                    ? (state.runtime.trustedPython ? "enabled (not sandboxed)" : "disabled")
+                    : (state.pythonTrust.effective ? "enabled on next start" : "disabled")}
+                />
+                {state.pythonTrust.restartRequired && (
+                  <div className="error-text">Restart the runtime to apply the trusted Python setting.</div>
+                )}
                 {environment?.detail && <div className={environment.status === "error" ? "error-text" : "muted"}>{environment.detail}</div>}
                 {state.runtime.detail && <div className={state.runtime.status === "error" ? "error-text" : "muted"}>{state.runtime.detail}</div>}
                 {state.runtime.status !== "running" && environmentReady && (

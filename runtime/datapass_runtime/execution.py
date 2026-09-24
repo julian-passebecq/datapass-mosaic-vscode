@@ -113,7 +113,7 @@ class Engine:
 
     def _python(self, request: dict) -> tuple[dict, str, list[str]]:
         if not self.trusted_python:
-            raise ValueError('Python is disabled. Start with --trusted-local-python only for code you trust. The worker is not a security sandbox.')
+            raise ValueError('Trusted local Python is disabled for this workspace. Enable it explicitly in Datapass Workbench only for code you trust; it runs as real local code and the worker is not a security sandbox.')
         if request['language'] == 'polars' and importlib.util.find_spec('polars') is None:
             raise ValueError('Polars is not installed. Install requirements-engines.txt. No simulated Polars output was returned.')
         notebook_id = request['notebook_id']

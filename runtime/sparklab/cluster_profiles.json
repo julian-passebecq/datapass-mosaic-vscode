@@ -1,7 +1,7 @@
 {
   "generic_8x8": {
     "id": "generic_8x8",
-    "name": "SparkLab Generic \u00c2\u00b7 8 \u00c3\u2014 8 cores",
+    "name": "SparkLab Generic \u00b7 8 \u00d7 8 cores",
     "min_workers": 2,
     "max_workers": 8,
     "cores_per_worker": 8,

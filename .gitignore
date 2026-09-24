@@ -7,3 +7,5 @@ runtime/.venv/
 .datapass/
 __pycache__/
 *.pyc
+runtime/build/
+*.egg-info/

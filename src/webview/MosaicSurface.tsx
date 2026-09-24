@@ -6,14 +6,16 @@ import ReactGridLayout, {
 import "react-grid-layout/css/styles.css";
 import "react-resizable/css/styles.css";
 import { Badge, Button, Text } from "@fluentui/react-components";
-import type { RuntimeViewState } from "./contracts";
+import type { PythonTrustView, RuntimeViewState } from "./contracts";
+import { ResultTable } from "./ResultTable";
+import { TrustedPythonControl } from "./TrustedPythonControl";
 import type { VsCodeApi } from "./WorkbenchApp";
 
 const DEFAULT_LAYOUT: Layout = [
-  { i: "sql", x: 0, y: 0, w: 6, h: 7 },
-  { i: "python", x: 6, y: 0, w: 6, h: 7 },
-  { i: "data", x: 0, y: 7, w: 7, h: 7 },
-  { i: "notes", x: 7, y: 7, w: 5, h: 7 }
+  { i: "sql", x: 0, y: 0, w: 6, h: 9 },
+  { i: "python", x: 6, y: 0, w: 6, h: 9 },
+  { i: "data", x: 0, y: 9, w: 7, h: 9 },
+  { i: "notes", x: 7, y: 9, w: 5, h: 7 }
 ];
 
 interface PersistedWebviewState {
@@ -22,14 +24,26 @@ interface PersistedWebviewState {
 
 export function MosaicSurface({
   vscode,
-  runtime
+  runtime,
+  pythonTrust
 }: {
   vscode: VsCodeApi;
   runtime: RuntimeViewState;
+  pythonTrust: PythonTrustView;
 }) {
   const { width, containerRef, mounted } = useContainerWidth();
   const persisted = readState(vscode);
   const layout = persisted.mosaicLayout ?? DEFAULT_LAYOUT;
+
+  const pythonRunnable = runtime.status === "running" && runtime.trustedPython === true;
+  const pythonBlockedReason = runtime.status !== "running"
+    ? "Start the runtime to run Python."
+    : !pythonTrust.effective
+      ? "Python/Polars files are not executed until trusted local Python is enabled."
+      : runtime.trustedPython !== true
+        ? "Restart the runtime to apply trusted local Python."
+        : undefined;
+  const lastRun = runtime.lastRun;
 
   const saveLayout = (next: Layout) => {
     vscode.setState({ ...readState(vscode), mosaicLayout: next });
@@ -77,26 +91,29 @@ export function MosaicSurface({
                     Run active SQL
                   </Button>
                 </div>
-                {runtime.lastRun && runtime.lastRun.language === "sql" && (
-                  <div className="mosaic-run-summary">
-                    <Badge
-                      appearance="tint"
-                      color={runtime.lastRun.status === "success" ? "success" : "danger"}
-                    >
-                      {runtime.lastRun.status}
-                    </Badge>
-                    <span>{runtime.lastRun.elapsed_ms.toFixed(1)} ms</span>
-                    {runtime.lastRun.error && <small>{runtime.lastRun.error.message}</small>}
-                  </div>
-                )}
+                {lastRun && lastRun.language === "sql" && <RunSummary run={lastRun} />}
               </MosaicBlock>
             </div>
 
             <div key="python">
-              <MosaicBlock title="Python / Polars" subtitle="Local transformation code; no embedded editor">
-                <Button appearance="primary" size="small" onClick={() => vscode.postMessage({ type: "openScratch", kind: "python" })}>
-                  Open Python scratch
-                </Button>
+              <MosaicBlock title="Python / Polars" subtitle="Trusted local code in a real VS Code file">
+                <div className="button-row">
+                  <Button appearance="primary" size="small" onClick={() => vscode.postMessage({ type: "openScratch", kind: "python" })}>
+                    Open Python scratch
+                  </Button>
+                  <Button
+                    appearance="secondary"
+                    size="small"
+                    disabled={!pythonRunnable}
+                    title={pythonBlockedReason}
+                    onClick={() => vscode.postMessage({ type: "runActivePython" })}
+                  >
+                    Run active Python
+                  </Button>
+                </div>
+                {pythonBlockedReason && <small className="muted">{pythonBlockedReason}</small>}
+                <TrustedPythonControl vscode={vscode} trust={pythonTrust} />
+                {lastRun && lastRun.language === "python" && <RunSummary run={lastRun} />}
               </MosaicBlock>
             </div>
 
@@ -116,28 +133,14 @@ export function MosaicSurface({
                     Refresh
                   </Button>
                 </div>
-                {runtime.lastRun?.status === "success" && runtime.lastRun.result && (
+                {lastRun?.status === "success" && (lastRun.result || lastRun.stdout) && (
                   <div className="mosaic-result-preview">
                     <div className="mosaic-result-title">
-                      <strong>Last SQL result</strong>
-                      <span>{runtime.lastRun.result.rows.length} preview rows</span>
+                      <strong>Last {lastRun.language === "python" ? "Python" : "SQL"} result</strong>
+                      {lastRun.result && <span>{lastRun.result.rows.length} preview rows</span>}
                     </div>
-                    <div className="retail-preview-wrap">
-                      <table className="retail-preview">
-                        <thead>
-                          <tr>{runtime.lastRun.result.columns.map(column => <th key={column}>{column}</th>)}</tr>
-                        </thead>
-                        <tbody>
-                          {runtime.lastRun.result.rows.slice(0, 8).map((row, index) => (
-                            <tr key={index}>
-                              {runtime.lastRun!.result!.columns.map(column => (
-                                <td key={column}>{String(row[column] ?? "")}</td>
-                              ))}
-                            </tr>
-                          ))}
-                        </tbody>
-                      </table>
-                    </div>
+                    {lastRun.stdout && <pre className="run-stdout">{lastRun.stdout}</pre>}
+                    {lastRun.result && <ResultTable result={lastRun.result} />}
                   </div>
                 )}
                 {runtime.catalog && runtime.catalog.length > 0 ? (
@@ -174,6 +177,18 @@ export function MosaicSurface({
         )}
       </div>
     </section>
+  );
+}
+
+function RunSummary({ run }: { run: NonNullable<RuntimeViewState["lastRun"]> }) {
+  return (
+    <div className="mosaic-run-summary">
+      <Badge appearance="tint" color={run.status === "success" ? "success" : "danger"}>
+        {run.status}
+      </Badge>
+      <span>{run.elapsed_ms.toFixed(1)} ms</span>
+      {run.error && <small>{run.error.message}</small>}
+    </div>
   );
 }
 

@@ -2,7 +2,11 @@ from importlib import resources
 import os
 from pathlib import Path
 from tempfile import TemporaryDirectory
-from datapass_runtime.main import app
+
+# Trusted Python must never be inherited from the environment running the smoke.
+os.environ.pop("DATAPASS_TRUSTED_PYTHON", None)
+
+from datapass_runtime.main import app, capabilities
 from datapass_runtime.pipeline_compiler import compile_response
 from datapass_runtime.guided_spark import compile_guard
 from datapass_runtime.content import cases, content_root
@@ -125,5 +129,76 @@ extract >> check >> publish
         assert any(item["name"] == "bronze.pipeline_smoke" and item["fresh"] for item in catalog)
     finally:
         manager.close()
+
+runtime_caps = capabilities()["runtime"]
+assert runtime_caps["trusted_local_python"] is False, runtime_caps
+assert runtime_caps["python_sandboxed"] is False, runtime_caps
+
+
+# Mirrors the SparkLab scratch starter created by the extension (workbenchPanel.ts).
+SPARKLAB_SCRATCH = """from pyspark.sql import functions as F
+
+orders = spark.table("source.orders")
+revenue = orders.filter(F.col("net_amount") > 0).groupBy("customer_id").agg(F.sum("net_amount").alias("revenue"))
+"""
+
+
+def execute(manager, kernel_id, workspace, language, code, **extra):
+    return manager.call(
+        kernel_id,
+        workspace / ".datapass" / "data",
+        {"op": "execute", "language": language, "code": code, "notebook_id": "smoke",
+         "cell_id": "cell", "output_asset": None, **extra},
+        cwd=workspace,
+    )
+
+
+with TemporaryDirectory(prefix="datapass-trust-smoke-") as temp:
+    workspace = Path(temp)
+    (workspace / "datasets").mkdir()
+    (workspace / "datasets" / "tiny.csv").write_text("id,amount\n1,10\n2,20\n", encoding="utf-8")
+
+    untrusted = KernelManager(mode="duckdb", trusted=False, timeout=15.0, max_workers=1)
+    try:
+        blocked = execute(untrusted, "untrusted", workspace, "python", "1 + 1")
+        assert blocked["status"] == "error", blocked
+        assert "Trusted local Python is disabled" in blocked["error"]["message"], blocked
+        kernels = untrusted.call("untrusted", workspace / ".datapass" / "data", {"op": "capabilities"}, cwd=workspace)["kernels"]
+        assert not next(kernel for kernel in kernels if kernel["id"] == "python")["available"]
+        assert next(kernel for kernel in kernels if kernel["id"] == "sparklab")["available"]
+
+        # SparkLab needs no trust: the source is parsed by a whitelist, never executed.
+        spark = execute(untrusted, "untrusted", workspace, "sparklab", SPARKLAB_SCRATCH, profile="generic_8x8", aqe=True)
+        assert spark["status"] == "success", spark
+        assert spark["result"]["columns"] == ["customer_id", "revenue"], spark["result"]
+        assert spark["result"]["rows"], spark["result"]
+        assert spark["compiled_sql"].upper().startswith("SELECT")
+        assert spark["simulation"]["status"] == "modeled", spark["simulation"]
+        assert "simulated" in spark["simulation"]["truth"].lower()
+        assert spark["simulation"]["datapass_credits"]["fictional"] is True
+        assert [node["operation"] for node in spark["simulation"]["logical_plan"]] == ["scan", "filter", "aggregate"]
+
+        for unsafe in ("import os\nos.system('echo unsafe')", "open('x.txt', 'w').write('x')"):
+            rejected = execute(untrusted, "untrusted", workspace, "sparklab", unsafe)
+            assert rejected["status"] == "error", rejected
+            assert rejected["error"]["type"] == "SparkLabSyntaxError", rejected
+        assert not (workspace / ".datapass" / "data" / "x.txt").exists()
+        assert not (workspace / "x.txt").exists()
+    finally:
+        untrusted.close()
+
+    trusted = KernelManager(mode="duckdb", trusted=True, timeout=30.0, max_workers=1)
+    try:
+        # Relative paths resolve from the workspace root, like `python file.py`.
+        run = execute(
+            trusted, "trusted", workspace, "python",
+            "import polars as pl\nframe = pl.read_csv('datasets/tiny.csv')\nprint(frame.height)\nframe",
+        )
+        assert run["status"] == "success", run
+        assert run["stdout"].strip() == "2", run["stdout"]
+        assert run["result"]["columns"] == ["id", "amount"], run["result"]
+        assert run["result"]["rows"] == [{"id": 1, "amount": 10}, {"id": 2, "amount": 20}], run["result"]
+    finally:
+        trusted.close()
 
 print("Datapass runtime smoke passed.")

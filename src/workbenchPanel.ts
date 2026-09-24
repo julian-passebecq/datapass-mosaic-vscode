@@ -3,6 +3,7 @@ import { loadExerciseCatalog } from "./exerciseCatalog";
 import { probeDbtCli } from "./dbtState";
 import { MODULES, type ModuleId } from "./modules";
 import { createDefaultProjectManifest, readProjectManifest, writeProjectManifest } from "./project/projectManifest";
+import type { PythonTrustController } from "./pythonTrustController";
 import type { RuntimeManager } from "./runtimeManager";
 import { retailDemoReadme, retailOrdersCsv, retailPythonStarter, retailSqlStarter } from "./scaffold/retailDemo";
 import { collectWorkbenchState } from "./workbenchState";
@@ -15,6 +16,7 @@ export class WorkbenchPanel {
   static async show(
     context: vscode.ExtensionContext,
     runtimeManager: RuntimeManager,
+    pythonTrust: PythonTrustController,
     initialModule: ModuleId
   ): Promise<void> {
     if (WorkbenchPanel.current) {
@@ -39,6 +41,7 @@ export class WorkbenchPanel {
       panel,
       context,
       runtimeManager,
+      pythonTrust,
       initialModule
     );
   }
@@ -50,6 +53,7 @@ export class WorkbenchPanel {
     private readonly panel: vscode.WebviewPanel,
     private readonly context: vscode.ExtensionContext,
     private readonly runtimeManager: RuntimeManager,
+    private readonly pythonTrust: PythonTrustController,
     initialModule: ModuleId
   ) {
     this.selectedModule = initialModule;
@@ -71,8 +75,12 @@ export class WorkbenchPanel {
       this.runtimeManager.onDidChange(() => {
         void this.refresh();
       }),
-      vscode.workspace.onDidSaveTextDocument(() => {
+      vscode.workspace.onDidGrantWorkspaceTrust(() => {
+        void this.refresh();
+      }),
+      vscode.workspace.onDidSaveTextDocument(document => {
         if (
+          document.uri.path.endsWith("/.datapass/project.json") ||
           this.selectedModule === "pipeline" ||
           this.selectedModule === "airflow" ||
           this.selectedModule === "dbt"
@@ -112,16 +120,21 @@ export class WorkbenchPanel {
       case "runActiveSql":
         await this.runActiveSql();
         return;
+      case "runActivePython":
+        await this.runActivePython();
+        return;
+      case "runActiveSparkLab":
+        await this.runActiveSparkLab(message.profileId, message.aqe);
+        return;
+      case "setTrustedPython":
+        await this.setTrustedPython(message.enabled);
+        return;
       case "setupRuntime":
         await this.setupRuntime();
         return;
-      case "startRuntime": {
-        const manifest = await readProjectManifest();
-        const pythonCommand = manifest.manifest?.runtime?.pythonCommand ?? "python";
-        const storage = manifest.manifest?.runtime?.storage ?? "duckdb";
-        await this.runtimeManager.start(pythonCommand, storage);
+      case "startRuntime":
+        await this.startRuntime();
         return;
-      }
       case "stopRuntime":
         this.runtimeManager.stop();
         return;
@@ -162,6 +175,25 @@ export class WorkbenchPanel {
         await this.runDbtBuild();
         return;
     }
+  }
+
+  private async startRuntime(): Promise<void> {
+    const manifest = await readProjectManifest();
+    const pythonCommand = manifest.manifest?.runtime?.pythonCommand ?? "python";
+    const storage = manifest.manifest?.runtime?.storage ?? "duckdb";
+    const trust = await this.pythonTrust.resolve();
+    await this.runtimeManager.start(pythonCommand, storage, trust.effective);
+  }
+
+  private async setTrustedPython(enabled: boolean): Promise<void> {
+    const changed = enabled ? await this.pythonTrust.enable() : await this.pythonTrust.disable();
+    const status = this.runtimeManager.snapshot().status;
+    if (changed && (status === "running" || status === "starting")) {
+      // Trust is fixed per runtime process, so apply it with a clean restart.
+      await this.runtimeManager.stopAndWait();
+      await this.startRuntime();
+    }
+    await this.refresh();
   }
 
   private async setupRuntime(): Promise<void> {
@@ -261,29 +293,56 @@ export class WorkbenchPanel {
   }
 
   private async runActiveSql(): Promise<void> {
-    const editor = vscode.window.activeTextEditor ??
-      vscode.window.visibleTextEditors.find(candidate =>
-        candidate.document.uri.scheme === "file" &&
-        candidate.document.fileName.toLowerCase().endsWith(".sql")
-      );
-    if (!editor || !editor.document.fileName.toLowerCase().endsWith(".sql")) {
-      void vscode.window.showWarningMessage("Open a SQL file in VS Code before running it from Mosaic.");
-      return;
-    }
-
-    if (editor.document.isDirty) {
-      const saved = await editor.document.save();
-      if (!saved) {
-        void vscode.window.showWarningMessage("Save the SQL file before running it.");
-        return;
-      }
-    }
+    const document = await activeSavedDocument(".sql", "SQL");
+    if (!document) return;
 
     try {
-      await this.runtimeManager.runSql(editor.document.getText());
+      await this.runtimeManager.runSql(document.getText());
     } catch (error) {
       void vscode.window.showErrorMessage(
         `SQL execution failed: ${error instanceof Error ? error.message : String(error)}`
+      );
+    }
+    await this.refresh();
+  }
+
+  private async runActivePython(): Promise<void> {
+    const trust = await this.pythonTrust.resolve();
+    if (!trust.effective || !this.runtimeManager.snapshot().trustedPython) {
+      void vscode.window.showWarningMessage(
+        trust.effective
+          ? "Restart the Datapass runtime to apply trusted local Python."
+          : trust.reason
+      );
+      return;
+    }
+    const document = await activeSavedDocument(".py", "Python");
+    if (!document) return;
+
+    try {
+      await this.runtimeManager.runPython(document.getText());
+    } catch (error) {
+      void vscode.window.showErrorMessage(
+        `Python execution failed: ${error instanceof Error ? error.message : String(error)}`
+      );
+    }
+    await this.refresh();
+  }
+
+  private async runActiveSparkLab(profileId: string, aqe: boolean): Promise<void> {
+    const document = await activeSavedDocument(".py", "SparkLab (.py)");
+    if (!document) return;
+
+    try {
+      await this.runtimeManager.runSparkLab(
+        document.getText(),
+        vscode.workspace.asRelativePath(document.uri),
+        profileId,
+        aqe
+      );
+    } catch (error) {
+      void vscode.window.showErrorMessage(
+        `SparkLab execution failed: ${error instanceof Error ? error.message : String(error)}`
       );
     }
     await this.refresh();
@@ -600,7 +659,8 @@ export class WorkbenchPanel {
     const state = await collectWorkbenchState(
       this.selectedModule,
       this.runtimeManager,
-      this.context.extensionUri
+      this.context.extensionUri,
+      this.pythonTrust
     );
     await this.panel.webview.postMessage({ type: "state", state });
   }
@@ -650,7 +710,33 @@ function scratchSpec(kind: ScratchKind): { fileName: string; content: string } {
     case "python":
       return {
         fileName: "mosaic.py",
-        content: "import polars as pl\n\ndf = pl.DataFrame({\"value\": [1, 2, 3]})\nprint(df)\n"
+        content: [
+          "# Datapass Mosaic Python scratch",
+          "# Runs as real local Python only after you enable trusted local Python for this workspace.",
+          "# Relative paths resolve from the workspace root. print() output is captured and",
+          "# the last expression is previewed in Mosaic.",
+          "import polars as pl",
+          "",
+          "df = pl.DataFrame({\"value\": [1, 2, 3]})",
+          "print(df.shape)",
+          "df",
+          ""
+        ].join("\n")
+      };
+    case "sparklab":
+      return {
+        fileName: "sparklab.py",
+        content: [
+          "# Datapass SparkLab scratch: bounded PySpark-style DataFrame API.",
+          "# Parsed by a whitelist AST interpreter and compiled to local SQL. It is never",
+          "# executed as Python and needs no trusted-Python opt-in. Results are computed",
+          "# locally from the shared catalog; stages, shuffle and credits are SIMULATED.",
+          "from pyspark.sql import functions as F",
+          "",
+          "orders = spark.table(\"source.orders\")",
+          "revenue = orders.filter(F.col(\"net_amount\") > 0).groupBy(\"customer_id\").agg(F.sum(\"net_amount\").alias(\"revenue\"))",
+          ""
+        ].join("\n")
       };
     case "notes":
       return {
@@ -842,6 +928,28 @@ async function copyDirectoryWithoutOverwrite(source: vscode.Uri, target: vscode.
 
 function quoteShellArg(value: string): string {
   return `"${value.replaceAll('"', '\\"')}"`;
+}
+
+async function activeSavedDocument(
+  extension: string,
+  label: string
+): Promise<vscode.TextDocument | undefined> {
+  const matches = (candidate: vscode.TextEditor | undefined) =>
+    candidate?.document.fileName.toLowerCase().endsWith(extension) === true;
+  const editor = matches(vscode.window.activeTextEditor)
+    ? vscode.window.activeTextEditor
+    : vscode.window.visibleTextEditors.find(candidate =>
+      candidate.document.uri.scheme === "file" && matches(candidate)
+    );
+  if (!editor) {
+    void vscode.window.showWarningMessage(`Open a ${label} file in VS Code before running it.`);
+    return undefined;
+  }
+  if (editor.document.isDirty && !(await editor.document.save())) {
+    void vscode.window.showWarningMessage(`Save the ${label} file before running it.`);
+    return undefined;
+  }
+  return editor.document;
 }
 
 async function exists(uri: vscode.Uri): Promise<boolean> {

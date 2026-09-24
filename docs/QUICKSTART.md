@@ -77,7 +77,15 @@ Files remain normal VS Code files.
 
 Use **SparkLab / ZilaCode** for bounded PySpark DataFrame practice.
 
-The supported API is deliberately narrower than PySpark. Result semantics are taught where supported; cluster stages, shuffle telemetry and credits are explicitly simulated.
+1. Start the runtime.
+2. Click **Open SparkLab scratch** (creates `notebooks/sparklab.py`).
+3. Pick a virtual cluster profile and AQE setting, then **Run active SparkLab file**.
+
+The source is parsed by a whitelist, never executed as Python. Result rows and compiled SQL are real local computation; the logical plan is a teaching plan; stages, shuffle, virtual duration and credits are explicitly simulated. The supported API is deliberately narrower than PySpark and unsupported syntax is rejected.
+
+### Trusted local Python (opt-in)
+
+Python/Polars files are not executed by default. To run them from Mosaic (**Run active Python**), Practice or Pipeline Lab, choose **Enable trusted local Python…** in Mosaic's Python / Polars block and confirm the warning. This executes real local code with your permissions; the runtime worker is not a sandbox. The choice is stored as `runtime.trustedLocalPython` in `.datapass/project.json` plus a confirmation on this machine, and requires VS Code Workspace Trust.
 
 ### Pipeline Lab
 
@@ -132,10 +140,10 @@ The runtime is a local IPC/control plane, not a separate Datapass web applicatio
 
 | Surface | What is real | What is simulated |
 | --- | --- | --- |
-| Mosaic | VS Code files, DuckDB, Polars | optional teaching overlays |
+| Mosaic | VS Code files, DuckDB SQL; Python/Polars only after trusted-Python opt-in | optional teaching overlays |
 | Practice | VS Code files, local tests/runners | exercise scenarios where explicitly marked |
 | Fabric Lab | local files, DuckDB/DuckLake | Fabric UI/orchestration semantics |
-| SparkLab | supported local result semantics | distributed Spark/cluster metrics |
+| SparkLab | whitelist parser, compiled SQL and result rows computed locally | stages, shuffle, duration, credits, cluster behavior |
 | dbt Lab | dbt Core + DuckDB when installed | static lineage fallback is not execution |
 | Airflow Lab | project DAG definition | scheduler/executor/task runtime |
 | Pipeline Lab | source files, bounded compiler, supported local activity execution | scheduler/service semantics; dbt pipeline activity not wired yet |

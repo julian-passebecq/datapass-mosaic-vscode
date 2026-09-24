@@ -6,6 +6,8 @@ import * as vscode from "vscode";
 import type { RuntimeEnvironmentView, RuntimeViewState } from "./webview/contracts";
 import { findFreePort, waitForDatapassHealth } from "./platform/runtimeEndpoint";
 import { managedVenvPython, runtimeInstallArgs, runtimeVerifyArgs } from "./platform/runtimeEnvironment";
+import { runtimeProcessEnv } from "./platform/pythonTrust";
+import { toSparkLabRunView } from "./platform/sparkLabRun";
 
 const HOST = "127.0.0.1";
 
@@ -115,7 +117,15 @@ export class RuntimeManager implements vscode.Disposable {
     }
   }
 
-  async start(pythonCommand = "python", storage: "duckdb" | "ducklake" = "duckdb"): Promise<void> {
+  /**
+   * Start the loopback runtime. `trustedPython` must come from the explicit
+   * workspace opt-in (see platform/pythonTrust); it is never inherited.
+   */
+  async start(
+    pythonCommand = "python",
+    storage: "duckdb" | "ducklake" = "duckdb",
+    trustedPython = false
+  ): Promise<void> {
     if (this.state.status === "running" || this.state.status === "starting") return;
 
     const runtimeRoot = path.join(this.extensionUri.fsPath, "runtime");
@@ -126,6 +136,9 @@ export class RuntimeManager implements vscode.Disposable {
     this.setState({ status: "starting", url, detail: "Starting local FastAPI runtime…" });
     this.output.show(true);
     this.output.appendLine(`Starting Datapass runtime with ${resolvedPython}`);
+    this.output.appendLine(trustedPython
+      ? "Trusted local Python: ENABLED by explicit workspace opt-in. Python/Polars run as real local code; the worker is not a sandbox."
+      : "Trusted local Python: disabled. SQL and bounded SparkLab only.");
 
     const child = spawn(
       resolvedPython,
@@ -144,14 +157,12 @@ export class RuntimeManager implements vscode.Disposable {
         cwd: runtimeRoot,
         windowsHide: true,
         stdio: ["ignore", "pipe", "pipe"],
-        env: {
-          ...process.env,
-          DATAPASS_CONTENT_ROOT: path.join(this.extensionUri.fsPath, "content"),
-          DATAPASS_STORAGE: storage,
-          ...(vscode.workspace.workspaceFolders?.[0]?.uri.fsPath
-            ? { DATAPASS_WORKSPACE_ROOT: vscode.workspace.workspaceFolders[0].uri.fsPath }
-            : {})
-        }
+        env: runtimeProcessEnv(process.env, {
+          contentRoot: path.join(this.extensionUri.fsPath, "content"),
+          storage,
+          trustedPython,
+          workspaceRoot: vscode.workspace.workspaceFolders?.[0]?.uri.fsPath
+        })
       }
     );
 
@@ -179,7 +190,16 @@ export class RuntimeManager implements vscode.Disposable {
     try {
       await waitForDatapassHealth(`${url}/api/health`, 6500);
       if (this.child === child) {
-        this.setState({ status: "running", url, detail: "Local runtime healthy." });
+        const capabilities = await requestGetJson<{ runtime?: { trusted_local_python?: unknown } }>(
+          `${url}/api/capabilities`
+        );
+        const reported = capabilities.runtime?.trusted_local_python === true;
+        if (reported !== trustedPython) {
+          throw new Error(
+            `Runtime reported trusted Python ${reported ? "enabled" : "disabled"}, but ${trustedPython ? "enabled" : "disabled"} was requested. The runtime was stopped.`
+          );
+        }
+        this.setState({ status: "running", url, detail: "Local runtime healthy.", trustedPython: reported });
         await this.refreshCatalog();
       }
     } catch (error) {
@@ -277,6 +297,61 @@ export class RuntimeManager implements vscode.Disposable {
     await this.refreshCatalog();
   }
 
+  async runPython(code: string): Promise<void> {
+    const url = this.state.status === "running" ? this.state.url : undefined;
+    if (!url) throw new Error("Start the Datapass runtime before running Python.");
+    if (!this.state.trustedPython) {
+      throw new Error("Trusted local Python is disabled for this runtime. Enable it for the workspace, then restart the runtime.");
+    }
+    const lastRun = await requestJson<NonNullable<RuntimeViewState["lastRun"]>>(
+      `${url}/api/local/execute`,
+      "POST",
+      {
+        language: "python",
+        code,
+        notebook_id: "vscode-python",
+        cell_id: "active-python"
+      },
+      25000
+    );
+    this.setState({
+      ...this.state,
+      detail: lastRun.status === "success"
+        ? `Python completed in ${lastRun.elapsed_ms.toFixed(1)} ms (trusted local execution).`
+        : `Python failed: ${lastRun.error?.message ?? "Unknown error"}`,
+      lastRun
+    });
+    await this.refreshCatalog();
+  }
+
+  /** Bounded SparkLab: whitelisted AST to local SQL. Never executed as Python. */
+  async runSparkLab(code: string, fileName: string, profileId: string, aqe: boolean): Promise<void> {
+    const url = this.state.status === "running" ? this.state.url : undefined;
+    if (!url) throw new Error("Start the Datapass runtime before running SparkLab.");
+    const raw = await requestJson<unknown>(
+      `${url}/api/local/execute`,
+      "POST",
+      {
+        language: "sparklab",
+        code,
+        notebook_id: "vscode-sparklab",
+        cell_id: "active-sparklab",
+        profile: profileId,
+        aqe
+      },
+      25000
+    );
+    const sparkRun = toSparkLabRunView(raw, { fileName, profileId, aqe });
+    this.setState({
+      ...this.state,
+      detail: sparkRun.status === "success"
+        ? `SparkLab result computed locally in ${sparkRun.elapsed_ms.toFixed(1)} ms; distributed metrics are simulated.`
+        : `SparkLab rejected or failed: ${sparkRun.error?.message ?? "Unknown error"}`,
+      sparkRun
+    });
+    await this.refreshCatalog();
+  }
+
   async refreshCatalog(): Promise<void> {
     const url = this.state.status === "running" ? this.state.url : undefined;
     if (!url) return;
@@ -320,6 +395,18 @@ export class RuntimeManager implements vscode.Disposable {
       "POST",
       { source }
     );
+  }
+
+  /** Stop and wait for the process to exit so a restart never races the old worker. */
+  async stopAndWait(timeoutMs = 5000): Promise<void> {
+    const child = this.child;
+    if (!child || child.exitCode !== null || child.signalCode !== null) {
+      this.stop();
+      return;
+    }
+    const exited = new Promise<void>(resolve => child.once("exit", () => resolve()));
+    this.stop();
+    await Promise.race([exited, new Promise<void>(resolve => setTimeout(resolve, timeoutMs))]);
   }
 
   stop(): void {

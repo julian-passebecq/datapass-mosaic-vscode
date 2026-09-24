@@ -19,6 +19,11 @@ export interface DataPassProjectManifest {
   runtime?: {
     storage?: "ducklake" | "duckdb";
     pythonCommand?: string;
+    /**
+     * Request trusted local Python/Polars execution. Default false. Also requires
+     * a per-machine confirmation and VS Code Workspace Trust; see platform/pythonTrust.
+     */
+    trustedLocalPython?: boolean;
   };
 }
 
@@ -48,6 +53,17 @@ export function validateProjectManifest(raw: unknown): string[] {
   }
   if (doc.runtime !== undefined && (!doc.runtime || typeof doc.runtime !== "object" || Array.isArray(doc.runtime))) {
     issues.push("runtime must be an object.");
+  } else if (doc.runtime !== undefined) {
+    const runtime = doc.runtime as Record<string, unknown>;
+    if (runtime.storage !== undefined && runtime.storage !== "duckdb" && runtime.storage !== "ducklake") {
+      issues.push('runtime.storage must be "duckdb" or "ducklake".');
+    }
+    if (runtime.pythonCommand !== undefined && (typeof runtime.pythonCommand !== "string" || !runtime.pythonCommand.trim())) {
+      issues.push("runtime.pythonCommand must be a non-empty string.");
+    }
+    if (runtime.trustedLocalPython !== undefined && typeof runtime.trustedLocalPython !== "boolean") {
+      issues.push("runtime.trustedLocalPython must be true or false.");
+    }
   }
 
   return issues;
@@ -71,8 +87,19 @@ export function createDefaultProjectManifest(folderName = "data-project"): DataP
     },
     runtime: {
       storage: "duckdb",
-      pythonCommand: "python"
+      pythonCommand: "python",
+      trustedLocalPython: false
     }
+  };
+}
+
+export function withTrustedLocalPython(
+  manifest: DataPassProjectManifest,
+  enabled: boolean
+): DataPassProjectManifest {
+  return {
+    ...manifest,
+    runtime: { ...manifest.runtime, trustedLocalPython: enabled }
   };
 }
 

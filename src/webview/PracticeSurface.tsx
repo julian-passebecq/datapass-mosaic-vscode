@@ -3,6 +3,8 @@ import { useMemo, useState } from "react";
 import type { ExerciseSummary, RuntimeViewState } from "./contracts";
 import type { VsCodeApi } from "./WorkbenchApp";
 
+const PYTHON_LANGUAGES = new Set(["python", "polars"]);
+
 export function PracticeSurface({
   vscode,
   exercises,
@@ -65,6 +67,12 @@ export function PracticeSurface({
               </div>
               <Text size={400} weight="semibold">{exercise.title}</Text>
               <p className="practice-prompt">{exercise.prompt}</p>
+              {PYTHON_LANGUAGES.has(exercise.language.toLowerCase()) && runtimeReady && !runtime.trustedPython && (
+                <div className="pipeline-notice">
+                  This exercise executes real local Python. Grading reports an error until trusted local Python is
+                  enabled for this workspace (Mosaic → Python / Polars).
+                </div>
+              )}
 
               {result && (
                 <div className="practice-result">

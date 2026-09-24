@@ -29,20 +29,25 @@ async def lifespan(_app: FastAPI):
 app = FastAPI(title="Datapass Runtime", version="0.1.0", lifespan=lifespan)
 
 
-def workspace_data_dir() -> Path:
+def workspace_root() -> Path:
     configured = os.getenv("DATAPASS_WORKSPACE_ROOT")
     if not configured:
         raise RuntimeError("DATAPASS_WORKSPACE_ROOT is not configured.")
     root = Path(configured).expanduser().resolve()
     if not root.is_dir():
         raise RuntimeError(f"Datapass workspace root does not exist: {root}")
-    data = root / ".datapass" / "data"
+    return root
+
+
+def workspace_data_dir() -> Path:
+    data = workspace_root() / ".datapass" / "data"
     data.mkdir(parents=True, exist_ok=True)
     return data
 
 
 def native_command(body: dict[str, object]) -> object:
-    return kernel_manager.call(NATIVE_WORKSPACE_ID, workspace_data_dir(), body)
+    # Trusted Python resolves relative paths from the workspace root, like `python file.py`.
+    return kernel_manager.call(NATIVE_WORKSPACE_ID, workspace_data_dir(), body, cwd=workspace_root())
 
 
 class PipelineCompileRequest(BaseModel):
@@ -93,6 +98,12 @@ def health() -> dict[str, str]:
 @app.get("/api/capabilities")
 def capabilities() -> dict[str, object]:
     return {
+        "runtime": {
+            # Set only by the extension after an explicit, workspace-scoped opt-in.
+            "trusted_local_python": kernel_manager.trusted,
+            "python_sandboxed": False,
+            "python_truth": "trusted local CPython worker; process isolation is lifecycle management, not a security sandbox",
+        },
         "mosaic": {"mode": "real", "engines": ["polars", "duckdb"], "spark_by_default": False},
         "practice": {"mode": "local-tests", "editors": "vscode-native"},
         "fabric_lab": {"mode": "simulation", "notebook": "fabric-inspired", "lakehouse": "duckdb-ducklake", "kernel": "sparklab", "cloud_connection": False},
