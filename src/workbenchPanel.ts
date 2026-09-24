@@ -109,7 +109,8 @@ export class WorkbenchPanel {
       case "startRuntime": {
         const manifest = await readProjectManifest();
         const pythonCommand = manifest.manifest?.runtime?.pythonCommand ?? "python";
-        await this.runtimeManager.start(pythonCommand);
+        const storage = manifest.manifest?.runtime?.storage ?? "duckdb";
+        await this.runtimeManager.start(pythonCommand, storage);
         return;
       }
       case "stopRuntime":
