@@ -100,10 +100,14 @@ def capabilities() -> dict[str, object]:
         "dbt_lab": {"mode": "hybrid", "runner": "dbt-core", "lineage": "manifest"},
         "airflow_lab": {"mode": "simulation", "scheduler": "deterministic-local"},
         "pipeline_lab": {
-            "mode": "simulation",
+            "mode": "hybrid",
             "compiler": "bounded-ast-design",
             "source_execution": False,
+            "activity_execution": "real-local-where-supported",
             "activities": ["sql", "quality", "python", "polars", "dbt"],
+            "wired_activities": ["sql", "quality", "python", "polars"],
+            "declared_but_not_wired": ["dbt"],
+            "scheduling": "metadata-only",
         },
     }
 
