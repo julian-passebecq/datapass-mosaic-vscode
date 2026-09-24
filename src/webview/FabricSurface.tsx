@@ -28,9 +28,18 @@ export function FabricSurface({
           <strong>Start with a connected sample</strong>
           <span>Create a small retail project spanning source data, SQL/Polars, pipeline, Airflow and dbt.</span>
         </div>
-        <Button appearance="primary" onClick={() => vscode.postMessage({ type: "createRetailDemo" })}>
-          Create retail end-to-end demo
-        </Button>
+        <div className="button-row">
+          <Button appearance="secondary" onClick={() => vscode.postMessage({ type: "createRetailDemo" })}>
+            Create / repair demo files
+          </Button>
+          <Button
+            appearance="primary"
+            disabled={!running}
+            onClick={() => vscode.postMessage({ type: "runRetailDemo" })}
+          >
+            Run local medallion flow
+          </Button>
+        </div>
       </div>
 
       <div className="lab-flow" aria-label="Fabric Lab learning flow">
@@ -85,6 +94,52 @@ export function FabricSurface({
           </div>
         </Card>
       </div>
+
+      {runtime.retailDemo && (
+        <div className="retail-result">
+          <div className="retail-result-header">
+            <div>
+              <div className="eyebrow">Executed result</div>
+              <Text size={500} weight="semibold">Retail medallion run</Text>
+              <div className="muted">{runtime.retailDemo.truth} · {runtime.retailDemo.database_path}</div>
+            </div>
+            <Badge appearance="tint" color="success">completed</Badge>
+          </div>
+
+          <div className="retail-stage-grid">
+            {runtime.retailDemo.stages.map(stage => (
+              <div className="retail-stage" key={stage.id}>
+                <span>{stage.engine}</span>
+                <strong>{stage.label}</strong>
+                <small>{stage.rows} rows</small>
+              </div>
+            ))}
+          </div>
+
+          <div className="retail-kpis">
+            <div><span>Silver rows</span><strong>{runtime.retailDemo.polars_quality.rows}</strong></div>
+            <div><span>Customers</span><strong>{runtime.retailDemo.polars_quality.customers}</strong></div>
+            <div><span>Revenue</span><strong>{runtime.retailDemo.polars_quality.revenue.toFixed(2)}</strong></div>
+          </div>
+
+          <div className="retail-preview-wrap">
+            <table className="retail-preview">
+              <thead>
+                <tr>{runtime.retailDemo.preview.columns.map(column => <th key={column}>{column}</th>)}</tr>
+              </thead>
+              <tbody>
+                {runtime.retailDemo.preview.rows.map((row, index) => (
+                  <tr key={index}>
+                    {runtime.retailDemo.preview.columns.map(column => (
+                      <td key={column}>{String(row[column] ?? "")}</td>
+                    ))}
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
 
       <div className="truth-table">
         <TruthRow capability="DuckDB SQL" truth="Real local" note="Executed by local analytical engine." />
