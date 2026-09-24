@@ -221,6 +221,22 @@ export async function run(): Promise<void> {
       const scenario = variant.id.slice(0, -"-sql".length);
       const semantic = await submit(variant, unified[scenario].solutions.sql);
       assert.equal(semantic.status, "passed", JSON.stringify(semantic.checks));
+
+      // Engine lab: named tables reach SparkLab; Python variants stay behind the trust gate.
+      assert.equal(catalog.filter(item => item.packId === "engine-lab-v1").length, 68);
+      assert.equal(catalog.filter(item => item.packId === "python-lab-v1").length, 12);
+      const engine = JSON.parse(new TextDecoder().decode(await vscode.workspace.fs.readFile(
+        vscode.Uri.joinPath(extension.extensionUri, "content", "exercise-packs", "engine-lab-v1", "grading.server.json")
+      ))) as Record<string, { solutions: Record<string, string> }>;
+      const antiJoin = catalog.find(item => item.id === "eng-anti-join-sparklab")!;
+      assert.deepEqual(antiJoin.dataContext.map(table => table.name), ["orders", "customers"]);
+      const spark = await submit(antiJoin, engine["eng-anti-join"].solutions.sparklab);
+      assert.equal(spark.status, "passed", JSON.stringify(spark.checks));
+      assert.equal(spark.truth, "semantic-emulation");
+      const pythonLab = catalog.find(item => item.id === "py-frequency")!;
+      const gated = await submit(pythonLab, "display([])");
+      assert.equal(gated.status, "error", "Python exercises must not run while trusted Python is off");
+      assert.match(gated.checks[0].message, /Trusted local Python is disabled/);
     }],
     ["Pipeline starter compiles into a graph and runs its activities", async () => {
       await vscode.workspace.fs.createDirectory(vscode.Uri.joinPath(root, "pipelines"));

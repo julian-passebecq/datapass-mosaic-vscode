@@ -12,7 +12,13 @@ Every exercise needs exactly one visible, and any number of hidden and edge fixt
 ## Fixture tables
 
 - Single table: fixtures use `input_rows`; the submission reads the table `input`. This works for every language.
-- Named tables (SQL only): declare one `data_context` entry per table (`name`, `columns`, `sample_rows`) and give every fixture `"input_rows": []` plus `"tables": {"<name>": [rows...]}` with exactly the declared tables. The grader builds one CTE per table. Names are lowercase identifiers and cannot be a catalog layer (`source`, `bronze`, ...). Other languages reject named tables rather than approximating them.
+- Named tables: declare one `data_context` entry per table (`name`, `columns`, `sample_rows`) and give every fixture `"input_rows": []` plus `"tables": {"<name>": [rows...]}` with exactly the declared tables. Binding per language:
+  - SQL: one typed CTE per table (`FROM orders`);
+  - SparkLab: the same CTEs plus parser schemas (`spark.table("orders")`); simulated scan statistics use the fixture row counts;
+  - Python/Polars: each table is a variable holding a list of row dicts (`orders`), and all of them are in `tables`;
+  - dbt drills: not supported (they bind only `ref("input")`); the registry rejects them rather than approximating.
+  Names are lowercase identifiers and cannot be a catalog layer (`source`, `bronze`, ...) or a Python grading helper (`display`, `query`, `publish`, `tables`, `input_rows`).
+- Python results: `display(rows)` a list of row dicts (or a DataFrame). An empty list has no columns, so pass `display(rows, columns=[...])` when a result can be empty. Keep dates as `YYYY-MM-DD` strings so SQL DATE output and Python strings compare equal.
 - Column types are applied with `CAST`, so dates, decimals and empty fixtures stay typed. Allowed: `INTEGER`, `BIGINT`, `DOUBLE`, `VARCHAR`, `BOOLEAN`, `DATE`, `TIMESTAMP`, `DECIMAL(p,s)`. Write dates as `YYYY-MM-DD` strings; results serialize dates the same way.
 - At most 200 rows per table and per expected result.
 
@@ -25,6 +31,17 @@ Every exercise needs exactly one visible, and any number of hidden and edge fixt
 3. each **mutant** in `MUTANTS` must run successfully and still fail. A mutant is the plausible wrong answer the lesson is about (INNER instead of LEFT JOIN, RANK instead of DENSE_RANK, a filter in WHERE instead of ON, ...). If a mutant passes, the hidden/edge fixtures do not discriminate the mistake: add a fixture that does.
 
 When adding an exercise: design the hidden and edge fixtures around the pitfall, compute expected rows by running the reference solution, **review every expected row by hand**, then add at least one mutant.
+
+## Installed packs
+
+| Pack | Language(s) | Exercises | Notes |
+| --- | --- | --- | --- |
+| `sql-lab-v1` | SQL | 60 | All 60 donor SQL lab challenges |
+| `engine-lab-v1` | SQL, pandas (`python`), Polars, SparkLab | 20 scenarios / 68 variants | Donor engine lab; SparkLab only where its bounded API supports the operation |
+| `python-lab-v1` | Python | 12 | Donor curriculum lessons that transform data |
+| `unified-retail-v1`, `internal-demo`, `sparklab-runtime`, `guided-spark-v1`, `pipeline-design-v1` | mixed | earlier packs | |
+
+Donor content deliberately **not** promoted (grading compares result rows, so these cannot be graded honestly here): syntax-only Python drills (variables, printing, file/JSON I/O, pathlib, type hints), DDL/UPDATE SQL (PK/FK, SCD2), Spark I/O (`SparkSession`, `read.parquet`, `write.partitionBy`), `repartition`, Airflow DAG code (Airflow Lab is a simulator), pandas `validate=` errors, BigQuery `SAFE_DIVIDE` (DuckDB already returns NULL on division by zero), and the DAX, C#, bash, PowerShell, git, cron, Docker, Kubernetes, cloud and gateway tracks. Those belong to reference/cheat-sheet material (the standalone WorkNotebook), not graded Practice.
 
 ## Provenance
 

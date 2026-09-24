@@ -254,6 +254,141 @@ MUTANTS: dict[str, list[str]] = {
         "WITH ranked AS (SELECT *, DENSE_RANK() OVER (PARTITION BY department ORDER BY wage DESC) AS rn FROM employees) SELECT employee_name, department, wage FROM ranked WHERE rn = 1",
         "WITH ranked AS (SELECT *, ROW_NUMBER() OVER (PARTITION BY department ORDER BY wage DESC, employee_name DESC) AS rn FROM employees) SELECT employee_name, department, wage FROM ranked WHERE rn = 1",
     ],
+    # --- engine-lab-v1 and python-lab-v1 (variant ids are <scenario>-<language>) ---
+    'eng-filter-active-sql': [
+        "SELECT order_id, customer_id, status, amount FROM orders WHERE upper(status) = 'ACTIVE'",
+        "SELECT DISTINCT order_id, customer_id, status, amount FROM orders WHERE status = 'ACTIVE'",
+    ],
+    'eng-filter-active-python': [
+        'import pandas as pd\norders_df = pd.DataFrame(orders)\nactive = orders_df[orders_df["status"].str.upper() == "ACTIVE"]\ndisplay(active[["order_id", "customer_id", "status", "amount"]])',
+    ],
+    'eng-derived-flag-sql': [
+        'SELECT order_id, amount, CASE WHEN amount > 1000 THEN 1 ELSE 0 END AS is_high_value FROM orders',
+    ],
+    'eng-derived-flag-polars': [
+        'import polars as pl\norders_df = pl.DataFrame(orders)\ndisplay(orders_df.with_columns(is_high_value=(pl.col("amount") >= 1000).cast(pl.Int64)).select("order_id", "amount", "is_high_value"))',
+    ],
+    'eng-group-sum-sql': [
+        'SELECT customer_id, SUM(DISTINCT amount) AS total_amount FROM orders GROUP BY customer_id',
+    ],
+    'eng-group-sum-sparklab': [
+        'from pyspark.sql import functions as F\norders = spark.table("orders")\norders.groupBy("customer_id").agg(F.max("amount").alias("total_amount"))',
+    ],
+    'eng-multi-agg-sql': [
+        'SELECT customer_id, COUNT(order_id) AS order_count, SUM(amount) AS total_amount, SUM(amount) / COUNT(DISTINCT customer_id) AS avg_amount FROM orders GROUP BY customer_id',
+    ],
+    'eng-inner-join-sql': [
+        'SELECT o.order_id, o.customer_id, o.amount, c.customer_name FROM orders AS o LEFT JOIN customers AS c ON o.customer_id = c.customer_id',
+    ],
+    'eng-inner-join-python': [
+        'import pandas as pd\norders_df = pd.DataFrame(orders)\ncustomers_df = pd.DataFrame(customers)\nresult = orders_df.merge(customers_df, on="customer_id", how="left")\ndisplay(result[["order_id", "customer_id", "amount", "customer_name"]])',
+    ],
+    'eng-anti-join-sql': [
+        'SELECT o.order_id, o.customer_id, o.amount FROM orders AS o WHERE o.customer_id NOT IN (SELECT customer_id FROM customers)',
+    ],
+    'eng-anti-join-sparklab': [
+        'from pyspark.sql import functions as F\norders = spark.table("orders")\ncustomers = spark.table("customers")\norders.join(customers, on="customer_id", how="semi").select("order_id", "customer_id", "amount")',
+    ],
+    'eng-latest-row-sql': [
+        'SELECT customer_id, updated_at, status FROM (SELECT *, ROW_NUMBER() OVER (PARTITION BY customer_id ORDER BY updated_at) AS rn FROM customer_history) WHERE rn = 1',
+    ],
+    'eng-latest-row-python': [
+        'import pandas as pd\nhistory_df = pd.DataFrame(customer_history)\nlatest = history_df.drop_duplicates(subset=["customer_id"], keep="last")\ndisplay(latest[["customer_id", "updated_at", "status"]])',
+    ],
+    'eng-running-total-sql': [
+        'SELECT customer_id, order_date, order_id, amount, SUM(amount) OVER (ORDER BY order_date, order_id ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW) AS running_amount FROM orders',
+    ],
+    'eng-running-total-python': [
+        'import pandas as pd\norders_df = pd.DataFrame(orders)\norders_df["running_amount"] = orders_df.groupby("customer_id")["amount"].cumsum()\ndisplay(orders_df[["customer_id", "order_date", "order_id", "amount", "running_amount"]])',
+    ],
+    'eng-lag-delta-sql': [
+        'WITH x AS (SELECT *, LAG(amount) OVER (ORDER BY order_date, order_id) AS previous_amount FROM orders) SELECT customer_id, order_date, order_id, amount, previous_amount, amount - previous_amount AS amount_delta FROM x',
+    ],
+    'eng-lag-delta-polars': [
+        'import polars as pl\norders_df = pl.DataFrame(orders)\nresult = orders_df.sort("customer_id", "order_date", "order_id").with_columns(previous_amount=pl.col("amount").shift(1))\ndisplay(result.with_columns(amount_delta=pl.col("amount") - pl.col("previous_amount")))',
+    ],
+    'eng-top-n-sql': [
+        'SELECT category, product_id, revenue FROM (SELECT *, DENSE_RANK() OVER (PARTITION BY category ORDER BY revenue DESC) AS rn FROM product_sales) WHERE rn <= 3',
+        'SELECT category, product_id, revenue FROM (SELECT *, ROW_NUMBER() OVER (PARTITION BY category ORDER BY revenue DESC, product_id DESC) AS rn FROM product_sales) WHERE rn <= 3',
+    ],
+    'eng-null-fill-sql': [
+        "SELECT customer_id, COALESCE(NULLIF(country, ''), 'UNKNOWN') AS country_clean FROM customers",
+    ],
+    'eng-null-fill-python': [
+        'import pandas as pd\ncustomers_df = pd.DataFrame(customers)\ncustomers_df["country_clean"] = customers_df["country"].replace("", None).fillna("UNKNOWN")\ndisplay(customers_df[["customer_id", "country_clean"]])',
+    ],
+    'eng-union-sql': [
+        'SELECT order_id, amount FROM historical_orders UNION SELECT order_id, amount FROM current_orders',
+    ],
+    'eng-union-python': [
+        'import pandas as pd\nhistorical_orders_df = pd.DataFrame(historical_orders)\ncurrent_orders_df = pd.DataFrame(current_orders)\ndisplay(pd.concat([historical_orders_df, current_orders_df]).drop_duplicates()[["order_id", "amount"]])',
+    ],
+    'eng-transform-share-sql': [
+        'SELECT customer_id, order_id, amount, SUM(amount) OVER () AS customer_total, amount / SUM(amount) OVER () AS amount_share FROM orders',
+    ],
+    'eng-transform-share-sparklab': [
+        'from pyspark.sql import functions as F\nfrom pyspark.sql.window import Window\norders = spark.table("orders")\nw = Window.partitionBy("customer_id").orderBy("order_id")\nwith_total = orders.withColumn("customer_total", F.sum("amount").over(w))\nwith_total.withColumn("amount_share", F.col("amount") / F.col("customer_total"))',
+    ],
+    'eng-dense-rank-sql': [
+        'SELECT employee_name, department, wage, RANK() OVER (PARTITION BY department ORDER BY wage DESC) AS wage_rank FROM employees',
+    ],
+    'eng-dense-rank-python': [
+        'import pandas as pd\nemployees_df = pd.DataFrame(employees)\nemployees_df["wage_rank"] = employees_df.groupby("department")["wage"].rank(method="min", ascending=False).astype(int)\ndisplay(employees_df)',
+    ],
+    'eng-cross-merge-sql': [
+        'SELECT DISTINCT s.size_code, b.brand_name FROM sizes AS s CROSS JOIN brands AS b',
+    ],
+    'eng-broadcast-join-sparklab': [
+        'from pyspark.sql import functions as F\nsales = spark.table("sales")\nproducts = spark.table("products")\nsales.join(F.broadcast(products), on="product_id", how="left").select("sale_id", "product_id", "quantity", "product_name")',
+    ],
+    'eng-normalize-email-sql': [
+        "SELECT customer_id, lower(replace(email, ' ', '')) AS email_normalized FROM customers",
+    ],
+    'eng-qualify-latest-sql': [
+        'SELECT user_id, event_id, event_time FROM events QUALIFY ROW_NUMBER() OVER (PARTITION BY user_id ORDER BY event_time DESC, event_id) = 1',
+    ],
+    'eng-ordered-string-agg-sql': [
+        "SELECT user_id, string_agg(event_name, ',' ORDER BY event_time) AS recent_events FROM events GROUP BY user_id",
+    ],
+    'eng-split-explode-sql': [
+        "SELECT DISTINCT order_id, CAST(unnest(string_split(item_ids, ',')) AS INTEGER) AS item_id FROM orders",
+    ],
+    'py-load-mode': [
+        'result = []\nfor row in table_stats:\n    if row["row_count"] == 0:\n        mode = "full"\n    elif row["row_count"] >= 1_000_000:\n        mode = "large_incremental"\n    else:\n        mode = "incremental"\n    result.append({"table_name": row["table_name"], "row_count": row["row_count"], "mode": mode})\ndisplay(result)',
+    ],
+    'py-safe-int': [
+        'result = []\nfor row in raw_values:\n    try:\n        parsed = int(float(row["raw_value"]))\n    except ValueError:\n        parsed = None\n    result.append({"raw_value": row["raw_value"], "parsed": parsed})\ndisplay(result)',
+    ],
+    'py-set-validate': [
+        'allowed_status = {"NEW", "READY", "DONE"}\ndisplay([{"status": row["status"], "is_valid": row["status"].upper() in allowed_status} for row in statuses])',
+    ],
+    'py-frequency': [
+        'display([{"status": status, "count": 1} for status in {row["status"] for row in events}])',
+    ],
+    'py-dedupe-order': [
+        'display([{"id": value} for value in sorted({row["id"] for row in ids})])',
+    ],
+    'py-batching': [
+        'values = [row["id"] for row in ids]\nresult = []\nfor number, start in enumerate(range(0, len(values) - 3 + 1, 3), start=1):\n    batch = values[start:start + 3]\n    result.append({"batch_number": number, "first_id": batch[0], "last_id": batch[-1], "size": len(batch)})\ndisplay(result)',
+    ],
+    'py-binary-search': [
+        'from bisect import bisect_right\nvalues = [row["value"] for row in sorted_values]\nresult = []\nfor row in targets:\n    position = bisect_right(values, row["target"])\n    result.append({"target": row["target"], "position": position, "found": row["target"] in values})\ndisplay(result)',
+    ],
+    'py-hash-join': [
+        'names = {c["customer_id"]: c["name"] for c in customers}\ndisplay([{"order_id": o["order_id"], "customer_id": o["customer_id"], "customer_name": names.get(o["customer_id"], "")} for o in orders])',
+    ],
+    'py-prefix-filter': [
+        'display([{"table_name": row["table_name"]} for row in tables_list if "dim_" in row["table_name"].lower()], columns=["table_name"])',
+    ],
+    'py-sort-key': [
+        'display([{"name": j["name"], "priority": j["priority"]} for j in sorted(jobs, key=lambda job: (job["priority"], job["name"]))])',
+    ],
+    'py-parse-timestamp': [
+        'from datetime import datetime\nresult = []\nfor row in raw_times:\n    ts = datetime.strptime(row["raw"], "%Y-%m-%d %H:%M:%S")\n    result.append({"raw": row["raw"], "date": ts.date().isoformat(), "hour": ts.hour, "weekday": ts.isoweekday()})\ndisplay(result)',
+    ],
+    'py-numpy-vectorize': [
+        'import numpy as np\nvalues = np.array([row["amount"] for row in amounts], dtype=float)\ndisplay([{"amount": float(a), "net_amount": float(a * 0.2)} for a in values])',
+    ],
 }
 
 

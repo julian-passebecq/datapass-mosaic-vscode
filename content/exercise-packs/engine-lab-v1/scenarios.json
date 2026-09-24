@@ -1,0 +1,3586 @@
+[
+  {
+    "semantic": {
+      "id": "eng-filter-active",
+      "version": "1",
+      "industry": "Cross-engine data engineering",
+      "learning_objectives": [
+        "Filter active records",
+        "Express one result contract in several engines"
+      ],
+      "optimization": "A row filter has the same meaning in every engine; only the syntax changes (WHERE, boolean mask, filter).",
+      "reflection": "Where does each engine push this filter when reading Parquet?"
+    },
+    "fixture_version": "1",
+    "common": {
+      "schema_version": 1,
+      "title": "Filter active records",
+      "difficulty": "easy",
+      "topics": [
+        "filtering",
+        "cross-engine"
+      ],
+      "tags": [
+        "engine-lab",
+        "shared-fixture"
+      ],
+      "origin": "migrated",
+      "prompt": "Return order_id, customer_id, status, amount for orders whose status is exactly 'ACTIVE' (case-sensitive; NULL status is not active).",
+      "sections": [
+        {
+          "title": "Tables",
+          "body": "orders(order_id INTEGER, customer_id INTEGER, status VARCHAR, amount DOUBLE)"
+        },
+        {
+          "title": "How each engine reads the tables",
+          "body": "SQL: FROM <table>. pandas/Polars: each table (orders) is a list of row dicts in a variable of the same name. SparkLab: spark.table(\"<table>\"). Show the result with display(...) in Python; SparkLab returns the last DataFrame."
+        },
+        {
+          "title": "Output",
+          "body": "Columns in this order: order_id, customer_id, status, amount."
+        },
+        {
+          "title": "Common pitfall",
+          "body": "Case-insensitive matching or treating NULL as active changes the answer."
+        }
+      ],
+      "fixtures": [
+        {
+          "id": "eng-filter-active-fixtures",
+          "version": "1"
+        }
+      ],
+      "visible_checks": [
+        {
+          "id": "example",
+          "description": "Public example: the tables shown in data_context."
+        }
+      ],
+      "hidden_check_refs": [
+        "case-and-null"
+      ],
+      "edge_check_refs": [
+        "none-active"
+      ],
+      "hints": [
+        "Compare with the exact string 'ACTIVE'.",
+        "Keep duplicate rows: filtering never deduplicates."
+      ],
+      "solution": {
+        "available": true,
+        "reveal": "explicit"
+      },
+      "explanation": "A row filter has the same meaning in every engine; only the syntax changes (WHERE, boolean mask, filter).",
+      "follow_ups": [
+        "Where does each engine push this filter when reading Parquet?"
+      ],
+      "canonical_placement": {
+        "domain": "data-engineering",
+        "topic": "filtering"
+      },
+      "related_associations": [
+        "engines/cross-engine"
+      ],
+      "recommendation": {
+        "rank": 1,
+        "reason": "Engine lab progression"
+      },
+      "validator_version": "semantic-rows-v1",
+      "validation": {
+        "kind": "rows",
+        "ordered": false,
+        "duplicate_sensitive": true,
+        "relative_tolerance": 1e-09,
+        "absolute_tolerance": 1e-06,
+        "required_columns": [
+          "order_id",
+          "customer_id",
+          "status",
+          "amount"
+        ],
+        "exact_schema": [
+          "order_id",
+          "customer_id",
+          "status",
+          "amount"
+        ],
+        "forbidden_extra_columns": true,
+        "null_semantics": "equal"
+      },
+      "data_context": [
+        {
+          "name": "orders",
+          "columns": {
+            "order_id": "INTEGER",
+            "customer_id": "INTEGER",
+            "status": "VARCHAR",
+            "amount": "DOUBLE"
+          },
+          "sample_rows": [
+            {
+              "order_id": 1,
+              "customer_id": 10,
+              "status": "ACTIVE",
+              "amount": 50.0
+            },
+            {
+              "order_id": 2,
+              "customer_id": 11,
+              "status": "CLOSED",
+              "amount": 20.0
+            },
+            {
+              "order_id": 3,
+              "customer_id": 10,
+              "status": "ACTIVE",
+              "amount": 75.5
+            }
+          ]
+        }
+      ],
+      "output_schema": {
+        "order_id": "value",
+        "customer_id": "value",
+        "status": "value",
+        "amount": "value"
+      },
+      "runtime_requirements": [],
+      "provenance": {
+        "source": "Datapass leetcodedataeng engine lab (eng-filter-active), adapted to DuckDB/pandas/Polars/SparkLab",
+        "fixtures": "Authored for Datapass; expected rows computed from reference SQL and reviewed; every variant graded in CI"
+      },
+      "constraints": {
+        "fixtures": "At most 200 rows per table; complete results are graded, truncated results never pass."
+      }
+    },
+    "variants": {
+      "sql": {
+        "starter_source": "SELECT *\nFROM orders\n-- keep ACTIVE orders\n",
+        "supported_operations": [
+          "filter",
+          "select"
+        ]
+      },
+      "python": {
+        "starter_source": "import pandas as pd\norders_df = pd.DataFrame(orders)\ndisplay(orders_df)\n",
+        "supported_operations": [
+          "filter",
+          "select"
+        ]
+      },
+      "polars": {
+        "starter_source": "import polars as pl\norders_df = pl.DataFrame(orders)\ndisplay(orders_df)\n",
+        "supported_operations": [
+          "filter",
+          "select"
+        ]
+      },
+      "sparklab": {
+        "starter_source": "from pyspark.sql import functions as F\norders = spark.table(\"orders\")\norders\n",
+        "supported_operations": [
+          "filter",
+          "select"
+        ]
+      }
+    }
+  },
+  {
+    "semantic": {
+      "id": "eng-derived-flag",
+      "version": "1",
+      "industry": "Cross-engine data engineering",
+      "learning_objectives": [
+        "Create a high-value flag",
+        "Express one result contract in several engines"
+      ],
+      "optimization": "A conditional column is CASE in SQL, a boolean cast in pandas, when/otherwise in Polars and Spark.",
+      "reflection": "How would you express a three-level band in each engine?"
+    },
+    "fixture_version": "1",
+    "common": {
+      "schema_version": 1,
+      "title": "Create a high-value flag",
+      "difficulty": "easy",
+      "topics": [
+        "conditional-logic",
+        "cross-engine"
+      ],
+      "tags": [
+        "engine-lab",
+        "shared-fixture"
+      ],
+      "origin": "migrated",
+      "prompt": "Return order_id, amount, is_high_value where is_high_value is 1 when amount >= 1000 and 0 otherwise (including NULL amounts).",
+      "sections": [
+        {
+          "title": "Tables",
+          "body": "orders(order_id INTEGER, amount DOUBLE)"
+        },
+        {
+          "title": "How each engine reads the tables",
+          "body": "SQL: FROM <table>. pandas/Polars: each table (orders) is a list of row dicts in a variable of the same name. SparkLab: spark.table(\"<table>\"). Show the result with display(...) in Python; SparkLab returns the last DataFrame."
+        },
+        {
+          "title": "Output",
+          "body": "Columns in this order: order_id, amount, is_high_value."
+        },
+        {
+          "title": "Common pitfall",
+          "body": "Using > instead of >= misclassifies exactly 1000; a NULL comparison is not true, so it falls to the else branch."
+        }
+      ],
+      "fixtures": [
+        {
+          "id": "eng-derived-flag-fixtures",
+          "version": "1"
+        }
+      ],
+      "visible_checks": [
+        {
+          "id": "example",
+          "description": "Public example: the tables shown in data_context."
+        }
+      ],
+      "hidden_check_refs": [
+        "boundary-and-null"
+      ],
+      "edge_check_refs": [
+        "all-high"
+      ],
+      "hints": [
+        "The boundary 1000 is included (>=).",
+        "Decide explicitly what a NULL amount becomes."
+      ],
+      "solution": {
+        "available": true,
+        "reveal": "explicit"
+      },
+      "explanation": "A conditional column is CASE in SQL, a boolean cast in pandas, when/otherwise in Polars and Spark.",
+      "follow_ups": [
+        "How would you express a three-level band in each engine?"
+      ],
+      "canonical_placement": {
+        "domain": "data-engineering",
+        "topic": "conditional-logic"
+      },
+      "related_associations": [
+        "engines/cross-engine"
+      ],
+      "recommendation": {
+        "rank": 2,
+        "reason": "Engine lab progression"
+      },
+      "validator_version": "semantic-rows-v1",
+      "validation": {
+        "kind": "rows",
+        "ordered": false,
+        "duplicate_sensitive": true,
+        "relative_tolerance": 1e-09,
+        "absolute_tolerance": 1e-06,
+        "required_columns": [
+          "order_id",
+          "amount",
+          "is_high_value"
+        ],
+        "exact_schema": [
+          "order_id",
+          "amount",
+          "is_high_value"
+        ],
+        "forbidden_extra_columns": true,
+        "null_semantics": "equal"
+      },
+      "data_context": [
+        {
+          "name": "orders",
+          "columns": {
+            "order_id": "INTEGER",
+            "amount": "DOUBLE"
+          },
+          "sample_rows": [
+            {
+              "order_id": 1,
+              "amount": 250.0
+            },
+            {
+              "order_id": 2,
+              "amount": 1500.0
+            },
+            {
+              "order_id": 3,
+              "amount": 999.99
+            }
+          ]
+        }
+      ],
+      "output_schema": {
+        "order_id": "value",
+        "amount": "value",
+        "is_high_value": "value"
+      },
+      "runtime_requirements": [],
+      "provenance": {
+        "source": "Datapass leetcodedataeng engine lab (eng-derived-flag), adapted to DuckDB/pandas/Polars/SparkLab",
+        "fixtures": "Authored for Datapass; expected rows computed from reference SQL and reviewed; every variant graded in CI"
+      },
+      "constraints": {
+        "fixtures": "At most 200 rows per table; complete results are graded, truncated results never pass."
+      }
+    },
+    "variants": {
+      "sql": {
+        "starter_source": "SELECT *\nFROM orders\n-- add is_high_value\n",
+        "supported_operations": [
+          "withColumn",
+          "when"
+        ]
+      },
+      "python": {
+        "starter_source": "import pandas as pd\norders_df = pd.DataFrame(orders)\ndisplay(orders_df)\n",
+        "supported_operations": [
+          "withColumn",
+          "when"
+        ]
+      },
+      "polars": {
+        "starter_source": "import polars as pl\norders_df = pl.DataFrame(orders)\ndisplay(orders_df)\n",
+        "supported_operations": [
+          "withColumn",
+          "when"
+        ]
+      },
+      "sparklab": {
+        "starter_source": "from pyspark.sql import functions as F\norders = spark.table(\"orders\")\norders\n",
+        "supported_operations": [
+          "withColumn",
+          "when"
+        ]
+      }
+    }
+  },
+  {
+    "semantic": {
+      "id": "eng-group-sum",
+      "version": "1",
+      "industry": "Cross-engine data engineering",
+      "learning_objectives": [
+        "Revenue by customer",
+        "Express one result contract in several engines"
+      ],
+      "optimization": "Grouping and summing is the same idea everywhere; the engines differ in how keys and NULLs surface.",
+      "reflection": "What does each engine return for a customer whose amounts are all NULL?"
+    },
+    "fixture_version": "1",
+    "common": {
+      "schema_version": 1,
+      "title": "Revenue by customer",
+      "difficulty": "easy",
+      "topics": [
+        "aggregation",
+        "cross-engine"
+      ],
+      "tags": [
+        "engine-lab",
+        "shared-fixture"
+      ],
+      "origin": "migrated",
+      "prompt": "Return customer_id and total_amount, the sum of amount per customer. NULL amounts are ignored (every customer has at least one non-NULL amount).",
+      "sections": [
+        {
+          "title": "Tables",
+          "body": "orders(customer_id INTEGER, amount DOUBLE)"
+        },
+        {
+          "title": "How each engine reads the tables",
+          "body": "SQL: FROM <table>. pandas/Polars: each table (orders) is a list of row dicts in a variable of the same name. SparkLab: spark.table(\"<table>\"). Show the result with display(...) in Python; SparkLab returns the last DataFrame."
+        },
+        {
+          "title": "Output",
+          "body": "Columns in this order: customer_id, total_amount."
+        },
+        {
+          "title": "Common pitfall",
+          "body": "Summing a column that is entirely NULL differs by engine (SQL NULL, pandas 0); this fixture avoids that case on purpose."
+        }
+      ],
+      "fixtures": [
+        {
+          "id": "eng-group-sum-fixtures",
+          "version": "1"
+        }
+      ],
+      "visible_checks": [
+        {
+          "id": "example",
+          "description": "Public example: the tables shown in data_context."
+        }
+      ],
+      "hidden_check_refs": [
+        "nulls-and-duplicates"
+      ],
+      "edge_check_refs": [
+        "single"
+      ],
+      "hints": [
+        "One output row per customer.",
+        "In pandas keep the key as a column (as_index=False)."
+      ],
+      "solution": {
+        "available": true,
+        "reveal": "explicit"
+      },
+      "explanation": "Grouping and summing is the same idea everywhere; the engines differ in how keys and NULLs surface.",
+      "follow_ups": [
+        "What does each engine return for a customer whose amounts are all NULL?"
+      ],
+      "canonical_placement": {
+        "domain": "data-engineering",
+        "topic": "aggregation"
+      },
+      "related_associations": [
+        "engines/cross-engine"
+      ],
+      "recommendation": {
+        "rank": 3,
+        "reason": "Engine lab progression"
+      },
+      "validator_version": "semantic-rows-v1",
+      "validation": {
+        "kind": "rows",
+        "ordered": false,
+        "duplicate_sensitive": true,
+        "relative_tolerance": 1e-09,
+        "absolute_tolerance": 1e-06,
+        "required_columns": [
+          "customer_id",
+          "total_amount"
+        ],
+        "exact_schema": [
+          "customer_id",
+          "total_amount"
+        ],
+        "forbidden_extra_columns": true,
+        "null_semantics": "equal"
+      },
+      "data_context": [
+        {
+          "name": "orders",
+          "columns": {
+            "customer_id": "INTEGER",
+            "amount": "DOUBLE"
+          },
+          "sample_rows": [
+            {
+              "customer_id": 1,
+              "amount": 10.0
+            },
+            {
+              "customer_id": 1,
+              "amount": 15.0
+            },
+            {
+              "customer_id": 2,
+              "amount": 20.0
+            }
+          ]
+        }
+      ],
+      "output_schema": {
+        "customer_id": "value",
+        "total_amount": "value"
+      },
+      "runtime_requirements": [],
+      "provenance": {
+        "source": "Datapass leetcodedataeng engine lab (eng-group-sum), adapted to DuckDB/pandas/Polars/SparkLab",
+        "fixtures": "Authored for Datapass; expected rows computed from reference SQL and reviewed; every variant graded in CI"
+      },
+      "constraints": {
+        "fixtures": "At most 200 rows per table; complete results are graded, truncated results never pass."
+      }
+    },
+    "variants": {
+      "sql": {
+        "starter_source": "SELECT *\nFROM orders\n-- sum amount per customer\n",
+        "supported_operations": [
+          "groupBy",
+          "agg"
+        ]
+      },
+      "python": {
+        "starter_source": "import pandas as pd\norders_df = pd.DataFrame(orders)\ndisplay(orders_df)\n",
+        "supported_operations": [
+          "groupBy",
+          "agg"
+        ]
+      },
+      "polars": {
+        "starter_source": "import polars as pl\norders_df = pl.DataFrame(orders)\ndisplay(orders_df)\n",
+        "supported_operations": [
+          "groupBy",
+          "agg"
+        ]
+      },
+      "sparklab": {
+        "starter_source": "from pyspark.sql import functions as F\norders = spark.table(\"orders\")\norders\n",
+        "supported_operations": [
+          "groupBy",
+          "agg"
+        ]
+      }
+    }
+  },
+  {
+    "semantic": {
+      "id": "eng-multi-agg",
+      "version": "1",
+      "industry": "Cross-engine data engineering",
+      "learning_objectives": [
+        "Order count, revenue and average by customer",
+        "Express one result contract in several engines"
+      ],
+      "optimization": "Several aggregates over one grouping key are computed in a single pass in every engine.",
+      "reflection": "Which engine lets you name aggregates inline most clearly?"
+    },
+    "fixture_version": "1",
+    "common": {
+      "schema_version": 1,
+      "title": "Order count, revenue and average by customer",
+      "difficulty": "medium",
+      "topics": [
+        "aggregation",
+        "cross-engine"
+      ],
+      "tags": [
+        "engine-lab",
+        "shared-fixture"
+      ],
+      "origin": "migrated",
+      "prompt": "Return customer_id, order_count, total_amount, avg_amount per customer.",
+      "sections": [
+        {
+          "title": "Tables",
+          "body": "orders(customer_id INTEGER, order_id INTEGER, amount DOUBLE)"
+        },
+        {
+          "title": "How each engine reads the tables",
+          "body": "SQL: FROM <table>. pandas/Polars: each table (orders) is a list of row dicts in a variable of the same name. SparkLab: spark.table(\"<table>\"). Show the result with display(...) in Python; SparkLab returns the last DataFrame."
+        },
+        {
+          "title": "Output",
+          "body": "Columns in this order: customer_id, order_count, total_amount, avg_amount."
+        },
+        {
+          "title": "Common pitfall",
+          "body": "Computing the average as total / a different count (for example distinct orders) silently changes the metric."
+        }
+      ],
+      "fixtures": [
+        {
+          "id": "eng-multi-agg-fixtures",
+          "version": "1"
+        }
+      ],
+      "visible_checks": [
+        {
+          "id": "example",
+          "description": "Public example: the tables shown in data_context."
+        }
+      ],
+      "hidden_check_refs": [
+        "many-orders"
+      ],
+      "edge_check_refs": [
+        "single"
+      ],
+      "hints": [
+        "Compute all three aggregates in one grouping pass.",
+        "Name each output column explicitly."
+      ],
+      "solution": {
+        "available": true,
+        "reveal": "explicit"
+      },
+      "explanation": "Several aggregates over one grouping key are computed in a single pass in every engine.",
+      "follow_ups": [
+        "Which engine lets you name aggregates inline most clearly?"
+      ],
+      "canonical_placement": {
+        "domain": "data-engineering",
+        "topic": "aggregation"
+      },
+      "related_associations": [
+        "engines/cross-engine"
+      ],
+      "recommendation": {
+        "rank": 4,
+        "reason": "Engine lab progression"
+      },
+      "validator_version": "semantic-rows-v1",
+      "validation": {
+        "kind": "rows",
+        "ordered": false,
+        "duplicate_sensitive": true,
+        "relative_tolerance": 1e-09,
+        "absolute_tolerance": 1e-06,
+        "required_columns": [
+          "customer_id",
+          "order_count",
+          "total_amount",
+          "avg_amount"
+        ],
+        "exact_schema": [
+          "customer_id",
+          "order_count",
+          "total_amount",
+          "avg_amount"
+        ],
+        "forbidden_extra_columns": true,
+        "null_semantics": "equal"
+      },
+      "data_context": [
+        {
+          "name": "orders",
+          "columns": {
+            "customer_id": "INTEGER",
+            "order_id": "INTEGER",
+            "amount": "DOUBLE"
+          },
+          "sample_rows": [
+            {
+              "customer_id": 1,
+              "order_id": 100,
+              "amount": 10.0
+            },
+            {
+              "customer_id": 1,
+              "order_id": 101,
+              "amount": 30.0
+            },
+            {
+              "customer_id": 2,
+              "order_id": 102,
+              "amount": 5.0
+            }
+          ]
+        }
+      ],
+      "output_schema": {
+        "customer_id": "value",
+        "order_count": "value",
+        "total_amount": "value",
+        "avg_amount": "value"
+      },
+      "runtime_requirements": [],
+      "provenance": {
+        "source": "Datapass leetcodedataeng engine lab (eng-multi-agg), adapted to DuckDB/pandas/Polars/SparkLab",
+        "fixtures": "Authored for Datapass; expected rows computed from reference SQL and reviewed; every variant graded in CI"
+      },
+      "constraints": {
+        "fixtures": "At most 200 rows per table; complete results are graded, truncated results never pass."
+      }
+    },
+    "variants": {
+      "sql": {
+        "starter_source": "SELECT *\nFROM orders\n-- count, sum and average per customer\n",
+        "supported_operations": [
+          "groupBy",
+          "agg"
+        ]
+      },
+      "python": {
+        "starter_source": "import pandas as pd\norders_df = pd.DataFrame(orders)\ndisplay(orders_df)\n",
+        "supported_operations": [
+          "groupBy",
+          "agg"
+        ]
+      },
+      "polars": {
+        "starter_source": "import polars as pl\norders_df = pl.DataFrame(orders)\ndisplay(orders_df)\n",
+        "supported_operations": [
+          "groupBy",
+          "agg"
+        ]
+      },
+      "sparklab": {
+        "starter_source": "from pyspark.sql import functions as F\norders = spark.table(\"orders\")\norders\n",
+        "supported_operations": [
+          "groupBy",
+          "agg"
+        ]
+      }
+    }
+  },
+  {
+    "semantic": {
+      "id": "eng-inner-join",
+      "version": "1",
+      "industry": "Cross-engine data engineering",
+      "learning_objectives": [
+        "Join orders to customers",
+        "Express one result contract in several engines"
+      ],
+      "optimization": "Every engine expresses the same equi-join; pandas calls it merge.",
+      "reflection": "How does each engine name duplicate non-key columns after a join?",
+      "figure_family": "join"
+    },
+    "fixture_version": "1",
+    "common": {
+      "schema_version": 1,
+      "title": "Join orders to customers",
+      "difficulty": "easy",
+      "topics": [
+        "joins",
+        "cross-engine"
+      ],
+      "tags": [
+        "engine-lab",
+        "shared-fixture"
+      ],
+      "origin": "migrated",
+      "prompt": "Return order_id, customer_id, amount, customer_name for orders whose customer exists.",
+      "sections": [
+        {
+          "title": "Tables",
+          "body": "orders(order_id INTEGER, customer_id INTEGER, amount DOUBLE); customers(customer_id INTEGER, customer_name VARCHAR)"
+        },
+        {
+          "title": "How each engine reads the tables",
+          "body": "SQL: FROM <table>. pandas/Polars: each table (orders, customers) is a list of row dicts in a variable of the same name. SparkLab: spark.table(\"<table>\"). Show the result with display(...) in Python; SparkLab returns the last DataFrame."
+        },
+        {
+          "title": "Output",
+          "body": "Columns in this order: order_id, customer_id, amount, customer_name."
+        },
+        {
+          "title": "Common pitfall",
+          "body": "Joining on the wrong key or using a left join keeps orders without customers."
+        }
+      ],
+      "fixtures": [
+        {
+          "id": "eng-inner-join-fixtures",
+          "version": "1"
+        }
+      ],
+      "visible_checks": [
+        {
+          "id": "example",
+          "description": "Public example: the tables shown in data_context."
+        }
+      ],
+      "hidden_check_refs": [
+        "repeat-customer"
+      ],
+      "edge_check_refs": [
+        "no-match"
+      ],
+      "hints": [
+        "Join on customer_id.",
+        "Inner join: unmatched orders disappear."
+      ],
+      "solution": {
+        "available": true,
+        "reveal": "explicit"
+      },
+      "explanation": "Every engine expresses the same equi-join; pandas calls it merge.",
+      "follow_ups": [
+        "How does each engine name duplicate non-key columns after a join?"
+      ],
+      "canonical_placement": {
+        "domain": "data-engineering",
+        "topic": "joins"
+      },
+      "related_associations": [
+        "engines/cross-engine"
+      ],
+      "recommendation": {
+        "rank": 5,
+        "reason": "Engine lab progression"
+      },
+      "validator_version": "semantic-rows-v1",
+      "validation": {
+        "kind": "rows",
+        "ordered": false,
+        "duplicate_sensitive": true,
+        "relative_tolerance": 1e-09,
+        "absolute_tolerance": 1e-06,
+        "required_columns": [
+          "order_id",
+          "customer_id",
+          "amount",
+          "customer_name"
+        ],
+        "exact_schema": [
+          "order_id",
+          "customer_id",
+          "amount",
+          "customer_name"
+        ],
+        "forbidden_extra_columns": true,
+        "null_semantics": "equal"
+      },
+      "data_context": [
+        {
+          "name": "orders",
+          "columns": {
+            "order_id": "INTEGER",
+            "customer_id": "INTEGER",
+            "amount": "DOUBLE"
+          },
+          "sample_rows": [
+            {
+              "order_id": 1,
+              "customer_id": 10,
+              "amount": 5.0
+            },
+            {
+              "order_id": 2,
+              "customer_id": 11,
+              "amount": 7.0
+            },
+            {
+              "order_id": 3,
+              "customer_id": 99,
+              "amount": 1.0
+            }
+          ]
+        },
+        {
+          "name": "customers",
+          "columns": {
+            "customer_id": "INTEGER",
+            "customer_name": "VARCHAR"
+          },
+          "sample_rows": [
+            {
+              "customer_id": 10,
+              "customer_name": "Ada"
+            },
+            {
+              "customer_id": 11,
+              "customer_name": "Grace"
+            }
+          ]
+        }
+      ],
+      "output_schema": {
+        "order_id": "value",
+        "customer_id": "value",
+        "amount": "value",
+        "customer_name": "value"
+      },
+      "runtime_requirements": [],
+      "provenance": {
+        "source": "Datapass leetcodedataeng engine lab (eng-inner-join), adapted to DuckDB/pandas/Polars/SparkLab",
+        "fixtures": "Authored for Datapass; expected rows computed from reference SQL and reviewed; every variant graded in CI"
+      },
+      "constraints": {
+        "fixtures": "At most 200 rows per table; complete results are graded, truncated results never pass."
+      }
+    },
+    "variants": {
+      "sql": {
+        "starter_source": "SELECT *\nFROM orders\n-- join customers on customer_id\n",
+        "supported_operations": [
+          "join",
+          "select"
+        ]
+      },
+      "python": {
+        "starter_source": "import pandas as pd\norders_df = pd.DataFrame(orders)\ncustomers_df = pd.DataFrame(customers)\ndisplay(orders_df)\n",
+        "supported_operations": [
+          "join",
+          "select"
+        ]
+      },
+      "polars": {
+        "starter_source": "import polars as pl\norders_df = pl.DataFrame(orders)\ncustomers_df = pl.DataFrame(customers)\ndisplay(orders_df)\n",
+        "supported_operations": [
+          "join",
+          "select"
+        ]
+      },
+      "sparklab": {
+        "starter_source": "from pyspark.sql import functions as F\norders = spark.table(\"orders\")\ncustomers = spark.table(\"customers\")\norders\n",
+        "supported_operations": [
+          "join",
+          "select"
+        ]
+      }
+    }
+  },
+  {
+    "semantic": {
+      "id": "eng-anti-join",
+      "version": "1",
+      "industry": "Cross-engine data engineering",
+      "learning_objectives": [
+        "Find orders with no customer match",
+        "Express one result contract in several engines"
+      ],
+      "optimization": "An anti join keeps left rows with no match. NOT EXISTS and anti joins are NULL-safe.",
+      "reflection": "Rewrite the SQL with LEFT JOIN ... WHERE c.customer_id IS NULL.",
+      "figure_family": "join"
+    },
+    "fixture_version": "1",
+    "common": {
+      "schema_version": 1,
+      "title": "Find orders with no customer match",
+      "difficulty": "medium",
+      "topics": [
+        "joins",
+        "anti-join",
+        "nulls"
+      ],
+      "tags": [
+        "engine-lab",
+        "shared-fixture"
+      ],
+      "origin": "migrated",
+      "prompt": "Return order_id, customer_id, amount for orders whose customer_id does not exist in customers. customers.customer_id may contain NULL.",
+      "sections": [
+        {
+          "title": "Tables",
+          "body": "orders(order_id INTEGER, customer_id INTEGER, amount DOUBLE); customers(customer_id INTEGER, customer_name VARCHAR)"
+        },
+        {
+          "title": "How each engine reads the tables",
+          "body": "SQL: FROM <table>. pandas/Polars: each table (orders, customers) is a list of row dicts in a variable of the same name. SparkLab: spark.table(\"<table>\"). Show the result with display(...) in Python; SparkLab returns the last DataFrame."
+        },
+        {
+          "title": "Output",
+          "body": "Columns in this order: order_id, customer_id, amount."
+        },
+        {
+          "title": "Common pitfall",
+          "body": "NOT IN (SELECT customer_id ...) returns no rows at all as soon as the subquery contains a NULL."
+        }
+      ],
+      "fixtures": [
+        {
+          "id": "eng-anti-join-fixtures",
+          "version": "1"
+        }
+      ],
+      "visible_checks": [
+        {
+          "id": "example",
+          "description": "Public example: the tables shown in data_context."
+        }
+      ],
+      "hidden_check_refs": [
+        "null-in-customers"
+      ],
+      "edge_check_refs": [
+        "all-matched"
+      ],
+      "hints": [
+        "NOT EXISTS / anti join / isin + ~.",
+        "What does NOT IN do when the list contains NULL?"
+      ],
+      "solution": {
+        "available": true,
+        "reveal": "explicit"
+      },
+      "explanation": "An anti join keeps left rows with no match. NOT EXISTS and anti joins are NULL-safe.",
+      "follow_ups": [
+        "Rewrite the SQL with LEFT JOIN ... WHERE c.customer_id IS NULL."
+      ],
+      "canonical_placement": {
+        "domain": "data-engineering",
+        "topic": "joins"
+      },
+      "related_associations": [
+        "engines/anti-join",
+        "engines/nulls"
+      ],
+      "recommendation": {
+        "rank": 6,
+        "reason": "Engine lab progression"
+      },
+      "validator_version": "semantic-rows-v1",
+      "validation": {
+        "kind": "rows",
+        "ordered": false,
+        "duplicate_sensitive": true,
+        "relative_tolerance": 1e-09,
+        "absolute_tolerance": 1e-06,
+        "required_columns": [
+          "order_id",
+          "customer_id",
+          "amount"
+        ],
+        "exact_schema": [
+          "order_id",
+          "customer_id",
+          "amount"
+        ],
+        "forbidden_extra_columns": true,
+        "null_semantics": "equal"
+      },
+      "data_context": [
+        {
+          "name": "orders",
+          "columns": {
+            "order_id": "INTEGER",
+            "customer_id": "INTEGER",
+            "amount": "DOUBLE"
+          },
+          "sample_rows": [
+            {
+              "order_id": 1,
+              "customer_id": 10,
+              "amount": 5.0
+            },
+            {
+              "order_id": 2,
+              "customer_id": 11,
+              "amount": 7.0
+            },
+            {
+              "order_id": 3,
+              "customer_id": 99,
+              "amount": 1.0
+            }
+          ]
+        },
+        {
+          "name": "customers",
+          "columns": {
+            "customer_id": "INTEGER",
+            "customer_name": "VARCHAR"
+          },
+          "sample_rows": [
+            {
+              "customer_id": 10,
+              "customer_name": "Ada"
+            },
+            {
+              "customer_id": 11,
+              "customer_name": "Grace"
+            }
+          ]
+        }
+      ],
+      "output_schema": {
+        "order_id": "value",
+        "customer_id": "value",
+        "amount": "value"
+      },
+      "runtime_requirements": [],
+      "provenance": {
+        "source": "Datapass leetcodedataeng engine lab (eng-anti-join), adapted to DuckDB/pandas/Polars/SparkLab",
+        "fixtures": "Authored for Datapass; expected rows computed from reference SQL and reviewed; every variant graded in CI"
+      },
+      "constraints": {
+        "fixtures": "At most 200 rows per table; complete results are graded, truncated results never pass."
+      }
+    },
+    "variants": {
+      "sql": {
+        "starter_source": "SELECT *\nFROM orders\n-- keep orders without a customer\n",
+        "supported_operations": [
+          "join"
+        ]
+      },
+      "python": {
+        "starter_source": "import pandas as pd\norders_df = pd.DataFrame(orders)\ncustomers_df = pd.DataFrame(customers)\ndisplay(orders_df)\n",
+        "supported_operations": [
+          "join"
+        ]
+      },
+      "polars": {
+        "starter_source": "import polars as pl\norders_df = pl.DataFrame(orders)\ncustomers_df = pl.DataFrame(customers)\ndisplay(orders_df)\n",
+        "supported_operations": [
+          "join"
+        ]
+      },
+      "sparklab": {
+        "starter_source": "from pyspark.sql import functions as F\norders = spark.table(\"orders\")\ncustomers = spark.table(\"customers\")\norders\n",
+        "supported_operations": [
+          "join"
+        ]
+      }
+    }
+  },
+  {
+    "semantic": {
+      "id": "eng-latest-row",
+      "version": "1",
+      "industry": "Cross-engine data engineering",
+      "learning_objectives": [
+        "Latest record per customer",
+        "Express one result contract in several engines"
+      ],
+      "optimization": "Latest-row-per-key is ROW_NUMBER in SQL/Spark and sort + deduplicate in DataFrame libraries.",
+      "reflection": "What tie-breaker would you add if updated_at could repeat?"
+    },
+    "fixture_version": "1",
+    "common": {
+      "schema_version": 1,
+      "title": "Latest record per customer",
+      "difficulty": "medium",
+      "topics": [
+        "window-functions",
+        "deduplication",
+        "cross-engine"
+      ],
+      "tags": [
+        "engine-lab",
+        "shared-fixture"
+      ],
+      "origin": "migrated",
+      "prompt": "Return customer_id, updated_at, status: the single most recent row per customer (updated_at is unique per customer).",
+      "sections": [
+        {
+          "title": "Tables",
+          "body": "customer_history(customer_id INTEGER, updated_at DATE, status VARCHAR)"
+        },
+        {
+          "title": "How each engine reads the tables",
+          "body": "SQL: FROM <table>. pandas/Polars: each table (customer_history) is a list of row dicts in a variable of the same name. SparkLab: spark.table(\"<table>\"). Show the result with display(...) in Python; SparkLab returns the last DataFrame."
+        },
+        {
+          "title": "Output",
+          "body": "Columns in this order: customer_id, updated_at, status."
+        },
+        {
+          "title": "Common pitfall",
+          "body": "Without sorting first, 'last' in pandas only means last in the current row order."
+        }
+      ],
+      "fixtures": [
+        {
+          "id": "eng-latest-row-fixtures",
+          "version": "1"
+        }
+      ],
+      "visible_checks": [
+        {
+          "id": "example",
+          "description": "Public example: the tables shown in data_context."
+        }
+      ],
+      "hidden_check_refs": [
+        "unsorted-history"
+      ],
+      "edge_check_refs": [
+        "single"
+      ],
+      "hints": [
+        "Number rows per customer newest first, keep 1.",
+        "In pandas: sort, then drop_duplicates(keep='last')."
+      ],
+      "solution": {
+        "available": true,
+        "reveal": "explicit"
+      },
+      "explanation": "Latest-row-per-key is ROW_NUMBER in SQL/Spark and sort + deduplicate in DataFrame libraries.",
+      "follow_ups": [
+        "What tie-breaker would you add if updated_at could repeat?"
+      ],
+      "canonical_placement": {
+        "domain": "data-engineering",
+        "topic": "window-functions"
+      },
+      "related_associations": [
+        "engines/deduplication",
+        "engines/cross-engine"
+      ],
+      "recommendation": {
+        "rank": 7,
+        "reason": "Engine lab progression"
+      },
+      "validator_version": "semantic-rows-v1",
+      "validation": {
+        "kind": "rows",
+        "ordered": false,
+        "duplicate_sensitive": true,
+        "relative_tolerance": 1e-09,
+        "absolute_tolerance": 1e-06,
+        "required_columns": [
+          "customer_id",
+          "updated_at",
+          "status"
+        ],
+        "exact_schema": [
+          "customer_id",
+          "updated_at",
+          "status"
+        ],
+        "forbidden_extra_columns": true,
+        "null_semantics": "equal"
+      },
+      "data_context": [
+        {
+          "name": "customer_history",
+          "columns": {
+            "customer_id": "INTEGER",
+            "updated_at": "DATE",
+            "status": "VARCHAR"
+          },
+          "sample_rows": [
+            {
+              "customer_id": 1,
+              "updated_at": "2026-01-01",
+              "status": "NEW"
+            },
+            {
+              "customer_id": 1,
+              "updated_at": "2026-02-01",
+              "status": "ACTIVE"
+            },
+            {
+              "customer_id": 2,
+              "updated_at": "2026-01-15",
+              "status": "NEW"
+            }
+          ]
+        }
+      ],
+      "output_schema": {
+        "customer_id": "value",
+        "updated_at": "value",
+        "status": "value"
+      },
+      "runtime_requirements": [],
+      "provenance": {
+        "source": "Datapass leetcodedataeng engine lab (eng-latest-row), adapted to DuckDB/pandas/Polars/SparkLab",
+        "fixtures": "Authored for Datapass; expected rows computed from reference SQL and reviewed; every variant graded in CI"
+      },
+      "constraints": {
+        "fixtures": "At most 200 rows per table; complete results are graded, truncated results never pass."
+      }
+    },
+    "variants": {
+      "sql": {
+        "starter_source": "SELECT *\nFROM customer_history\n-- keep the latest row per customer\n",
+        "supported_operations": [
+          "Window",
+          "row_number",
+          "filter"
+        ]
+      },
+      "python": {
+        "starter_source": "import pandas as pd\ncustomer_history_df = pd.DataFrame(customer_history)\ndisplay(customer_history_df)\n",
+        "supported_operations": [
+          "Window",
+          "row_number",
+          "filter"
+        ]
+      },
+      "polars": {
+        "starter_source": "import polars as pl\ncustomer_history_df = pl.DataFrame(customer_history)\ndisplay(customer_history_df)\n",
+        "supported_operations": [
+          "Window",
+          "row_number",
+          "filter"
+        ]
+      },
+      "sparklab": {
+        "starter_source": "from pyspark.sql import functions as F\ncustomer_history = spark.table(\"customer_history\")\ncustomer_history\n",
+        "supported_operations": [
+          "Window",
+          "row_number",
+          "filter"
+        ]
+      }
+    }
+  },
+  {
+    "semantic": {
+      "id": "eng-running-total",
+      "version": "1",
+      "industry": "Cross-engine data engineering",
+      "learning_objectives": [
+        "Running revenue by customer",
+        "Express one result contract in several engines"
+      ],
+      "optimization": "A running total is a window SUM in SQL/Spark and a grouped cumulative sum in DataFrame libraries.",
+      "reflection": "What changes if two orders share a date and you order only by date?"
+    },
+    "fixture_version": "1",
+    "common": {
+      "schema_version": 1,
+      "title": "Running revenue by customer",
+      "difficulty": "medium",
+      "topics": [
+        "window-functions",
+        "running-total",
+        "cross-engine"
+      ],
+      "tags": [
+        "engine-lab",
+        "shared-fixture"
+      ],
+      "origin": "migrated",
+      "prompt": "Return customer_id, order_date, order_id, amount, running_amount: cumulative amount per customer ordered by order_date then order_id.",
+      "sections": [
+        {
+          "title": "Tables",
+          "body": "orders(customer_id INTEGER, order_date DATE, order_id INTEGER, amount DOUBLE)"
+        },
+        {
+          "title": "How each engine reads the tables",
+          "body": "SQL: FROM <table>. pandas/Polars: each table (orders) is a list of row dicts in a variable of the same name. SparkLab: spark.table(\"<table>\"). Show the result with display(...) in Python; SparkLab returns the last DataFrame."
+        },
+        {
+          "title": "Output",
+          "body": "Columns in this order: customer_id, order_date, order_id, amount, running_amount."
+        },
+        {
+          "title": "Common pitfall",
+          "body": "Forgetting the partition accumulates across customers; forgetting the sort accumulates in arbitrary order."
+        }
+      ],
+      "fixtures": [
+        {
+          "id": "eng-running-total-fixtures",
+          "version": "1"
+        }
+      ],
+      "visible_checks": [
+        {
+          "id": "example",
+          "description": "Public example: the tables shown in data_context."
+        }
+      ],
+      "hidden_check_refs": [
+        "unsorted-input"
+      ],
+      "edge_check_refs": [
+        "single"
+      ],
+      "hints": [
+        "Partition by customer, order by date then id.",
+        "pandas: sort, then groupby().cumsum()."
+      ],
+      "solution": {
+        "available": true,
+        "reveal": "explicit"
+      },
+      "explanation": "A running total is a window SUM in SQL/Spark and a grouped cumulative sum in DataFrame libraries.",
+      "follow_ups": [
+        "What changes if two orders share a date and you order only by date?"
+      ],
+      "canonical_placement": {
+        "domain": "data-engineering",
+        "topic": "window-functions"
+      },
+      "related_associations": [
+        "engines/running-total",
+        "engines/cross-engine"
+      ],
+      "recommendation": {
+        "rank": 8,
+        "reason": "Engine lab progression"
+      },
+      "validator_version": "semantic-rows-v1",
+      "validation": {
+        "kind": "rows",
+        "ordered": false,
+        "duplicate_sensitive": true,
+        "relative_tolerance": 1e-09,
+        "absolute_tolerance": 1e-06,
+        "required_columns": [
+          "customer_id",
+          "order_date",
+          "order_id",
+          "amount",
+          "running_amount"
+        ],
+        "exact_schema": [
+          "customer_id",
+          "order_date",
+          "order_id",
+          "amount",
+          "running_amount"
+        ],
+        "forbidden_extra_columns": true,
+        "null_semantics": "equal"
+      },
+      "data_context": [
+        {
+          "name": "orders",
+          "columns": {
+            "customer_id": "INTEGER",
+            "order_date": "DATE",
+            "order_id": "INTEGER",
+            "amount": "DOUBLE"
+          },
+          "sample_rows": [
+            {
+              "customer_id": 1,
+              "order_date": "2026-01-01",
+              "order_id": 1,
+              "amount": 10.0
+            },
+            {
+              "customer_id": 1,
+              "order_date": "2026-01-03",
+              "order_id": 2,
+              "amount": 5.0
+            },
+            {
+              "customer_id": 2,
+              "order_date": "2026-01-02",
+              "order_id": 3,
+              "amount": 7.0
+            },
+            {
+              "customer_id": 1,
+              "order_date": "2026-01-05",
+              "order_id": 4,
+              "amount": 20.0
+            }
+          ]
+        }
+      ],
+      "output_schema": {
+        "customer_id": "value",
+        "order_date": "value",
+        "order_id": "value",
+        "amount": "value",
+        "running_amount": "value"
+      },
+      "runtime_requirements": [],
+      "provenance": {
+        "source": "Datapass leetcodedataeng engine lab (eng-running-total), adapted to DuckDB/pandas/Polars/SparkLab",
+        "fixtures": "Authored for Datapass; expected rows computed from reference SQL and reviewed; every variant graded in CI"
+      },
+      "constraints": {
+        "fixtures": "At most 200 rows per table; complete results are graded, truncated results never pass."
+      }
+    },
+    "variants": {
+      "sql": {
+        "starter_source": "SELECT *\nFROM orders\n-- add running_amount per customer\n",
+        "supported_operations": [
+          "Window",
+          "sum"
+        ]
+      },
+      "python": {
+        "starter_source": "import pandas as pd\norders_df = pd.DataFrame(orders)\ndisplay(orders_df)\n",
+        "supported_operations": [
+          "Window",
+          "sum"
+        ]
+      },
+      "polars": {
+        "starter_source": "import polars as pl\norders_df = pl.DataFrame(orders)\ndisplay(orders_df)\n",
+        "supported_operations": [
+          "Window",
+          "sum"
+        ]
+      },
+      "sparklab": {
+        "starter_source": "from pyspark.sql import functions as F\norders = spark.table(\"orders\")\norders\n",
+        "supported_operations": [
+          "Window",
+          "sum"
+        ]
+      }
+    }
+  },
+  {
+    "semantic": {
+      "id": "eng-lag-delta",
+      "version": "1",
+      "industry": "Cross-engine data engineering",
+      "learning_objectives": [
+        "Compare each amount with the previous order",
+        "Express one result contract in several engines"
+      ],
+      "optimization": "LAG in SQL/Spark and shift within a group in pandas/Polars read the previous row of the same key.",
+      "reflection": "How would you compute the number of days since the previous order?"
+    },
+    "fixture_version": "1",
+    "common": {
+      "schema_version": 1,
+      "title": "Compare each amount with the previous order",
+      "difficulty": "medium",
+      "topics": [
+        "window-functions",
+        "lag",
+        "cross-engine"
+      ],
+      "tags": [
+        "engine-lab",
+        "shared-fixture"
+      ],
+      "origin": "migrated",
+      "prompt": "Return customer_id, order_date, order_id, amount, previous_amount, amount_delta where previous_amount is the customer's previous order (by order_date then order_id) and amount_delta = amount - previous_amount; both are NULL for a customer's first order.",
+      "sections": [
+        {
+          "title": "Tables",
+          "body": "orders(customer_id INTEGER, order_date DATE, order_id INTEGER, amount DOUBLE)"
+        },
+        {
+          "title": "How each engine reads the tables",
+          "body": "SQL: FROM <table>. pandas/Polars: each table (orders) is a list of row dicts in a variable of the same name. SparkLab: spark.table(\"<table>\"). Show the result with display(...) in Python; SparkLab returns the last DataFrame."
+        },
+        {
+          "title": "Output",
+          "body": "Columns in this order: customer_id, order_date, order_id, amount, previous_amount, amount_delta."
+        },
+        {
+          "title": "Common pitfall",
+          "body": "shift() without grouping reads the previous customer's order."
+        }
+      ],
+      "fixtures": [
+        {
+          "id": "eng-lag-delta-fixtures",
+          "version": "1"
+        }
+      ],
+      "visible_checks": [
+        {
+          "id": "example",
+          "description": "Public example: the tables shown in data_context."
+        }
+      ],
+      "hidden_check_refs": [
+        "unsorted-input"
+      ],
+      "edge_check_refs": [
+        "single"
+      ],
+      "hints": [
+        "LAG / shift(1) inside each customer.",
+        "The first order has no previous value."
+      ],
+      "solution": {
+        "available": true,
+        "reveal": "explicit"
+      },
+      "explanation": "LAG in SQL/Spark and shift within a group in pandas/Polars read the previous row of the same key.",
+      "follow_ups": [
+        "How would you compute the number of days since the previous order?"
+      ],
+      "canonical_placement": {
+        "domain": "data-engineering",
+        "topic": "window-functions"
+      },
+      "related_associations": [
+        "engines/lag",
+        "engines/cross-engine"
+      ],
+      "recommendation": {
+        "rank": 9,
+        "reason": "Engine lab progression"
+      },
+      "validator_version": "semantic-rows-v1",
+      "validation": {
+        "kind": "rows",
+        "ordered": false,
+        "duplicate_sensitive": true,
+        "relative_tolerance": 1e-09,
+        "absolute_tolerance": 1e-06,
+        "required_columns": [
+          "customer_id",
+          "order_date",
+          "order_id",
+          "amount",
+          "previous_amount",
+          "amount_delta"
+        ],
+        "exact_schema": [
+          "customer_id",
+          "order_date",
+          "order_id",
+          "amount",
+          "previous_amount",
+          "amount_delta"
+        ],
+        "forbidden_extra_columns": true,
+        "null_semantics": "equal"
+      },
+      "data_context": [
+        {
+          "name": "orders",
+          "columns": {
+            "customer_id": "INTEGER",
+            "order_date": "DATE",
+            "order_id": "INTEGER",
+            "amount": "DOUBLE"
+          },
+          "sample_rows": [
+            {
+              "customer_id": 1,
+              "order_date": "2026-01-01",
+              "order_id": 1,
+              "amount": 10.0
+            },
+            {
+              "customer_id": 1,
+              "order_date": "2026-01-03",
+              "order_id": 2,
+              "amount": 5.0
+            },
+            {
+              "customer_id": 2,
+              "order_date": "2026-01-02",
+              "order_id": 3,
+              "amount": 7.0
+            },
+            {
+              "customer_id": 1,
+              "order_date": "2026-01-05",
+              "order_id": 4,
+              "amount": 20.0
+            }
+          ]
+        }
+      ],
+      "output_schema": {
+        "customer_id": "value",
+        "order_date": "value",
+        "order_id": "value",
+        "amount": "value",
+        "previous_amount": "value",
+        "amount_delta": "value"
+      },
+      "runtime_requirements": [],
+      "provenance": {
+        "source": "Datapass leetcodedataeng engine lab (eng-lag-delta), adapted to DuckDB/pandas/Polars/SparkLab",
+        "fixtures": "Authored for Datapass; expected rows computed from reference SQL and reviewed; every variant graded in CI"
+      },
+      "constraints": {
+        "fixtures": "At most 200 rows per table; complete results are graded, truncated results never pass."
+      }
+    },
+    "variants": {
+      "sql": {
+        "starter_source": "SELECT *\nFROM orders\n-- compare with the previous order\n",
+        "supported_operations": [
+          "Window",
+          "lag",
+          "withColumn"
+        ]
+      },
+      "python": {
+        "starter_source": "import pandas as pd\norders_df = pd.DataFrame(orders)\ndisplay(orders_df)\n",
+        "supported_operations": [
+          "Window",
+          "lag",
+          "withColumn"
+        ]
+      },
+      "polars": {
+        "starter_source": "import polars as pl\norders_df = pl.DataFrame(orders)\ndisplay(orders_df)\n",
+        "supported_operations": [
+          "Window",
+          "lag",
+          "withColumn"
+        ]
+      },
+      "sparklab": {
+        "starter_source": "from pyspark.sql import functions as F\norders = spark.table(\"orders\")\norders\n",
+        "supported_operations": [
+          "Window",
+          "lag",
+          "withColumn"
+        ]
+      }
+    }
+  },
+  {
+    "semantic": {
+      "id": "eng-top-n",
+      "version": "1",
+      "industry": "Cross-engine data engineering",
+      "learning_objectives": [
+        "Top 3 products per category",
+        "Express one result contract in several engines"
+      ],
+      "optimization": "Top-N per group is ROW_NUMBER <= N in SQL/Spark and sort + groupby().head(N) in DataFrame libraries.",
+      "reflection": "How would you keep every product tied at the cutoff?"
+    },
+    "fixture_version": "1",
+    "common": {
+      "schema_version": 1,
+      "title": "Top 3 products per category",
+      "difficulty": "medium",
+      "topics": [
+        "window-functions",
+        "top-n",
+        "cross-engine"
+      ],
+      "tags": [
+        "engine-lab",
+        "shared-fixture"
+      ],
+      "origin": "migrated",
+      "prompt": "Keep the three highest-revenue products in each category, ties broken by product_id ascending. Return category, product_id, revenue.",
+      "sections": [
+        {
+          "title": "Tables",
+          "body": "product_sales(category VARCHAR, product_id INTEGER, revenue DOUBLE)"
+        },
+        {
+          "title": "How each engine reads the tables",
+          "body": "SQL: FROM <table>. pandas/Polars: each table (product_sales) is a list of row dicts in a variable of the same name. SparkLab: spark.table(\"<table>\"). Show the result with display(...) in Python; SparkLab returns the last DataFrame."
+        },
+        {
+          "title": "Output",
+          "body": "Columns in this order: category, product_id, revenue."
+        },
+        {
+          "title": "Common pitfall",
+          "body": "Without a tie-breaker, which tied product survives the cutoff is unspecified."
+        }
+      ],
+      "fixtures": [
+        {
+          "id": "eng-top-n-fixtures",
+          "version": "1"
+        }
+      ],
+      "visible_checks": [
+        {
+          "id": "example",
+          "description": "Public example: the tables shown in data_context."
+        }
+      ],
+      "hidden_check_refs": [
+        "ties-at-cutoff"
+      ],
+      "edge_check_refs": [
+        "fewer-than-three"
+      ],
+      "hints": [
+        "Rank inside each category by revenue descending.",
+        "A tie-breaker makes the cutoff deterministic."
+      ],
+      "solution": {
+        "available": true,
+        "reveal": "explicit"
+      },
+      "explanation": "Top-N per group is ROW_NUMBER <= N in SQL/Spark and sort + groupby().head(N) in DataFrame libraries.",
+      "follow_ups": [
+        "How would you keep every product tied at the cutoff?"
+      ],
+      "canonical_placement": {
+        "domain": "data-engineering",
+        "topic": "window-functions"
+      },
+      "related_associations": [
+        "engines/top-n",
+        "engines/cross-engine"
+      ],
+      "recommendation": {
+        "rank": 10,
+        "reason": "Engine lab progression"
+      },
+      "validator_version": "semantic-rows-v1",
+      "validation": {
+        "kind": "rows",
+        "ordered": false,
+        "duplicate_sensitive": true,
+        "relative_tolerance": 1e-09,
+        "absolute_tolerance": 1e-06,
+        "required_columns": [
+          "category",
+          "product_id",
+          "revenue"
+        ],
+        "exact_schema": [
+          "category",
+          "product_id",
+          "revenue"
+        ],
+        "forbidden_extra_columns": true,
+        "null_semantics": "equal"
+      },
+      "data_context": [
+        {
+          "name": "product_sales",
+          "columns": {
+            "category": "VARCHAR",
+            "product_id": "INTEGER",
+            "revenue": "DOUBLE"
+          },
+          "sample_rows": [
+            {
+              "category": "A",
+              "product_id": 1,
+              "revenue": 50.0
+            },
+            {
+              "category": "A",
+              "product_id": 2,
+              "revenue": 40.0
+            },
+            {
+              "category": "A",
+              "product_id": 3,
+              "revenue": 30.0
+            },
+            {
+              "category": "A",
+              "product_id": 4,
+              "revenue": 20.0
+            },
+            {
+              "category": "B",
+              "product_id": 5,
+              "revenue": 10.0
+            }
+          ]
+        }
+      ],
+      "output_schema": {
+        "category": "value",
+        "product_id": "value",
+        "revenue": "value"
+      },
+      "runtime_requirements": [],
+      "provenance": {
+        "source": "Datapass leetcodedataeng engine lab (eng-top-n), adapted to DuckDB/pandas/Polars/SparkLab",
+        "fixtures": "Authored for Datapass; expected rows computed from reference SQL and reviewed; every variant graded in CI"
+      },
+      "constraints": {
+        "fixtures": "At most 200 rows per table; complete results are graded, truncated results never pass."
+      }
+    },
+    "variants": {
+      "sql": {
+        "starter_source": "SELECT *\nFROM product_sales\n-- keep three products per category\n",
+        "supported_operations": [
+          "Window",
+          "row_number",
+          "filter"
+        ]
+      },
+      "python": {
+        "starter_source": "import pandas as pd\nproduct_sales_df = pd.DataFrame(product_sales)\ndisplay(product_sales_df)\n",
+        "supported_operations": [
+          "Window",
+          "row_number",
+          "filter"
+        ]
+      },
+      "polars": {
+        "starter_source": "import polars as pl\nproduct_sales_df = pl.DataFrame(product_sales)\ndisplay(product_sales_df)\n",
+        "supported_operations": [
+          "Window",
+          "row_number",
+          "filter"
+        ]
+      },
+      "sparklab": {
+        "starter_source": "from pyspark.sql import functions as F\nproduct_sales = spark.table(\"product_sales\")\nproduct_sales\n",
+        "supported_operations": [
+          "Window",
+          "row_number",
+          "filter"
+        ]
+      }
+    }
+  },
+  {
+    "semantic": {
+      "id": "eng-null-fill",
+      "version": "1",
+      "industry": "Cross-engine data engineering",
+      "learning_objectives": [
+        "Replace missing country with UNKNOWN",
+        "Express one result contract in several engines"
+      ],
+      "optimization": "Every engine has a NULL-replacement function; they agree on NULL and do not touch empty strings.",
+      "reflection": "Should empty strings be normalized to NULL at ingestion? Why?"
+    },
+    "fixture_version": "1",
+    "common": {
+      "schema_version": 1,
+      "title": "Replace missing country with UNKNOWN",
+      "difficulty": "easy",
+      "topics": [
+        "nulls",
+        "cross-engine"
+      ],
+      "tags": [
+        "engine-lab",
+        "shared-fixture"
+      ],
+      "origin": "migrated",
+      "prompt": "Return customer_id, country_clean where a NULL country becomes 'UNKNOWN'. Empty strings are not NULL and stay as they are.",
+      "sections": [
+        {
+          "title": "Tables",
+          "body": "customers(customer_id INTEGER, country VARCHAR)"
+        },
+        {
+          "title": "How each engine reads the tables",
+          "body": "SQL: FROM <table>. pandas/Polars: each table (customers) is a list of row dicts in a variable of the same name. SparkLab: spark.table(\"<table>\"). Show the result with display(...) in Python; SparkLab returns the last DataFrame."
+        },
+        {
+          "title": "Output",
+          "body": "Columns in this order: customer_id, country_clean."
+        },
+        {
+          "title": "Common pitfall",
+          "body": "Treating '' as missing (or filling it) changes the data silently."
+        }
+      ],
+      "fixtures": [
+        {
+          "id": "eng-null-fill-fixtures",
+          "version": "1"
+        }
+      ],
+      "visible_checks": [
+        {
+          "id": "example",
+          "description": "Public example: the tables shown in data_context."
+        }
+      ],
+      "hidden_check_refs": [
+        "empty-string"
+      ],
+      "edge_check_refs": [
+        "no-nulls"
+      ],
+      "hints": [
+        "COALESCE / fillna / fill_null / F.coalesce.",
+        "Only NULL is missing; '' is a value."
+      ],
+      "solution": {
+        "available": true,
+        "reveal": "explicit"
+      },
+      "explanation": "Every engine has a NULL-replacement function; they agree on NULL and do not touch empty strings.",
+      "follow_ups": [
+        "Should empty strings be normalized to NULL at ingestion? Why?"
+      ],
+      "canonical_placement": {
+        "domain": "data-engineering",
+        "topic": "nulls"
+      },
+      "related_associations": [
+        "engines/cross-engine"
+      ],
+      "recommendation": {
+        "rank": 11,
+        "reason": "Engine lab progression"
+      },
+      "validator_version": "semantic-rows-v1",
+      "validation": {
+        "kind": "rows",
+        "ordered": false,
+        "duplicate_sensitive": true,
+        "relative_tolerance": 1e-09,
+        "absolute_tolerance": 1e-06,
+        "required_columns": [
+          "customer_id",
+          "country_clean"
+        ],
+        "exact_schema": [
+          "customer_id",
+          "country_clean"
+        ],
+        "forbidden_extra_columns": true,
+        "null_semantics": "equal"
+      },
+      "data_context": [
+        {
+          "name": "customers",
+          "columns": {
+            "customer_id": "INTEGER",
+            "country": "VARCHAR"
+          },
+          "sample_rows": [
+            {
+              "customer_id": 1,
+              "country": "FR"
+            },
+            {
+              "customer_id": 2,
+              "country": null
+            },
+            {
+              "customer_id": 3,
+              "country": "BE"
+            }
+          ]
+        }
+      ],
+      "output_schema": {
+        "customer_id": "value",
+        "country_clean": "value"
+      },
+      "runtime_requirements": [],
+      "provenance": {
+        "source": "Datapass leetcodedataeng engine lab (eng-null-fill), adapted to DuckDB/pandas/Polars/SparkLab",
+        "fixtures": "Authored for Datapass; expected rows computed from reference SQL and reviewed; every variant graded in CI"
+      },
+      "constraints": {
+        "fixtures": "At most 200 rows per table; complete results are graded, truncated results never pass."
+      }
+    },
+    "variants": {
+      "sql": {
+        "starter_source": "SELECT *\nFROM customers\n-- replace NULL country\n",
+        "supported_operations": [
+          "withColumn",
+          "coalesce"
+        ]
+      },
+      "python": {
+        "starter_source": "import pandas as pd\ncustomers_df = pd.DataFrame(customers)\ndisplay(customers_df)\n",
+        "supported_operations": [
+          "withColumn",
+          "coalesce"
+        ]
+      },
+      "polars": {
+        "starter_source": "import polars as pl\ncustomers_df = pl.DataFrame(customers)\ndisplay(customers_df)\n",
+        "supported_operations": [
+          "withColumn",
+          "coalesce"
+        ]
+      },
+      "sparklab": {
+        "starter_source": "from pyspark.sql import functions as F\ncustomers = spark.table(\"customers\")\ncustomers\n",
+        "supported_operations": [
+          "withColumn",
+          "coalesce"
+        ]
+      }
+    }
+  },
+  {
+    "semantic": {
+      "id": "eng-union",
+      "version": "1",
+      "industry": "Cross-engine data engineering",
+      "learning_objectives": [
+        "Append historical and current rows",
+        "Express one result contract in several engines"
+      ],
+      "optimization": "Appending is UNION ALL in SQL and concat in pandas/Polars; none of them deduplicate.",
+      "reflection": "When is a deduplicating union the correct choice?"
+    },
+    "fixture_version": "1",
+    "common": {
+      "schema_version": 1,
+      "title": "Append historical and current rows",
+      "difficulty": "easy",
+      "topics": [
+        "union",
+        "cross-engine"
+      ],
+      "tags": [
+        "engine-lab",
+        "shared-fixture"
+      ],
+      "origin": "migrated",
+      "prompt": "Return order_id, amount for all rows of historical_orders followed by current_orders, keeping duplicates.",
+      "sections": [
+        {
+          "title": "Tables",
+          "body": "historical_orders(order_id INTEGER, amount DOUBLE); current_orders(order_id INTEGER, amount DOUBLE)"
+        },
+        {
+          "title": "How each engine reads the tables",
+          "body": "SQL: FROM <table>. pandas/Polars: each table (historical_orders, current_orders) is a list of row dicts in a variable of the same name. SparkLab: spark.table(\"<table>\"). Show the result with display(...) in Python; SparkLab returns the last DataFrame."
+        },
+        {
+          "title": "Output",
+          "body": "Columns in this order: order_id, amount."
+        },
+        {
+          "title": "Common pitfall",
+          "body": "UNION (without ALL) silently removes rows present in both inputs."
+        }
+      ],
+      "fixtures": [
+        {
+          "id": "eng-union-fixtures",
+          "version": "1"
+        }
+      ],
+      "visible_checks": [
+        {
+          "id": "example",
+          "description": "Public example: the tables shown in data_context."
+        }
+      ],
+      "hidden_check_refs": [
+        "overlap"
+      ],
+      "edge_check_refs": [
+        "one-side-only"
+      ],
+      "hints": [
+        "UNION ALL / concat keep duplicates.",
+        "UNION deduplicates."
+      ],
+      "solution": {
+        "available": true,
+        "reveal": "explicit"
+      },
+      "explanation": "Appending is UNION ALL in SQL and concat in pandas/Polars; none of them deduplicate.",
+      "follow_ups": [
+        "When is a deduplicating union the correct choice?"
+      ],
+      "canonical_placement": {
+        "domain": "data-engineering",
+        "topic": "union"
+      },
+      "related_associations": [
+        "engines/cross-engine"
+      ],
+      "recommendation": {
+        "rank": 12,
+        "reason": "Engine lab progression"
+      },
+      "validator_version": "semantic-rows-v1",
+      "validation": {
+        "kind": "rows",
+        "ordered": false,
+        "duplicate_sensitive": true,
+        "relative_tolerance": 1e-09,
+        "absolute_tolerance": 1e-06,
+        "required_columns": [
+          "order_id",
+          "amount"
+        ],
+        "exact_schema": [
+          "order_id",
+          "amount"
+        ],
+        "forbidden_extra_columns": true,
+        "null_semantics": "equal"
+      },
+      "data_context": [
+        {
+          "name": "historical_orders",
+          "columns": {
+            "order_id": "INTEGER",
+            "amount": "DOUBLE"
+          },
+          "sample_rows": [
+            {
+              "order_id": 1,
+              "amount": 10.0
+            },
+            {
+              "order_id": 2,
+              "amount": 20.0
+            }
+          ]
+        },
+        {
+          "name": "current_orders",
+          "columns": {
+            "order_id": "INTEGER",
+            "amount": "DOUBLE"
+          },
+          "sample_rows": [
+            {
+              "order_id": 3,
+              "amount": 30.0
+            }
+          ]
+        }
+      ],
+      "output_schema": {
+        "order_id": "value",
+        "amount": "value"
+      },
+      "runtime_requirements": [],
+      "provenance": {
+        "source": "Datapass leetcodedataeng engine lab (eng-union), adapted to DuckDB/pandas/Polars/SparkLab",
+        "fixtures": "Authored for Datapass; expected rows computed from reference SQL and reviewed; every variant graded in CI"
+      },
+      "constraints": {
+        "fixtures": "At most 200 rows per table; complete results are graded, truncated results never pass."
+      }
+    },
+    "variants": {
+      "sql": {
+        "starter_source": "SELECT *\nFROM historical_orders\n-- append current_orders\n",
+        "supported_operations": [
+          "select"
+        ]
+      },
+      "python": {
+        "starter_source": "import pandas as pd\nhistorical_orders_df = pd.DataFrame(historical_orders)\ncurrent_orders_df = pd.DataFrame(current_orders)\ndisplay(historical_orders_df)\n",
+        "supported_operations": [
+          "select"
+        ]
+      },
+      "polars": {
+        "starter_source": "import polars as pl\nhistorical_orders_df = pl.DataFrame(historical_orders)\ncurrent_orders_df = pl.DataFrame(current_orders)\ndisplay(historical_orders_df)\n",
+        "supported_operations": [
+          "select"
+        ]
+      }
+    }
+  },
+  {
+    "semantic": {
+      "id": "eng-transform-share",
+      "version": "1",
+      "industry": "Cross-engine data engineering",
+      "learning_objectives": [
+        "Each row's share of its customer total",
+        "Express one result contract in several engines"
+      ],
+      "optimization": "transform in pandas, over() in Polars and window SUM in SQL/Spark add a group aggregate to every row.",
+      "reflection": "Which engines need an explicit join to do this without windows?"
+    },
+    "fixture_version": "1",
+    "common": {
+      "schema_version": 1,
+      "title": "Each row's share of its customer total",
+      "difficulty": "medium",
+      "topics": [
+        "window-functions",
+        "aggregation",
+        "cross-engine"
+      ],
+      "tags": [
+        "engine-lab",
+        "shared-fixture"
+      ],
+      "origin": "migrated",
+      "prompt": "Return customer_id, order_id, amount, customer_total, amount_share = amount / customer_total, without collapsing rows.",
+      "sections": [
+        {
+          "title": "Tables",
+          "body": "orders(customer_id INTEGER, order_id INTEGER, amount DOUBLE)"
+        },
+        {
+          "title": "How each engine reads the tables",
+          "body": "SQL: FROM <table>. pandas/Polars: each table (orders) is a list of row dicts in a variable of the same name. SparkLab: spark.table(\"<table>\"). Show the result with display(...) in Python; SparkLab returns the last DataFrame."
+        },
+        {
+          "title": "Output",
+          "body": "Columns in this order: customer_id, order_id, amount, customer_total, amount_share."
+        },
+        {
+          "title": "Common pitfall",
+          "body": "groupby().sum() collapses rows; dividing by the grand total instead of the customer total changes the share."
+        }
+      ],
+      "fixtures": [
+        {
+          "id": "eng-transform-share-fixtures",
+          "version": "1"
+        }
+      ],
+      "visible_checks": [
+        {
+          "id": "example",
+          "description": "Public example: the tables shown in data_context."
+        }
+      ],
+      "hidden_check_refs": [
+        "many-orders"
+      ],
+      "edge_check_refs": [
+        "single"
+      ],
+      "hints": [
+        "pandas: groupby().transform('sum') keeps the row count.",
+        "SQL/Spark: SUM() OVER (PARTITION BY ...)."
+      ],
+      "solution": {
+        "available": true,
+        "reveal": "explicit"
+      },
+      "explanation": "transform in pandas, over() in Polars and window SUM in SQL/Spark add a group aggregate to every row.",
+      "follow_ups": [
+        "Which engines need an explicit join to do this without windows?"
+      ],
+      "canonical_placement": {
+        "domain": "data-engineering",
+        "topic": "window-functions"
+      },
+      "related_associations": [
+        "engines/aggregation",
+        "engines/cross-engine"
+      ],
+      "recommendation": {
+        "rank": 13,
+        "reason": "Engine lab progression"
+      },
+      "validator_version": "semantic-rows-v1",
+      "validation": {
+        "kind": "rows",
+        "ordered": false,
+        "duplicate_sensitive": true,
+        "relative_tolerance": 1e-09,
+        "absolute_tolerance": 1e-06,
+        "required_columns": [
+          "customer_id",
+          "order_id",
+          "amount",
+          "customer_total",
+          "amount_share"
+        ],
+        "exact_schema": [
+          "customer_id",
+          "order_id",
+          "amount",
+          "customer_total",
+          "amount_share"
+        ],
+        "forbidden_extra_columns": true,
+        "null_semantics": "equal"
+      },
+      "data_context": [
+        {
+          "name": "orders",
+          "columns": {
+            "customer_id": "INTEGER",
+            "order_id": "INTEGER",
+            "amount": "DOUBLE"
+          },
+          "sample_rows": [
+            {
+              "customer_id": 1,
+              "order_id": 100,
+              "amount": 10.0
+            },
+            {
+              "customer_id": 1,
+              "order_id": 101,
+              "amount": 30.0
+            },
+            {
+              "customer_id": 2,
+              "order_id": 102,
+              "amount": 5.0
+            }
+          ]
+        }
+      ],
+      "output_schema": {
+        "customer_id": "value",
+        "order_id": "value",
+        "amount": "value",
+        "customer_total": "value",
+        "amount_share": "value"
+      },
+      "runtime_requirements": [],
+      "provenance": {
+        "source": "Datapass leetcodedataeng engine lab (eng-transform-share), adapted to DuckDB/pandas/Polars/SparkLab",
+        "fixtures": "Authored for Datapass; expected rows computed from reference SQL and reviewed; every variant graded in CI"
+      },
+      "constraints": {
+        "fixtures": "At most 200 rows per table; complete results are graded, truncated results never pass."
+      }
+    },
+    "variants": {
+      "sql": {
+        "starter_source": "SELECT *\nFROM orders\n-- add customer_total and amount_share\n",
+        "supported_operations": [
+          "Window",
+          "sum",
+          "withColumn"
+        ]
+      },
+      "python": {
+        "starter_source": "import pandas as pd\norders_df = pd.DataFrame(orders)\ndisplay(orders_df)\n",
+        "supported_operations": [
+          "Window",
+          "sum",
+          "withColumn"
+        ]
+      },
+      "polars": {
+        "starter_source": "import polars as pl\norders_df = pl.DataFrame(orders)\ndisplay(orders_df)\n",
+        "supported_operations": [
+          "Window",
+          "sum",
+          "withColumn"
+        ]
+      },
+      "sparklab": {
+        "starter_source": "from pyspark.sql import functions as F\norders = spark.table(\"orders\")\norders\n",
+        "supported_operations": [
+          "Window",
+          "sum",
+          "withColumn"
+        ]
+      }
+    }
+  },
+  {
+    "semantic": {
+      "id": "eng-dense-rank",
+      "version": "1",
+      "industry": "Cross-engine data engineering",
+      "learning_objectives": [
+        "Dense rank inside each group",
+        "Express one result contract in several engines"
+      ],
+      "optimization": "Dense ranking by group exists in every engine under slightly different names.",
+      "reflection": "Which business questions need RANK instead of DENSE_RANK?"
+    },
+    "fixture_version": "1",
+    "common": {
+      "schema_version": 1,
+      "title": "Dense rank inside each group",
+      "difficulty": "medium",
+      "topics": [
+        "window-functions",
+        "dense-rank",
+        "cross-engine"
+      ],
+      "tags": [
+        "engine-lab",
+        "shared-fixture"
+      ],
+      "origin": "migrated",
+      "prompt": "Return employee_name, department, wage, wage_rank where the highest distinct wage in each department is rank 1 and ties share a rank without gaps.",
+      "sections": [
+        {
+          "title": "Tables",
+          "body": "employees(employee_name VARCHAR, department VARCHAR, wage INTEGER)"
+        },
+        {
+          "title": "How each engine reads the tables",
+          "body": "SQL: FROM <table>. pandas/Polars: each table (employees) is a list of row dicts in a variable of the same name. SparkLab: spark.table(\"<table>\"). Show the result with display(...) in Python; SparkLab returns the last DataFrame."
+        },
+        {
+          "title": "Output",
+          "body": "Columns in this order: employee_name, department, wage, wage_rank."
+        },
+        {
+          "title": "Common pitfall",
+          "body": "method='min' (like RANK) leaves gaps after ties; pandas rank returns floats unless cast."
+        }
+      ],
+      "fixtures": [
+        {
+          "id": "eng-dense-rank-fixtures",
+          "version": "1"
+        }
+      ],
+      "visible_checks": [
+        {
+          "id": "example",
+          "description": "Public example: the tables shown in data_context."
+        }
+      ],
+      "hidden_check_refs": [
+        "gap-after-tie"
+      ],
+      "edge_check_refs": [
+        "single"
+      ],
+      "hints": [
+        "rank(method='dense') in pandas/Polars.",
+        "DENSE_RANK() in SQL."
+      ],
+      "solution": {
+        "available": true,
+        "reveal": "explicit"
+      },
+      "explanation": "Dense ranking by group exists in every engine under slightly different names.",
+      "follow_ups": [
+        "Which business questions need RANK instead of DENSE_RANK?"
+      ],
+      "canonical_placement": {
+        "domain": "data-engineering",
+        "topic": "window-functions"
+      },
+      "related_associations": [
+        "engines/dense-rank",
+        "engines/cross-engine"
+      ],
+      "recommendation": {
+        "rank": 14,
+        "reason": "Engine lab progression"
+      },
+      "validator_version": "semantic-rows-v1",
+      "validation": {
+        "kind": "rows",
+        "ordered": false,
+        "duplicate_sensitive": true,
+        "relative_tolerance": 1e-09,
+        "absolute_tolerance": 1e-06,
+        "required_columns": [
+          "employee_name",
+          "department",
+          "wage",
+          "wage_rank"
+        ],
+        "exact_schema": [
+          "employee_name",
+          "department",
+          "wage",
+          "wage_rank"
+        ],
+        "forbidden_extra_columns": true,
+        "null_semantics": "equal"
+      },
+      "data_context": [
+        {
+          "name": "employees",
+          "columns": {
+            "employee_name": "VARCHAR",
+            "department": "VARCHAR",
+            "wage": "INTEGER"
+          },
+          "sample_rows": [
+            {
+              "employee_name": "Ana",
+              "department": "IT",
+              "wage": 70
+            },
+            {
+              "employee_name": "Ben",
+              "department": "IT",
+              "wage": 70
+            },
+            {
+              "employee_name": "Cid",
+              "department": "IT",
+              "wage": 50
+            },
+            {
+              "employee_name": "Dee",
+              "department": "HR",
+              "wage": 40
+            }
+          ]
+        }
+      ],
+      "output_schema": {
+        "employee_name": "value",
+        "department": "value",
+        "wage": "value",
+        "wage_rank": "value"
+      },
+      "runtime_requirements": [],
+      "provenance": {
+        "source": "Datapass leetcodedataeng engine lab (eng-dense-rank), adapted to DuckDB/pandas/Polars/SparkLab",
+        "fixtures": "Authored for Datapass; expected rows computed from reference SQL and reviewed; every variant graded in CI"
+      },
+      "constraints": {
+        "fixtures": "At most 200 rows per table; complete results are graded, truncated results never pass."
+      }
+    },
+    "variants": {
+      "sql": {
+        "starter_source": "SELECT *\nFROM employees\n-- add wage_rank per department\n",
+        "supported_operations": [
+          "select"
+        ]
+      },
+      "python": {
+        "starter_source": "import pandas as pd\nemployees_df = pd.DataFrame(employees)\ndisplay(employees_df)\n",
+        "supported_operations": [
+          "select"
+        ]
+      },
+      "polars": {
+        "starter_source": "import polars as pl\nemployees_df = pl.DataFrame(employees)\ndisplay(employees_df)\n",
+        "supported_operations": [
+          "select"
+        ]
+      }
+    }
+  },
+  {
+    "semantic": {
+      "id": "eng-cross-merge",
+      "version": "1",
+      "industry": "Cross-engine data engineering",
+      "learning_objectives": [
+        "Create a Cartesian product",
+        "Express one result contract in several engines"
+      ],
+      "optimization": "A Cartesian product is an explicit join type in every engine.",
+      "reflection": "How large would 1000 sizes x 1000 brands be?",
+      "figure_family": "join"
+    },
+    "fixture_version": "1",
+    "common": {
+      "schema_version": 1,
+      "title": "Create a Cartesian product",
+      "difficulty": "easy",
+      "topics": [
+        "cross-join",
+        "cross-engine"
+      ],
+      "tags": [
+        "engine-lab",
+        "shared-fixture"
+      ],
+      "origin": "migrated",
+      "prompt": "Return size_code, brand_name for every size and brand combination.",
+      "sections": [
+        {
+          "title": "Tables",
+          "body": "sizes(size_code VARCHAR); brands(brand_name VARCHAR)"
+        },
+        {
+          "title": "How each engine reads the tables",
+          "body": "SQL: FROM <table>. pandas/Polars: each table (sizes, brands) is a list of row dicts in a variable of the same name. SparkLab: spark.table(\"<table>\"). Show the result with display(...) in Python; SparkLab returns the last DataFrame."
+        },
+        {
+          "title": "Output",
+          "body": "Columns in this order: size_code, brand_name."
+        },
+        {
+          "title": "Common pitfall",
+          "body": "Simulating it with a fake constant key hides the intent; deduplicating drops real rows."
+        }
+      ],
+      "fixtures": [
+        {
+          "id": "eng-cross-merge-fixtures",
+          "version": "1"
+        }
+      ],
+      "visible_checks": [
+        {
+          "id": "example",
+          "description": "Public example: the tables shown in data_context."
+        }
+      ],
+      "hidden_check_refs": [
+        "duplicate-size"
+      ],
+      "edge_check_refs": [
+        "single"
+      ],
+      "hints": [
+        "pandas/Polars: how='cross'.",
+        "SQL: CROSS JOIN."
+      ],
+      "solution": {
+        "available": true,
+        "reveal": "explicit"
+      },
+      "explanation": "A Cartesian product is an explicit join type in every engine.",
+      "follow_ups": [
+        "How large would 1000 sizes x 1000 brands be?"
+      ],
+      "canonical_placement": {
+        "domain": "data-engineering",
+        "topic": "cross-join"
+      },
+      "related_associations": [
+        "engines/cross-engine"
+      ],
+      "recommendation": {
+        "rank": 15,
+        "reason": "Engine lab progression"
+      },
+      "validator_version": "semantic-rows-v1",
+      "validation": {
+        "kind": "rows",
+        "ordered": false,
+        "duplicate_sensitive": true,
+        "relative_tolerance": 1e-09,
+        "absolute_tolerance": 1e-06,
+        "required_columns": [
+          "size_code",
+          "brand_name"
+        ],
+        "exact_schema": [
+          "size_code",
+          "brand_name"
+        ],
+        "forbidden_extra_columns": true,
+        "null_semantics": "equal"
+      },
+      "data_context": [
+        {
+          "name": "sizes",
+          "columns": {
+            "size_code": "VARCHAR"
+          },
+          "sample_rows": [
+            {
+              "size_code": "S"
+            },
+            {
+              "size_code": "M"
+            }
+          ]
+        },
+        {
+          "name": "brands",
+          "columns": {
+            "brand_name": "VARCHAR"
+          },
+          "sample_rows": [
+            {
+              "brand_name": "Nike"
+            },
+            {
+              "brand_name": "Lewis"
+            },
+            {
+              "brand_name": "Asphalte"
+            }
+          ]
+        }
+      ],
+      "output_schema": {
+        "size_code": "value",
+        "brand_name": "value"
+      },
+      "runtime_requirements": [],
+      "provenance": {
+        "source": "Datapass leetcodedataeng engine lab (eng-cross-merge), adapted to DuckDB/pandas/Polars/SparkLab",
+        "fixtures": "Authored for Datapass; expected rows computed from reference SQL and reviewed; every variant graded in CI"
+      },
+      "constraints": {
+        "fixtures": "At most 200 rows per table; complete results are graded, truncated results never pass."
+      }
+    },
+    "variants": {
+      "sql": {
+        "starter_source": "SELECT *\nFROM sizes\n-- combine every size with every brand\n",
+        "supported_operations": [
+          "select"
+        ]
+      },
+      "python": {
+        "starter_source": "import pandas as pd\nsizes_df = pd.DataFrame(sizes)\nbrands_df = pd.DataFrame(brands)\ndisplay(sizes_df)\n",
+        "supported_operations": [
+          "select"
+        ]
+      },
+      "polars": {
+        "starter_source": "import polars as pl\nsizes_df = pl.DataFrame(sizes)\nbrands_df = pl.DataFrame(brands)\ndisplay(sizes_df)\n",
+        "supported_operations": [
+          "select"
+        ]
+      }
+    }
+  },
+  {
+    "semantic": {
+      "id": "eng-broadcast-join",
+      "version": "1",
+      "industry": "Cross-engine data engineering",
+      "learning_objectives": [
+        "Broadcast a small dimension table",
+        "Express one result contract in several engines"
+      ],
+      "optimization": "A broadcast hint ships the small table to every executor so the large side is not shuffled. It is an execution hint, not a semantic change.",
+      "reflection": "What changes in the simulated stages with and without the hint?",
+      "figure_family": "join"
+    },
+    "fixture_version": "1",
+    "common": {
+      "schema_version": 1,
+      "title": "Broadcast a small dimension table",
+      "difficulty": "medium",
+      "topics": [
+        "joins",
+        "broadcast",
+        "sparklab"
+      ],
+      "tags": [
+        "engine-lab",
+        "shared-fixture"
+      ],
+      "origin": "migrated",
+      "prompt": "Join sales to products on product_id and return sale_id, product_id, quantity, product_name, broadcasting products explicitly. The result rows are graded; the broadcast hint only shows up in the SIMULATED plan and never changes rows.",
+      "sections": [
+        {
+          "title": "Tables",
+          "body": "sales(sale_id INTEGER, product_id INTEGER, quantity INTEGER); products(product_id INTEGER, product_name VARCHAR)"
+        },
+        {
+          "title": "How each engine reads the tables",
+          "body": "SQL: FROM <table>. pandas/Polars: each table (sales, products) is a list of row dicts in a variable of the same name. SparkLab: spark.table(\"<table>\"). Show the result with display(...) in Python; SparkLab returns the last DataFrame."
+        },
+        {
+          "title": "Output",
+          "body": "Columns in this order: sale_id, product_id, quantity, product_name."
+        },
+        {
+          "title": "Common pitfall",
+          "body": "Broadcasting a table that is not small can exhaust executor memory; the hint never fixes a wrong join key."
+        }
+      ],
+      "fixtures": [
+        {
+          "id": "eng-broadcast-join-fixtures",
+          "version": "1"
+        }
+      ],
+      "visible_checks": [
+        {
+          "id": "example",
+          "description": "Public example: the tables shown in data_context."
+        }
+      ],
+      "hidden_check_refs": [
+        "unknown-product"
+      ],
+      "edge_check_refs": [
+        "single"
+      ],
+      "hints": [
+        "Wrap the small side in F.broadcast(...).",
+        "Inspect the simulated plan: no shuffle for the broadcast side."
+      ],
+      "solution": {
+        "available": true,
+        "reveal": "explicit"
+      },
+      "explanation": "A broadcast hint ships the small table to every executor so the large side is not shuffled. It is an execution hint, not a semantic change.",
+      "follow_ups": [
+        "What changes in the simulated stages with and without the hint?"
+      ],
+      "canonical_placement": {
+        "domain": "data-engineering",
+        "topic": "joins"
+      },
+      "related_associations": [
+        "engines/broadcast",
+        "engines/sparklab"
+      ],
+      "recommendation": {
+        "rank": 16,
+        "reason": "Engine lab progression"
+      },
+      "validator_version": "semantic-rows-v1",
+      "validation": {
+        "kind": "rows",
+        "ordered": false,
+        "duplicate_sensitive": true,
+        "relative_tolerance": 1e-09,
+        "absolute_tolerance": 1e-06,
+        "required_columns": [
+          "sale_id",
+          "product_id",
+          "quantity",
+          "product_name"
+        ],
+        "exact_schema": [
+          "sale_id",
+          "product_id",
+          "quantity",
+          "product_name"
+        ],
+        "forbidden_extra_columns": true,
+        "null_semantics": "equal"
+      },
+      "data_context": [
+        {
+          "name": "sales",
+          "columns": {
+            "sale_id": "INTEGER",
+            "product_id": "INTEGER",
+            "quantity": "INTEGER"
+          },
+          "sample_rows": [
+            {
+              "sale_id": 1,
+              "product_id": 10,
+              "quantity": 2
+            },
+            {
+              "sale_id": 2,
+              "product_id": 11,
+              "quantity": 1
+            },
+            {
+              "sale_id": 3,
+              "product_id": 10,
+              "quantity": 5
+            }
+          ]
+        },
+        {
+          "name": "products",
+          "columns": {
+            "product_id": "INTEGER",
+            "product_name": "VARCHAR"
+          },
+          "sample_rows": [
+            {
+              "product_id": 10,
+              "product_name": "Tea"
+            },
+            {
+              "product_id": 11,
+              "product_name": "Coffee"
+            }
+          ]
+        }
+      ],
+      "output_schema": {
+        "sale_id": "value",
+        "product_id": "value",
+        "quantity": "value",
+        "product_name": "value"
+      },
+      "runtime_requirements": [],
+      "provenance": {
+        "source": "Datapass leetcodedataeng engine lab (eng-broadcast-join), adapted to DuckDB/pandas/Polars/SparkLab",
+        "fixtures": "Authored for Datapass; expected rows computed from reference SQL and reviewed; every variant graded in CI"
+      },
+      "constraints": {
+        "fixtures": "At most 200 rows per table; complete results are graded, truncated results never pass."
+      }
+    },
+    "variants": {
+      "sparklab": {
+        "starter_source": "from pyspark.sql import functions as F\nsales = spark.table(\"sales\")\nproducts = spark.table(\"products\")\nsales.join(products, on=\"product_id\", how=\"inner\")\n",
+        "supported_operations": [
+          "join",
+          "broadcast"
+        ]
+      }
+    }
+  },
+  {
+    "semantic": {
+      "id": "eng-normalize-email",
+      "version": "1",
+      "industry": "Cross-engine data engineering",
+      "learning_objectives": [
+        "Derive a normalized email column",
+        "Express one result contract in several engines"
+      ],
+      "optimization": "String normalization functions exist everywhere; they all propagate NULL.",
+      "reflection": "Why normalize at ingestion rather than in every report?"
+    },
+    "fixture_version": "1",
+    "common": {
+      "schema_version": 1,
+      "title": "Derive a normalized email column",
+      "difficulty": "easy",
+      "topics": [
+        "strings",
+        "cross-engine"
+      ],
+      "tags": [
+        "engine-lab",
+        "shared-fixture"
+      ],
+      "origin": "migrated",
+      "prompt": "Return customer_id, email_normalized = the email trimmed of surrounding spaces and lowercased. NULL stays NULL.",
+      "sections": [
+        {
+          "title": "Tables",
+          "body": "customers(customer_id INTEGER, email VARCHAR)"
+        },
+        {
+          "title": "How each engine reads the tables",
+          "body": "SQL: FROM <table>. pandas/Polars: each table (customers) is a list of row dicts in a variable of the same name. SparkLab: spark.table(\"<table>\"). Show the result with display(...) in Python; SparkLab returns the last DataFrame."
+        },
+        {
+          "title": "Output",
+          "body": "Columns in this order: customer_id, email_normalized."
+        },
+        {
+          "title": "Common pitfall",
+          "body": "Removing every space (not only leading/trailing) alters the address."
+        }
+      ],
+      "fixtures": [
+        {
+          "id": "eng-normalize-email-fixtures",
+          "version": "1"
+        }
+      ],
+      "visible_checks": [
+        {
+          "id": "example",
+          "description": "Public example: the tables shown in data_context."
+        }
+      ],
+      "hidden_check_refs": [
+        "null-and-inner-space"
+      ],
+      "edge_check_refs": [
+        "already-clean"
+      ],
+      "hints": [
+        "Trim first, then lowercase.",
+        "Inner spaces are data: only strip the ends."
+      ],
+      "solution": {
+        "available": true,
+        "reveal": "explicit"
+      },
+      "explanation": "String normalization functions exist everywhere; they all propagate NULL.",
+      "follow_ups": [
+        "Why normalize at ingestion rather than in every report?"
+      ],
+      "canonical_placement": {
+        "domain": "data-engineering",
+        "topic": "strings"
+      },
+      "related_associations": [
+        "engines/cross-engine"
+      ],
+      "recommendation": {
+        "rank": 17,
+        "reason": "Engine lab progression"
+      },
+      "validator_version": "semantic-rows-v1",
+      "validation": {
+        "kind": "rows",
+        "ordered": false,
+        "duplicate_sensitive": true,
+        "relative_tolerance": 1e-09,
+        "absolute_tolerance": 1e-06,
+        "required_columns": [
+          "customer_id",
+          "email_normalized"
+        ],
+        "exact_schema": [
+          "customer_id",
+          "email_normalized"
+        ],
+        "forbidden_extra_columns": true,
+        "null_semantics": "equal"
+      },
+      "data_context": [
+        {
+          "name": "customers",
+          "columns": {
+            "customer_id": "INTEGER",
+            "email": "VARCHAR"
+          },
+          "sample_rows": [
+            {
+              "customer_id": 1,
+              "email": "  Ada@Example.COM "
+            },
+            {
+              "customer_id": 2,
+              "email": "grace@example.com"
+            }
+          ]
+        }
+      ],
+      "output_schema": {
+        "customer_id": "value",
+        "email_normalized": "value"
+      },
+      "runtime_requirements": [],
+      "provenance": {
+        "source": "Datapass leetcodedataeng engine lab (eng-normalize-email), adapted to DuckDB/pandas/Polars/SparkLab",
+        "fixtures": "Authored for Datapass; expected rows computed from reference SQL and reviewed; every variant graded in CI"
+      },
+      "constraints": {
+        "fixtures": "At most 200 rows per table; complete results are graded, truncated results never pass."
+      }
+    },
+    "variants": {
+      "sql": {
+        "starter_source": "SELECT *\nFROM customers\n-- normalize email\n",
+        "supported_operations": [
+          "select"
+        ]
+      },
+      "python": {
+        "starter_source": "import pandas as pd\ncustomers_df = pd.DataFrame(customers)\ndisplay(customers_df)\n",
+        "supported_operations": [
+          "select"
+        ]
+      },
+      "polars": {
+        "starter_source": "import polars as pl\ncustomers_df = pl.DataFrame(customers)\ndisplay(customers_df)\n",
+        "supported_operations": [
+          "select"
+        ]
+      }
+    }
+  },
+  {
+    "semantic": {
+      "id": "eng-qualify-latest",
+      "version": "1",
+      "industry": "Cross-engine data engineering",
+      "learning_objectives": [
+        "Filter a window result with QUALIFY",
+        "Express one result contract in several engines"
+      ],
+      "optimization": "QUALIFY removes the wrapping CTE that other dialects need for 'filter on ROW_NUMBER'.",
+      "reflection": "Rewrite the query without QUALIFY for a dialect that lacks it."
+    },
+    "fixture_version": "1",
+    "common": {
+      "schema_version": 1,
+      "title": "Filter a window result with QUALIFY",
+      "difficulty": "easy",
+      "topics": [
+        "window-functions",
+        "qualify",
+        "duckdb"
+      ],
+      "tags": [
+        "engine-lab",
+        "shared-fixture"
+      ],
+      "origin": "migrated",
+      "prompt": "Keep the latest event per user (ties on event_time broken by the higher event_id) in one SELECT using QUALIFY. Return user_id, event_id, event_time.",
+      "sections": [
+        {
+          "title": "Tables",
+          "body": "events(user_id INTEGER, event_id INTEGER, event_time TIMESTAMP)"
+        },
+        {
+          "title": "How each engine reads the tables",
+          "body": "SQL: FROM <table>. pandas/Polars: each table (events) is a list of row dicts in a variable of the same name. SparkLab: spark.table(\"<table>\"). Show the result with display(...) in Python; SparkLab returns the last DataFrame."
+        },
+        {
+          "title": "Output",
+          "body": "Columns in this order: user_id, event_id, event_time."
+        },
+        {
+          "title": "Common pitfall",
+          "body": "Without a tie-breaker, which of two simultaneous events wins is unspecified."
+        }
+      ],
+      "fixtures": [
+        {
+          "id": "eng-qualify-latest-fixtures",
+          "version": "1"
+        }
+      ],
+      "visible_checks": [
+        {
+          "id": "example",
+          "description": "Public example: the tables shown in data_context."
+        }
+      ],
+      "hidden_check_refs": [
+        "tie-on-time"
+      ],
+      "edge_check_refs": [
+        "single"
+      ],
+      "hints": [
+        "QUALIFY filters on window results, like HAVING filters on aggregates.",
+        "DuckDB, BigQuery and Snowflake support QUALIFY; T-SQL does not."
+      ],
+      "solution": {
+        "available": true,
+        "reveal": "explicit"
+      },
+      "explanation": "QUALIFY removes the wrapping CTE that other dialects need for 'filter on ROW_NUMBER'.",
+      "follow_ups": [
+        "Rewrite the query without QUALIFY for a dialect that lacks it."
+      ],
+      "canonical_placement": {
+        "domain": "data-engineering",
+        "topic": "window-functions"
+      },
+      "related_associations": [
+        "engines/qualify",
+        "engines/duckdb"
+      ],
+      "recommendation": {
+        "rank": 18,
+        "reason": "Engine lab progression"
+      },
+      "validator_version": "semantic-rows-v1",
+      "validation": {
+        "kind": "rows",
+        "ordered": false,
+        "duplicate_sensitive": true,
+        "relative_tolerance": 1e-09,
+        "absolute_tolerance": 1e-06,
+        "required_columns": [
+          "user_id",
+          "event_id",
+          "event_time"
+        ],
+        "exact_schema": [
+          "user_id",
+          "event_id",
+          "event_time"
+        ],
+        "forbidden_extra_columns": true,
+        "null_semantics": "equal"
+      },
+      "data_context": [
+        {
+          "name": "events",
+          "columns": {
+            "user_id": "INTEGER",
+            "event_id": "INTEGER",
+            "event_time": "TIMESTAMP"
+          },
+          "sample_rows": [
+            {
+              "user_id": 1,
+              "event_id": 1,
+              "event_time": "2026-01-01 10:00:00"
+            },
+            {
+              "user_id": 1,
+              "event_id": 2,
+              "event_time": "2026-01-01 11:00:00"
+            },
+            {
+              "user_id": 2,
+              "event_id": 3,
+              "event_time": "2026-01-02 09:00:00"
+            }
+          ]
+        }
+      ],
+      "output_schema": {
+        "user_id": "value",
+        "event_id": "value",
+        "event_time": "value"
+      },
+      "runtime_requirements": [],
+      "provenance": {
+        "source": "Datapass leetcodedataeng engine lab (bq-qualify), adapted to DuckDB/pandas/Polars/SparkLab",
+        "fixtures": "Authored for Datapass; expected rows computed from reference SQL and reviewed; every variant graded in CI"
+      },
+      "constraints": {
+        "fixtures": "At most 200 rows per table; complete results are graded, truncated results never pass."
+      }
+    },
+    "variants": {
+      "sql": {
+        "starter_source": "SELECT user_id, event_id, event_time\nFROM events\n-- keep the latest event per user with QUALIFY\n",
+        "supported_operations": [
+          "window",
+          "qualify"
+        ]
+      }
+    }
+  },
+  {
+    "semantic": {
+      "id": "eng-ordered-string-agg",
+      "version": "1",
+      "industry": "Cross-engine data engineering",
+      "learning_objectives": [
+        "Collect events newest first into one string",
+        "Express one result contract in several engines"
+      ],
+      "optimization": "Ordered string aggregation (BigQuery ARRAY_AGG/STRING_AGG, DuckDB string_agg) needs an explicit order inside the aggregate.",
+      "reflection": "When would you keep a real list type instead of a delimited string?"
+    },
+    "fixture_version": "1",
+    "common": {
+      "schema_version": 1,
+      "title": "Collect events newest first into one string",
+      "difficulty": "medium",
+      "topics": [
+        "aggregation",
+        "strings",
+        "duckdb"
+      ],
+      "tags": [
+        "engine-lab",
+        "shared-fixture"
+      ],
+      "origin": "migrated",
+      "prompt": "Return one row per user: user_id, recent_events = the event_name values joined with ',' ordered newest event_time first.",
+      "sections": [
+        {
+          "title": "Tables",
+          "body": "events(user_id INTEGER, event_time TIMESTAMP, event_name VARCHAR)"
+        },
+        {
+          "title": "How each engine reads the tables",
+          "body": "SQL: FROM <table>. pandas/Polars: each table (events) is a list of row dicts in a variable of the same name. SparkLab: spark.table(\"<table>\"). Show the result with display(...) in Python; SparkLab returns the last DataFrame."
+        },
+        {
+          "title": "Output",
+          "body": "Columns in this order: user_id, recent_events."
+        },
+        {
+          "title": "Common pitfall",
+          "body": "Without ORDER BY inside the aggregate, element order is unspecified."
+        }
+      ],
+      "fixtures": [
+        {
+          "id": "eng-ordered-string-agg-fixtures",
+          "version": "1"
+        }
+      ],
+      "visible_checks": [
+        {
+          "id": "example",
+          "description": "Public example: the tables shown in data_context."
+        }
+      ],
+      "hidden_check_refs": [
+        "unsorted-input"
+      ],
+      "edge_check_refs": [
+        "single"
+      ],
+      "hints": [
+        "The aggregate needs its own ORDER BY.",
+        "In DataFrames, sort before grouping."
+      ],
+      "solution": {
+        "available": true,
+        "reveal": "explicit"
+      },
+      "explanation": "Ordered string aggregation (BigQuery ARRAY_AGG/STRING_AGG, DuckDB string_agg) needs an explicit order inside the aggregate.",
+      "follow_ups": [
+        "When would you keep a real list type instead of a delimited string?"
+      ],
+      "canonical_placement": {
+        "domain": "data-engineering",
+        "topic": "aggregation"
+      },
+      "related_associations": [
+        "engines/strings",
+        "engines/duckdb"
+      ],
+      "recommendation": {
+        "rank": 19,
+        "reason": "Engine lab progression"
+      },
+      "validator_version": "semantic-rows-v1",
+      "validation": {
+        "kind": "rows",
+        "ordered": false,
+        "duplicate_sensitive": true,
+        "relative_tolerance": 1e-09,
+        "absolute_tolerance": 1e-06,
+        "required_columns": [
+          "user_id",
+          "recent_events"
+        ],
+        "exact_schema": [
+          "user_id",
+          "recent_events"
+        ],
+        "forbidden_extra_columns": true,
+        "null_semantics": "equal"
+      },
+      "data_context": [
+        {
+          "name": "events",
+          "columns": {
+            "user_id": "INTEGER",
+            "event_time": "TIMESTAMP",
+            "event_name": "VARCHAR"
+          },
+          "sample_rows": [
+            {
+              "user_id": 1,
+              "event_time": "2026-01-01 10:00:00",
+              "event_name": "login"
+            },
+            {
+              "user_id": 1,
+              "event_time": "2026-01-01 11:00:00",
+              "event_name": "buy"
+            },
+            {
+              "user_id": 2,
+              "event_time": "2026-01-02 09:00:00",
+              "event_name": "login"
+            }
+          ]
+        }
+      ],
+      "output_schema": {
+        "user_id": "value",
+        "recent_events": "value"
+      },
+      "runtime_requirements": [],
+      "provenance": {
+        "source": "Datapass leetcodedataeng engine lab (bq-array-agg), adapted to DuckDB/pandas/Polars/SparkLab",
+        "fixtures": "Authored for Datapass; expected rows computed from reference SQL and reviewed; every variant graded in CI"
+      },
+      "constraints": {
+        "fixtures": "At most 200 rows per table; complete results are graded, truncated results never pass."
+      }
+    },
+    "variants": {
+      "sql": {
+        "starter_source": "SELECT user_id, string_agg(event_name, ',') AS recent_events\nFROM events\nGROUP BY user_id\n",
+        "supported_operations": [
+          "select"
+        ]
+      },
+      "python": {
+        "starter_source": "import pandas as pd\nevents_df = pd.DataFrame(events)\ndisplay(events_df)\n",
+        "supported_operations": [
+          "select"
+        ]
+      },
+      "polars": {
+        "starter_source": "import polars as pl\nevents_df = pl.DataFrame(events)\ndisplay(events_df)\n",
+        "supported_operations": [
+          "select"
+        ]
+      }
+    }
+  },
+  {
+    "semantic": {
+      "id": "eng-split-explode",
+      "version": "1",
+      "industry": "Cross-engine data engineering",
+      "learning_objectives": [
+        "Flatten a delimited list into rows",
+        "Express one result contract in several engines"
+      ],
+      "optimization": "Flattening is UNNEST in SQL and explode in DataFrame libraries (BigQuery UNNEST, Spark explode).",
+      "reflection": "Why is a real ARRAY column safer than a delimited string?"
+    },
+    "fixture_version": "1",
+    "common": {
+      "schema_version": 1,
+      "title": "Flatten a delimited list into rows",
+      "difficulty": "medium",
+      "topics": [
+        "arrays",
+        "unnest",
+        "cross-engine"
+      ],
+      "tags": [
+        "engine-lab",
+        "shared-fixture"
+      ],
+      "origin": "migrated",
+      "prompt": "item_ids holds comma-separated integers. Return order_id, item_id (INTEGER) with one row per item; orders with no items produce no rows.",
+      "sections": [
+        {
+          "title": "Tables",
+          "body": "orders(order_id INTEGER, item_ids VARCHAR)"
+        },
+        {
+          "title": "How each engine reads the tables",
+          "body": "SQL: FROM <table>. pandas/Polars: each table (orders) is a list of row dicts in a variable of the same name. SparkLab: spark.table(\"<table>\"). Show the result with display(...) in Python; SparkLab returns the last DataFrame."
+        },
+        {
+          "title": "Output",
+          "body": "Columns in this order: order_id, item_id."
+        },
+        {
+          "title": "Common pitfall",
+          "body": "Deduplicating items after exploding loses genuine repeated items in one order."
+        }
+      ],
+      "fixtures": [
+        {
+          "id": "eng-split-explode-fixtures",
+          "version": "1"
+        }
+      ],
+      "visible_checks": [
+        {
+          "id": "example",
+          "description": "Public example: the tables shown in data_context."
+        }
+      ],
+      "hidden_check_refs": [
+        "repeated-items"
+      ],
+      "edge_check_refs": [
+        "single"
+      ],
+      "hints": [
+        "Split the string into a list, then unnest/explode it.",
+        "Cast each element to an integer."
+      ],
+      "solution": {
+        "available": true,
+        "reveal": "explicit"
+      },
+      "explanation": "Flattening is UNNEST in SQL and explode in DataFrame libraries (BigQuery UNNEST, Spark explode).",
+      "follow_ups": [
+        "Why is a real ARRAY column safer than a delimited string?"
+      ],
+      "canonical_placement": {
+        "domain": "data-engineering",
+        "topic": "arrays"
+      },
+      "related_associations": [
+        "engines/unnest",
+        "engines/cross-engine"
+      ],
+      "recommendation": {
+        "rank": 20,
+        "reason": "Engine lab progression"
+      },
+      "validator_version": "semantic-rows-v1",
+      "validation": {
+        "kind": "rows",
+        "ordered": false,
+        "duplicate_sensitive": true,
+        "relative_tolerance": 1e-09,
+        "absolute_tolerance": 1e-06,
+        "required_columns": [
+          "order_id",
+          "item_id"
+        ],
+        "exact_schema": [
+          "order_id",
+          "item_id"
+        ],
+        "forbidden_extra_columns": true,
+        "null_semantics": "equal"
+      },
+      "data_context": [
+        {
+          "name": "orders",
+          "columns": {
+            "order_id": "INTEGER",
+            "item_ids": "VARCHAR"
+          },
+          "sample_rows": [
+            {
+              "order_id": 1,
+              "item_ids": "10,11"
+            },
+            {
+              "order_id": 2,
+              "item_ids": "12"
+            }
+          ]
+        }
+      ],
+      "output_schema": {
+        "order_id": "value",
+        "item_id": "value"
+      },
+      "runtime_requirements": [],
+      "provenance": {
+        "source": "Datapass leetcodedataeng engine lab (bq-unnest), adapted to DuckDB/pandas/Polars/SparkLab",
+        "fixtures": "Authored for Datapass; expected rows computed from reference SQL and reviewed; every variant graded in CI"
+      },
+      "constraints": {
+        "fixtures": "At most 200 rows per table; complete results are graded, truncated results never pass."
+      }
+    },
+    "variants": {
+      "sql": {
+        "starter_source": "SELECT *\nFROM orders\n-- one row per item\n",
+        "supported_operations": [
+          "select"
+        ]
+      },
+      "python": {
+        "starter_source": "import pandas as pd\norders_df = pd.DataFrame(orders)\ndisplay(orders_df)\n",
+        "supported_operations": [
+          "select"
+        ]
+      },
+      "polars": {
+        "starter_source": "import polars as pl\norders_df = pl.DataFrame(orders)\ndisplay(orders_df)\n",
+        "supported_operations": [
+          "select"
+        ]
+      }
+    }
+  }
+]
