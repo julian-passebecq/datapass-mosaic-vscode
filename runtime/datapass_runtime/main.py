@@ -9,6 +9,7 @@ from pydantic import BaseModel, ConfigDict, Field
 from .pipeline_compiler import compile_response
 from .kernels import KernelManager
 from .retail_demo import run_retail_demo
+from .native_pipeline import run_native_pipeline
 
 NATIVE_WORKSPACE_ID = "vscode-native"
 kernel_manager = KernelManager(
@@ -125,6 +126,14 @@ def local_execute(body: LocalExecuteRequest) -> object:
 @app.post("/api/local/restart")
 def local_restart() -> object:
     return kernel_manager.restart(NATIVE_WORKSPACE_ID)
+
+
+@app.post("/api/pipeline/run")
+def execute_pipeline(body: PipelineCompileRequest) -> dict[str, object]:
+    try:
+        return run_native_pipeline(body.source, native_command)
+    except (ValueError, RuntimeError) as error:
+        raise HTTPException(status_code=400, detail=str(error)) from error
 
 
 @app.post("/api/pipeline/compile")
