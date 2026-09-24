@@ -713,3 +713,52 @@ h2 { margin-bottom: 8px; font-size: 28px; }
   text-overflow: ellipsis;
   white-space: nowrap;
 }
+
+
+.practice-toolbar-actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.practice-result {
+  display: grid;
+  gap: 8px;
+  padding: 10px;
+  border: 1px solid var(--vscode-panel-border);
+  border-radius: 6px;
+  background: var(--vscode-editor-background);
+}
+.practice-result-header,
+.practice-check {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 10px;
+}
+.practice-result-header strong,
+.practice-result-header small,
+.practice-check strong,
+.practice-check small {
+  display: block;
+}
+.practice-result-header small,
+.practice-check small {
+  margin-top: 2px;
+  color: var(--vscode-descriptionForeground);
+  font-size: 9px;
+}
+.practice-checks {
+  display: grid;
+  gap: 5px;
+}
+.practice-check {
+  padding-top: 6px;
+  border-top: 1px solid var(--vscode-panel-border);
+}
+
+@media (max-width: 900px) {
+  .practice-toolbar-actions {
+    align-items: stretch;
+    flex-direction: column;
+  }
+}
