@@ -5,7 +5,12 @@ import * as path from "node:path";
 import * as vscode from "vscode";
 import type { RuntimeEnvironmentView, RuntimeViewState } from "./webview/contracts";
 import { findFreePort, waitForDatapassHealth } from "./platform/runtimeEndpoint";
-import { managedVenvPython, runtimeInstallArgs, runtimeVerifyArgs } from "./platform/runtimeEnvironment";
+import {
+  describeSetupOutputLine,
+  managedVenvPython,
+  runtimeInstallArgs,
+  runtimeVerifyArgs
+} from "./platform/runtimeEnvironment";
 import { runtimeProcessEnv } from "./platform/pythonTrust";
 import { toSparkLabRunView } from "./platform/sparkLabRun";
 
@@ -55,6 +60,10 @@ export class RuntimeManager implements vscode.Disposable {
     return { ...this.state, environment: { ...this.environment } };
   }
 
+  showLog(): void {
+    this.output.show(true);
+  }
+
   async setup(pythonCommand = "python"): Promise<string> {
     if (this.state.status === "running" || this.state.status === "starting") {
       throw new Error("Stop the Datapass runtime before updating its environment.");
@@ -64,35 +73,63 @@ export class RuntimeManager implements vscode.Disposable {
     const venvRoot = path.join(this.storageUri.fsPath, "runtime-venv");
     const managedPython = managedVenvPython(venvRoot);
 
-    this.environment = {
-      status: "setting-up",
-      python: managedPython,
-      detail: "Creating and installing the isolated Datapass runtime…"
+    const startedAt = Date.now();
+    const totalSteps = 3;
+    let reportNotification: (message: string) => void = () => undefined;
+    let lastActivityFire = 0;
+    const setProgress = (step: number, label: string, activity?: string): void => {
+      this.environment = {
+        status: "setting-up",
+        python: managedPython,
+        detail: "Creating and installing the isolated Datapass runtime…",
+        progress: { step, totalSteps, label, activity, startedAt }
+      };
+      this.changed.fire(this.snapshot());
+      reportNotification(`Step ${step}/${totalSteps}: ${label}${activity ? ` · ${activity}` : ""}`);
     };
-    this.changed.fire(this.snapshot());
-    this.output.show(true);
+    // pip can print hundreds of lines per second; keep webview updates cheap.
+    const onActivity = (step: number, label: string) => (activity: string): void => {
+      const now = Date.now();
+      if (now - lastActivityFire < 400) return;
+      lastActivityFire = now;
+      setProgress(step, label, activity);
+    };
+
+    setProgress(1, "Creating Python environment");
 
     try {
-      await vscode.workspace.fs.createDirectory(this.storageUri);
-      if (!existsSync(managedPython)) {
-        this.output.appendLine("Creating isolated Datapass Python environment.");
-        await this.runSetupCommand(
-          pythonCommand,
-          ["-m", "venv", venvRoot],
-          this.storageUri.fsPath
-        );
-      }
+      await vscode.window.withProgress(
+        { location: vscode.ProgressLocation.Notification, title: "Datapass runtime setup" },
+        async progress => {
+          reportNotification = message => progress.report({ message });
+          await vscode.workspace.fs.createDirectory(this.storageUri);
+          if (!existsSync(managedPython)) {
+            this.output.appendLine("Creating isolated Datapass Python environment.");
+            setProgress(1, "Creating Python environment");
+            await this.runSetupCommand(
+              pythonCommand,
+              ["-m", "venv", venvRoot],
+              this.storageUri.fsPath
+            );
+          }
 
-      this.output.appendLine("Installing Datapass runtime and local engine dependencies.");
-      await this.runSetupCommand(
-        managedPython,
-        runtimeInstallArgs(runtimeRoot),
-        runtimeRoot
-      );
-      await this.runSetupCommand(
-        managedPython,
-        runtimeVerifyArgs(),
-        runtimeRoot
+          const installLabel = "Installing runtime dependencies";
+          this.output.appendLine("Installing Datapass runtime and local engine dependencies.");
+          setProgress(2, installLabel);
+          await this.runSetupCommand(
+            managedPython,
+            runtimeInstallArgs(runtimeRoot),
+            runtimeRoot,
+            onActivity(2, installLabel)
+          );
+
+          setProgress(3, "Verifying engines (DuckDB, Polars, pandas)");
+          await this.runSetupCommand(
+            managedPython,
+            runtimeVerifyArgs(),
+            runtimeRoot
+          );
+        }
       );
 
       this.environment = {
@@ -440,7 +477,8 @@ export class RuntimeManager implements vscode.Disposable {
   private runSetupCommand(
     command: string,
     args: readonly string[],
-    cwd: string
+    cwd: string,
+    onActivity?: (activity: string) => void
   ): Promise<void> {
     return new Promise((resolve, reject) => {
       this.output.appendLine(`> ${command} ${args.join(" ")}`);
@@ -451,8 +489,20 @@ export class RuntimeManager implements vscode.Disposable {
         env: process.env
       });
 
-      child.stdout?.on("data", chunk => this.output.append(String(chunk)));
-      child.stderr?.on("data", chunk => this.output.append(String(chunk)));
+      let pending = "";
+      const onChunk = (chunk: unknown): void => {
+        const text = String(chunk);
+        this.output.append(text);
+        if (!onActivity) return;
+        const lines = (pending + text).split(/\r?\n/);
+        pending = lines.pop() ?? "";
+        for (const line of lines) {
+          const activity = describeSetupOutputLine(line);
+          if (activity) onActivity(activity);
+        }
+      };
+      child.stdout?.on("data", onChunk);
+      child.stderr?.on("data", onChunk);
       child.once("error", reject);
       child.once("exit", (code, signal) => {
         if (code === 0) {

@@ -4,6 +4,7 @@ import {
   Card,
   CardHeader,
   FluentProvider,
+  ProgressBar,
   Spinner,
   Tab,
   TabList,
@@ -14,6 +15,7 @@ import {
 import { useEffect, useMemo, useState } from "react";
 import type {
   HostToWebviewMessage,
+  RuntimeSetupProgressView,
   WebviewToHostMessage,
   WorkbenchViewState
 } from "./contracts";
@@ -219,7 +221,16 @@ export function WorkbenchApp({ vscode }: { vscode: VsCodeApi }) {
                 {state.pythonTrust.restartRequired && (
                   <div className="error-text">Restart the runtime to apply the trusted Python setting.</div>
                 )}
-                {environment?.detail && <div className={environment.status === "error" ? "error-text" : "muted"}>{environment.detail}</div>}
+                {environment?.progress && environmentSettingUp ? (
+                  <SetupProgress progress={environment.progress} onShowLog={() => vscode.postMessage({ type: "showRuntimeLog" })} />
+                ) : environment?.detail && (
+                  <div className={environment.status === "error" ? "error-text" : "muted"}>{environment.detail}</div>
+                )}
+                {environment?.status === "error" && (
+                  <Button appearance="subtle" size="small" onClick={() => vscode.postMessage({ type: "showRuntimeLog" })}>
+                    Show setup log
+                  </Button>
+                )}
                 {state.runtime.detail && <div className={state.runtime.status === "error" ? "error-text" : "muted"}>{state.runtime.detail}</div>}
                 {state.runtime.status !== "running" && environmentReady && (
                   <Button
@@ -241,6 +252,36 @@ export function WorkbenchApp({ vscode }: { vscode: VsCodeApi }) {
 
 function StatusRow({ label, value }: { label: string; value: string }) {
   return <div className="status-row"><span className="muted">{label}</span><strong>{value}</strong></div>;
+}
+
+function SetupProgress({ progress, onShowLog }: { progress: RuntimeSetupProgressView; onShowLog: () => void }) {
+  const [now, setNow] = useState(Date.now());
+  useEffect(() => {
+    const timer = window.setInterval(() => setNow(Date.now()), 1000);
+    return () => window.clearInterval(timer);
+  }, []);
+
+  return (
+    <div className="setup-progress" role="status" aria-live="polite">
+      <div className="status-row">
+        <strong>Step {progress.step} of {progress.totalSteps}: {progress.label}</strong>
+        <span className="muted">{formatElapsed(now - progress.startedAt)}</span>
+      </div>
+      {/* pip reports no overall percentage, so the bar only shows that work is ongoing. */}
+      <ProgressBar thickness="medium" />
+      {progress.activity && <div className="muted setup-activity" title={progress.activity}>{progress.activity}</div>}
+      <div className="muted">
+        The first setup downloads DuckDB, Polars and pandas and can take several minutes, longer while antivirus scans new files.
+      </div>
+      <Button appearance="subtle" size="small" onClick={onShowLog}>Show setup log</Button>
+    </div>
+  );
+}
+
+function formatElapsed(ms: number): string {
+  const seconds = Math.max(0, Math.floor(ms / 1000));
+  const minutes = Math.floor(seconds / 60);
+  return minutes > 0 ? `${minutes}m ${String(seconds % 60).padStart(2, "0")}s` : `${seconds}s`;
 }
 
 function isDarkTheme(): boolean {

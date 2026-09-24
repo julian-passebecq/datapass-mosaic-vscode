@@ -52,9 +52,11 @@ export function PipelineSurface({
       </div>
 
       <div className="pipeline-facts">
-        <span><strong>Truth:</strong> {pipeline.truth ?? "not compiled"}</span>
-        <span><strong>Schedule:</strong> {pipeline.schedule ?? "manual / none"}</span>
-        <span><strong>Tasks:</strong> {pipeline.graph.nodes.length}</span>
+        <span title={pipeline.truth ? `Compiler truth: ${pipeline.truth}` : undefined}>
+          <strong>Source:</strong> {sourceTruthLabel(pipeline.truth)}
+        </span>
+        <span><strong>Activities:</strong> {activitySummary(pipeline.graph.nodes)}</span>
+        <span><strong>Schedule:</strong> {pipeline.schedule ? `${pipeline.schedule} (metadata only)` : "manual / none"}</span>
       </div>
 
       {pipeline.compileStatus === "runtime-required" && (
@@ -119,4 +121,30 @@ export function PipelineSurface({
       </p>
     </section>
   );
+}
+
+/**
+ * The compiler's truth describes the pipeline SOURCE (parsed, never eval/exec'd),
+ * not its activities; say that in words so it does not read as "nothing runs".
+ */
+function sourceTruthLabel(truth: string | undefined): string {
+  switch (truth) {
+    case undefined:
+      return "not compiled";
+    case "compiled_design_only":
+      return "compiled, never executed";
+    case "unavailable":
+      return "not compiled (see diagnostics)";
+    default:
+      return truth;
+  }
+}
+
+function activitySummary(nodes: PipelineViewState["graph"]["nodes"]): string {
+  if (nodes.length === 0) return "none";
+  const runnable = nodes.filter(node => node.truth?.startsWith("Real local execution")).length;
+  const other = nodes.length - runnable;
+  return other === 0
+    ? `${runnable} run locally`
+    : `${runnable} run locally · ${other} declared only`;
 }

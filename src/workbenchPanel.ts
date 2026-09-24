@@ -143,6 +143,9 @@ export class WorkbenchPanel {
       case "setupRuntime":
         await this.setupRuntime();
         return;
+      case "showRuntimeLog":
+        this.runtimeManager.showLog();
+        return;
       case "startRuntime":
         await this.startRuntime();
         return;
