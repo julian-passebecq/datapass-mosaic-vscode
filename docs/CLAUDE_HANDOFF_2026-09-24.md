@@ -2,6 +2,47 @@
 
 Date: 2026-09-24
 
+## 0. Latest tranche — Claude, 2026-09-24 (read this first)
+
+Branch tip after this tranche: `48ee7b6` on `codex/bootstrap-datapass-workbench` (draft PR #1 stays draft).
+
+| Commit | Change |
+| --- | --- |
+| `8e17eaf` | Explicit trusted-Python opt-in; direct SparkLab execution UX; graceful kernel shutdown; runtime reports trust |
+| `31d0283` | Extension Development Host E2E suite (`npm run test:host`) + `extension-host` CI job |
+| `d59716d` | Pipeline dbt activity kept explicitly unsupported, fails fast; per-activity truth labels in the graph |
+| `dc191c5` | Mosaic layout persisted to versioned `.datapass/mosaic.json`; SparkLab result overflow fix |
+| `48ee7b6` | Retail SQL starter made runnable through Mosaic (no blocked file functions) |
+
+CI: `8e17eaf` run 36049484672 and `31d0283` run 36050050237 were green on all jobs (extension, runtime, extension-host with all 14 E2E steps executed, none skipped). Check the latest run for `48ee7b6` before continuing.
+
+### What was actually executed vs statically inspected
+
+Executed (automated, locally on Windows and in Linux CI):
+
+- `npm run compile`, `npm test` (6 Node contract smokes incl. new `trust_smoke.mjs`, `mosaic_layout_smoke.mjs`);
+- `python -m pip install ./runtime`, `compileall`, `scripts/runtime_smoke.py` (now also: trusted/untrusted Python, workspace-relative paths, SparkLab starter + unsafe-source rejection, dbt pipeline fail-fast);
+- `npm run test:host`: a real VS Code Extension Development Host on a disposable workspace. Activation + all commands, Workbench webview opens, manifest, trust resolution, Mosaic layout file round trip, Airflow starter, dbt static lineage, then against a real runtime: untrusted start despite injected `DATAPASS_TRUSTED_PYTHON=1`, Mosaic SQL, Python refusal, SparkLab, Practice run/submit/wrong answer, Pipeline compile + run, retail demo + generated retail SQL, trusted restart + real Python/Polars run.
+
+Executed visually (not in CI): the built `dist/webview.js` was rendered in a browser harness with a stubbed VS Code API and state captured from the real runtime. Mosaic (untrusted/trusted) and SparkLab (success/rejected) were inspected, and button → host messages were verified. This found and fixed a SparkLab layout overflow.
+
+NOT exercised: a human F5 session clicking through the real webview inside VS Code (modal confirmation dialog, drag/resize writing `.datapass/mosaic.json`, reload restoring it). The E2E drives the same host classes but does not click webview buttons. Do this before taking PR #1 out of draft.
+
+### Decisions made in this tranche
+
+- **Trusted Python** = manifest `runtime.trustedLocalPython: true` AND per-machine modal confirmation (`workspaceState`) AND VS Code Workspace Trust. A cloned repo's manifest flag alone never enables Python. The extension builds the runtime env via `runtimeProcessEnv` (always strips inherited `DATAPASS_TRUSTED_PYTHON`), verifies `/api/capabilities → runtime.trusted_local_python` after start, and restarts a running runtime on change.
+- **Pipeline dbt** stays declared-only (option 2 of the P2 item). Reason: donor `dbt_runner.py` depends on job/document infrastructure absent here, and dbt macros/hooks need the trust boundary extended first.
+- **Mosaic layout** is project-portable only inside a Datapass project; opening Mosaic never creates `.datapass/`.
+- **Mosaic SQL file access** stays blocked (`read_csv_auto` etc.); starters build on catalog tables instead.
+
+### Recommended next steps
+
+1. Manual F5 pass over the new UI (see "NOT exercised" above), then decide on un-drafting PR #1.
+2. P2 content: promote exercises from `legacy-donors/leetcodedataeng`. The grader uses a single `input` fixture table per exercise (`content/exercise-packs/*/grading.server.json`); most donor SQL problems are multi-table, so either extend fixtures to named tables or re-author. Add each exercise to the runtime smoke with its reference solution.
+3. A Mosaic "Import CSV into catalog" action over the existing text-only `import_csv` op (bronze-only, no overwrite) would give learners a sanctioned ingest path besides the retail demo.
+4. If wiring Pipeline dbt later: extend the trusted-local opt-in to dbt, validate the project path against the manifest `assets.dbt`, reuse `dbt_runner` artifact validation, never report success without a qualified manifest/run_results pair.
+5. `package-lock.json` is not committed (CI uses `npm install`); decide whether to commit a lockfile for reproducible builds.
+
 ## 1. Start here
 
 Repository: `julian-passebecq/datapass-mosaic-vscode`
@@ -93,10 +134,10 @@ Implemented:
 - SQL result preview;
 - shared local catalog display.
 
-Important gap:
+Resolved in the 2026-09-24 Claude tranche:
 
-- the Python/Polars card opens native files but does not yet expose the same polished execution workflow as SQL.
-- Do not solve this by silently enabling arbitrary Python. See the trusted-Python boundary below.
+- **Run active Python** executes the active `.py` file only when trusted local Python is effective; otherwise it is disabled with the reason shown.
+- The layout is persisted to `.datapass/mosaic.json` inside a Datapass project.
 
 ### Practice
 
@@ -132,13 +173,7 @@ Truth boundary:
 
 Runtime capability exists and is bounded.
 
-Current webview is still relatively thin:
-
-- operation/capability reference;
-- open Spark/Python scratch;
-- jump to Practice.
-
-Priority improvement: add a direct, clearly bounded SparkLab execution/inspection workflow using the existing safe parser/runtime. Do not imply a real distributed Spark cluster.
+Direct workflow implemented (2026-09-24 Claude tranche): `notebooks/sparklab.py` scratch, virtual cluster profile + AQE selection, **Run active SparkLab file**, result rows + compiled SQL (real local), teaching logical plan, and a SIMULATED stage/shuffle/credits panel. Unsupported source is rejected with `SparkLabSyntaxError`. No new Spark engine was added.
 
 ### dbt Lab
 
@@ -150,9 +185,7 @@ Implemented:
 - real `dbt build` path when tooling is installed;
 - prefer real `target/manifest.json` after execution.
 
-Gap:
-
-- Pipeline Lab accepts a dbt activity in the design grammar, but native pipeline dbt execution is intentionally **not wired yet**. `runtime/datapass_runtime/native_pipeline.py` currently fails clearly and directs users to dbt Lab.
+Pipeline Lab accepts a dbt activity in the design grammar, but native pipeline dbt execution is deliberately **not wired**. `native_pipeline.py` fails that task once (no retries), states nothing was run, and skips downstream tasks; the graph labels it *Declared only · not executed*.
 
 ### Airflow Lab
 
@@ -232,7 +265,7 @@ Therefore:
 - bounded SparkLab semantics work through their safe parser.
 - arbitrary Python/Polars execution must remain explicitly trusted.
 
-Next implementation should create an explicit UX/project setting for trusted local Python rather than simply setting the environment flag globally.
+Implemented (2026-09-24 Claude tranche): see section 0 and `docs/ARCHITECTURE.md` → "Trusted local Python". Key files: `src/platform/pythonTrust.ts`, `src/pythonTrustController.ts`, `src/runtimeManager.ts`.
 
 Suggested contract direction:
 
@@ -328,7 +361,9 @@ Proceed in this order unless a newly reproduced bug blocks the sequence.
 3. Do not force-push/rewrite the long branch history.
 4. Keep the branch-to-main PR as draft until manual F5 smoke testing is satisfactory.
 
-### P1 — trusted Python/Polars UX
+Status after the 2026-09-24 Claude tranche: P1 trusted Python — done; P1 SparkLab — done; P1 E2E — done (`npm run test:host`); P2 pipeline dbt — decided: explicitly unsupported; P2 Mosaic durability — done. Remaining: P2 content, manual F5 pass.
+
+### P1 — trusted Python/Polars UX (done)
 
 Implement explicit workspace/project opt-in.
 
@@ -411,7 +446,13 @@ python -m compileall -q runtime/datapass_runtime runtime/sparklab
 python scripts/runtime_smoke.py
 ```
 
-Current CI runs both extension and runtime jobs.
+Extension Development Host E2E (see `docs/LOCAL_TEST.md`):
+
+```bash
+npm run test:host   # with DATAPASS_E2E_PYTHON pointing to a Python that has ./runtime installed
+```
+
+Current CI runs extension, runtime and extension-host jobs.
 
 Manual test:
 
