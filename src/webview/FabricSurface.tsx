@@ -10,7 +10,7 @@ export function FabricSurface({
   runtime: RuntimeViewState;
 }) {
   const running = runtime.status === "running";
-  const retailDemo = retailDemo;
+  const retailDemo = runtime.retailDemo;
 
   return (
     <section className="lab-surface">
