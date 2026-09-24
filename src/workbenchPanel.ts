@@ -103,6 +103,9 @@ export class WorkbenchPanel {
       case "createRetailDemo":
         await this.createRetailDemo();
         return;
+      case "runRetailDemo":
+        await this.runRetailDemo();
+        return;
       case "startRuntime": {
         const manifest = await readProjectManifest();
         const pythonCommand = manifest.manifest?.runtime?.pythonCommand ?? "python";
@@ -224,6 +227,34 @@ export class WorkbenchPanel {
     void vscode.window.showInformationMessage(
       "Datapass retail demo created: dataset, notebook starters, pipeline, Airflow DAG and dbt sample."
     );
+    await this.refresh();
+  }
+
+  private async runRetailDemo(): Promise<void> {
+    const root = vscode.workspace.workspaceFolders?.[0]?.uri;
+    if (!root) {
+      void vscode.window.showWarningMessage("Open a workspace folder before running the retail demo.");
+      return;
+    }
+
+    const manifest = await readProjectManifest();
+    const datasetRoot = safeRelativeParts(manifest.manifest?.assets?.datasets, "datasets");
+    const datasetPath = [...datasetRoot, "retail_orders.csv"].join("/");
+    const datasetUri = vscode.Uri.joinPath(root, ...datasetRoot, "retail_orders.csv");
+    if (!(await exists(datasetUri))) {
+      void vscode.window.showWarningMessage(
+        "Retail demo dataset is missing. Create the retail end-to-end demo first."
+      );
+      return;
+    }
+
+    try {
+      await this.runtimeManager.runRetailDemo(datasetPath);
+    } catch (error) {
+      void vscode.window.showErrorMessage(
+        `Retail demo failed: ${error instanceof Error ? error.message : String(error)}`
+      );
+    }
     await this.refresh();
   }
 
