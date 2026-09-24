@@ -515,3 +515,90 @@ h2 { margin-bottom: 8px; font-size: 28px; }
 @media (max-width: 900px) {
   .demo-banner { align-items: flex-start; flex-direction: column; }
 }
+
+
+.retail-result {
+  margin-bottom: 16px;
+  padding: 14px;
+  border: 1px solid var(--vscode-panel-border);
+  border-radius: 7px;
+  background: var(--vscode-editorWidget-background);
+}
+.retail-result-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 12px;
+}
+.retail-result-header .muted {
+  margin-top: 4px;
+  font-size: 11px;
+}
+.retail-stage-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 8px;
+  margin-bottom: 12px;
+}
+.retail-stage {
+  display: grid;
+  gap: 3px;
+  padding: 10px;
+  border: 1px solid var(--vscode-panel-border);
+  border-radius: 6px;
+  background: var(--vscode-editor-background);
+}
+.retail-stage span,
+.retail-stage small {
+  color: var(--vscode-descriptionForeground);
+  font-size: 10px;
+}
+.retail-stage strong { font-size: 12px; }
+.retail-kpis {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+  margin-bottom: 12px;
+}
+.retail-kpis > div {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 8px 10px;
+  border-left: 2px solid var(--vscode-focusBorder);
+  background: var(--vscode-editor-background);
+  font-size: 11px;
+}
+.retail-kpis span { color: var(--vscode-descriptionForeground); }
+.retail-preview-wrap {
+  max-width: 100%;
+  overflow: auto;
+  border: 1px solid var(--vscode-panel-border);
+  border-radius: 6px;
+}
+.retail-preview {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 11px;
+}
+.retail-preview th,
+.retail-preview td {
+  padding: 7px 9px;
+  border-bottom: 1px solid var(--vscode-panel-border);
+  text-align: left;
+  white-space: nowrap;
+}
+.retail-preview th {
+  position: sticky;
+  top: 0;
+  background: var(--vscode-sideBar-background);
+}
+.retail-preview tr:last-child td { border-bottom: 0; }
+
+@media (max-width: 900px) {
+  .retail-result-header { flex-direction: column; }
+  .retail-stage-grid,
+  .retail-kpis { grid-template-columns: 1fr; }
+}
