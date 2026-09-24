@@ -14,6 +14,7 @@ import subprocess
 import sys
 import threading
 import time
+from .content import CONTENT
 
 
 class KernelTimeout(TimeoutError):
@@ -29,6 +30,7 @@ class Kernel:
         self.log = open(directory / 'worker.stderr.log','a',encoding='utf-8')
         env = {k:v for k,v in os.environ.items() if not any(word in k.upper() for word in ('TOKEN','SECRET','PASSWORD','API_KEY'))}
         env['PYTHONUNBUFFERED'] = '1'
+        env['DATAPASS_CONTENT_ROOT'] = str(CONTENT)
         self.process = subprocess.Popen(args,cwd=directory,stdin=subprocess.PIPE,stdout=subprocess.PIPE,stderr=self.log,text=True,encoding='utf-8',env=env)
         self.lock = threading.Lock()
         self.last_used = time.monotonic()
