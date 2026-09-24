@@ -80,6 +80,14 @@ npm run test:host   # with DATAPASS_E2E_PYTHON set; see docs/LOCAL_TEST.md
 
 Also manually inspect the Extension Development Host for user-facing changes when possible.
 
+## Branching
+
+`main` is the baseline. The former implementation branch `codex/bootstrap-datapass-workbench` was merged through PR #1 (merge commit `f35dbe4`, 2026-09-24) and is kept only as history; do not continue work on it.
+
+- Start each tranche on a new branch from an up-to-date `main`.
+- Merge back through a pull request once CI (extension, runtime, extension-host) is green; CI runs on every pull request.
+- Do not force-push or rewrite `main` history.
+
 ## Current continuation point
 
-Read `docs/CLAUDE_HANDOFF_2026-09-24.md` before making substantial changes. It records the current branch, implemented execution bridge, known gaps, and prioritized continuation plan.
+Read `docs/CLAUDE_HANDOFF_2026-09-24.md` before making substantial changes. It records the implemented execution bridge, known gaps, and prioritized continuation plan; its §0 sections are the newest state.
