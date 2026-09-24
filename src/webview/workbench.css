@@ -661,3 +661,45 @@ h2 { margin-bottom: 8px; font-size: 28px; }
   font-size: 10px;
 }
 .mosaic-result-title span { color: var(--vscode-descriptionForeground); }
+
+
+.pipeline-run-panel {
+  margin: 12px 0;
+  padding: 12px;
+  border: 1px solid var(--vscode-panel-border);
+  border-radius: 7px;
+  background: var(--vscode-editorWidget-background);
+}
+.pipeline-run-header {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  align-items: flex-start;
+  margin-bottom: 9px;
+}
+.pipeline-run-header strong,
+.pipeline-run-header small { display: block; }
+.pipeline-run-header small {
+  margin-top: 3px;
+  color: var(--vscode-descriptionForeground);
+  font-size: 10px;
+}
+.pipeline-run-tasks { display: grid; gap: 6px; }
+.pipeline-run-task {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto auto;
+  gap: 10px;
+  align-items: center;
+  padding: 7px 8px;
+  border: 1px solid var(--vscode-panel-border);
+  border-radius: 5px;
+  background: var(--vscode-editor-background);
+  font-size: 10px;
+}
+.pipeline-run-task strong,
+.pipeline-run-task small { display: block; }
+.pipeline-run-task small { color: var(--vscode-descriptionForeground); }
+.pipeline-task-error {
+  grid-column: 1 / -1;
+  color: var(--vscode-errorForeground) !important;
+}
