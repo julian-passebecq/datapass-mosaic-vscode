@@ -64,9 +64,31 @@ export function MosaicSurface({
           >
             <div key="sql">
               <MosaicBlock title="SQL workspace" subtitle="DuckDB SQL in a real VS Code file">
-                <Button appearance="primary" size="small" onClick={() => vscode.postMessage({ type: "openScratch", kind: "sql" })}>
-                  Open SQL scratch
-                </Button>
+                <div className="button-row">
+                  <Button appearance="primary" size="small" onClick={() => vscode.postMessage({ type: "openScratch", kind: "sql" })}>
+                    Open SQL scratch
+                  </Button>
+                  <Button
+                    appearance="secondary"
+                    size="small"
+                    disabled={runtime.status !== "running"}
+                    onClick={() => vscode.postMessage({ type: "runActiveSql" })}
+                  >
+                    Run active SQL
+                  </Button>
+                </div>
+                {runtime.lastRun && runtime.lastRun.language === "sql" && (
+                  <div className="mosaic-run-summary">
+                    <Badge
+                      appearance="tint"
+                      color={runtime.lastRun.status === "success" ? "success" : "danger"}
+                    >
+                      {runtime.lastRun.status}
+                    </Badge>
+                    <span>{runtime.lastRun.elapsed_ms.toFixed(1)} ms</span>
+                    {runtime.lastRun.error && <small>{runtime.lastRun.error.message}</small>}
+                  </div>
+                )}
               </MosaicBlock>
             </div>
 
@@ -94,6 +116,30 @@ export function MosaicSurface({
                     Refresh
                   </Button>
                 </div>
+                {runtime.lastRun?.status === "success" && runtime.lastRun.result && (
+                  <div className="mosaic-result-preview">
+                    <div className="mosaic-result-title">
+                      <strong>Last SQL result</strong>
+                      <span>{runtime.lastRun.result.rows.length} preview rows</span>
+                    </div>
+                    <div className="retail-preview-wrap">
+                      <table className="retail-preview">
+                        <thead>
+                          <tr>{runtime.lastRun.result.columns.map(column => <th key={column}>{column}</th>)}</tr>
+                        </thead>
+                        <tbody>
+                          {runtime.lastRun.result.rows.slice(0, 8).map((row, index) => (
+                            <tr key={index}>
+                              {runtime.lastRun!.result!.columns.map(column => (
+                                <td key={column}>{String(row[column] ?? "")}</td>
+                              ))}
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+                )}
                 {runtime.catalog && runtime.catalog.length > 0 ? (
                   <div className="catalog-list">
                     {runtime.catalog.map(asset => (
