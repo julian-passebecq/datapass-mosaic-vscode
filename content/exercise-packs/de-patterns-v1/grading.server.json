@@ -1,0 +1,1848 @@
+{
+  "de-clean-imported-text": {
+    "solution": "SELECT CAST(order_id AS INTEGER) AS order_id,\n       TRY_CAST(NULLIF(TRIM(amount), '') AS DOUBLE) AS amount,\n       NULLIF(LOWER(TRIM(status)), '') AS status\nFROM raw_orders",
+    "fixtures": [
+      {
+        "id": "example",
+        "visibility": "visible",
+        "input_rows": [],
+        "tables": {
+          "raw_orders": [
+            {
+              "order_id": "1",
+              "amount": "19.90",
+              "status": "shipped"
+            },
+            {
+              "order_id": "2",
+              "amount": " 5 ",
+              "status": "  Shipped "
+            },
+            {
+              "order_id": "3",
+              "amount": "",
+              "status": "pending"
+            },
+            {
+              "order_id": "4",
+              "amount": "n/a",
+              "status": ""
+            }
+          ]
+        },
+        "expected": [
+          {
+            "order_id": 1,
+            "amount": 19.9,
+            "status": "shipped"
+          },
+          {
+            "order_id": 2,
+            "amount": 5.0,
+            "status": "shipped"
+          },
+          {
+            "order_id": 3,
+            "amount": null,
+            "status": "pending"
+          },
+          {
+            "order_id": 4,
+            "amount": null,
+            "status": null
+          }
+        ]
+      },
+      {
+        "id": "messy-values",
+        "visibility": "hidden",
+        "input_rows": [],
+        "tables": {
+          "raw_orders": [
+            {
+              "order_id": "10",
+              "amount": "1,5",
+              "status": "PAID"
+            },
+            {
+              "order_id": "11",
+              "amount": "-0.5",
+              "status": " paid"
+            },
+            {
+              "order_id": "12",
+              "amount": "1e3",
+              "status": "   "
+            }
+          ]
+        },
+        "expected": [
+          {
+            "order_id": 10,
+            "amount": null,
+            "status": "paid"
+          },
+          {
+            "order_id": 11,
+            "amount": -0.5,
+            "status": "paid"
+          },
+          {
+            "order_id": 12,
+            "amount": 1000.0,
+            "status": null
+          }
+        ]
+      },
+      {
+        "id": "empty-file",
+        "visibility": "edge",
+        "input_rows": [],
+        "tables": {
+          "raw_orders": []
+        },
+        "expected": []
+      }
+    ]
+  },
+  "de-latest-cdc-record": {
+    "solution": "SELECT customer_id, email, updated_at\nFROM customer_changes\nQUALIFY ROW_NUMBER() OVER (PARTITION BY customer_id ORDER BY updated_at DESC, ingest_seq DESC) = 1",
+    "fixtures": [
+      {
+        "id": "example",
+        "visibility": "visible",
+        "input_rows": [],
+        "tables": {
+          "customer_changes": [
+            {
+              "customer_id": 1,
+              "email": "ana@old.io",
+              "updated_at": "2026-09-01 08:00:00",
+              "ingest_seq": 1
+            },
+            {
+              "customer_id": 1,
+              "email": "ana@new.io",
+              "updated_at": "2026-09-03 09:30:00",
+              "ingest_seq": 2
+            },
+            {
+              "customer_id": 2,
+              "email": "bo@mail.io",
+              "updated_at": "2026-09-02 10:00:00",
+              "ingest_seq": 3
+            }
+          ]
+        },
+        "expected": [
+          {
+            "customer_id": 2,
+            "email": "bo@mail.io",
+            "updated_at": "2026-09-02T10:00:00"
+          },
+          {
+            "customer_id": 1,
+            "email": "ana@new.io",
+            "updated_at": "2026-09-03T09:30:00"
+          }
+        ]
+      },
+      {
+        "id": "tie-and-late-arrival",
+        "visibility": "hidden",
+        "input_rows": [],
+        "tables": {
+          "customer_changes": [
+            {
+              "customer_id": 3,
+              "email": "cy@first.io",
+              "updated_at": "2026-09-05 12:00:00",
+              "ingest_seq": 10
+            },
+            {
+              "customer_id": 3,
+              "email": "cy@second.io",
+              "updated_at": "2026-09-05 12:00:00",
+              "ingest_seq": 11
+            },
+            {
+              "customer_id": 4,
+              "email": "di@new.io",
+              "updated_at": "2026-09-06 09:00:00",
+              "ingest_seq": 12
+            },
+            {
+              "customer_id": 4,
+              "email": "di@stale.io",
+              "updated_at": "2026-09-01 09:00:00",
+              "ingest_seq": 13
+            }
+          ]
+        },
+        "expected": [
+          {
+            "customer_id": 3,
+            "email": "cy@second.io",
+            "updated_at": "2026-09-05T12:00:00"
+          },
+          {
+            "customer_id": 4,
+            "email": "di@new.io",
+            "updated_at": "2026-09-06T09:00:00"
+          }
+        ]
+      },
+      {
+        "id": "single-change",
+        "visibility": "edge",
+        "input_rows": [],
+        "tables": {
+          "customer_changes": [
+            {
+              "customer_id": 9,
+              "email": "solo@mail.io",
+              "updated_at": "2026-09-09 00:00:00",
+              "ingest_seq": 1
+            }
+          ]
+        },
+        "expected": [
+          {
+            "customer_id": 9,
+            "email": "solo@mail.io",
+            "updated_at": "2026-09-09T00:00:00"
+          }
+        ]
+      }
+    ]
+  },
+  "de-not-in-null-trap": {
+    "solution": "SELECT c.customer_id, c.name\nFROM customers AS c\nWHERE NOT EXISTS (SELECT 1 FROM orders AS o WHERE o.customer_id = c.customer_id)",
+    "fixtures": [
+      {
+        "id": "example",
+        "visibility": "visible",
+        "input_rows": [],
+        "tables": {
+          "customers": [
+            {
+              "customer_id": 1,
+              "name": "Ana"
+            },
+            {
+              "customer_id": 2,
+              "name": "Bo"
+            },
+            {
+              "customer_id": 3,
+              "name": "Cy"
+            }
+          ],
+          "orders": [
+            {
+              "order_id": 100,
+              "customer_id": 1
+            },
+            {
+              "order_id": 101,
+              "customer_id": 1
+            }
+          ]
+        },
+        "expected": [
+          {
+            "customer_id": 2,
+            "name": "Bo"
+          },
+          {
+            "customer_id": 3,
+            "name": "Cy"
+          }
+        ]
+      },
+      {
+        "id": "guest-order",
+        "visibility": "hidden",
+        "input_rows": [],
+        "tables": {
+          "customers": [
+            {
+              "customer_id": 1,
+              "name": "Ana"
+            },
+            {
+              "customer_id": 2,
+              "name": "Bo"
+            },
+            {
+              "customer_id": 3,
+              "name": "Cy"
+            }
+          ],
+          "orders": [
+            {
+              "order_id": 200,
+              "customer_id": 2
+            },
+            {
+              "order_id": 201,
+              "customer_id": null
+            }
+          ]
+        },
+        "expected": [
+          {
+            "customer_id": 1,
+            "name": "Ana"
+          },
+          {
+            "customer_id": 3,
+            "name": "Cy"
+          }
+        ]
+      },
+      {
+        "id": "no-orders",
+        "visibility": "edge",
+        "input_rows": [],
+        "tables": {
+          "customers": [
+            {
+              "customer_id": 7,
+              "name": "Gus"
+            }
+          ],
+          "orders": []
+        },
+        "expected": [
+          {
+            "customer_id": 7,
+            "name": "Gus"
+          }
+        ]
+      }
+    ]
+  },
+  "de-login-streaks": {
+    "solution": "WITH login_days AS (\n  SELECT DISTINCT user_id, CAST(login_at AS DATE) AS d FROM logins\n), grouped AS (\n  SELECT user_id, d, d - CAST(ROW_NUMBER() OVER (PARTITION BY user_id ORDER BY d) AS INTEGER) AS island\n  FROM login_days\n)\nSELECT user_id, MIN(d) AS streak_start, MAX(d) AS streak_end, COUNT(*) AS days\nFROM grouped\nGROUP BY user_id, island",
+    "fixtures": [
+      {
+        "id": "example",
+        "visibility": "visible",
+        "input_rows": [],
+        "tables": {
+          "logins": [
+            {
+              "user_id": 1,
+              "login_at": "2026-09-01 08:00:00"
+            },
+            {
+              "user_id": 1,
+              "login_at": "2026-09-02 09:00:00"
+            },
+            {
+              "user_id": 1,
+              "login_at": "2026-09-03 07:30:00"
+            },
+            {
+              "user_id": 1,
+              "login_at": "2026-09-05 12:00:00"
+            },
+            {
+              "user_id": 2,
+              "login_at": "2026-09-02 18:00:00"
+            }
+          ]
+        },
+        "expected": [
+          {
+            "user_id": 1,
+            "streak_start": "2026-09-05",
+            "streak_end": "2026-09-05",
+            "days": 1
+          },
+          {
+            "user_id": 2,
+            "streak_start": "2026-09-02",
+            "streak_end": "2026-09-02",
+            "days": 1
+          },
+          {
+            "user_id": 1,
+            "streak_start": "2026-09-01",
+            "streak_end": "2026-09-03",
+            "days": 3
+          }
+        ]
+      },
+      {
+        "id": "same-day-and-interleaved",
+        "visibility": "hidden",
+        "input_rows": [],
+        "tables": {
+          "logins": [
+            {
+              "user_id": 5,
+              "login_at": "2026-09-10 08:00:00"
+            },
+            {
+              "user_id": 5,
+              "login_at": "2026-09-10 21:00:00"
+            },
+            {
+              "user_id": 5,
+              "login_at": "2026-09-11 08:00:00"
+            },
+            {
+              "user_id": 6,
+              "login_at": "2026-09-10 09:00:00"
+            },
+            {
+              "user_id": 6,
+              "login_at": "2026-09-12 09:00:00"
+            },
+            {
+              "user_id": 6,
+              "login_at": "2026-09-13 09:00:00"
+            }
+          ]
+        },
+        "expected": [
+          {
+            "user_id": 6,
+            "streak_start": "2026-09-12",
+            "streak_end": "2026-09-13",
+            "days": 2
+          },
+          {
+            "user_id": 6,
+            "streak_start": "2026-09-10",
+            "streak_end": "2026-09-10",
+            "days": 1
+          },
+          {
+            "user_id": 5,
+            "streak_start": "2026-09-10",
+            "streak_end": "2026-09-11",
+            "days": 2
+          }
+        ]
+      },
+      {
+        "id": "no-logins",
+        "visibility": "edge",
+        "input_rows": [],
+        "tables": {
+          "logins": []
+        },
+        "expected": []
+      }
+    ]
+  },
+  "de-sessionize-clicks": {
+    "solution": "WITH flagged AS (\n  SELECT user_id, event_at,\n         CASE WHEN event_at - LAG(event_at) OVER w <= INTERVAL 30 MINUTE THEN 0 ELSE 1 END AS starts_session\n  FROM clicks\n  WINDOW w AS (PARTITION BY user_id ORDER BY event_at)\n), numbered AS (\n  SELECT user_id, event_at,\n         SUM(starts_session) OVER (PARTITION BY user_id ORDER BY event_at ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW) AS session_no\n  FROM flagged\n)\nSELECT user_id, session_no, MIN(event_at) AS session_start, MAX(event_at) AS session_end, COUNT(*) AS events\nFROM numbered\nGROUP BY user_id, session_no",
+    "fixtures": [
+      {
+        "id": "example",
+        "visibility": "visible",
+        "input_rows": [],
+        "tables": {
+          "clicks": [
+            {
+              "user_id": 1,
+              "event_at": "2026-09-01 10:00:00"
+            },
+            {
+              "user_id": 1,
+              "event_at": "2026-09-01 10:10:00"
+            },
+            {
+              "user_id": 1,
+              "event_at": "2026-09-01 11:00:00"
+            },
+            {
+              "user_id": 2,
+              "event_at": "2026-09-01 10:05:00"
+            }
+          ]
+        },
+        "expected": [
+          {
+            "user_id": 1,
+            "session_no": 2,
+            "session_start": "2026-09-01T11:00:00",
+            "session_end": "2026-09-01T11:00:00",
+            "events": 1
+          },
+          {
+            "user_id": 1,
+            "session_no": 1,
+            "session_start": "2026-09-01T10:00:00",
+            "session_end": "2026-09-01T10:10:00",
+            "events": 2
+          },
+          {
+            "user_id": 2,
+            "session_no": 1,
+            "session_start": "2026-09-01T10:05:00",
+            "session_end": "2026-09-01T10:05:00",
+            "events": 1
+          }
+        ]
+      },
+      {
+        "id": "exact-gap-and-interleaved",
+        "visibility": "hidden",
+        "input_rows": [],
+        "tables": {
+          "clicks": [
+            {
+              "user_id": 3,
+              "event_at": "2026-09-02 09:00:00"
+            },
+            {
+              "user_id": 3,
+              "event_at": "2026-09-02 09:30:00"
+            },
+            {
+              "user_id": 3,
+              "event_at": "2026-09-02 10:00:01"
+            },
+            {
+              "user_id": 4,
+              "event_at": "2026-09-02 09:20:00"
+            },
+            {
+              "user_id": 4,
+              "event_at": "2026-09-02 09:45:00"
+            }
+          ]
+        },
+        "expected": [
+          {
+            "user_id": 3,
+            "session_no": 2,
+            "session_start": "2026-09-02T10:00:01",
+            "session_end": "2026-09-02T10:00:01",
+            "events": 1
+          },
+          {
+            "user_id": 3,
+            "session_no": 1,
+            "session_start": "2026-09-02T09:00:00",
+            "session_end": "2026-09-02T09:30:00",
+            "events": 2
+          },
+          {
+            "user_id": 4,
+            "session_no": 1,
+            "session_start": "2026-09-02T09:20:00",
+            "session_end": "2026-09-02T09:45:00",
+            "events": 2
+          }
+        ]
+      },
+      {
+        "id": "single-click",
+        "visibility": "edge",
+        "input_rows": [],
+        "tables": {
+          "clicks": [
+            {
+              "user_id": 8,
+              "event_at": "2026-09-03 23:59:00"
+            }
+          ]
+        },
+        "expected": [
+          {
+            "user_id": 8,
+            "session_no": 1,
+            "session_start": "2026-09-03T23:59:00",
+            "session_end": "2026-09-03T23:59:00",
+            "events": 1
+          }
+        ]
+      }
+    ]
+  },
+  "de-asof-trade-prices": {
+    "solution": "SELECT t.trade_id, t.symbol, t.traded_at, p.price\nFROM trades AS t\nASOF LEFT JOIN prices AS p\n  ON t.symbol = p.symbol AND t.traded_at >= p.quoted_at",
+    "fixtures": [
+      {
+        "id": "example",
+        "visibility": "visible",
+        "input_rows": [],
+        "tables": {
+          "trades": [
+            {
+              "trade_id": 1,
+              "symbol": "ACME",
+              "traded_at": "2026-09-01 10:05:00"
+            },
+            {
+              "trade_id": 2,
+              "symbol": "ACME",
+              "traded_at": "2026-09-01 10:20:00"
+            },
+            {
+              "trade_id": 3,
+              "symbol": "INIT",
+              "traded_at": "2026-09-01 10:20:00"
+            }
+          ],
+          "prices": [
+            {
+              "symbol": "ACME",
+              "quoted_at": "2026-09-01 10:00:00",
+              "price": 10.0
+            },
+            {
+              "symbol": "ACME",
+              "quoted_at": "2026-09-01 10:15:00",
+              "price": 10.5
+            },
+            {
+              "symbol": "INIT",
+              "quoted_at": "2026-09-01 09:00:00",
+              "price": 99.0
+            }
+          ]
+        },
+        "expected": [
+          {
+            "trade_id": 1,
+            "symbol": "ACME",
+            "traded_at": "2026-09-01T10:05:00",
+            "price": 10.0
+          },
+          {
+            "trade_id": 2,
+            "symbol": "ACME",
+            "traded_at": "2026-09-01T10:20:00",
+            "price": 10.5
+          },
+          {
+            "trade_id": 3,
+            "symbol": "INIT",
+            "traded_at": "2026-09-01T10:20:00",
+            "price": 99.0
+          }
+        ]
+      },
+      {
+        "id": "early-and-exact",
+        "visibility": "hidden",
+        "input_rows": [],
+        "tables": {
+          "trades": [
+            {
+              "trade_id": 10,
+              "symbol": "ACME",
+              "traded_at": "2026-09-02 08:59:00"
+            },
+            {
+              "trade_id": 11,
+              "symbol": "ACME",
+              "traded_at": "2026-09-02 09:00:00"
+            },
+            {
+              "trade_id": 12,
+              "symbol": "BETA",
+              "traded_at": "2026-09-02 09:30:00"
+            }
+          ],
+          "prices": [
+            {
+              "symbol": "ACME",
+              "quoted_at": "2026-09-02 09:00:00",
+              "price": 11.0
+            },
+            {
+              "symbol": "BETA",
+              "quoted_at": "2026-09-02 09:10:00",
+              "price": 5.0
+            },
+            {
+              "symbol": "ACME",
+              "quoted_at": "2026-09-02 09:25:00",
+              "price": 11.2
+            }
+          ]
+        },
+        "expected": [
+          {
+            "trade_id": 10,
+            "symbol": "ACME",
+            "traded_at": "2026-09-02T08:59:00",
+            "price": null
+          },
+          {
+            "trade_id": 11,
+            "symbol": "ACME",
+            "traded_at": "2026-09-02T09:00:00",
+            "price": 11.0
+          },
+          {
+            "trade_id": 12,
+            "symbol": "BETA",
+            "traded_at": "2026-09-02T09:30:00",
+            "price": 5.0
+          }
+        ]
+      },
+      {
+        "id": "no-quotes",
+        "visibility": "edge",
+        "input_rows": [],
+        "tables": {
+          "trades": [
+            {
+              "trade_id": 20,
+              "symbol": "NEW",
+              "traded_at": "2026-09-03 12:00:00"
+            }
+          ],
+          "prices": []
+        },
+        "expected": [
+          {
+            "trade_id": 20,
+            "symbol": "NEW",
+            "traded_at": "2026-09-03T12:00:00",
+            "price": null
+          }
+        ]
+      }
+    ]
+  },
+  "de-scd2-validity": {
+    "solution": "SELECT customer_id, tier, changed_on AS valid_from,\n       LEAD(changed_on) OVER w AS valid_to,\n       LEAD(changed_on) OVER w IS NULL AS is_current\nFROM tier_changes\nWINDOW w AS (PARTITION BY customer_id ORDER BY changed_on)",
+    "fixtures": [
+      {
+        "id": "example",
+        "visibility": "visible",
+        "input_rows": [],
+        "tables": {
+          "tier_changes": [
+            {
+              "customer_id": 1,
+              "tier": "bronze",
+              "changed_on": "2026-01-10"
+            },
+            {
+              "customer_id": 1,
+              "tier": "silver",
+              "changed_on": "2026-04-02"
+            },
+            {
+              "customer_id": 1,
+              "tier": "gold",
+              "changed_on": "2026-08-15"
+            },
+            {
+              "customer_id": 2,
+              "tier": "silver",
+              "changed_on": "2026-03-01"
+            }
+          ]
+        },
+        "expected": [
+          {
+            "customer_id": 1,
+            "tier": "bronze",
+            "valid_from": "2026-01-10",
+            "valid_to": "2026-04-02",
+            "is_current": false
+          },
+          {
+            "customer_id": 1,
+            "tier": "silver",
+            "valid_from": "2026-04-02",
+            "valid_to": "2026-08-15",
+            "is_current": false
+          },
+          {
+            "customer_id": 1,
+            "tier": "gold",
+            "valid_from": "2026-08-15",
+            "valid_to": null,
+            "is_current": true
+          },
+          {
+            "customer_id": 2,
+            "tier": "silver",
+            "valid_from": "2026-03-01",
+            "valid_to": null,
+            "is_current": true
+          }
+        ]
+      },
+      {
+        "id": "interleaved-customers",
+        "visibility": "hidden",
+        "input_rows": [],
+        "tables": {
+          "tier_changes": [
+            {
+              "customer_id": 5,
+              "tier": "bronze",
+              "changed_on": "2026-02-01"
+            },
+            {
+              "customer_id": 6,
+              "tier": "bronze",
+              "changed_on": "2026-02-15"
+            },
+            {
+              "customer_id": 5,
+              "tier": "gold",
+              "changed_on": "2026-03-01"
+            },
+            {
+              "customer_id": 6,
+              "tier": "silver",
+              "changed_on": "2026-05-20"
+            }
+          ]
+        },
+        "expected": [
+          {
+            "customer_id": 6,
+            "tier": "bronze",
+            "valid_from": "2026-02-15",
+            "valid_to": "2026-05-20",
+            "is_current": false
+          },
+          {
+            "customer_id": 6,
+            "tier": "silver",
+            "valid_from": "2026-05-20",
+            "valid_to": null,
+            "is_current": true
+          },
+          {
+            "customer_id": 5,
+            "tier": "bronze",
+            "valid_from": "2026-02-01",
+            "valid_to": "2026-03-01",
+            "is_current": false
+          },
+          {
+            "customer_id": 5,
+            "tier": "gold",
+            "valid_from": "2026-03-01",
+            "valid_to": null,
+            "is_current": true
+          }
+        ]
+      },
+      {
+        "id": "single-version",
+        "visibility": "edge",
+        "input_rows": [],
+        "tables": {
+          "tier_changes": [
+            {
+              "customer_id": 9,
+              "tier": "gold",
+              "changed_on": "2026-09-01"
+            }
+          ]
+        },
+        "expected": [
+          {
+            "customer_id": 9,
+            "tier": "gold",
+            "valid_from": "2026-09-01",
+            "valid_to": null,
+            "is_current": true
+          }
+        ]
+      }
+    ]
+  },
+  "de-upsert-result": {
+    "solution": "SELECT id, name, city FROM updates\nUNION ALL\nSELECT t.id, t.name, t.city\nFROM target AS t\nWHERE NOT EXISTS (SELECT 1 FROM updates AS u WHERE u.id = t.id)",
+    "fixtures": [
+      {
+        "id": "example",
+        "visibility": "visible",
+        "input_rows": [],
+        "tables": {
+          "target": [
+            {
+              "id": 1,
+              "name": "Ana",
+              "city": "Lyon"
+            },
+            {
+              "id": 2,
+              "name": "Bo",
+              "city": "Nice"
+            }
+          ],
+          "updates": [
+            {
+              "id": 2,
+              "name": "Bo",
+              "city": "Paris"
+            },
+            {
+              "id": 3,
+              "name": "Cy",
+              "city": "Lille"
+            }
+          ]
+        },
+        "expected": [
+          {
+            "id": 3,
+            "name": "Cy",
+            "city": "Lille"
+          },
+          {
+            "id": 2,
+            "name": "Bo",
+            "city": "Paris"
+          },
+          {
+            "id": 1,
+            "name": "Ana",
+            "city": "Lyon"
+          }
+        ]
+      },
+      {
+        "id": "update-clears-city",
+        "visibility": "hidden",
+        "input_rows": [],
+        "tables": {
+          "target": [
+            {
+              "id": 4,
+              "name": "Di",
+              "city": "Metz"
+            },
+            {
+              "id": 5,
+              "name": "Ed",
+              "city": "Brest"
+            }
+          ],
+          "updates": [
+            {
+              "id": 4,
+              "name": "Di",
+              "city": null
+            }
+          ]
+        },
+        "expected": [
+          {
+            "id": 4,
+            "name": "Di",
+            "city": null
+          },
+          {
+            "id": 5,
+            "name": "Ed",
+            "city": "Brest"
+          }
+        ]
+      },
+      {
+        "id": "empty-target",
+        "visibility": "edge",
+        "input_rows": [],
+        "tables": {
+          "target": [],
+          "updates": [
+            {
+              "id": 9,
+              "name": "New",
+              "city": "Caen"
+            }
+          ]
+        },
+        "expected": [
+          {
+            "id": 9,
+            "name": "New",
+            "city": "Caen"
+          }
+        ]
+      }
+    ]
+  },
+  "de-dq-rule-violations": {
+    "solution": "SELECT order_id, 'missing_email' AS rule FROM orders WHERE email IS NULL OR TRIM(email) = ''\nUNION ALL\nSELECT order_id, 'negative_amount' FROM orders WHERE amount < 0\nUNION ALL\nSELECT order_id, 'future_date' FROM orders WHERE order_date > DATE '2026-09-30'",
+    "fixtures": [
+      {
+        "id": "example",
+        "visibility": "visible",
+        "input_rows": [],
+        "tables": {
+          "orders": [
+            {
+              "order_id": 1,
+              "email": "a@x.io",
+              "amount": 10.0,
+              "order_date": "2026-09-01"
+            },
+            {
+              "order_id": 2,
+              "email": null,
+              "amount": 5.0,
+              "order_date": "2026-09-02"
+            },
+            {
+              "order_id": 3,
+              "email": "c@x.io",
+              "amount": -1.0,
+              "order_date": "2026-09-03"
+            }
+          ]
+        },
+        "expected": [
+          {
+            "order_id": 2,
+            "rule": "missing_email"
+          },
+          {
+            "order_id": 3,
+            "rule": "negative_amount"
+          }
+        ]
+      },
+      {
+        "id": "several-rules-and-blanks",
+        "visibility": "hidden",
+        "input_rows": [],
+        "tables": {
+          "orders": [
+            {
+              "order_id": 10,
+              "email": "  ",
+              "amount": -3.0,
+              "order_date": "2026-10-02"
+            },
+            {
+              "order_id": 11,
+              "email": "k@x.io",
+              "amount": 0.0,
+              "order_date": "2026-09-30"
+            },
+            {
+              "order_id": 12,
+              "email": "",
+              "amount": 1.0,
+              "order_date": "2026-09-29"
+            }
+          ]
+        },
+        "expected": [
+          {
+            "order_id": 12,
+            "rule": "missing_email"
+          },
+          {
+            "order_id": 10,
+            "rule": "missing_email"
+          },
+          {
+            "order_id": 10,
+            "rule": "negative_amount"
+          },
+          {
+            "order_id": 10,
+            "rule": "future_date"
+          }
+        ]
+      },
+      {
+        "id": "all-clean",
+        "visibility": "edge",
+        "input_rows": [],
+        "tables": {
+          "orders": [
+            {
+              "order_id": 20,
+              "email": "ok@x.io",
+              "amount": 0.0,
+              "order_date": "2026-09-30"
+            }
+          ]
+        },
+        "expected": []
+      }
+    ]
+  },
+  "de-monthly-revenue-gaps": {
+    "solution": "SELECT CAST(m.month AS DATE) AS month, COALESCE(SUM(s.amount), 0) AS revenue\nFROM generate_series(DATE '2026-01-01', DATE '2026-06-01', INTERVAL 1 MONTH) AS m(month)\nLEFT JOIN sales AS s ON date_trunc('month', s.sold_on) = m.month\nGROUP BY m.month",
+    "fixtures": [
+      {
+        "id": "example",
+        "visibility": "visible",
+        "input_rows": [],
+        "tables": {
+          "sales": [
+            {
+              "sold_on": "2026-01-05",
+              "amount": 100.0
+            },
+            {
+              "sold_on": "2026-01-20",
+              "amount": 50.0
+            },
+            {
+              "sold_on": "2026-03-02",
+              "amount": 70.0
+            },
+            {
+              "sold_on": "2026-06-30",
+              "amount": 10.0
+            }
+          ]
+        },
+        "expected": [
+          {
+            "month": "2026-04-01",
+            "revenue": 0.0
+          },
+          {
+            "month": "2026-06-01",
+            "revenue": 10.0
+          },
+          {
+            "month": "2026-05-01",
+            "revenue": 0.0
+          },
+          {
+            "month": "2026-01-01",
+            "revenue": 150.0
+          },
+          {
+            "month": "2026-02-01",
+            "revenue": 0.0
+          },
+          {
+            "month": "2026-03-01",
+            "revenue": 70.0
+          }
+        ]
+      },
+      {
+        "id": "outside-range",
+        "visibility": "hidden",
+        "input_rows": [],
+        "tables": {
+          "sales": [
+            {
+              "sold_on": "2025-12-31",
+              "amount": 999.0
+            },
+            {
+              "sold_on": "2026-02-01",
+              "amount": 20.0
+            },
+            {
+              "sold_on": "2026-07-01",
+              "amount": 888.0
+            }
+          ]
+        },
+        "expected": [
+          {
+            "month": "2026-05-01",
+            "revenue": 0.0
+          },
+          {
+            "month": "2026-06-01",
+            "revenue": 0.0
+          },
+          {
+            "month": "2026-02-01",
+            "revenue": 20.0
+          },
+          {
+            "month": "2026-04-01",
+            "revenue": 0.0
+          },
+          {
+            "month": "2026-01-01",
+            "revenue": 0.0
+          },
+          {
+            "month": "2026-03-01",
+            "revenue": 0.0
+          }
+        ]
+      },
+      {
+        "id": "no-sales",
+        "visibility": "edge",
+        "input_rows": [],
+        "tables": {
+          "sales": []
+        },
+        "expected": [
+          {
+            "month": "2026-03-01",
+            "revenue": 0.0
+          },
+          {
+            "month": "2026-02-01",
+            "revenue": 0.0
+          },
+          {
+            "month": "2026-04-01",
+            "revenue": 0.0
+          },
+          {
+            "month": "2026-01-01",
+            "revenue": 0.0
+          },
+          {
+            "month": "2026-05-01",
+            "revenue": 0.0
+          },
+          {
+            "month": "2026-06-01",
+            "revenue": 0.0
+          }
+        ]
+      }
+    ]
+  },
+  "de-funnel-conversion": {
+    "solution": "WITH per_user AS (\n  SELECT user_id,\n         BOOL_OR(step = 'view') AS viewed,\n         BOOL_OR(step = 'cart') AS carted,\n         BOOL_OR(step = 'purchase') AS bought\n  FROM events GROUP BY user_id\n), totals AS (\n  SELECT COUNT(*) FILTER (WHERE viewed) AS viewers,\n         COUNT(*) FILTER (WHERE viewed AND carted) AS carts,\n         COUNT(*) FILTER (WHERE viewed AND carted AND bought) AS buyers\n  FROM per_user\n)\nSELECT 'view' AS step, viewers AS users, ROUND(100.0 * viewers / NULLIF(viewers, 0), 1) AS pct_of_viewers FROM totals\nUNION ALL SELECT 'cart', carts, ROUND(100.0 * carts / NULLIF(viewers, 0), 1) FROM totals\nUNION ALL SELECT 'purchase', buyers, ROUND(100.0 * buyers / NULLIF(viewers, 0), 1) FROM totals",
+    "fixtures": [
+      {
+        "id": "example",
+        "visibility": "visible",
+        "input_rows": [],
+        "tables": {
+          "events": [
+            {
+              "user_id": 1,
+              "step": "view"
+            },
+            {
+              "user_id": 1,
+              "step": "cart"
+            },
+            {
+              "user_id": 1,
+              "step": "purchase"
+            },
+            {
+              "user_id": 2,
+              "step": "view"
+            },
+            {
+              "user_id": 2,
+              "step": "cart"
+            },
+            {
+              "user_id": 3,
+              "step": "view"
+            },
+            {
+              "user_id": 4,
+              "step": "view"
+            }
+          ]
+        },
+        "expected": [
+          {
+            "step": "view",
+            "users": 4,
+            "pct_of_viewers": 100.0
+          },
+          {
+            "step": "cart",
+            "users": 2,
+            "pct_of_viewers": 50.0
+          },
+          {
+            "step": "purchase",
+            "users": 1,
+            "pct_of_viewers": 25.0
+          }
+        ]
+      },
+      {
+        "id": "repeats-and-skips",
+        "visibility": "hidden",
+        "input_rows": [],
+        "tables": {
+          "events": [
+            {
+              "user_id": 5,
+              "step": "view"
+            },
+            {
+              "user_id": 5,
+              "step": "view"
+            },
+            {
+              "user_id": 5,
+              "step": "view"
+            },
+            {
+              "user_id": 5,
+              "step": "cart"
+            },
+            {
+              "user_id": 5,
+              "step": "cart"
+            },
+            {
+              "user_id": 6,
+              "step": "view"
+            },
+            {
+              "user_id": 6,
+              "step": "purchase"
+            },
+            {
+              "user_id": 7,
+              "step": "cart"
+            },
+            {
+              "user_id": 7,
+              "step": "purchase"
+            }
+          ]
+        },
+        "expected": [
+          {
+            "step": "view",
+            "users": 2,
+            "pct_of_viewers": 100.0
+          },
+          {
+            "step": "cart",
+            "users": 1,
+            "pct_of_viewers": 50.0
+          },
+          {
+            "step": "purchase",
+            "users": 0,
+            "pct_of_viewers": 0.0
+          }
+        ]
+      },
+      {
+        "id": "no-events",
+        "visibility": "edge",
+        "input_rows": [],
+        "tables": {
+          "events": []
+        },
+        "expected": [
+          {
+            "step": "view",
+            "users": 0,
+            "pct_of_viewers": null
+          },
+          {
+            "step": "cart",
+            "users": 0,
+            "pct_of_viewers": null
+          },
+          {
+            "step": "purchase",
+            "users": 0,
+            "pct_of_viewers": null
+          }
+        ]
+      }
+    ]
+  },
+  "de-median-delivery": {
+    "solution": "SELECT carrier, MEDIAN(days) AS median_days\nFROM deliveries\nGROUP BY carrier",
+    "fixtures": [
+      {
+        "id": "example",
+        "visibility": "visible",
+        "input_rows": [],
+        "tables": {
+          "deliveries": [
+            {
+              "carrier": "Rapid",
+              "days": 1
+            },
+            {
+              "carrier": "Rapid",
+              "days": 2
+            },
+            {
+              "carrier": "Rapid",
+              "days": 30
+            },
+            {
+              "carrier": "Slow",
+              "days": 4
+            },
+            {
+              "carrier": "Slow",
+              "days": 6
+            }
+          ]
+        },
+        "expected": [
+          {
+            "carrier": "Rapid",
+            "median_days": 2.0
+          },
+          {
+            "carrier": "Slow",
+            "median_days": 5.0
+          }
+        ]
+      },
+      {
+        "id": "even-count",
+        "visibility": "hidden",
+        "input_rows": [],
+        "tables": {
+          "deliveries": [
+            {
+              "carrier": "Hub",
+              "days": 2
+            },
+            {
+              "carrier": "Hub",
+              "days": 3
+            },
+            {
+              "carrier": "Hub",
+              "days": 5
+            },
+            {
+              "carrier": "Hub",
+              "days": 9
+            }
+          ]
+        },
+        "expected": [
+          {
+            "carrier": "Hub",
+            "median_days": 4.0
+          }
+        ]
+      },
+      {
+        "id": "single-parcel",
+        "visibility": "edge",
+        "input_rows": [],
+        "tables": {
+          "deliveries": [
+            {
+              "carrier": "Solo",
+              "days": 7
+            }
+          ]
+        },
+        "expected": [
+          {
+            "carrier": "Solo",
+            "median_days": 7.0
+          }
+        ]
+      }
+    ]
+  },
+  "de-cohort-retention": {
+    "solution": "WITH monthly AS (\n  SELECT customer_id, CAST(date_trunc('month', ordered_on) AS DATE) AS order_month FROM orders\n), cohorts AS (\n  SELECT customer_id, MIN(order_month) AS cohort_month FROM monthly GROUP BY customer_id\n)\nSELECT c.cohort_month,\n       CAST(date_diff('month', c.cohort_month, m.order_month) AS INTEGER) AS month_offset,\n       COUNT(DISTINCT m.customer_id) AS customers\nFROM monthly AS m\nJOIN cohorts AS c USING (customer_id)\nGROUP BY 1, 2",
+    "fixtures": [
+      {
+        "id": "example",
+        "visibility": "visible",
+        "input_rows": [],
+        "tables": {
+          "orders": [
+            {
+              "customer_id": 1,
+              "ordered_on": "2026-01-05"
+            },
+            {
+              "customer_id": 1,
+              "ordered_on": "2026-02-10"
+            },
+            {
+              "customer_id": 2,
+              "ordered_on": "2026-01-20"
+            },
+            {
+              "customer_id": 3,
+              "ordered_on": "2026-02-03"
+            },
+            {
+              "customer_id": 3,
+              "ordered_on": "2026-04-01"
+            }
+          ]
+        },
+        "expected": [
+          {
+            "cohort_month": "2026-01-01",
+            "month_offset": 1,
+            "customers": 1
+          },
+          {
+            "cohort_month": "2026-02-01",
+            "month_offset": 2,
+            "customers": 1
+          },
+          {
+            "cohort_month": "2026-01-01",
+            "month_offset": 0,
+            "customers": 2
+          },
+          {
+            "cohort_month": "2026-02-01",
+            "month_offset": 0,
+            "customers": 1
+          }
+        ]
+      },
+      {
+        "id": "repeat-orders",
+        "visibility": "hidden",
+        "input_rows": [],
+        "tables": {
+          "orders": [
+            {
+              "customer_id": 7,
+              "ordered_on": "2026-03-01"
+            },
+            {
+              "customer_id": 7,
+              "ordered_on": "2026-03-15"
+            },
+            {
+              "customer_id": 7,
+              "ordered_on": "2026-03-31"
+            },
+            {
+              "customer_id": 8,
+              "ordered_on": "2026-03-10"
+            },
+            {
+              "customer_id": 8,
+              "ordered_on": "2026-05-02"
+            },
+            {
+              "customer_id": 7,
+              "ordered_on": "2026-05-20"
+            }
+          ]
+        },
+        "expected": [
+          {
+            "cohort_month": "2026-03-01",
+            "month_offset": 2,
+            "customers": 2
+          },
+          {
+            "cohort_month": "2026-03-01",
+            "month_offset": 0,
+            "customers": 2
+          }
+        ]
+      },
+      {
+        "id": "no-orders",
+        "visibility": "edge",
+        "input_rows": [],
+        "tables": {
+          "orders": []
+        },
+        "expected": []
+      }
+    ]
+  },
+  "de-split-tags": {
+    "solution": "WITH exploded AS (\n  SELECT article_id, LOWER(TRIM(raw_tag)) AS tag\n  FROM (SELECT article_id, UNNEST(string_split(tags, ',')) AS raw_tag FROM articles)\n)\nSELECT tag, COUNT(DISTINCT article_id) AS articles\nFROM exploded\nWHERE tag <> ''\nGROUP BY tag",
+    "fixtures": [
+      {
+        "id": "example",
+        "visibility": "visible",
+        "input_rows": [],
+        "tables": {
+          "articles": [
+            {
+              "article_id": 1,
+              "tags": "sql,duckdb"
+            },
+            {
+              "article_id": 2,
+              "tags": "SQL, etl"
+            },
+            {
+              "article_id": 3,
+              "tags": "etl"
+            }
+          ]
+        },
+        "expected": [
+          {
+            "tag": "sql",
+            "articles": 2
+          },
+          {
+            "tag": "etl",
+            "articles": 2
+          },
+          {
+            "tag": "duckdb",
+            "articles": 1
+          }
+        ]
+      },
+      {
+        "id": "messy-lists",
+        "visibility": "hidden",
+        "input_rows": [],
+        "tables": {
+          "articles": [
+            {
+              "article_id": 4,
+              "tags": " duckdb ,, DuckDB"
+            },
+            {
+              "article_id": 5,
+              "tags": "etl,"
+            },
+            {
+              "article_id": 6,
+              "tags": null
+            }
+          ]
+        },
+        "expected": [
+          {
+            "tag": "duckdb",
+            "articles": 1
+          },
+          {
+            "tag": "etl",
+            "articles": 1
+          }
+        ]
+      },
+      {
+        "id": "no-tags",
+        "visibility": "edge",
+        "input_rows": [],
+        "tables": {
+          "articles": [
+            {
+              "article_id": 9,
+              "tags": ""
+            }
+          ]
+        },
+        "expected": []
+      }
+    ]
+  },
+  "de-incremental-watermark": {
+    "solution": "SELECT s.id, s.updated_at\nFROM source_rows AS s\nWHERE s.updated_at > COALESCE(\n  (SELECT MAX(last_loaded_at) FROM watermark WHERE table_name = 'source_rows'),\n  TIMESTAMP '1900-01-01 00:00:00'\n)",
+    "fixtures": [
+      {
+        "id": "example",
+        "visibility": "visible",
+        "input_rows": [],
+        "tables": {
+          "source_rows": [
+            {
+              "id": 1,
+              "updated_at": "2026-09-01 10:00:00"
+            },
+            {
+              "id": 2,
+              "updated_at": "2026-09-02 10:00:00"
+            },
+            {
+              "id": 3,
+              "updated_at": "2026-09-03 10:00:00"
+            }
+          ],
+          "watermark": [
+            {
+              "table_name": "source_rows",
+              "last_loaded_at": "2026-09-01 12:00:00"
+            }
+          ]
+        },
+        "expected": [
+          {
+            "id": 2,
+            "updated_at": "2026-09-02T10:00:00"
+          },
+          {
+            "id": 3,
+            "updated_at": "2026-09-03T10:00:00"
+          }
+        ]
+      },
+      {
+        "id": "boundary-and-other-table",
+        "visibility": "hidden",
+        "input_rows": [],
+        "tables": {
+          "source_rows": [
+            {
+              "id": 4,
+              "updated_at": "2026-09-05 08:00:00"
+            },
+            {
+              "id": 5,
+              "updated_at": "2026-09-06 08:00:00"
+            }
+          ],
+          "watermark": [
+            {
+              "table_name": "source_rows",
+              "last_loaded_at": "2026-09-05 08:00:00"
+            },
+            {
+              "table_name": "other_table",
+              "last_loaded_at": "2026-09-30 00:00:00"
+            }
+          ]
+        },
+        "expected": [
+          {
+            "id": 5,
+            "updated_at": "2026-09-06T08:00:00"
+          }
+        ]
+      },
+      {
+        "id": "first-run",
+        "visibility": "edge",
+        "input_rows": [],
+        "tables": {
+          "source_rows": [
+            {
+              "id": 9,
+              "updated_at": "2026-09-09 09:00:00"
+            }
+          ],
+          "watermark": []
+        },
+        "expected": [
+          {
+            "id": 9,
+            "updated_at": "2026-09-09T09:00:00"
+          }
+        ]
+      }
+    ]
+  },
+  "de-pivot-status-filter": {
+    "solution": "SELECT opened_on,\n       COUNT(*) FILTER (WHERE status = 'open') AS open_count,\n       COUNT(*) FILTER (WHERE status = 'closed') AS closed_count,\n       COUNT(*) AS total\nFROM tickets\nGROUP BY opened_on",
+    "fixtures": [
+      {
+        "id": "example",
+        "visibility": "visible",
+        "input_rows": [],
+        "tables": {
+          "tickets": [
+            {
+              "opened_on": "2026-09-01",
+              "status": "open"
+            },
+            {
+              "opened_on": "2026-09-01",
+              "status": "closed"
+            },
+            {
+              "opened_on": "2026-09-01",
+              "status": "closed"
+            },
+            {
+              "opened_on": "2026-09-02",
+              "status": "open"
+            }
+          ]
+        },
+        "expected": [
+          {
+            "opened_on": "2026-09-01",
+            "open_count": 1,
+            "closed_count": 2,
+            "total": 3
+          },
+          {
+            "opened_on": "2026-09-02",
+            "open_count": 1,
+            "closed_count": 0,
+            "total": 1
+          }
+        ]
+      },
+      {
+        "id": "single-status-days",
+        "visibility": "hidden",
+        "input_rows": [],
+        "tables": {
+          "tickets": [
+            {
+              "opened_on": "2026-09-10",
+              "status": "closed"
+            },
+            {
+              "opened_on": "2026-09-11",
+              "status": "open"
+            },
+            {
+              "opened_on": "2026-09-11",
+              "status": "open"
+            }
+          ]
+        },
+        "expected": [
+          {
+            "opened_on": "2026-09-10",
+            "open_count": 0,
+            "closed_count": 1,
+            "total": 1
+          },
+          {
+            "opened_on": "2026-09-11",
+            "open_count": 2,
+            "closed_count": 0,
+            "total": 2
+          }
+        ]
+      },
+      {
+        "id": "one-ticket",
+        "visibility": "edge",
+        "input_rows": [],
+        "tables": {
+          "tickets": [
+            {
+              "opened_on": "2026-09-30",
+              "status": "closed"
+            }
+          ]
+        },
+        "expected": [
+          {
+            "opened_on": "2026-09-30",
+            "open_count": 0,
+            "closed_count": 1,
+            "total": 1
+          }
+        ]
+      }
+    ]
+  }
+}

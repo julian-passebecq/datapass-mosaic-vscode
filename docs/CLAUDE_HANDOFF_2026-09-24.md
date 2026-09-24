@@ -8,7 +8,15 @@ PR #1 merged the implementation branch into `main` with a merge commit (`f35dbe4
 
 Workflow from here: branch from `main` for each tranche, keep CI green, merge through a pull request. The dated sections below record how the project got here; branch names and tips in them are historical.
 
-## 0. Mosaic CSV import — Claude, 2026-09-25 (newest)
+## 0. Data-engineering patterns pack — Claude, 2026-09-25 (newest)
+
+Branch `content/more-exercises`. New pack `content/exercise-packs/de-patterns-v1` (16 authored DuckDB SQL exercises, 5 easy / 8 medium / 3 hard). It fills the gap between `sql-lab-v1` (joins/grouping/windows) and real pipeline work: typing text columns after Mosaic **Import CSV**, latest-per-key CDC dedup with a tie-breaker, the `NOT IN` NULL trap, gaps and islands, 30-minute sessionization, `ASOF LEFT JOIN`, SCD2 validity ranges with `LEAD`, full-row upsert results, a UNION ALL data-quality rule report, a `generate_series` calendar spine, a user-level funnel, `MEDIAN`, monthly cohorts, `string_split`/`UNNEST` tag normalisation, strict `>` watermarks, and `COUNT(*) FILTER` vs the `COUNT(boolean)` trap.
+
+Every exercise has a visible, a hidden and an edge fixture designed around its pitfall, a runnable starter that fails, and 1-3 mutants (34 in total). Expected rows were computed by running the reference over the grader's own typed fixture CTEs, then reviewed by hand. Gate: `exercise_packs_smoke.py` → 173 references pass, 173 starters and 188 mutants rejected; `de-patterns-v1` joined `RUNNABLE_STARTER_PACKS`. The host E2E grades `de-not-in-null-trap` from the extension catalog (the reference passes; `NOT IN` fails only on the guest-order fixture).
+
+## 0a. Mosaic CSV import — Claude, 2026-09-25
+
+Merged as PR #4 (`aeb7aef`).
 
 Branch `feature/mosaic-import-csv`. Gives learners a way to load their own data besides the retail demo, using the existing `import_csv` kernel op.
 
@@ -18,7 +26,7 @@ Branch `feature/mosaic-import-csv`. Gives learners a way to load their own data 
 
 Checked: `npm run compile`; `npm test` (new `csv_import_smoke.mjs`); `runtime_smoke.py` (new TestClient block: import, catalog, duplicate/non-bronze/injection-name/malformed/over-limit/extra-`path` refusals, CAST query); compileall; pack smoke; `npm run test:host` (new step, 17/17); browser harness render of the preview and the button → `importCsv` message. Not re-checked in a real F5 session (the native file picker and input box are only exercised through the host classes).
 
-## 0a. Polish tranche — Claude, 2026-09-25
+## 0b. Polish tranche — Claude, 2026-09-25
 
 Merged as PR #3 (`603babd`). Branch `polish/setup-progress-and-lockfile`. Closes the three "known, not fixed" items from the F5 pass below and the lockfile decision.
 
@@ -29,7 +37,7 @@ Merged as PR #3 (`603babd`). Branch `polish/setup-progress-and-lockfile`. Closes
 
 Checked: `npm run compile`, `npm test` (new parser assertions in `runtime_environment_smoke.mjs`), the Python gates, and the built webview in a browser harness with a stubbed VS Code API (setup-progress card, pipeline header, minimap computed colors in a dark theme). Not re-checked in a real F5 session.
 
-## 0b. Manual F5 pass — Claude, 2026-09-25
+## 0c. Manual F5 pass — Claude, 2026-09-25
 
 A real VS Code 1.139 Extension Development Host (fresh profile, disposable workspace, managed runtime set up through the UI) was driven over the Chrome DevTools Protocol: real webview buttons, the real modal dialog, real mouse drags, screenshots. This replaced the "NOT exercised" item from the earlier tranche.
 
@@ -45,11 +53,11 @@ Bugs found and fixed:
 6. **Start runtime without an open folder** started anyway, then HTTP 500s. Now refused with a clear message.
 7. Badges wrapped out of their pills; Output panel popped open on every start; a broken dbt install dumped a 20-line traceback into the dbt card (now one line). QUICKSTART/README used stale button labels.
 
-Known, not fixed at the time (all three addressed in §0): first **Setup runtime** took ~15 min on this Windows machine (pip unpacking under antivirus); only the output channel shows progress. React Flow minimap is light in dark theme. Pipeline header shows the compiler's `compiled_design_only` truth next to executable activities.
+Known, not fixed at the time (all three addressed in §0b): first **Setup runtime** took ~15 min on this Windows machine (pip unpacking under antivirus); only the output channel shows progress. React Flow minimap is light in dark theme. Pipeline header shows the compiler's `compiled_design_only` truth next to executable activities.
 
 The driver lives outside the repo (Playwright over CDP); if you repeat it, launch Code with `--folder-uri`, `--disable-features=CalculateNativeWinOcclusion --disable-backgrounding-occluded-windows`, and `window.dialogStyle: custom`, and use DOM clicks inside webviews.
 
-## 0c. Content tranche — Claude, 2026-09-24
+## 0d. Content tranche — Claude, 2026-09-24
 
 | Commit | Change |
 | --- | --- |
@@ -107,9 +115,9 @@ NOT exercised: a human F5 session clicking through the real webview inside VS Co
 
 1. Manual F5 pass over the new UI (see "NOT exercised" above), then decide on un-drafting PR #1. *(Done 2026-09-25; PR #1 merged.)*
 2. P2 content: promote exercises from `legacy-donors/leetcodedataeng`. The grader uses a single `input` fixture table per exercise (`content/exercise-packs/*/grading.server.json`); most donor SQL problems are multi-table, so either extend fixtures to named tables or re-author. Add each exercise to the runtime smoke with its reference solution.
-3. ~~A Mosaic "Import CSV into catalog" action~~ Done (§0).
+3. ~~A Mosaic "Import CSV into catalog" action~~ Done (§0a).
 4. If wiring Pipeline dbt later: extend the trusted-local opt-in to dbt, validate the project path against the manifest `assets.dbt`, reuse `dbt_runner` artifact validation, never report success without a qualified manifest/run_results pair.
-5. ~~`package-lock.json` is not committed~~ Done: the lockfile is committed and CI uses `npm ci` (§0).
+5. ~~`package-lock.json` is not committed~~ Done: the lockfile is committed and CI uses `npm ci` (§0b).
 
 ## 1. Start here
 
