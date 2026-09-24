@@ -703,3 +703,13 @@ h2 { margin-bottom: 8px; font-size: 28px; }
   grid-column: 1 / -1;
   color: var(--vscode-errorForeground) !important;
 }
+
+
+.runtime-python {
+  overflow: hidden;
+  color: var(--vscode-descriptionForeground);
+  font-family: var(--vscode-editor-font-family);
+  font-size: 9px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
