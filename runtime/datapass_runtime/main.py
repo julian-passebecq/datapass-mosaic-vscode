@@ -79,6 +79,14 @@ class ExerciseGradeRequest(BaseModel):
     aqe: bool = True
 
 
+class CsvImportRequest(BaseModel):
+    """CSV CONTENT, never a path: the runtime does not read files for this route."""
+    model_config = ConfigDict(extra="forbid", strict=True)
+    asset: str = Field(pattern=r"^bronze\.[A-Za-z][A-Za-z0-9_]{0,62}$")
+    # local_data.parse_csv enforces the exact 1 MB UTF-8 byte limit.
+    text: str = Field(min_length=1, max_length=1_000_000)
+
+
 class LocalExecuteRequest(BaseModel):
     model_config = ConfigDict(extra="forbid", strict=True)
     language: Literal["sql", "sparklab", "python", "polars"]
@@ -104,7 +112,12 @@ def capabilities() -> dict[str, object]:
             "python_sandboxed": False,
             "python_truth": "trusted local CPython worker; process isolation is lifecycle management, not a security sandbox",
         },
-        "mosaic": {"mode": "real", "engines": ["polars", "duckdb"], "spark_by_default": False},
+        "mosaic": {
+            "mode": "real",
+            "engines": ["polars", "duckdb"],
+            "spark_by_default": False,
+            "csv_import": "new bronze tables only; CSV text up to 1 MB / 5,000 rows; all columns VARCHAR; never overwrites",
+        },
         "practice": {"mode": "local-tests", "editors": "vscode-native"},
         "fabric_lab": {"mode": "simulation", "notebook": "fabric-inspired", "lakehouse": "duckdb-ducklake", "kernel": "sparklab", "cloud_connection": False},
         "sparklab": {"mode": "simulation", "goal": "pyspark-dataframe-concepts"},
@@ -136,6 +149,15 @@ def local_catalog() -> object:
 @app.post("/api/local/query")
 def local_query(body: LocalQueryRequest) -> object:
     return native_command({"op": "read_query", "query": body.query})
+
+
+@app.post("/api/local/import-csv")
+def local_import_csv(body: CsvImportRequest) -> object:
+    """Create a NEW bronze table from CSV text. Never overwrites; every column is VARCHAR."""
+    try:
+        return native_command({"op": "import_csv", "asset": body.asset, "text": body.text})
+    except ValueError as error:
+        raise HTTPException(status_code=400, detail=str(error)) from error
 
 
 @app.post("/api/local/exercise")

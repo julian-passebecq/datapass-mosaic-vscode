@@ -18,6 +18,7 @@ import { loadAirflowState } from "../airflowState";
 import { loadDbtState } from "../dbtState";
 import { loadExerciseCatalog } from "../exerciseCatalog";
 import { MODULES } from "../modules";
+import { decodeCsvBytes, suggestBronzeAsset, validateBronzeAsset } from "../platform/csvImport";
 import { readMosaicLayout, writeMosaicLayout } from "../mosaicLayoutStore";
 import { loadPipelineState } from "../pipelineState";
 import {
@@ -266,6 +267,25 @@ export async function run(): Promise<void> {
       assert.deepEqual(sql?.result?.columns, ["customer_id", "orders", "revenue"]);
       assert.equal(sql?.result?.rows[0]?.customer_id, "C005", "highest revenue customer first");
       assert.ok(runtime!.snapshot().catalog?.some(asset => asset.name === "gold.mosaic_customer_revenue"));
+    }],
+    ["Mosaic CSV import creates a new text-typed bronze table and never overwrites", async () => {
+      const text = decodeCsvBytes(new TextEncoder().encode("city,visits\nLyon,3\nNice,5\n"));
+      const existing = (runtime!.snapshot().catalog ?? []).map(asset => asset.name);
+      const asset = suggestBronzeAsset("City Visits.csv", existing);
+      assert.equal(asset, "bronze.city_visits");
+      await runtime!.importCsv(asset, text, "City Visits.csv");
+      const imported = runtime!.snapshot().csvImport;
+      assert.equal(imported?.asset, asset);
+      assert.equal(imported?.rows_imported, 2);
+      assert.deepEqual(imported?.schema.map(column => column.type), ["VARCHAR", "VARCHAR"]);
+      assert.ok(runtime!.snapshot().catalog?.some(item => item.name === asset && item.row_count === 2));
+      assert.match(validateBronzeAsset(asset, runtime!.snapshot().catalog!.map(item => item.name)) ?? "", /already exists/);
+      await assert.rejects(runtime!.importCsv(asset, "city\nParis\n", "again.csv"), /CSV import refused: .*already exists/);
+
+      await runtime!.runSql(`SELECT SUM(CAST(visits AS INTEGER)) AS visits FROM ${asset}`);
+      const sum = runtime!.snapshot();
+      assert.deepEqual(sum.lastRun?.result?.rows, [{ visits: 8 }], sum.lastRun?.error?.message);
+      assert.equal(sum.csvImport, undefined, "a newer SQL run replaces the import preview");
     }],
     ["explicit trust restarts the runtime and runs Python for real", async () => {
       await runtime!.stopAndWait();

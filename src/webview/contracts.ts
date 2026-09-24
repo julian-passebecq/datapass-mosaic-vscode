@@ -148,6 +148,20 @@ export interface RuntimeSetupProgressView {
   startedAt: number;
 }
 
+export interface CsvImportView {
+  asset: string;
+  fileName: string;
+  rows_imported: number;
+  sha256: string;
+  schema: readonly { name: string; type: string }[];
+  truth: string;
+  result: {
+    columns: readonly string[];
+    rows: readonly Record<string, string | number | boolean | null>[];
+    truncated?: boolean;
+  };
+}
+
 export interface RuntimeViewState {
   status: RuntimeStatus;
   url?: string;
@@ -158,6 +172,8 @@ export interface RuntimeViewState {
   retailDemo?: RetailDemoRunView;
   catalog?: readonly LocalCatalogAssetView[];
   lastRun?: LocalCellRunView;
+  /** Latest Mosaic CSV import; cleared when a newer SQL/Python run replaces the preview. */
+  csvImport?: CsvImportView;
   pipelineRun?: PipelineRunView;
   practiceResult?: PracticeResultView;
   environment?: RuntimeEnvironmentView;
@@ -358,6 +374,7 @@ export type WebviewToHostMessage =
   | { type: "createRetailDemo" }
   | { type: "runRetailDemo" }
   | { type: "refreshCatalog" }
+  | { type: "importCsv" }
   | { type: "runActiveSql" }
   | { type: "runActivePython" }
   | { type: "runActiveSparkLab"; profileId: string; aqe: boolean }

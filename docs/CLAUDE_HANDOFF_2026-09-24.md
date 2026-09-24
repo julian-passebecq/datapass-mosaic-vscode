@@ -8,9 +8,19 @@ PR #1 merged the implementation branch into `main` with a merge commit (`f35dbe4
 
 Workflow from here: branch from `main` for each tranche, keep CI green, merge through a pull request. The dated sections below record how the project got here; branch names and tips in them are historical.
 
-## 0. Polish tranche — Claude, 2026-09-25 (newest)
+## 0. Mosaic CSV import — Claude, 2026-09-25 (newest)
 
-Branch `polish/setup-progress-and-lockfile`. Closes the three "known, not fixed" items from the F5 pass below and the lockfile decision.
+Branch `feature/mosaic-import-csv`. Gives learners a way to load their own data besides the retail demo, using the existing `import_csv` kernel op.
+
+- **Runtime**: `POST /api/local/import-csv` `{asset, text}`. Pydantic allows only `bronze.<ident>` and text up to 1,000,000 chars, and forbids extra fields (no `path`). `local_data.parse_csv` still enforces 1 MB UTF-8 bytes, 5,000 rows, 1-40 unique simple headers, and equal field counts. An existing table → 400 "already exists"; imports never overwrite. Every column is `VARCHAR`. `/api/capabilities → mosaic.csv_import` states these rules.
+- **Extension**: **Import CSV…** in Mosaic's *Local data runtime* block (enabled only while the runtime runs). The host opens a file picker, reads the file, decodes it strictly as UTF-8 (`src/platform/csvImport.ts`: size, encoding, empty-file checks), and suggests a free `bronze.<name>` from the file name, validated live against the catalog. It then sends the TEXT, not the path. The result is `RuntimeViewState.csvImport`, shown as a preview with the rows, "every column is text" and a CAST hint; a later SQL/Python run replaces it. FastAPI `detail` is surfaced as "CSV import refused: …".
+- **Truth**: real local DuckDB import; no type inference is claimed.
+
+Checked: `npm run compile`; `npm test` (new `csv_import_smoke.mjs`); `runtime_smoke.py` (new TestClient block: import, catalog, duplicate/non-bronze/injection-name/malformed/over-limit/extra-`path` refusals, CAST query); compileall; pack smoke; `npm run test:host` (new step, 17/17); browser harness render of the preview and the button → `importCsv` message. Not re-checked in a real F5 session (the native file picker and input box are only exercised through the host classes).
+
+## 0a. Polish tranche — Claude, 2026-09-25
+
+Merged as PR #3 (`603babd`). Branch `polish/setup-progress-and-lockfile`. Closes the three "known, not fixed" items from the F5 pass below and the lockfile decision.
 
 - **Setup runtime progress**: `RuntimeEnvironmentView.progress` carries step (1 venv, 2 pip install, 3 engine import check), the latest recognised pip line (`describeSetupOutputLine` in `src/platform/runtimeEnvironment.ts`, throttled to one webview update per 400 ms) and the start time. The Local runtime card shows it with an indeterminate bar and a ticking elapsed time (pip reports no overall percentage, so no fake percentage is shown); a VS Code notification mirrors it. The Output channel is no longer forced open; **Show setup log** opens it, also after a failed setup.
 - **Minimap theme**: `--xy-minimap-*` variables are mapped to VS Code theme colors in `workbench.css`.
@@ -97,7 +107,7 @@ NOT exercised: a human F5 session clicking through the real webview inside VS Co
 
 1. Manual F5 pass over the new UI (see "NOT exercised" above), then decide on un-drafting PR #1. *(Done 2026-09-25; PR #1 merged.)*
 2. P2 content: promote exercises from `legacy-donors/leetcodedataeng`. The grader uses a single `input` fixture table per exercise (`content/exercise-packs/*/grading.server.json`); most donor SQL problems are multi-table, so either extend fixtures to named tables or re-author. Add each exercise to the runtime smoke with its reference solution.
-3. A Mosaic "Import CSV into catalog" action over the existing text-only `import_csv` op (bronze-only, no overwrite) would give learners a sanctioned ingest path besides the retail demo.
+3. ~~A Mosaic "Import CSV into catalog" action~~ Done (§0).
 4. If wiring Pipeline dbt later: extend the trusted-local opt-in to dbt, validate the project path against the manifest `assets.dbt`, reuse `dbt_runner` artifact validation, never report success without a qualified manifest/run_results pair.
 5. ~~`package-lock.json` is not committed~~ Done: the lockfile is committed and CI uses `npm ci` (§0).
 

@@ -156,7 +156,30 @@ export function MosaicSurface({
                   >
                     Refresh
                   </Button>
+                  <Button
+                    appearance="secondary"
+                    size="small"
+                    disabled={runtime.status !== "running"}
+                    title={runtime.status === "running"
+                      ? "Create a new bronze table from a CSV file (up to 1 MB / 5,000 rows; never overwrites)"
+                      : "Start the runtime to import a CSV."}
+                    onClick={() => vscode.postMessage({ type: "importCsv" })}
+                  >
+                    Import CSV…
+                  </Button>
                 </div>
+                {runtime.csvImport && (
+                  <div className="mosaic-result-preview">
+                    <div className="mosaic-result-title">
+                      <strong>Imported {runtime.csvImport.fileName} → {runtime.csvImport.asset}</strong>
+                      <span>{runtime.csvImport.rows_imported} rows · {runtime.csvImport.schema.length} text columns</span>
+                    </div>
+                    <small className="muted" title={`sha256 ${runtime.csvImport.sha256}`}>
+                      Real local import. Every column is text; CAST in SQL, e.g. <code>CAST(amount AS DOUBLE)</code>.
+                    </small>
+                    <ResultTable result={runtime.csvImport.result} />
+                  </div>
+                )}
                 {lastRun?.status === "success" && (lastRun.result || lastRun.stdout) && (
                   <div className="mosaic-result-preview">
                     <div className="mosaic-result-title">

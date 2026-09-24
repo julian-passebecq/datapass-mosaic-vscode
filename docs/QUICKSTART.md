@@ -66,6 +66,8 @@ Fabric Lab is a local teaching experience. It does not require or impersonate a 
 
 After **Run local medallion flow** (Fabric Lab) has loaded the CSV into `bronze.orders`, open `notebooks/retail_medallion.sql` and choose **Run active SQL**: it builds `silver.mosaic_orders` and `gold.mosaic_customer_revenue` on real DuckDB. Mosaic SQL works on the shared catalog only; file and network table functions such as `read_csv_auto` are blocked by design.
 
+To bring your own data, use **Import CSV…** in Mosaic's *Local data runtime* block: pick a UTF-8 `.csv` (up to 1 MB / 5,000 rows, simple unique headers) and name a **new** `bronze.<table>`. The extension reads the file and sends its text to the runtime, so the runtime never gets a file path. Imports never overwrite an existing table, and every column is stored as text, so `CAST` in SQL when you build silver tables, e.g. `SELECT CAST(amount AS DOUBLE) AS amount FROM bronze.my_orders`.
+
 Open the SQL and Python scratch files and compare:
 
 - DuckDB SQL transformations;

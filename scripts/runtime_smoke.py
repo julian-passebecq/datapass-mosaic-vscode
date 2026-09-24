@@ -157,6 +157,43 @@ models >> after
     finally:
         manager.close()
 
+with TemporaryDirectory(prefix="datapass-csv-import-smoke-") as temp:
+    from fastapi.testclient import TestClient
+
+    previous_workspace = os.environ.get("DATAPASS_WORKSPACE_ROOT")
+    os.environ["DATAPASS_WORKSPACE_ROOT"] = temp
+    try:
+        with TestClient(app) as client:
+            csv_text = "﻿city,visits\nLyon,3\nParis,\n"
+            imported = client.post("/api/local/import-csv", json={"asset": "bronze.city_visits", "text": csv_text})
+            assert imported.status_code == 200, imported.text
+            body = imported.json()
+            assert body["asset"] == "bronze.city_visits" and body["rows_imported"] == 2, body
+            assert [column["type"] for column in body["schema"]] == ["VARCHAR", "VARCHAR"], body["schema"]
+            assert body["result"]["rows"] == [{"city": "Lyon", "visits": "3"}, {"city": "Paris", "visits": ""}], body["result"]
+            assert "text" in body["truth"], body["truth"]
+            catalog = client.get("/api/local/catalog").json()
+            assert any(item["name"] == "bronze.city_visits" and item["row_count"] == 2 for item in catalog), catalog
+
+            # Imports never overwrite, and only create bronze tables.
+            again = client.post("/api/local/import-csv", json={"asset": "bronze.city_visits", "text": "city\nNice\n"})
+            assert again.status_code == 400 and "already exists" in again.json()["detail"], again.text
+            for asset in ("source.orders", "silver.city_visits", "bronze.1bad", "bronze.x; DROP TABLE y"):
+                refused = client.post("/api/local/import-csv", json={"asset": asset, "text": "a\n1\n"})
+                assert refused.status_code == 422, (asset, refused.text)
+            for bad_csv in ("a,a\n1,2\n", "a,b\n1\n", "1col\nx\n", "a\n" + "x\n" * 5001):
+                refused = client.post("/api/local/import-csv", json={"asset": "bronze.bad_csv", "text": bad_csv})
+                assert refused.status_code == 400, (bad_csv[:20], refused.text)
+            extra = client.post("/api/local/import-csv", json={"asset": "bronze.x", "text": "a\n1\n", "path": "/etc/passwd"})
+            assert extra.status_code == 422, extra.text
+            queried = client.post("/api/local/query", json={"query": "SELECT CAST(visits AS INTEGER) AS v FROM bronze.city_visits WHERE visits <> ''"})
+            assert queried.json()["result"]["rows"] == [{"v": 3}], queried.text
+    finally:
+        if previous_workspace is None:
+            os.environ.pop("DATAPASS_WORKSPACE_ROOT", None)
+        else:
+            os.environ["DATAPASS_WORKSPACE_ROOT"] = previous_workspace
+
 runtime_caps = capabilities()["runtime"]
 assert runtime_caps["trusted_local_python"] is False, runtime_caps
 assert runtime_caps["python_sandboxed"] is False, runtime_caps
