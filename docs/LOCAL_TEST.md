@@ -27,7 +27,7 @@ The Workbench panel should show:
 
 ## First smoke path
 
-The first **Setup runtime** creates a managed venv and installs FastAPI, DuckDB, Polars and pandas; on Windows with real-time antivirus scanning this can take well over ten minutes. Progress is streamed to the **Datapass Runtime** output channel. Later starts take seconds.
+The first **Setup runtime** creates a managed venv and installs FastAPI, DuckDB, Polars and pandas; on Windows with real-time antivirus scanning this can take well over ten minutes. The Local runtime card and a VS Code notification show the current step, the latest pip activity and the elapsed time; **Show setup log** opens the full **Datapass Runtime** output channel. Later starts take seconds.
 
 Scratch files, exercise solutions and other files opened from the Workbench open in the column beside it, so the webview and the file stay visible together; **Run active …** also works when both share one tab group.
 

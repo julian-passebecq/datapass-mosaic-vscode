@@ -8,7 +8,18 @@ PR #1 merged the implementation branch into `main` with a merge commit (`f35dbe4
 
 Workflow from here: branch from `main` for each tranche, keep CI green, merge through a pull request. The dated sections below record how the project got here; branch names and tips in them are historical.
 
-## 0. Manual F5 pass — Claude, 2026-09-25 (newest)
+## 0. Polish tranche — Claude, 2026-09-25 (newest)
+
+Branch `polish/setup-progress-and-lockfile`. Closes the three "known, not fixed" items from the F5 pass below and the lockfile decision.
+
+- **Setup runtime progress**: `RuntimeEnvironmentView.progress` carries step (1 venv, 2 pip install, 3 engine import check), the latest recognised pip line (`describeSetupOutputLine` in `src/platform/runtimeEnvironment.ts`, throttled to one webview update per 400 ms) and the start time. The Local runtime card shows it with an indeterminate bar and a ticking elapsed time (pip reports no overall percentage, so no fake percentage is shown); a VS Code notification mirrors it. The Output channel is no longer forced open; **Show setup log** opens it, also after a failed setup.
+- **Minimap theme**: `--xy-minimap-*` variables are mapped to VS Code theme colors in `workbench.css`.
+- **Pipeline header**: shows the compiler truth in words (`Source: compiled, never executed`), a per-activity count (`3 run locally · 1 declared only`), and marks the schedule as metadata only. The runtime contract (`truth: compiled_design_only`) is unchanged.
+- **Lockfile**: `package-lock.json` is committed; CI uses `npm ci` with the npm cache.
+
+Checked: `npm run compile`, `npm test` (new parser assertions in `runtime_environment_smoke.mjs`), the Python gates, and the built webview in a browser harness with a stubbed VS Code API (setup-progress card, pipeline header, minimap computed colors in a dark theme). Not re-checked in a real F5 session.
+
+## 0b. Manual F5 pass — Claude, 2026-09-25
 
 A real VS Code 1.139 Extension Development Host (fresh profile, disposable workspace, managed runtime set up through the UI) was driven over the Chrome DevTools Protocol: real webview buttons, the real modal dialog, real mouse drags, screenshots. This replaced the "NOT exercised" item from the earlier tranche.
 
@@ -24,11 +35,11 @@ Bugs found and fixed:
 6. **Start runtime without an open folder** started anyway, then HTTP 500s. Now refused with a clear message.
 7. Badges wrapped out of their pills; Output panel popped open on every start; a broken dbt install dumped a 20-line traceback into the dbt card (now one line). QUICKSTART/README used stale button labels.
 
-Known, not fixed: first **Setup runtime** took ~15 min on this Windows machine (pip unpacking under antivirus); only the output channel shows progress. React Flow minimap is light in dark theme. Pipeline header shows the compiler's `compiled_design_only` truth next to executable activities.
+Known, not fixed at the time (all three addressed in §0): first **Setup runtime** took ~15 min on this Windows machine (pip unpacking under antivirus); only the output channel shows progress. React Flow minimap is light in dark theme. Pipeline header shows the compiler's `compiled_design_only` truth next to executable activities.
 
 The driver lives outside the repo (Playwright over CDP); if you repeat it, launch Code with `--folder-uri`, `--disable-features=CalculateNativeWinOcclusion --disable-backgrounding-occluded-windows`, and `window.dialogStyle: custom`, and use DOM clicks inside webviews.
 
-## 0a. Content tranche — Claude, 2026-09-24 (newest; read first)
+## 0c. Content tranche — Claude, 2026-09-24
 
 | Commit | Change |
 | --- | --- |
@@ -88,7 +99,7 @@ NOT exercised: a human F5 session clicking through the real webview inside VS Co
 2. P2 content: promote exercises from `legacy-donors/leetcodedataeng`. The grader uses a single `input` fixture table per exercise (`content/exercise-packs/*/grading.server.json`); most donor SQL problems are multi-table, so either extend fixtures to named tables or re-author. Add each exercise to the runtime smoke with its reference solution.
 3. A Mosaic "Import CSV into catalog" action over the existing text-only `import_csv` op (bronze-only, no overwrite) would give learners a sanctioned ingest path besides the retail demo.
 4. If wiring Pipeline dbt later: extend the trusted-local opt-in to dbt, validate the project path against the manifest `assets.dbt`, reuse `dbt_runner` artifact validation, never report success without a qualified manifest/run_results pair.
-5. `package-lock.json` is not committed (CI uses `npm install`); decide whether to commit a lockfile for reproducible builds.
+5. ~~`package-lock.json` is not committed~~ Done: the lockfile is committed and CI uses `npm ci` (§0).
 
 ## 1. Start here
 

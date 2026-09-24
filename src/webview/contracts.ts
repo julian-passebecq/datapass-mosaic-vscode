@@ -134,6 +134,18 @@ export interface RuntimeEnvironmentView {
   status: "missing" | "setting-up" | "ready" | "error";
   python?: string;
   detail?: string;
+  /** Present while status is "setting-up". */
+  progress?: RuntimeSetupProgressView;
+}
+
+export interface RuntimeSetupProgressView {
+  step: number;
+  totalSteps: number;
+  label: string;
+  /** Latest recognised pip/venv activity, e.g. "Downloading polars (35.2 MB)". */
+  activity?: string;
+  /** Epoch milliseconds when setup started. */
+  startedAt: number;
 }
 
 export interface RuntimeViewState {
@@ -352,6 +364,7 @@ export type WebviewToHostMessage =
   | { type: "setTrustedPython"; enabled: boolean }
   | { type: "saveMosaicLayout"; layout: readonly { i: string; x: number; y: number; w: number; h: number }[] }
   | { type: "setupRuntime" }
+  | { type: "showRuntimeLog" }
   | { type: "startRuntime" }
   | { type: "stopRuntime" }
   | { type: "openTerminal" }

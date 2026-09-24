@@ -84,6 +84,19 @@ h2 { margin-bottom: 8px; font-size: 28px; }
   font-size: 12px;
 }
 .muted { color: var(--vscode-descriptionForeground); }
+.setup-progress {
+  display: grid;
+  gap: 6px;
+  font-size: 12px;
+}
+.setup-progress .status-row { border-top: none; padding-top: 0; }
+.setup-progress .status-row > span { white-space: nowrap; }
+.setup-progress > button { justify-self: start; }
+.setup-activity {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
 .error-text { color: var(--vscode-errorForeground); font-size: 12px; }
 .empty-state {
   color: var(--vscode-descriptionForeground);
@@ -307,8 +320,16 @@ h2 { margin-bottom: 8px; font-size: 28px; }
   color: var(--vscode-button-secondaryForeground);
   border-color: var(--vscode-panel-border);
 }
+/* React Flow's own defaults are light (#fff mask, #e2e2e2 nodes) unless its
+   colorMode is set; follow the VS Code theme instead so every theme matches. */
+.react-flow {
+  --xy-minimap-background-color: var(--vscode-editorWidget-background);
+  --xy-minimap-mask-background-color: color-mix(in srgb, var(--vscode-editor-background) 65%, transparent);
+  --xy-minimap-mask-stroke-color: var(--vscode-focusBorder);
+  --xy-minimap-node-background-color: color-mix(in srgb, var(--vscode-descriptionForeground) 45%, transparent);
+}
 .react-flow__minimap {
-  background: var(--vscode-editorWidget-background);
+  border: 1px solid var(--vscode-panel-border);
 }
 .react-flow__edge-path {
   stroke: var(--vscode-descriptionForeground);
