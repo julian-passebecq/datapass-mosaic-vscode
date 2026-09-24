@@ -5,7 +5,7 @@ import { RuntimeManager } from "./runtimeManager";
 import { WorkbenchPanel } from "./workbenchPanel";
 
 export function activate(context: vscode.ExtensionContext): void {
-  const runtimeManager = new RuntimeManager(context.extensionUri);
+  const runtimeManager = new RuntimeManager(context.extensionUri, context.globalStorageUri);
 
   context.subscriptions.push(
     runtimeManager,
