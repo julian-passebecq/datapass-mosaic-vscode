@@ -109,6 +109,9 @@ export class WorkbenchPanel {
       case "refreshCatalog":
         await this.runtimeManager.refreshCatalog();
         return;
+      case "runActiveSql":
+        await this.runActiveSql();
+        return;
       case "startRuntime": {
         const manifest = await readProjectManifest();
         const pythonCommand = manifest.manifest?.runtime?.pythonCommand ?? "python";
@@ -231,6 +234,35 @@ export class WorkbenchPanel {
     void vscode.window.showInformationMessage(
       "Datapass retail demo created: dataset, notebook starters, pipeline, Airflow DAG and dbt sample."
     );
+    await this.refresh();
+  }
+
+  private async runActiveSql(): Promise<void> {
+    const editor = vscode.window.activeTextEditor ??
+      vscode.window.visibleTextEditors.find(candidate =>
+        candidate.document.uri.scheme === "file" &&
+        candidate.document.fileName.toLowerCase().endsWith(".sql")
+      );
+    if (!editor || !editor.document.fileName.toLowerCase().endsWith(".sql")) {
+      void vscode.window.showWarningMessage("Open a SQL file in VS Code before running it from Mosaic.");
+      return;
+    }
+
+    if (editor.document.isDirty) {
+      const saved = await editor.document.save();
+      if (!saved) {
+        void vscode.window.showWarningMessage("Save the SQL file before running it.");
+        return;
+      }
+    }
+
+    try {
+      await this.runtimeManager.runSql(editor.document.getText());
+    } catch (error) {
+      void vscode.window.showErrorMessage(
+        `SQL execution failed: ${error instanceof Error ? error.message : String(error)}`
+      );
+    }
     await this.refresh();
   }
 
