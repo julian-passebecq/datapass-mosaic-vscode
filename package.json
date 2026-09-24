@@ -4,6 +4,10 @@
   "description": "Local-first data-engineering practice workbench for VS Code.",
   "version": "0.1.0",
   "publisher": "datapass",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/julian-passebecq/datapass-mosaic-vscode.git"
+  },
   "engines": {
     "vscode": "^1.95.0"
   },
@@ -72,6 +76,7 @@
     "watch": "node scripts/build.mjs --watch",
     "vscode:prepublish": "npm run compile",
     "test:host": "npm run build && node scripts/extension_host_e2e.mjs",
+    "package": "vsce package --skip-license",
     "test": "node scripts/scaffold_smoke.mjs && node scripts/runtime_endpoint_smoke.mjs && node scripts/package_smoke.mjs && node scripts/runtime_environment_smoke.mjs && node scripts/trust_smoke.mjs && node scripts/mosaic_layout_smoke.mjs && node scripts/csv_import_smoke.mjs"
   },
   "dependencies": {
@@ -88,6 +93,7 @@
     "@types/react-dom": "^19.1.7",
     "@types/vscode": "^1.95.0",
     "@vscode/test-electron": "^3.1.0",
+    "@vscode/vsce": "^4.0.0",
     "esbuild": "^0.25.9",
     "typescript": "^5.7.2"
   }

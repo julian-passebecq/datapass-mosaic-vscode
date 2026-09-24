@@ -20,7 +20,14 @@ for (const path of required) {
 }
 
 const ignore = await readFile(".vscodeignore", "utf8");
-for (const forbidden of ["legacy-donors/**", "migration-sources/**", "workbench-core/**"]) {
+for (const forbidden of [
+  "legacy-donors/**",
+  "migration-sources/**",
+  "workbench-core/**",
+  "runtime/build/**",
+  "runtime/**/*.egg-info/**",
+  "**/*.map"
+]) {
   assert.ok(ignore.includes(forbidden), `VSIX ignore is missing ${forbidden}`);
 }
 

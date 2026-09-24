@@ -10,3 +10,15 @@ runtime/**/__pycache__/**
 runtime/**/*.pyc
 *.vsix
 dist-test/**
+# Local build output from `pip install ./runtime`; the managed venv installs from source.
+runtime/build/**
+runtime/**/*.egg-info/**
+# Source maps and TypeScript sources are bundled into dist/ and not needed at runtime.
+**/*.map
+packages/**
+tsconfig.json
+.gitignore
+CLAUDE.md
+# Contributor docs stay in the repository; users get the README and the quickstart.
+docs/**
+!docs/QUICKSTART.md

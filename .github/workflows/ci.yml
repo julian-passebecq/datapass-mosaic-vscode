@@ -19,6 +19,12 @@ jobs:
       - run: npm ci --no-audit --no-fund
       - run: npm run compile
       - run: npm test
+      - run: npm run package
+      - uses: actions/upload-artifact@v4
+        with:
+          name: datapass-workbench-vsix
+          path: "*.vsix"
+          if-no-files-found: error
 
   runtime:
     runs-on: ubuntu-latest
