@@ -54,3 +54,20 @@ See `docs/ARCHITECTURE.md` for the target architecture and `docs/HARVEST_AUDIT.m
 Open **Fabric Lab** and choose **Create / repair demo files** to scaffold a small connected project across CSV, SQL/Polars, Pipeline Lab, Airflow Lab and dbt Lab.
 
 See `docs/QUICKSTART.md` for the exact local test flow.
+
+## Install from a VSIX
+
+Build the package (it compiles first):
+
+```bash
+npm ci
+npm run package
+```
+
+This writes `datapass-mosaic-vscode-<version>.vsix` (about 0.6 MB). Install it with **Extensions → … → Install from VSIX…**, or:
+
+```bash
+code --install-extension datapass-mosaic-vscode-0.1.0.vsix
+```
+
+The Workbench is an extension pack, so VS Code also installs the Microsoft Python and Jupyter extensions. You need Python 3.11+ on your PATH: on first use, **Setup runtime** creates a private venv for the local runtime and installs its dependencies (this can take several minutes). The VSIX contains the runtime source, content packs and samples; donor trees, TypeScript sources, source maps and contributor docs are excluded (see `.vscodeignore`).
