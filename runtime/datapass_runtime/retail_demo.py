@@ -44,7 +44,7 @@ def run_retail_demo(dataset_path: str) -> dict[str, object]:
     root = _workspace_root()
     data_dir = root / ".datapass" / "data"
     data_dir.mkdir(parents=True, exist_ok=True)
-    database_path = data_dir / "datapass.duckdb"
+    database_path = data_dir / "workspace.duckdb"
 
     orders = pl.read_csv(source_path)
     expected = {"order_id", "customer_id", "order_date", "amount", "status"}
