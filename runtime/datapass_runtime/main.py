@@ -60,6 +60,20 @@ class LocalQueryRequest(BaseModel):
     query: str = Field(min_length=1, max_length=40000)
 
 
+class ExerciseGradeRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid", strict=True)
+    exercise_id: str = Field(pattern=r"^[A-Za-z0-9_-]{1,100}$")
+    exercise_version: str = Field(min_length=1, max_length=40)
+    language: Literal["sql", "sparklab", "python", "polars", "dbt"]
+    code: str = Field(min_length=1, max_length=40000)
+    mode: Literal["run", "submit"]
+    notebook_id: str = Field(pattern=r"^[A-Za-z0-9_-]{1,100}$")
+    cell_id: str = Field(pattern=r"^[A-Za-z0-9_-]{1,100}$")
+    source_revision: int = Field(ge=0)
+    profile: str = Field(default="generic_8x8", max_length=80)
+    aqe: bool = True
+
+
 class LocalExecuteRequest(BaseModel):
     model_config = ConfigDict(extra="forbid", strict=True)
     language: Literal["sql", "sparklab", "python", "polars"]
@@ -107,6 +121,26 @@ def local_catalog() -> object:
 @app.post("/api/local/query")
 def local_query(body: LocalQueryRequest) -> object:
     return native_command({"op": "read_query", "query": body.query})
+
+
+@app.post("/api/local/exercise")
+def local_exercise(body: ExerciseGradeRequest) -> object:
+    try:
+        return native_command({
+            "op": "exercise",
+            "exercise_id": body.exercise_id,
+            "exercise_version": body.exercise_version,
+            "language": body.language,
+            "code": body.code,
+            "mode": body.mode,
+            "notebook_id": body.notebook_id,
+            "cell_id": body.cell_id,
+            "source_revision": body.source_revision,
+            "profile": body.profile,
+            "aqe": body.aqe,
+        })
+    except (KeyError, ValueError, RuntimeError) as error:
+        raise HTTPException(status_code=400, detail=str(error)) from error
 
 
 @app.post("/api/local/execute")
