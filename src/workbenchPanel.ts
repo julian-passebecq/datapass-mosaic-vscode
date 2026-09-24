@@ -644,7 +644,7 @@ async function ensureDbtProfile(root: vscode.Uri): Promise<vscode.Uri> {
   const profilesDir = vscode.Uri.joinPath(root, ".datapass", "dbt");
   const dataDir = vscode.Uri.joinPath(root, ".datapass", "data");
   const profile = vscode.Uri.joinPath(profilesDir, "profiles.yml");
-  const database = vscode.Uri.joinPath(dataDir, "datapass.duckdb");
+  const database = vscode.Uri.joinPath(dataDir, "workspace.duckdb");
 
   await vscode.workspace.fs.createDirectory(profilesDir);
   await vscode.workspace.fs.createDirectory(dataDir);
