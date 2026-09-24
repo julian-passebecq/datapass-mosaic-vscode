@@ -634,3 +634,30 @@ h2 { margin-bottom: 8px; font-size: 28px; }
   white-space: nowrap;
 }
 .catalog-empty { margin-top: 10px; }
+
+
+.mosaic-run-summary {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 10px;
+  color: var(--vscode-descriptionForeground);
+  font-size: 10px;
+}
+.mosaic-run-summary small {
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.mosaic-result-preview {
+  display: grid;
+  gap: 7px;
+  margin-top: 10px;
+}
+.mosaic-result-title {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  font-size: 10px;
+}
+.mosaic-result-title span { color: var(--vscode-descriptionForeground); }
