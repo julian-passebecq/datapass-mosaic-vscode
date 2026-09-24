@@ -137,6 +137,9 @@ export class WorkbenchPanel {
       case "refreshPipeline":
         await this.refresh();
         return;
+      case "runPipeline":
+        await this.runPipeline();
+        return;
       case "openAirflowSource":
         await this.openAirflowSource();
         return;
@@ -366,6 +369,31 @@ export class WorkbenchPanel {
     await openTextDocument(starterUri);
   }
 
+  private async runPipeline(): Promise<void> {
+    const root = vscode.workspace.workspaceFolders?.[0]?.uri;
+    if (!root) {
+      void vscode.window.showWarningMessage("Open a workspace folder before running a pipeline.");
+      return;
+    }
+    const manifest = await readProjectManifest();
+    const pipelineRoot = safeRelativeParts(manifest.manifest?.assets?.pipelines, "pipelines");
+    const uri = vscode.Uri.joinPath(root, ...pipelineRoot, "main.pipeline.py");
+    if (!(await exists(uri))) {
+      await this.openPipelineSource();
+      return;
+    }
+
+    const source = new TextDecoder().decode(await vscode.workspace.fs.readFile(uri));
+    try {
+      await this.runtimeManager.runPipeline(source);
+    } catch (error) {
+      void vscode.window.showErrorMessage(
+        `Pipeline execution failed: ${error instanceof Error ? error.message : String(error)}`
+      );
+    }
+    await this.refresh();
+  }
+
   private async openPipelineSource(): Promise<void> {
     const root = vscode.workspace.workspaceFolders?.[0]?.uri;
     if (!root) {
@@ -546,9 +574,9 @@ function scratchSpec(kind: ScratchKind): { fileName: string; content: string } {
 function pipelineStarter(): string {
   return [
     'pipeline("retail_quality", schedule="@daily")',
-    'extract = sql("extract", "CREATE OR REPLACE TABLE bronze_sample AS SELECT 1 AS id")',
-    'check = quality("check", "SELECT * FROM bronze_sample WHERE id IS NULL", retries=1, retry_delay=1)',
-    'publish = sql("publish", "SELECT COUNT(*) AS rows FROM bronze_sample")',
+    'extract = sql("extract", "CREATE OR REPLACE TABLE bronze.sample AS SELECT 1 AS id")',
+    'check = quality("check", "SELECT * FROM bronze.sample WHERE id IS NULL", retries=1, retry_delay=1)',
+    'publish = sql("publish", "SELECT COUNT(*) AS rows FROM bronze.sample")',
     "extract >> check >> publish",
     ""
   ].join("\n");
