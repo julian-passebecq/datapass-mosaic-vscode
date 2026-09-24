@@ -428,9 +428,8 @@ export class WorkbenchPanel {
 
     const donor = vscode.Uri.joinPath(
       this.context.extensionUri,
-      "workbench-core",
-      "examples",
-      "analytics-m2",
+      "samples",
+      "dbt",
       "retail-dbt"
     );
     await copyDirectoryWithoutOverwrite(donor, projectRoot);
