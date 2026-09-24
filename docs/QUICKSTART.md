@@ -138,6 +138,6 @@ The runtime is a local IPC/control plane, not a separate Datapass web applicatio
 | SparkLab | supported local result semantics | distributed Spark/cluster metrics |
 | dbt Lab | dbt Core + DuckDB when installed | static lineage fallback is not execution |
 | Airflow Lab | project DAG definition | scheduler/executor/task runtime |
-| Pipeline Lab | source files, bounded compiler | orchestration service semantics |
+| Pipeline Lab | source files, bounded compiler, supported local activity execution | scheduler/service semantics; dbt pipeline activity not wired yet |
 
 The UI should always preserve this distinction.
