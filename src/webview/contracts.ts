@@ -28,11 +28,20 @@ export interface RetailDemoRunView {
   };
 }
 
+export interface LocalCatalogAssetView {
+  name: string;
+  layer: string;
+  row_count: number;
+  fresh: boolean;
+  producer?: string;
+}
+
 export interface RuntimeViewState {
   status: RuntimeStatus;
   url?: string;
   detail?: string;
   retailDemo?: RetailDemoRunView;
+  catalog?: readonly LocalCatalogAssetView[];
 }
 
 export interface WorkspaceViewState {
@@ -169,6 +178,7 @@ export type WebviewToHostMessage =
   | { type: "openManifest" }
   | { type: "createRetailDemo" }
   | { type: "runRetailDemo" }
+  | { type: "refreshCatalog" }
   | { type: "startRuntime" }
   | { type: "stopRuntime" }
   | { type: "openTerminal" }
