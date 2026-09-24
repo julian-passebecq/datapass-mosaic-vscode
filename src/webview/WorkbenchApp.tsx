@@ -139,7 +139,7 @@ export function WorkbenchApp({ vscode }: { vscode: VsCodeApi }) {
             {selected.id === "mosaic" ? (
               <MosaicSurface vscode={vscode} runtime={state.runtime} />
             ) : selected.id === "practice" ? (
-              <PracticeSurface vscode={vscode} exercises={state.practice?.exercises ?? []} />
+              <PracticeSurface vscode={vscode} exercises={state.practice?.exercises ?? []} runtime={state.runtime} />
             ) : selected.id === "fabric" ? (
               <FabricSurface vscode={vscode} runtime={state.runtime} />
             ) : selected.id === "sparklab" ? (
