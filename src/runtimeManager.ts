@@ -68,7 +68,10 @@ export class RuntimeManager implements vscode.Disposable {
         stdio: ["ignore", "pipe", "pipe"],
         env: {
           ...process.env,
-          DATAPASS_CONTENT_ROOT: path.join(this.extensionUri.fsPath, "content")
+          DATAPASS_CONTENT_ROOT: path.join(this.extensionUri.fsPath, "content"),
+          ...(vscode.workspace.workspaceFolders?.[0]?.uri.fsPath
+            ? { DATAPASS_WORKSPACE_ROOT: vscode.workspace.workspaceFolders[0].uri.fsPath }
+            : {})
         }
       }
     );
@@ -110,6 +113,31 @@ export class RuntimeManager implements vscode.Disposable {
     }
   }
 
+  async runRetailDemo(datasetPath: string): Promise<void> {
+    const url = this.state.status === "running" ? this.state.url : undefined;
+    if (!url) throw new Error("Start the Datapass runtime before running the retail demo.");
+    this.setState({ ...this.state, detail: "Running retail medallion demo…" });
+    try {
+      const retailDemo = await requestJson<NonNullable<RuntimeViewState["retailDemo"]>>(
+        `${url}/api/demo/retail/run`,
+        "POST",
+        { dataset_path: datasetPath },
+        10000
+      );
+      this.setState({
+        ...this.state,
+        detail: "Retail demo completed with real local Polars + DuckDB execution.",
+        retailDemo
+      });
+    } catch (error) {
+      this.setState({
+        ...this.state,
+        detail: error instanceof Error ? error.message : String(error)
+      });
+      throw error;
+    }
+  }
+
   async compilePipeline(source: string): Promise<PipelineCompileResponse> {
     const url = this.state.status === "running" ? this.state.url : undefined;
     if (!url) throw new Error("Start the Datapass runtime before compiling a pipeline.");
@@ -148,7 +176,8 @@ export class RuntimeManager implements vscode.Disposable {
 function requestJson<T>(
   url: string,
   method: "POST",
-  body: unknown
+  body: unknown,
+  timeoutMs = 2500
 ): Promise<T> {
   return new Promise((resolve, reject) => {
     const payload = Buffer.from(JSON.stringify(body), "utf8");
@@ -178,7 +207,7 @@ function requestJson<T>(
         });
       }
     );
-    request.setTimeout(2500, () => request.destroy(new Error("Runtime request timed out.")));
+    request.setTimeout(timeoutMs, () => request.destroy(new Error("Runtime request timed out.")));
     request.on("error", reject);
     request.end(payload);
   });
