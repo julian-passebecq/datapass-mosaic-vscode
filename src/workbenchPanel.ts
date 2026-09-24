@@ -112,6 +112,9 @@ export class WorkbenchPanel {
       case "runActiveSql":
         await this.runActiveSql();
         return;
+      case "setupRuntime":
+        await this.setupRuntime();
+        return;
       case "startRuntime": {
         const manifest = await readProjectManifest();
         const pythonCommand = manifest.manifest?.runtime?.pythonCommand ?? "python";
@@ -156,6 +159,20 @@ export class WorkbenchPanel {
         await this.runDbtBuild();
         return;
     }
+  }
+
+  private async setupRuntime(): Promise<void> {
+    const manifest = await readProjectManifest();
+    const pythonCommand = manifest.manifest?.runtime?.pythonCommand ?? "python";
+    try {
+      await this.runtimeManager.setup(pythonCommand);
+      void vscode.window.showInformationMessage("Datapass managed runtime is ready.");
+    } catch (error) {
+      void vscode.window.showErrorMessage(
+        `Datapass runtime setup failed: ${error instanceof Error ? error.message : String(error)}`
+      );
+    }
+    await this.refresh();
   }
 
   private async createManifest(): Promise<void> {
