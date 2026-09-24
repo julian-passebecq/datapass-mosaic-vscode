@@ -71,6 +71,12 @@ export interface PipelineRunView {
   tasks: readonly PipelineTaskRunView[];
 }
 
+export interface RuntimeEnvironmentView {
+  status: "missing" | "setting-up" | "ready" | "error";
+  python?: string;
+  detail?: string;
+}
+
 export interface RuntimeViewState {
   status: RuntimeStatus;
   url?: string;
@@ -79,6 +85,7 @@ export interface RuntimeViewState {
   catalog?: readonly LocalCatalogAssetView[];
   lastRun?: LocalCellRunView;
   pipelineRun?: PipelineRunView;
+  environment?: RuntimeEnvironmentView;
 }
 
 export interface WorkspaceViewState {
@@ -217,6 +224,7 @@ export type WebviewToHostMessage =
   | { type: "runRetailDemo" }
   | { type: "refreshCatalog" }
   | { type: "runActiveSql" }
+  | { type: "setupRuntime" }
   | { type: "startRuntime" }
   | { type: "stopRuntime" }
   | { type: "openTerminal" }
