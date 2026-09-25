@@ -281,6 +281,24 @@ When adding an exercise: design the hidden and edge fixtures around the pitfall,
 
 For a SparkLab plan lesson whose starter already returns the right rows, add the exercise to `PLAN_ONLY_STARTERS`: the gate then requires the starter to pass every result check and fail at least one plan check, so the lesson stays about the plan.
 
+## Editor support (tab labels and Pylance)
+
+Opening an exercise (src/exerciseWorkspace.ts) also prepares the learner's VS Code, never the grading:
+
+- `workbench.editor.customLabels.patterns` in the workspace settings shows `<exercise> · <language>` on the tab
+  instead of `solution.py`, and `<exercise> · brief` for its README;
+- for Python-file languages, a `__builtins__.pyi` next to the solution declares the names the runtime injects for
+  that exercise (`spark`, `dbutils`, `display`, `query`, the fixture tables, the Pipeline Lab calls). Pylance reads
+  it from the file's own folder; `files.exclude` hides it from the Explorer;
+- `content/pylance-stubs/` is copied to `.datapass/pylance-stubs/` and added to `python.analysis.extraPaths`, so
+  `pyspark`, `airflow`, `pendulum` and `mlflow` imports resolve without installing those packages.
+
+The stubs are generated from the readers' own import tables: after SparkLab or the Airflow Lab reader accepts a
+new module or name, run `PYTHONPATH=runtime python scripts/authoring/gen_pylance_stubs.py` (CI runs it with
+`--check`). `scripts/exercise_workspace_smoke.mjs` fails when a starter imports a simulated module or name that
+has no stub. They are `.py` modules, not `.pyi`: Pylance reports a `.pyi` without a source as "could not be
+resolved from source".
+
 ## Installed packs
 
 | Pack | Language(s) | Exercises | Notes |

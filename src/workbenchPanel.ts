@@ -3,6 +3,7 @@ import { AIRFLOW_STARTER_FILE, airflowPaths } from "./airflowState";
 import { biFileUri, biRoot, collectBiDbtFiles, collectBiScripts, copyBiSamples, readBiModel } from "./biState";
 import { BI_LIMITS, BI_MODEL_FILE, DBT_COMMANDS, parseSelect } from "./platform/biRun";
 import { loadExerciseCatalog } from "./exerciseCatalog";
+import { prepareExerciseWorkspace } from "./exerciseWorkspace";
 import { decodeCsvBytes, suggestBronzeAsset, validateBronzeAsset } from "./platform/csvImport";
 import {
   collectDatabricksFiles,
@@ -656,6 +657,7 @@ export class WorkbenchPanel {
         new TextEncoder().encode(exerciseReadme(exercise))
       );
     }
+    await prepareExerciseWorkspace(this.context.extensionUri, root, exerciseRoot, directory, exercise, console.warn);
 
     await this.openBeside(starterUri);
   }

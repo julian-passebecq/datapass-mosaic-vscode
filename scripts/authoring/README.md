@@ -15,6 +15,7 @@ registry, and writes `content/exercise-packs/<pack>/`.
 | `gen_dwh.py` | `dwh-v1` | `datapass_runtime/warehouse_grading.py` (BI Lab) |
 | `gen_dbt.py` | `dbt-v1` | `datapass_runtime/dbt_project_grading.py` (BI Lab dbt emulation; cross-checked with dbt Core when `DATAPASS_DBT_PYTHON` is set) |
 | `gen_spark_lab.py` | `spark-lab-v1` | SparkLab grader; the pack and its grading changes come with PR #7, which is not in this branch's history |
+| `gen_pylance_stubs.py` | `content/pylance-stubs/` (not a pack) | the SparkLab and Airflow Lab readers' import tables; CI runs it with `--check` |
 
 Run from the repository root, against the repository's runtime:
 

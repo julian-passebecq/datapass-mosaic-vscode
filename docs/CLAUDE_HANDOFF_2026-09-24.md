@@ -22,7 +22,20 @@ Workflow from here: branch from `main` for each tranche, keep CI green, merge th
 - **Bug found.** The Cloud Lab sub-tabs and the execution badge overflowed a narrow Workbench. Fixed in PR #17.
 - **Stacked PRs.** Retarget the next PR to `main` before merging its base with `--delete-branch`. Otherwise GitHub closes it.
 
-## 0. Projects: end-to-end stories across the labs — Claude, 2026-09-25 (newest)
+## Vague 1: Practice and Mosaic quick wins — Claude, 2026-09-25 (newest)
+
+Roadmap artifact: https://claude.ai/artifact/RhQMPGxeuNo9GTFzH5B8aJ (items V1-x; section "Dette technique" D-1…D-10
+holds the code-debt audit of 2026-09-25). One PR per item, merged on green CI.
+
+- **V1-3 + V1-4 + D-1** (`feature/exercise-editor-polish`): opening an exercise writes tab labels
+  (`workbench.editor.customLabels.patterns`), a per-exercise `__builtins__.pyi` (hidden by `files.exclude`) and the
+  generated `content/pylance-stubs` (copied to `.datapass/pylance-stubs`, added to `python.analysis.extraPaths`).
+  See EXERCISE_AUTHORING.md → "Editor support". Pyright over all 104 Python starters: 120 warnings before, 0 after;
+  in a real VS Code window with Pylance, 0 problems on five exercises while a control file with a missing import
+  was flagged. `.vscodeignore` now excludes `.claude/**` and `.venv/**`: from the main checkout, `vsce` would
+  otherwise have packaged the parallel sessions' worktrees (185 040 files).
+
+## 0. Projects: end-to-end stories across the labs — Claude, 2026-09-25
 
 The user asked for a Workbench module **Projects** that gives meaning to every lab: 2-3 end-to-end projects, each a
 story whose steps are done in the existing modules, with checkboxes that follow the learner's progress. PRs #20

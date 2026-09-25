@@ -43,7 +43,9 @@ const required = [
   "content/projects/retail-fabric/project.json",
   "content/projects/retail-fabric/files/projects/retail-fabric/web_orders_2026-03-05.csv",
   "content/projects/databricks-ml/project.json",
-  "content/projects/synapse-to-fabric/project.json"
+  "content/projects/synapse-to-fabric/project.json",
+  "content/pylance-stubs/pyspark/sql/functions.py",
+  "content/pylance-stubs/airflow/sdk.py"
 ];
 
 for (const path of required) {
@@ -58,7 +60,9 @@ for (const forbidden of [
   "runtime/build/**",
   "runtime/**/*.egg-info/**",
   "**/*.map",
-  "content/projects/*/reference/**"
+  "content/projects/*/reference/**",
+  ".claude/**",
+  ".venv/**"
 ]) {
   assert.ok(ignore.includes(forbidden), `VSIX ignore is missing ${forbidden}`);
 }
