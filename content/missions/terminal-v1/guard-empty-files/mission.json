@@ -1,0 +1,77 @@
+{
+  "id": "guard-empty-files",
+  "version": "1",
+  "lab": "terminal",
+  "title": "Stop the load when a partner file is empty",
+  "level": "intermediate",
+  "estimate": "30-40 min",
+  "skills": ["shell scripts", "arguments", "stderr", "exit codes", "set -euo pipefail"],
+  "ticket": {
+    "from": "Tomás Ortega, data engineering",
+    "subject": "Nightly load crashed on empty partner files: we need a guard",
+    "body": [
+      "The 02:00 load crashed because two of the partner's CSV files arrived empty, and nobody noticed until the",
+      "dashboards were blank. Before we wire a guard into the scheduler, I need the script itself:",
+      "",
+      "- `bin/check-incoming.sh` (bash) or `bin/check-incoming.ps1` (PowerShell), your choice;",
+      "- it takes the folder to check as its first argument (PowerShell: a `param()`), and does not hard-code any file",
+      "  name;",
+      "- for every `.csv` file of that folder that is empty (0 bytes), it writes the file name on **stderr**, one per",
+      "  line;",
+      "- it exits with status **1** when at least one file is empty, **0** otherwise, so the scheduler can stop.",
+      "- In bash: start with `#!/usr/bin/env bash` and `set -euo pipefail`.",
+      "",
+      "Then run it once on `incoming/` and keep the evidence for the incident note, in `logs/`:",
+      "",
+      "- what it wrote on stderr, in `logs/check.err`;",
+      "- its exit status (just the number), in `logs/check.status`.",
+      "",
+      "Datapass does not run your script: it reads it, and it reads the evidence your own run left."
+    ]
+  },
+  "acceptance": [
+    {
+      "id": "script",
+      "text": "The script exists, takes the folder as an argument, reports on stderr and exits 1 on an empty file.",
+      "checks": [
+        {"kind": "any_of", "fail": "No script reads as asked yet.", "checks": [
+          {"kind": "script", "path": "bin/check-incoming.sh", "shell": "bash",
+           "shebang": "^#!/usr/bin/env bash\\s*$",
+           "uses": ["\\bset\\b.*(\\s-[a-z]*e|errexit)", "\\bset\\b.*(\\s-[a-z]*u|nounset)", "\\bset\\b.*pipefail",
+                    "\\$\\{?1\\b|\\$@", ">&2|/dev/stderr", "\\bexit\\b"],
+           "not_uses": ["refunds\\.csv", "returns\\.csv"]},
+          {"kind": "script", "path": "bin/check-incoming.ps1", "shell": "powershell",
+           "uses": ["\\bparam\\s*\\(", "\\[Console\\]::Error|Write-Error|WriteErrorLine", "\\bexit\\s+1\\b"],
+           "not_uses": ["refunds\\.csv", "returns\\.csv"]}
+        ]}
+      ]
+    },
+    {
+      "id": "status",
+      "text": "logs/check.status holds the exit status of your run on incoming/.",
+      "checks": [
+        {"kind": "text", "path": "logs/check.status", "equals": ["1"],
+         "fail": "The recorded exit status is not what a guard should return on today's files."}
+      ]
+    },
+    {
+      "id": "stderr",
+      "text": "logs/check.err names the empty files, and only them.",
+      "checks": [
+        {"kind": "text", "path": "logs/check.err", "contains": ["refunds.csv", "returns.csv"],
+         "not_contains": ["customers.csv", "orders.csv", "products.csv", "manifest.txt"]}
+      ]
+    }
+  ],
+  "hints": [
+    "`[ -s \"$file\" ]` is true when a file exists and is not empty; `for file in \"$1\"/*.csv; do ... done` walks the CSV files of the folder given as first argument. In PowerShell, `Get-ChildItem $Folder -Filter *.csv | Where-Object Length -eq 0`.",
+    "`>&2` sends a line to stderr (PowerShell: `[Console]::Error.WriteLine($name)`). Keep a status variable and `exit \"$status\"` at the end, or `exit 1` as soon as you know.",
+    "Run it and capture both: `bash bin/check-incoming.sh incoming 2> logs/check.err; echo $? > logs/check.status`. `$?` is the exit status of the last command, so nothing may run in between.",
+    "In PowerShell, run the script in a new process so its stderr and exit code are its own: `pwsh -File bin/check-incoming.ps1 incoming 2> logs/check.err; $LASTEXITCODE | Set-Content logs/check.status`."
+  ],
+  "fixture": {},
+  "reference": [
+    {"bash": "solution/solve.sh"},
+    {"powershell": "solution/solve.ps1"}
+  ]
+}

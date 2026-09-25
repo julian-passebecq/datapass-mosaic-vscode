@@ -2,8 +2,9 @@
 
 A mission is a ticket, not an exercise. Someone on the team writes with context and a request; the learner gets
 acceptance criteria, hints one at a time on request, and no pre-chewed starter: the work happens in a real project
-folder with real tools. A hidden checker then looks at what really happened. The dbt Lab ships the first pack
-(`content/missions/dbt-v1`); the Terminal and Infra labs are meant to reuse the contract with their own check kinds.
+folder with real tools. A hidden checker then looks at what really happened. Two labs ship packs: the dbt Lab
+(`content/missions/dbt-v1`) and the Terminal Lab (`content/missions/terminal-v1`, see below). The Infra Lab is meant
+to reuse the contract with its own check kinds.
 
 ## Truth
 
@@ -34,7 +35,7 @@ writes `TICKET.md` there.
 
 ## mission.json
 
-- `id`, `version`, `lab` (`dbt`), `title`, `level` (`intro`, `intermediate`, `advanced`), `estimate`, `skills`.
+- `id`, `version`, `lab` (`dbt` or `terminal`), `title`, `level` (`intro`, `intermediate`, `advanced`), `estimate`, `skills`.
 - `ticket`: `from`, `subject`, `body` (Markdown; a list of lines is joined).
 - `acceptance`: criteria, each `{id, text, checks: [...]}`; a criterion passes when all its checks pass.
 - `requires`: preconditions (`{message, check}`), such as "the second day's data was loaded". Unmet ones are shown
@@ -67,9 +68,47 @@ A failed check shows its `fail` sentence and what it found, never the expected a
 
 ## API
 
-- `POST /api/local/missions/setup {mission_id, batch_id}` (kernel op `mission_setup`).
+- `POST /api/local/missions/setup {mission_id, batch_id}` (kernel op `mission_setup`). For a Terminal Lab mission,
+  `{mission_id}` alone (re)builds the mission folder instead; no kernel involved.
 - `POST /api/local/missions/check {mission_id, dct}` (kernel op `mission_sql` for the SQL checks; the rest is read
   in the API process from `<workspace>/missions/<id>/`).
 
 `scripts/missions_smoke.py` plays every mission with real dbt Core and dct (`DATAPASS_DBT_PYTHON`): the reference
 passes, the untouched project and every mutant fail.
+
+## Terminal Lab missions (`lab: "terminal"`)
+
+The learner's own bash, PowerShell and Git commands, typed in a real VS Code terminal opened in the mission folder.
+Datapass runs none of them: it builds the starting folder, then reads what the commands left behind.
+
+| Piece | Truth |
+| --- | --- |
+| The learner's work | Real: their commands in their shell (Git Bash or bash, pwsh or Windows PowerShell). |
+| Fixture | Built by the runtime from the pack only (`terminal.py` `build_fixture`): the mission's `project/` overlay, the inline `fixture.files` (with CRLF or the executable bit when a mission needs them), then a Git history made of fixed git commands (`init -b`, `commit`, `branch`, `switch`, `merge --no-ff`, `tag`, `branch -D`, `reset --hard`, `stash push`). The author and dates are fixed and the learner's global and system Git config is not read, so the fixture's hashes are the same on every machine. |
+| Start over | The existing folder is moved to `.datapass/missions/attic/<id>-<time>/`, never deleted; the new one is built next to it and renamed into place. |
+| Checks | Real, read-only: files as text (UTF-8, or UTF-16 with a BOM as Windows PowerShell 5.1 writes with `>`), CSV, scripts as **text** (comments removed; never executed), and the repository through read-only git commands with `core.fsmonitor` off, hooks pointed at nothing and `GIT_CEILING_DIRECTORIES` so a repository around the workspace is never used. Ignore rules are the repository's own (the learner's global excludes file is left out, since it would not travel with the repository). |
+
+A mission.json of this lab has a `fixture` (`files`, `git: {path, branch, author, start, steps}`) instead of
+`workspace` and `batches`, and its `reference` steps are whole solution scripts: `{bash: "solution/solve.sh"}`,
+`{powershell: "solution/solve.ps1"}`. Mutants are `mutants/<name>/solve.sh` or `solve.ps1`. Check kinds that need
+the catalog or dbt (`sql`, `node`, `run`, …) are refused in this lab.
+
+| Kind | Looks at |
+| --- | --- |
+| `path` | A path is a file (optionally non-empty), a folder, or absent. |
+| `text` | A file's exact lines (line endings and trailing spaces normalized), texts it contains or not, regexes, LF or CRLF. |
+| `listing` | A folder's entries (optionally recursive, `.git` skipped) matching a name pattern: exactly, includes, excludes, a count. |
+| `csv` | Header and rows, in order or not; a `#TYPE` line (Export-Csv without `-NoTypeInformation`) fails. |
+| `script` | A bash or PowerShell script's text without comments: shebang, constructs it must or must not use. Never run. |
+| `git_repo` | The folder is the top of its own repository; current branch; clean tree; no merge, rebase, cherry-pick or revert in progress. |
+| `git_branch` | A branch exists, or is gone. |
+| `git_log` | The commits of a ref (or `since..ref`): exact subjects, included and excluded subjects, counts, linear or with merges, ancestors, a subject regex (Conventional Commits), texts a message body records (`cherry-pick -x`). |
+| `git_file` | A file as committed at a ref: exists or not, contents, no conflict markers, mode `100755`, LF or CRLF. |
+| `git_tag` | A tag exists, annotated or lightweight, points at a revision, its message. |
+| `git_ignore` | Paths the repository ignores or not (`check-ignore --no-index`), paths tracked or not. |
+| `git_stash` | The number of stash entries, an entry's message. |
+| `any_of` | One of its checks passes (a script in bash or in PowerShell). |
+
+`scripts/terminal_missions_smoke.py` plays every reference with real shells (bash; pwsh, and Windows PowerShell 5.1
+on Windows) in a fixture built through the API: the references pass, the untouched fixtures and every mutant fail,
+the fixture's hashes are reproducible, and Start over keeps the previous folder in the attic.

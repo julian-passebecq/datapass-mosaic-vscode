@@ -1,0 +1,58 @@
+{
+  "id": "grep-error-report",
+  "version": "1",
+  "lab": "terminal",
+  "title": "Pull the errors out of three nights of logs",
+  "level": "intro",
+  "estimate": "20-30 min",
+  "skills": ["grep / Select-String", "find / Get-ChildItem -Recurse", "pipes", "sort -u", "redirection"],
+  "ticket": {
+    "from": "Tomás Ortega, on-call this week",
+    "subject": "Incident review: which errors did the nightly jobs hit?",
+    "body": [
+      "For Friday's incident review I need the errors of the last nights in two small files, and I'd rather not scroll",
+      "through the logs by hand. Everything is under `logs/` (one folder per day, older days under `logs/archive/`).",
+      "",
+      "- `report/errors.txt`: every line at level `ERROR` from all the `.log` files under `logs/`, at any depth. Not",
+      "  the `.bak` copies and not the README. The lines as they are, without file names, sorted, each line once (a",
+      "  rerun logged one of them twice).",
+      "- `report/codes.txt`: the distinct error codes (`E` and four digits) found in those lines, sorted, one per line.",
+      "",
+      "Careful: some INFO lines mention an \"error\" in lower case; they are not errors."
+    ]
+  },
+  "acceptance": [
+    {
+      "id": "errors",
+      "text": "report/errors.txt holds the ERROR lines of every .log file, without file names, sorted, each once.",
+      "checks": [
+        {"kind": "text", "path": "report/errors.txt", "equals": [
+          "2026-09-20T01:01:00Z ERROR ingest E1042 batch 305 rejected: schema drift on column amount",
+          "2026-09-21T01:02:11Z ERROR ingest E1042 batch 309 rejected: schema drift on column amount",
+          "2026-09-21T01:09:55Z ERROR ingest E2001 batch 310 timed out after 300s",
+          "2026-09-21T03:04:31Z ERROR export E3105 sftp upload refused: disk quota",
+          "2026-09-22T01:03:17Z ERROR ingest E1042 batch 311 rejected: schema drift on column amount",
+          "2026-09-22T01:12:48Z ERROR ingest E1007 batch 312 duplicate key order_id=88121"
+        ]}
+      ]
+    },
+    {
+      "id": "codes",
+      "text": "report/codes.txt lists the distinct error codes of those lines, sorted.",
+      "checks": [
+        {"kind": "text", "path": "report/codes.txt", "equals": ["E1007", "E1042", "E2001", "E3105"]}
+      ]
+    }
+  ],
+  "hints": [
+    "`grep ' ERROR ' file` keeps the matching lines; `-r` walks folders, `-h` drops the file names. `find logs -name '*.log'` lists the files you want. In PowerShell: `Get-ChildItem logs -Recurse -Filter *.log | Select-String ' ERROR '`, and `ForEach-Object { $_.Line }` keeps the text.",
+    "grep is case-sensitive; Select-String is not unless you add `-CaseSensitive`.",
+    "`sort -u` sorts and drops duplicates (PowerShell: `Sort-Object -Unique`). `>` writes the result to a file; create `report/` first.",
+    "`grep -o 'E[0-9]\\{4\\}'` prints only the matching part of each line (PowerShell: `Select-String 'E\\d{4}'` and `$_.Matches.Value`)."
+  ],
+  "fixture": {},
+  "reference": [
+    {"bash": "solution/solve.sh"},
+    {"powershell": "solution/solve.ps1"}
+  ]
+}

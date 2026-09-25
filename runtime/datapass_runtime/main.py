@@ -13,6 +13,7 @@ from pydantic import BaseModel, ConfigDict, Field, field_validator, model_valida
 from airflowlab.lab import lab_view
 from missionlab.check import evaluate as evaluate_mission, fixture_statements, sql_queries as mission_queries
 from missionlab.model import find_mission
+from missionlab.terminal import FixtureError, build_fixture
 
 from .auth import RuntimeAuthMiddleware
 from .catalog_lease import CatalogLease, CatalogLocked, CatalogReleased, is_lock_error
@@ -265,10 +266,11 @@ class CatalogReleaseRequest(BaseModel):
 
 
 class MissionSetupRequest(BaseModel):
-    """Missions: load one fixture batch of a shipped mission (the SQL comes from the content, not the request)."""
+    """Missions: load one fixture batch of a dbt Lab mission, or (re)build a Terminal Lab mission's folder. The SQL,
+    files and Git history come from the shipped content, never from the request."""
     model_config = ConfigDict(extra="forbid", strict=True)
     mission_id: str = Field(pattern=r"^[a-z0-9][a-z0-9-]{0,47}$")
-    batch_id: str = Field(pattern=r"^[a-z0-9-]{1,40}$")
+    batch_id: str | None = Field(default=None, pattern=r"^[a-z0-9-]{1,40}$")
 
 
 class MissionCheckRequest(BaseModel):
@@ -426,9 +428,12 @@ def capabilities() -> dict[str, object]:
             "manual_steps": "declared by the learner, never marked verified",
         },
         "missions": {
-            "labs": ["dbt"],
-            "work": "real tools on a real project folder (missions/<id>/): dbt Core, dbt Charts, an Airflow DAG file",
-            "checker": "read-only SQL on the catalog, the learner's dbt artifacts and files, dct validate, the Airflow simulator",
+            "labs": ["dbt", "terminal"],
+            "work": "real tools on a real project folder (missions/<id>/): dbt Core, dbt Charts, an Airflow DAG file; "
+                    "the learner's own bash, PowerShell and Git commands in a VS Code terminal",
+            "checker": "read-only SQL on the catalog, the learner's dbt artifacts and files, dct validate, the Airflow "
+                       "simulator; for the Terminal Lab the resulting files and Git repository (read-only git), never "
+                       "the learner's commands or scripts",
         },
         "pipeline_lab": {
             "mode": "hybrid",
@@ -506,8 +511,17 @@ def _mission(mission_id: str):
 
 @app.post("/api/local/missions/setup")
 def mission_setup(body: MissionSetupRequest) -> dict[str, object]:
-    """Load a mission's fixture batch into the catalog. The first batch starts the mission over."""
+    """Load a mission's fixture batch into the catalog (the first batch starts the mission over), or build a Terminal
+    Lab mission's folder from the pack (an existing folder is moved to .datapass/missions/attic/, never deleted)."""
     mission, pack_dir = _mission(body.mission_id)
+    if mission.lab == "terminal":
+        try:
+            built = build_fixture(mission, pack_dir, workspace_root())
+        except FixtureError as error:
+            raise HTTPException(status_code=409, detail=str(error)) from error
+        return {"mission_id": mission.id, "batch_id": None, **built}
+    if body.batch_id is None:
+        raise HTTPException(status_code=400, detail=f"Mission {mission.id} needs a batch id.")
     try:
         statements = fixture_statements(mission, pack_dir, body.batch_id)
     except ValueError as error:
@@ -518,7 +532,8 @@ def mission_setup(body: MissionSetupRequest) -> dict[str, object]:
 
 @app.post("/api/local/missions/check")
 def mission_check(body: MissionCheckRequest) -> dict[str, object]:
-    """The hidden checker: read-only SQL on the catalog, the learner's dbt artifacts and files, dct, Airflow."""
+    """The hidden checker: read-only SQL on the catalog, the learner's dbt artifacts and files, dct, Airflow; for the
+    Terminal Lab, the mission folder's files and Git repository (no catalog query)."""
     mission, _pack_dir = _mission(body.mission_id)
     queries = mission_queries(mission)
     results = native_command({"op": "mission_sql", "queries": queries}) if queries else []

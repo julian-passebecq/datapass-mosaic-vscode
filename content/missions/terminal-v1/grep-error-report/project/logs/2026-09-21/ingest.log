@@ -1,0 +1,6 @@
+2026-09-21T01:00:02Z INFO  ingest start batch 309
+2026-09-21T01:02:11Z ERROR ingest E1042 batch 309 rejected: schema drift on column amount
+2026-09-21T01:05:40Z WARN  ingest slow partition p7 (41s)
+2026-09-21T01:07:13Z INFO  ingest retrying after error on batch 309
+2026-09-21T01:09:55Z ERROR ingest E2001 batch 310 timed out after 300s
+2026-09-21T01:15:00Z INFO  ingest done

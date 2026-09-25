@@ -5,8 +5,9 @@ the learner asks for one at a time, and a hidden checker. The learner works in a
 (`missions/<id>/`, copied from the pack's base project plus the mission's `project/` overlay) with real tools; the
 checker then looks at what really happened: read-only SQL on the catalog, the tools' own artifacts, files.
 
-The lab field says which lab runs the mission (dbt today; the Terminal and Infra labs reuse the contract with their
-own check kinds).
+The lab field says which lab runs the mission: `dbt` (SQL fixture batches, dbt artifacts) or `terminal` (a fixture
+of files and Git history built from the pack, checked on the resulting files and repository). The Infra Lab will reuse
+the contract with its own check kinds.
 """
 from __future__ import annotations
 
@@ -43,6 +44,17 @@ def project_path(value: str) -> str:
 
 
 ProjectPath = Annotated[str, BeforeValidator(project_path)]
+
+
+def folder_path(value: str) -> str:
+    """A folder inside the mission folder, or the mission folder itself ('.')."""
+    return value if value == '.' else project_path(value)
+
+
+FolderPath = Annotated[str, BeforeValidator(folder_path)]
+# A Git revision the checker may name: a branch, a tag, HEAD, HEAD~2, main@{1}. Never an option (no leading '-').
+GitRev = Annotated[str, Field(pattern=r'^[A-Za-z0-9][A-Za-z0-9._/~^@{}-]{0,99}$')]
+GitName = Annotated[str, Field(pattern=r'^[A-Za-z0-9][A-Za-z0-9._/-]{0,79}$')]
 
 
 class CheckBase(Contract):
@@ -150,9 +162,160 @@ class AirflowCheck(CheckBase):
     runs: list[AirflowRun] = Field(min_length=1, max_length=31)
 
 
+# ---- Terminal Lab: the learner's files and Git repository, read after their own commands --------------------------
+
+
+class PathCheck(CheckBase):
+    """A path in the mission folder is a file, a folder, or absent."""
+    kind: Literal['path']
+    path: ProjectPath
+    type: Literal['file', 'dir', 'absent'] = 'file'
+    min_bytes: int = Field(default=0, ge=0)
+
+
+class TextCheck(CheckBase):
+    """A text file (UTF-8, or UTF-16 with a BOM as Windows PowerShell 5.1 writes it)."""
+    kind: Literal['text']
+    path: ProjectPath
+    # The exact lines, compared after normalizing line endings, trailing spaces and trailing blank lines.
+    equals: list[str] | None = Field(default=None, max_length=400)
+    contains: list[str] = Field(default_factory=list, max_length=20)
+    not_contains: list[str] = Field(default_factory=list, max_length=20)
+    # Regular expressions (multiline) that must all match.
+    regex: list[str] = Field(default_factory=list, max_length=10)
+    line_endings: Literal['lf', 'crlf'] | None = None
+
+
+class ListingCheck(CheckBase):
+    """The entries of a folder (relative POSIX paths; `.git` is never listed), filtered by a name pattern."""
+    kind: Literal['listing']
+    dir: FolderPath = '.'
+    pattern: str = Field(default='*', min_length=1, max_length=60)
+    recursive: bool = False
+    type: Literal['file', 'dir', 'any'] = 'any'
+    equals: list[str] | None = Field(default=None, max_length=200)
+    includes: list[str] = Field(default_factory=list, max_length=50)
+    excludes: list[str] = Field(default_factory=list, max_length=50)
+    count: int | None = Field(default=None, ge=0)
+
+
+class CsvCheck(CheckBase):
+    """A CSV file: its header and rows (values compared as trimmed text; quoting does not matter)."""
+    kind: Literal['csv']
+    path: ProjectPath
+    header: list[str] = Field(min_length=1, max_length=30)
+    rows: list[list[str]] = Field(max_length=300)
+    ordered: bool = True
+
+
+class ScriptCheck(CheckBase):
+    """A shell script's TEXT, comments removed. Datapass never runs it."""
+    kind: Literal['script']
+    path: ProjectPath
+    shell: Literal['bash', 'powershell']
+    # A regular expression the first line must match (bash: the shebang).
+    shebang: str | None = Field(default=None, max_length=200)
+    # Regular expressions the code (without comments) must all match, or must not match. PowerShell is matched
+    # case-insensitively, as PowerShell reads it.
+    uses: list[str] = Field(default_factory=list, max_length=12)
+    not_uses: list[str] = Field(default_factory=list, max_length=12)
+
+
+class GitRepoCheck(CheckBase):
+    """The repository itself: rooted at `repo`, the current branch, a clean tree, no merge or rebase in progress."""
+    kind: Literal['git_repo']
+    repo: FolderPath = '.'
+    branch: GitName | None = None
+    clean: bool | None = None
+    in_progress: bool | None = None
+
+
+class GitBranchCheck(CheckBase):
+    kind: Literal['git_branch']
+    repo: FolderPath = '.'
+    name: GitName
+    exists: bool = True
+
+
+class GitLogCheck(CheckBase):
+    """The commits of `ref` (only those not in `since`, when given): subjects, merges, ancestry, message format."""
+    kind: Literal['git_log']
+    repo: FolderPath = '.'
+    ref: GitRev = 'HEAD'
+    since: GitRev | None = None
+    # Exactly these subjects, newest first.
+    subjects: list[str] | None = Field(default=None, max_length=50)
+    includes_subjects: list[str] = Field(default_factory=list, max_length=20)
+    excludes_subjects: list[str] = Field(default_factory=list, max_length=20)
+    min_count: int | None = Field(default=None, ge=0)
+    max_count: int | None = Field(default=None, ge=0)
+    linear: bool | None = None
+    min_merges: int | None = Field(default=None, ge=0)
+    # Each of these is an ancestor of ref (merge-base --is-ancestor), or is not.
+    ancestors: list[GitRev] = Field(default_factory=list, max_length=10)
+    not_ancestors: list[GitRev] = Field(default_factory=list, max_length=10)
+    # Every subject in the range must match this regular expression (e.g. Conventional Commits).
+    subject_regex: str | None = Field(default=None, max_length=300)
+    # The message body of the commit with this subject must contain these texts (e.g. cherry-pick -x).
+    bodies: dict[str, list[str]] = Field(default_factory=dict, max_length=10)
+
+
+class GitFileCheck(CheckBase):
+    """A file as committed at `ref` (not the working tree): content, mode, line endings."""
+    kind: Literal['git_file']
+    repo: FolderPath = '.'
+    ref: GitRev = 'HEAD'
+    path: ProjectPath
+    exists: bool = True
+    contains: list[str] = Field(default_factory=list, max_length=20)
+    not_contains: list[str] = Field(default_factory=list, max_length=20)
+    no_conflict_markers: bool = False
+    mode: Literal['100644', '100755'] | None = None
+    line_endings: Literal['lf', 'crlf'] | None = None
+
+
+class GitTagCheck(CheckBase):
+    kind: Literal['git_tag']
+    repo: FolderPath = '.'
+    name: GitName
+    annotated: bool | None = None
+    # The tag points at the same commit as this revision.
+    target: GitRev | None = None
+    message_contains: list[str] = Field(default_factory=list, max_length=5)
+
+
+class GitIgnoreCheck(CheckBase):
+    """The repository's own ignore rules (.gitignore files, .git/info/exclude; not the learner's global excludes
+    file) and what the index tracks."""
+    kind: Literal['git_ignore']
+    repo: FolderPath = '.'
+    ignored: list[ProjectPath] = Field(default_factory=list, max_length=20)
+    not_ignored: list[ProjectPath] = Field(default_factory=list, max_length=20)
+    tracked: list[ProjectPath] = Field(default_factory=list, max_length=20)
+    untracked: list[ProjectPath] = Field(default_factory=list, max_length=20)
+
+
+class GitStashCheck(CheckBase):
+    kind: Literal['git_stash']
+    repo: FolderPath = '.'
+    count: int | None = Field(default=None, ge=0)
+    message_contains: str | None = Field(default=None, max_length=120)
+
+
+class AnyOfCheck(CheckBase):
+    """Passes when one of its checks passes (for example: the script in bash or in PowerShell)."""
+    kind: Literal['any_of']
+    checks: list['Check'] = Field(min_length=2, max_length=4)
+
+
 Check = Annotated[Union[SqlCheck, NodeCheck, TestCheck, RunCheck, FreshnessConfigCheck, FreshnessResultCheck,
-                        DctValidateCheck, BoardCheck, RenderCheck, FileCheck, AirflowCheck],
+                        DctValidateCheck, BoardCheck, RenderCheck, FileCheck, AirflowCheck,
+                        PathCheck, TextCheck, ListingCheck, CsvCheck, ScriptCheck, GitRepoCheck, GitBranchCheck,
+                        GitLogCheck, GitFileCheck, GitTagCheck, GitIgnoreCheck, GitStashCheck, AnyOfCheck],
                   Field(discriminator='kind')]
+AnyOfCheck.model_rebuild()
+# Check kinds that need the catalog or dbt artifacts, so they belong to the dbt Lab.
+DBT_KINDS = {'sql', 'node', 'test', 'run', 'freshness_config', 'freshness_result', 'dct_validate', 'board', 'render'}
 
 
 class Criterion(Contract):
@@ -187,25 +350,99 @@ class Workspace(Contract):
 
 
 class ReferenceStep(Contract):
-    """How scripts/missions_smoke.py plays the reference solution: load a batch, run a real command."""
+    """How the smokes play the reference solution. dbt Lab: steps in order (load a batch, run a real command).
+    Terminal Lab: each step is a whole solution script (`solution/solve.sh`, `solution/solve.ps1`), played on a fresh
+    fixture of its own by scripts/terminal_missions_smoke.py; every one must pass."""
     batch: str | None = None
     dbt: str | None = Field(default=None, max_length=300)
     dct: str | None = Field(default=None, max_length=300)
     dct_validate: str | None = None
+    bash: ProjectPath | None = None
+    powershell: ProjectPath | None = None
     # A command can be expected to fail, e.g. dbt source freshness with a stale source exits 1.
     exit_code: int = 0
 
     @model_validator(mode='after')
     def one(self) -> 'ReferenceStep':
-        if sum(v is not None for v in (self.batch, self.dbt, self.dct, self.dct_validate)) != 1:
+        steps = (self.batch, self.dbt, self.dct, self.dct_validate, self.bash, self.powershell)
+        if sum(v is not None for v in steps) != 1:
             raise ValueError('a reference step does exactly one thing')
         return self
+
+
+def _file_text(value: Any) -> Any:
+    return '\n'.join(value) + '\n' if isinstance(value, list) and all(isinstance(v, str) for v in value) else value
+
+
+# A fixture file's text: a string as is, or a list of lines (each ended by a newline).
+FileText = Annotated[str, BeforeValidator(_file_text), Field(max_length=200_000)]
+
+
+class FixtureFile(Contract):
+    text: FileText
+    eol: Literal['lf', 'crlf'] = 'lf'
+    # Recorded as executable when committed (and chmod +x on disk where the file system has modes).
+    executable: bool = False
+
+
+FileSpec = Union[FileText, FixtureFile]
+
+
+class GitCommit(Contract):
+    message: Lines
+    # Files written before the commit (None deletes one); everything is then staged with `git add -A`.
+    files: dict[ProjectPath, FileSpec | None] = Field(default_factory=dict, max_length=40)
+
+
+class GitStash(Contract):
+    message: str = Field(min_length=1, max_length=120)
+    files: dict[ProjectPath, FileSpec | None] = Field(min_length=1, max_length=20)
+
+
+class GitTag(Contract):
+    name: GitName
+    # An annotated tag when a message is given, a lightweight one otherwise.
+    message: str | None = Field(default=None, max_length=400)
+
+
+class GitStep(Contract):
+    """One step of a fixture's history, run by the runtime as fixed git commands (never a shell string)."""
+    commit: GitCommit | None = None
+    branch: GitName | None = None          # create a branch at HEAD
+    switch: GitName | None = None
+    merge: GitName | None = None           # --no-ff, with git's default message
+    tag: GitTag | None = None
+    delete_branch: GitName | None = None   # -D
+    reset_hard: GitRev | None = None
+    stash: GitStash | None = None
+
+    @model_validator(mode='after')
+    def one(self) -> 'GitStep':
+        if sum(v is not None for v in self.__dict__.values()) != 1:
+            raise ValueError('a git step does exactly one thing')
+        return self
+
+
+class GitFixture(Contract):
+    # The repository's folder inside the mission folder.
+    path: FolderPath = '.'
+    branch: GitName = 'main'
+    # Author and committer of the fixture's commits; the dates are fixed, so the fixture's hashes are reproducible.
+    author: str = Field(default='Sam Rivera <sam.rivera@example.com>', pattern=r'^[^<>\n]{1,60} <[^<>\s]{3,80}>$')
+    start: str = Field(default='2026-09-01T09:00:00+02:00', pattern=r'^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}[+-]\d{2}:\d{2}$')
+    steps: list[GitStep] = Field(min_length=1, max_length=40)
+
+
+class TerminalFixture(Contract):
+    """What a Terminal Lab mission folder starts as: the pack's `project/` overlay, these files, a repository."""
+    files: dict[ProjectPath, FileSpec] = Field(default_factory=dict, max_length=60)
+    git: GitFixture | None = None
 
 
 class Mission(Contract):
     id: str = Field(pattern=MISSION_ID.pattern)
     version: str = Field(min_length=1, max_length=20)
-    lab: Literal['dbt']
+    lab: Literal['dbt', 'terminal']
     title: str = Field(min_length=1, max_length=120)
     level: Literal['intro', 'intermediate', 'advanced']
     estimate: str = Field(max_length=40)
@@ -214,8 +451,11 @@ class Mission(Contract):
     acceptance: list[Criterion] = Field(min_length=1, max_length=10)
     requires: list[Requirement] = Field(default_factory=list, max_length=6)
     hints: list[str] = Field(default_factory=list, max_length=8)
-    workspace: Workspace
-    batches: list[Batch] = Field(min_length=1, max_length=6)
+    # dbt Lab: the mission's schemas and its SQL fixture batches.
+    workspace: Workspace | None = None
+    batches: list[Batch] = Field(default_factory=list, max_length=6)
+    # Terminal Lab: the files and repository the mission folder starts as.
+    fixture: TerminalFixture | None = None
     reference: list[ReferenceStep] = Field(default_factory=list, max_length=20)
 
     @model_validator(mode='after')
@@ -223,6 +463,19 @@ class Mission(Contract):
         ids = [c.id for c in self.acceptance]
         if len(ids) != len(set(ids)):
             raise ValueError('acceptance criteria ids must be unique')
+        if self.lab == 'dbt':
+            if self.workspace is None or not self.batches or self.fixture is not None:
+                raise ValueError('a dbt mission has a workspace and fixture batches, and no terminal fixture')
+            if any(step.bash or step.powershell for step in self.reference):
+                raise ValueError('a dbt mission plays dbt and dct commands, not shell scripts')
+        else:
+            if self.fixture is None or self.workspace is not None or self.batches:
+                raise ValueError('a terminal mission has a fixture, and no catalog workspace or SQL batches')
+            if any(not (step.bash or step.powershell) for step in self.reference):
+                raise ValueError('a terminal mission is played by solution scripts (bash or powershell steps)')
+            kinds = {check.kind for check in all_checks(self)}
+            if kinds & DBT_KINDS:
+                raise ValueError(f'check kinds {sorted(kinds & DBT_KINDS)} need the dbt Lab')
         batches = {b.id for b in self.batches}
         for step in self.reference:
             if step.batch is not None and step.batch not in batches:
@@ -232,6 +485,18 @@ class Mission(Contract):
     @property
     def folder(self) -> str:
         return f'missions/{self.id}'
+
+
+def all_checks(mission: Mission) -> list:
+    """Every check of a mission, including the ones inside any_of."""
+    out: list = []
+    pending = [c for criterion in mission.acceptance for c in criterion.checks] + [r.check for r in mission.requires]
+    while pending:
+        check = pending.pop(0)
+        out.append(check)
+        if isinstance(check, AnyOfCheck):
+            pending.extend(check.checks)
+    return out
 
 
 def missions_root() -> Path:

@@ -892,8 +892,9 @@ with TemporaryDirectory(prefix="datapass-csv-import-smoke-") as temp:
 
             # Missions: every shipped mission validates and every fixture batch loads; the checker judges an
             # untouched mission without dbt (no artifacts yet) with messages, and never claims a pass.
-            from missionlab.model import load_missions
-            missions = load_missions()
+            from missionlab.model import Mission, load_missions
+            everything = load_missions()
+            missions = [(m, p) for m, p in everything if m.lab == "dbt"]
             assert len(missions) == 5, [m.id for m, _ in missions]
             for mission, _pack in missions:
                 for batch in mission.batches:
@@ -917,6 +918,30 @@ with TemporaryDirectory(prefix="datapass-csv-import-smoke-") as temp:
             assert client.post("/api/local/missions/setup", json={"mission_id": "nope", "batch_id": "x"}).status_code == 404
             assert client.post("/api/local/missions/setup", json={"mission_id": "../x", "batch_id": "x"}).status_code == 422
             assert client.post("/api/local/missions/setup", json={"mission_id": "sales-board", "batch_id": "day-9"}).status_code == 400
+            assert client.post("/api/local/missions/setup", json={"mission_id": "sales-board"}).status_code == 400
+
+            # Terminal Lab missions: the runtime builds the folder (files and a reproducible Git history) from the pack;
+            # the checker reads the resulting state and never passes an untouched fixture. Datapass runs nothing of
+            # the learner's (scripts/terminal_missions_smoke.py plays the references with real shells).
+            terminal = [(m, p) for m, p in everything if m.lab == "terminal"]
+            assert 6 <= len(terminal) <= 10, [m.id for m, _ in terminal]
+            for mission, _pack in terminal:
+                built = client.post("/api/local/missions/setup", json={"mission_id": mission.id})
+                assert built.status_code == 200 and built.json()["folder"] == mission.folder, (mission.id, built.text)
+                checked = client.post("/api/local/missions/check", json={"mission_id": mission.id}).json()
+                assert checked["status"] == "not-yet" and "Datapass ran none of them" in checked["truth"], checked
+            rebuilt = client.post("/api/local/missions/setup", json={"mission_id": "reflog-rescue"}).json()
+            assert rebuilt["commits"] == 5 and rebuilt["previous"].startswith(".datapass/missions/attic/reflog-rescue-"), rebuilt
+            base = next(m for m, _ in terminal if m.id == "grep-error-report").model_dump(by_alias=True, exclude_none=True)
+            for broken, reason in (({"acceptance": [{"id": "x", "text": "x", "checks": [{"kind": "sql", "sql": "SELECT 1", "expected": []}]}]}, "need the dbt Lab"),
+                                   ({"reference": [{"dbt": "build"}]}, "solution scripts"),
+                                   ({"batches": [{"id": "b", "label": "b", "sql": ["x.sql"]}]}, "no catalog workspace")):
+                try:
+                    Mission.model_validate({**base, **broken})
+                except ValueError as error:
+                    assert reason in str(error), (reason, error)
+                else:
+                    raise AssertionError(f"accepted a terminal mission with {broken}")
 
             # Imports never overwrite, and only create bronze tables.
             again = client.post("/api/local/import-csv", json={"asset": "bronze.city_visits", "text": "city\nNice\n"})
