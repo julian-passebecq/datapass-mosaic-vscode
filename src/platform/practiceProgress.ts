@@ -17,6 +17,12 @@ export interface ExerciseProgressRecord {
   openedAt?: string;
   /** Run visible and Submit gradings, passed or not. */
   attempts: number;
+  /** Gradings that did not pass; the reference solution unlocks after a few (platform/practiceFeedback.ts). */
+  failures?: number;
+  /** Hints revealed one at a time in Practice. */
+  hintsRevealed?: number;
+  /** When the learner first opened the reference solution. */
+  solutionViewedAt?: string;
   /** The first Submit that passed, and the exercise version it passed on. */
   solved?: { at: string; version: string };
   last?: PracticeAttempt;
@@ -72,11 +78,18 @@ export function parsePracticeProgress(raw: unknown): PracticeProgress {
     };
     const openedAt = text(entry.openedAt);
     if (openedAt) record.openedAt = openedAt;
+    const count = (v: unknown) => typeof v === "number" && Number.isInteger(v) && v > 0 ? v : undefined;
+    if (count(entry.failures)) record.failures = count(entry.failures);
+    if (count(entry.hintsRevealed)) record.hintsRevealed = count(entry.hintsRevealed);
+    const viewed = text(entry.solutionViewedAt);
+    if (viewed) record.solutionViewedAt = viewed;
     const solved = entry.solved && typeof entry.solved === "object" ? entry.solved as Record<string, unknown> : undefined;
     if (solved && text(solved.at) && text(solved.version)) record.solved = { at: text(solved.at)!, version: text(solved.version)! };
     const last = attempt(entry.last);
     if (last) record.last = last;
-    if (record.openedAt || record.attempts || record.solved || record.last) progress.exercises[key] = record;
+    if (record.openedAt || record.attempts || record.solved || record.last || record.hintsRevealed || record.solutionViewedAt) {
+      progress.exercises[key] = record;
+    }
   }
   return progress;
 }
@@ -99,9 +112,19 @@ export function recordGrade(progress: PracticeProgress | undefined, key: string,
   return withRecord(progress, key, record => ({
     ...record,
     attempts: record.attempts + 1,
+    ...(status === "passed" ? {} : { failures: (record.failures ?? 0) + 1 }),
     last: { mode, status, at: now, version },
     ...(mode === "submit" && status === "passed" && !record.solved ? { solved: { at: now, version } } : {})
   }));
+}
+
+/** One more hint revealed, never beyond the exercise's hints. */
+export function revealHint(progress: PracticeProgress | undefined, key: string, total: number): PracticeProgress {
+  return withRecord(progress, key, record => ({ ...record, hintsRevealed: Math.min(total, (record.hintsRevealed ?? 0) + 1) }));
+}
+
+export function recordSolutionViewed(progress: PracticeProgress | undefined, key: string, now: string): PracticeProgress {
+  return withRecord(progress, key, record => ({ ...record, solutionViewedAt: record.solutionViewedAt ?? now }));
 }
 
 export function practiceStatus(record: ExerciseProgressRecord | undefined): PracticeStatus {
