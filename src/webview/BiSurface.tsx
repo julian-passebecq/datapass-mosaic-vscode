@@ -25,7 +25,7 @@ export function BiSurface({ vscode, bi, runtime }: { vscode: VsCodeApi; bi: BiVi
 
   return (
     <div className="bi-surface">
-      <TabList selectedValue={tab} onTabSelect={(_, data) => setTab(data.value as BiTab)} size="small">
+      <TabList className="lab-subtabs" selectedValue={tab} onTabSelect={(_, data) => setTab(data.value as BiTab)} size="small">
         <Tab value="warehouse">Warehouse</Tab>
         <Tab value="model">Star model</Tab>
         <Tab value="lineage">Lineage</Tab>
