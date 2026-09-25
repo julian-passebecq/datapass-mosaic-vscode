@@ -67,6 +67,14 @@ export function PracticeSurface({
               </div>
               <Text size={400} weight="semibold">{exercise.title}</Text>
               <p className="practice-prompt">{exercise.prompt}</p>
+              {exercise.sparkPlan && (
+                <div className="practice-plan">
+                  <span className="eyebrow">Also graded on the simulated Spark plan</span>
+                  <ul>
+                    {exercise.sparkPlan.checks.map(check => <li key={check.id}>{check.description}</li>)}
+                  </ul>
+                </div>
+              )}
               {exercise.gradingNote && (
                 <div className="pipeline-notice">{exercise.gradingNote}</div>
               )}
@@ -97,7 +105,9 @@ export function PracticeSurface({
                       <div className="practice-check" key={check.id}>
                         <div>
                           <strong>{check.id}</strong>
-                          <small>{check.visibility} · {check.message}</small>
+                          <small>
+                            {check.kind === "plan" ? "simulated plan" : check.visibility} · {check.message}
+                          </small>
                         </div>
                         <Badge
                           appearance="outline"

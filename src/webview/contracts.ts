@@ -87,6 +87,8 @@ export interface SparkLabSimulationView {
   shuffleGb?: number;
   spillGb?: number;
   clusterUtilizationPct?: number;
+  /** Modeled shuffle exchanges (Spark planning rules over assumed sizes), with the reason for each. */
+  exchanges?: readonly string[];
   credits?: { total: number; unit: string; fictional: boolean };
   assumptionsKind?: string;
   calibration?: string;
@@ -219,8 +221,31 @@ export interface ExerciseSummary {
   sections: ExerciseSectionView[];
   hints: string[];
   dataContext: ExerciseTableView[];
+  /** SparkLab exercises only: public checks on the simulated Spark plan. */
+  sparkPlan?: SparkPlanView;
   /** Set when Datapass cannot grade the exercise locally; Run/Submit are disabled. */
   gradingNote?: string;
+}
+
+/** Plan requirements graded on SparkLab's modeled plan at authored input sizes (not Apache Spark). */
+export interface SparkPlanView {
+  profile: string;
+  aqe: boolean;
+  scale: SparkTableScaleView[];
+  checks: SparkPlanCheckView[];
+}
+
+export interface SparkTableScaleView {
+  table: string;
+  rows: number;
+  bytes: number;
+  partitions: number;
+  catalogStatistics: boolean;
+}
+
+export interface SparkPlanCheckView {
+  id: string;
+  description: string;
 }
 
 export interface ExerciseSectionView {
@@ -237,6 +262,8 @@ export interface ExerciseTableView {
 
 export interface ExerciseCheckView {
   id: string;
+  /** "plan" checks grade the simulated SparkLab plan, not result rows. */
+  kind?: "result" | "plan";
   visibility: "visible" | "hidden" | "edge";
   passed: boolean;
   status: "passed" | "failed";

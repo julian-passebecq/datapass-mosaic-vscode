@@ -61,6 +61,18 @@ A default regression test checks that these checked-in previews still match the 
 - **not emulated:** JVM GC, actual executor death, real network shuffle, proprietary Fabric/Databricks scheduling, or cloud wall-clock performance.
 
 
+## Exchange model and plan checks (plan-driven-v2)
+
+`physical.simulate_plan` places shuffle exchanges with Spark's planning rules instead of one shuffle per wide operator:
+
+- an aggregate, window, `dropDuplicates`, `distinct` or join side needs rows clustered by its keys; an existing hash partitioning on a subset of those keys satisfies it and adds no exchange (two windows on the same `partitionBy` share one exchange; a join on an aggregated key reuses the aggregate's partitioning);
+- narrow operators keep a hash partitioning while its key columns survive unchanged (`withColumn` over a key, `drop`, a rename or a select without the key lose it; `coalesce` and `limit` lose it);
+- `repartition(n)` is a round-robin exchange, `repartition(n, *keys)` a hash exchange, `orderBy` a range exchange, a window without `partitionBy` or a global aggregate a single-partition exchange;
+- a broadcast join adds no shuffle and keeps the streamed side's partitioning; a broadcast whose build side is modeled above 8 GB is refused, as real Spark fails it;
+- Catalyst's EliminateSorts drops an `orderBy` whose order a later join, `distinct`, `orderBy` or MIN/MAX/COUNT aggregate discards.
+
+`metrics.plan_facts` exposes the result (exchanges with reason, partitioning and keys, shuffle/broadcast joins, windows without `partitionBy`, output partitions, refused broadcasts). `plan_checks.evaluate` grades an exercise's declared `spark_plan` limits against these facts. Filter selectivity, AQE join conversion and column pruning are not modeled, so plan lessons must not depend on them.
+
 ## Root Runtime Pass 1
 
 The root uses `physical.py` to turn the submitted safe logical plan into deterministic teaching evidence over the shared catalog. `capabilities.py` is the public support matrix used by API and notebook help. `cluster_profiles.json` has versioned fictional profiles; `cost.py:credits` supplies Datapass Credits without currency or vendor billing. The legacy standalone scheduler/cost APIs remain reference-compatible.

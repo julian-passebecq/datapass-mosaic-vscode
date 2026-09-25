@@ -221,6 +221,16 @@ h2 { margin-bottom: 8px; font-size: 28px; }
   font-size: 12px;
   line-height: 1.5;
 }
+.practice-plan {
+  padding: 7px 10px;
+  border-left: 3px solid var(--vscode-textLink-foreground);
+  background: var(--vscode-editorWidget-background);
+  font-size: 12px;
+}
+.practice-plan ul {
+  margin: 4px 0 0;
+  padding-left: 18px;
+}
 .practice-footer {
   justify-content: space-between;
   gap: 14px;
