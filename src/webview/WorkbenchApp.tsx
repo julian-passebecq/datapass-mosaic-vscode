@@ -159,7 +159,8 @@ export function WorkbenchApp({ vscode }: { vscode: VsCodeApi }) {
                 canPersist={state.workspace.manifestExists}
               />
             ) : selected.id === "practice" ? (
-              <PracticeSurface vscode={vscode} exercises={state.practice?.exercises ?? []} runtime={state.runtime}
+              <PracticeSurface vscode={vscode} runtime={state.runtime}
+                practice={state.practice ?? { exercises: [], progress: { exercises: {} }, canSaveProgress: false }}
                 focus={state.focus?.module === "practice" ? state.focus : undefined} />
             ) : selected.id === "fabric" ? (
               <FabricSurface vscode={vscode} runtime={state.runtime} factory={state.factory}

@@ -2,6 +2,7 @@ import type { ModuleId, WorkbenchModule } from "../modules";
 import type { MosaicLayoutItem } from "../platform/mosaicLayout";
 import type { PythonTrustState } from "../platform/pythonTrust";
 import type { ProjectsViewState } from "../platform/projects";
+import type { PracticeProgress } from "../platform/practiceProgress";
 
 export type RuntimeStatus = "stopped" | "starting" | "running" | "error";
 export type ScratchKind = "sql" | "python" | "sparklab" | "notes";
@@ -297,6 +298,12 @@ export interface PracticeResultView {
 
 export interface PracticeViewState {
   exercises: readonly ExerciseSummary[];
+  /** The `practice` section of .datapass/progress.json (solved, attempted; absent means not started). */
+  progress: PracticeProgress;
+  /** Set when .datapass/progress.json cannot be read; progress is then shown as empty and not saved. */
+  progressError?: string;
+  /** False without a workspace folder: progress cannot be kept. */
+  canSaveProgress: boolean;
 }
 
 export interface GraphNodeView {

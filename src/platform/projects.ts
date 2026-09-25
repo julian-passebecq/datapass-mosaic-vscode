@@ -7,6 +7,7 @@
  * .datapass/progress.json, next to the project manifest (which it never touches).
  */
 import type { ModuleId } from "../modules";
+import { parsePracticeProgress, type PracticeProgress } from "./practiceProgress";
 
 export const PROGRESS_PATH = ".datapass/progress.json";
 export const PROJECT_SCAFFOLDS = ["project", "factory", "bi", "retail_demo", "airflow", "pipeline", "sparklab"] as const;
@@ -81,7 +82,8 @@ export interface StepProgress {
   last?: VerificationRecord;
 }
 export interface ProjectProgress { version: string; steps: Record<string, StepProgress> }
-export interface ProgressDocument { schema_version: 1; projects: Record<string, ProjectProgress> }
+/** .datapass/progress.json. `practice` belongs to Practice (platform/practiceProgress.ts); both sections survive every write. */
+export interface ProgressDocument { schema_version: 1; projects: Record<string, ProjectProgress>; practice?: PracticeProgress }
 
 export interface ProjectStepView extends ProjectStepContent {
   moduleLabel: string;
@@ -251,6 +253,7 @@ export function parseProgress(content: string | undefined): { document: Progress
     }
     document.projects[projectId] = { version: str(p.version) ?? "1", steps };
   }
+  if (value.practice !== undefined) document.practice = parsePracticeProgress(value.practice);
   return { document };
 }
 

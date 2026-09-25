@@ -1,43 +1,52 @@
-import { Badge, Button, Card, Input, Text } from "@fluentui/react-components";
+import { Badge, Button, Card, Input, Select, Text } from "@fluentui/react-components";
 import { useEffect, useMemo, useState } from "react";
-import type { ExerciseSummary, RuntimeViewState, WorkbenchFocus } from "./contracts";
+import {
+  EMPTY_FILTERS,
+  STATUS_LABELS,
+  filterExercises,
+  filterOptions,
+  practiceCounts,
+  practiceStatus,
+  restoreFilters,
+  type PracticeFilters,
+  type PracticeStatus
+} from "../platform/practiceProgress";
+import type { PracticeViewState, RuntimeViewState, WorkbenchFocus } from "./contracts";
 import type { VsCodeApi } from "./WorkbenchApp";
 
 const PYTHON_LANGUAGES = new Set(["python", "polars"]);
 
 export function PracticeSurface({
   vscode,
-  exercises,
+  practice,
   runtime,
   focus
 }: {
   vscode: VsCodeApi;
-  exercises: readonly ExerciseSummary[];
+  practice: PracticeViewState;
   runtime: RuntimeViewState;
   /** An exercise a project step opened: the list is filtered on it. */
   focus?: WorkbenchFocus;
 }) {
-  const [query, setQuery] = useState(focus?.query ?? "");
+  const { exercises, progress } = practice;
+  const [filters, setFilters] = useState<PracticeFilters>(() => {
+    const saved = restoreFilters(readState(vscode).practiceFilters);
+    return focus?.query ? { ...EMPTY_FILTERS, query: focus.query } : saved;
+  });
+  const update = (next: PracticeFilters) => {
+    setFilters(next);
+    vscode.setState({ ...readState(vscode), practiceFilters: next });
+  };
   useEffect(() => {
-    if (focus?.query) setQuery(focus.query);
+    // A project step asks for one exercise: show it whatever the other filters were.
+    if (focus?.query) update({ ...EMPTY_FILTERS, query: focus.query });
   }, [focus?.seq]);
   const runtimeReady = runtime.status === "running";
 
-  const filtered = useMemo(() => {
-    const needle = query.trim().toLowerCase();
-    if (!needle) return exercises;
-    return exercises.filter(exercise =>
-      [
-        exercise.id,
-        exercise.title,
-        exercise.packTitle,
-        exercise.language,
-        exercise.difficulty,
-        exercise.prompt,
-        ...exercise.topics
-      ].some(value => value.toLowerCase().includes(needle))
-    );
-  }, [exercises, query]);
+  const options = useMemo(() => filterOptions(exercises), [exercises]);
+  const filtered = useMemo(() => filterExercises(exercises, progress, filters), [exercises, progress, filters]);
+  const counts = useMemo(() => practiceCounts(exercises, progress), [exercises, progress]);
+  const filtering = Object.values(filters).some(Boolean);
 
   return (
     <section className="practice-surface">
@@ -45,6 +54,14 @@ export function PracticeSurface({
         <div>
           <div className="eyebrow">Native-file practice · versioned grading</div>
           <Text size={500} weight="semibold">{exercises.length} exercise variants</Text>
+          <div className="practice-progress" aria-label="Your progress">
+            <span className="practice-progress-solved">{counts.solved} solved</span>
+            <span>{counts.attempted} attempted</span>
+            <span>{counts["not-started"]} not started</span>
+            <small className="muted">
+              {practice.canSaveProgress ? "Saved in .datapass/progress.json" : "Open a folder to keep your progress"}
+            </small>
+          </div>
         </div>
         <div className="practice-toolbar-actions">
           <Badge appearance="tint" color={runtimeReady ? "success" : "informative"}>
@@ -53,17 +70,40 @@ export function PracticeSurface({
           <Input
             aria-label="Filter exercises"
             placeholder="Filter SQL, Spark, Airflow, dbt…"
-            value={query}
-            onChange={(_, data) => setQuery(data.value)}
+            value={filters.query}
+            onChange={(_, data) => update({ ...filters, query: data.value })}
           />
         </div>
       </div>
+
+      <div className="practice-filters" role="group" aria-label="Exercise filters">
+        <FilterSelect label="Difficulty" all="All difficulties" value={filters.difficulty} values={options.difficulties}
+          onChange={difficulty => update({ ...filters, difficulty })} />
+        <FilterSelect label="Topic" all="All topics" value={filters.topic} values={options.topics}
+          onChange={topic => update({ ...filters, topic })} />
+        <FilterSelect label="Language" all="All languages" value={filters.language} values={options.languages}
+          onChange={language => update({ ...filters, language })} />
+        <FilterSelect label="Status" all="All statuses" value={filters.status}
+          values={Object.keys(STATUS_LABELS)} labels={STATUS_LABELS}
+          onChange={status => update({ ...filters, status: status as PracticeStatus | "" })} />
+        <Button appearance="subtle" size="small" disabled={!filtering} onClick={() => update(EMPTY_FILTERS)}>
+          Clear filters
+        </Button>
+        <span className="muted">{filtered.length} shown</span>
+      </div>
+      {practice.progressError && (
+        <div className="pipeline-notice">
+          {practice.progressError} Progress is shown as empty and is not saved until the file is fixed or deleted.
+        </div>
+      )}
 
       <div className="practice-list">
         {filtered.map(exercise => {
           const result = runtime.practiceResult?.exerciseKey === exercise.key
             ? runtime.practiceResult
             : undefined;
+          const record = progress.exercises[exercise.key];
+          const status = practiceStatus(record);
 
           return (
             <Card key={exercise.key} className="practice-item">
@@ -71,6 +111,15 @@ export function PracticeSurface({
                 <Badge appearance="outline">{exercise.language}</Badge>
                 <Badge appearance="tint">{exercise.difficulty}</Badge>
                 <span className="muted">{exercise.packTitle} · v{exercise.version}</span>
+                {status !== "not-started" && (
+                  <Badge
+                    appearance={status === "solved" ? "filled" : "outline"}
+                    color={status === "solved" ? "success" : "warning"}
+                    title={record?.last ? `Last ${record.last.mode === "submit" ? "submission" : "visible run"}: ${record.last.status}, ${record.last.at}` : undefined}
+                  >
+                    {status === "solved" ? "solved" : record?.attempts ? `attempted · ${record.attempts} ${record.attempts === 1 ? "run" : "runs"}` : "opened"}
+                  </Badge>
+                )}
               </div>
               <Text size={400} weight="semibold">{exercise.title}</Text>
               <p className="practice-prompt">{exercise.prompt}</p>
@@ -182,4 +231,32 @@ export function PracticeSurface({
       </div>
     </section>
   );
+}
+
+function FilterSelect({
+  label,
+  all,
+  value,
+  values,
+  labels,
+  onChange
+}: {
+  label: string;
+  all: string;
+  value: string;
+  values: readonly string[];
+  labels?: Record<string, string>;
+  onChange: (value: string) => void;
+}) {
+  return (
+    <Select aria-label={label} size="small" value={value} onChange={(_, data) => onChange(data.value)}>
+      <option value="">{all}</option>
+      {values.map(item => <option key={item} value={item}>{labels?.[item] ?? item}</option>)}
+    </Select>
+  );
+}
+
+function readState(vscode: VsCodeApi): { practiceFilters?: unknown } & Record<string, unknown> {
+  const value = vscode.getState();
+  return value && typeof value === "object" ? value as Record<string, unknown> : {};
 }
