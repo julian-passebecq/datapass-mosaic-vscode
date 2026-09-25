@@ -118,4 +118,4 @@ Also manually inspect the Extension Development Host for user-facing changes whe
 
 ## Current continuation point
 
-Read `docs/CLAUDE_HANDOFF_2026-09-24.md` before making substantial changes. It records the implemented execution bridge, known gaps, and prioritized continuation plan; its §0 sections are the newest state.
+Read `docs/CLAUDE_HANDOFF_2026-09-24.md` before making substantial changes. It records the implemented execution bridge, known gaps, and prioritized continuation plan; its dated `## YYYY-MM-DD · Title` sections, newest first, are the newest state.
