@@ -1,0 +1,63 @@
+{
+  "description": "Reference walkthrough replayed by scripts/projects_smoke.py (see docs/PROJECT_AUTHORING.md).",
+  "starters": {
+    "synapse-pipeline": [
+      { "do": "factory", "flavor": "synapse", "pipeline": "pl_sqlpool_daily" }
+    ],
+    "lineage": [
+      { "do": "bi", "mode": "build" }
+    ],
+    "fabric-port": [
+      { "do": "sqlpool", "flavor": "fabric", "file": "projects/synapse-to-fabric/port_to_fabric.sql" }
+    ]
+  },
+  "steps": {
+    "load-bronze": [
+      { "do": "sql", "file": "projects/synapse-to-fabric/load_bronze.sql" }
+    ],
+    "pool-star": [
+      { "do": "sqlpool", "flavor": "synapse", "file": "factory/sql/pool/01_star_schema.sql" }
+    ],
+    "skew-exercise": [
+      { "do": "exercise", "exercise": "sqlpool-v1/sp-skew-free-key/sqlpool" }
+    ],
+    "partitions": [
+      { "do": "sqlpool", "flavor": "synapse", "file": "factory/sql/pool/02_partitions.sql" }
+    ],
+    "procedures": [
+      { "do": "sqlpool", "flavor": "synapse", "file": "factory/sql/pool/03_procedures.sql" }
+    ],
+    "synapse-pipeline": [
+      {
+        "do": "replace",
+        "file": "factory/synapse/pipeline/pl_sqlpool_daily.json",
+        "old": "\"min_orders\": {\n              \"value\": \"2\",",
+        "new": "\"min_orders\": {\n              \"value\": \"1\","
+      },
+      { "do": "factory", "flavor": "synapse", "pipeline": "pl_sqlpool_daily" }
+    ],
+    "proc-params-exercise": [
+      { "do": "exercise", "exercise": "cloud-pipelines-v1/cp-sqlpool-proc-params/factory" }
+    ],
+    "lineage": [
+      {
+        "do": "replace",
+        "file": "bi/warehouse/05_fct_sales.sql",
+        "old": "       l.quantity * dp.unit_cost AS cost_amount\n",
+        "new": "       l.quantity * dp.unit_cost AS cost_amount,\n       l.quantity * l.unit_price - l.discount_amount - l.quantity * dp.unit_cost AS margin_amount\n"
+      },
+      { "do": "bi", "mode": "build" }
+    ],
+    "star-checks": [
+      { "do": "bi", "mode": "analyze" }
+    ],
+    "fabric-port": [
+      { "do": "write", "file": "projects/synapse-to-fabric/port_to_fabric.sql", "from": "reference/port_to_fabric.sql" },
+      { "do": "sqlpool", "flavor": "fabric", "file": "projects/synapse-to-fabric/port_to_fabric.sql" }
+    ],
+    "fabric-port-exercise": [
+      { "do": "exercise", "exercise": "sqlpool-v1/sp-fabric-port/sqlpool" }
+    ],
+    "migration-notes": []
+  }
+}

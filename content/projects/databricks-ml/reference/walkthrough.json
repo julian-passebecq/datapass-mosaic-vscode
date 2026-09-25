@@ -1,0 +1,151 @@
+{
+  "description": "Reference walkthrough replayed by scripts/projects_smoke.py (see docs/PROJECT_AUTHORING.md).",
+  "starters": {
+    "explore-turbines": [
+      {
+        "do": "sparklab",
+        "file": "projects/databricks-ml/explore_turbines.py"
+      }
+    ],
+    "features-job": [
+      {
+        "do": "databricks",
+        "job": "turbine_features"
+      }
+    ],
+    "retries": [
+      {
+        "do": "databricks",
+        "job": "turbine_features",
+        "scenario": {
+          "tasks": {
+            "build_features": {
+              "fail_attempts": [
+                1
+              ]
+            }
+          }
+        }
+      }
+    ],
+    "residuals-polars": [
+      {
+        "do": "python",
+        "file": "projects/databricks-ml/residuals.py"
+      }
+    ]
+  },
+  "steps": {
+    "lakehouse-medallion": [
+      {
+        "do": "retail_demo"
+      }
+    ],
+    "explore-turbines": [
+      {
+        "do": "write",
+        "file": "projects/databricks-ml/explore_turbines.py",
+        "from": "reference/explore_turbines.py"
+      },
+      {
+        "do": "sparklab",
+        "file": "projects/databricks-ml/explore_turbines.py"
+      }
+    ],
+    "features-job": [
+      {
+        "do": "write",
+        "file": "factory/databricks/Shared/features/nb_turbine_features.py",
+        "from": "reference/nb_turbine_features.py"
+      },
+      {
+        "do": "databricks",
+        "job": "turbine_features"
+      },
+      {
+        "do": "append",
+        "file": "factory/databricks/grants.sql",
+        "from": "reference/grants_sp_feature_eng.sql"
+      },
+      {
+        "do": "databricks",
+        "job": "turbine_features"
+      }
+    ],
+    "least-privilege": [
+      {
+        "do": "exercise",
+        "exercise": "databricks-v1/uc-least-privilege-job/databricks-grants"
+      }
+    ],
+    "train-model": [
+      {
+        "do": "databricks",
+        "job": "power_model_training"
+      },
+      {
+        "do": "databricks",
+        "job": "power_model_training"
+      }
+    ],
+    "mlflow-tracking": [
+      {
+        "do": "exercise",
+        "exercise": "databricks-v1/dbx-mlflow-tracking/databricks-notebook"
+      }
+    ],
+    "retries": [
+      {
+        "do": "json_set",
+        "file": "factory/databricks/jobs/turbine_features.json",
+        "array": "tasks",
+        "where": {
+          "task_key": "build_features"
+        },
+        "key": "max_retries",
+        "value": 2
+      },
+      {
+        "do": "json_set",
+        "file": "factory/databricks/jobs/turbine_features.json",
+        "array": "tasks",
+        "where": {
+          "task_key": "build_features"
+        },
+        "key": "min_retry_interval_millis",
+        "value": 60000
+      },
+      {
+        "do": "databricks",
+        "job": "turbine_features",
+        "scenario": {
+          "tasks": {
+            "build_features": {
+              "fail_attempts": [
+                1
+              ]
+            }
+          }
+        }
+      }
+    ],
+    "retries-exercise": [
+      {
+        "do": "exercise",
+        "exercise": "databricks-v1/dbx-retries-timeout/databricks-job"
+      }
+    ],
+    "residuals-polars": [
+      {
+        "do": "write",
+        "file": "projects/databricks-ml/residuals.py",
+        "from": "reference/residuals.py"
+      },
+      {
+        "do": "python",
+        "file": "projects/databricks-ml/residuals.py"
+      }
+    ],
+    "cost-review": []
+  }
+}
