@@ -812,6 +812,34 @@ h2 { margin-bottom: 8px; font-size: 28px; }
   font-size: 11px;
   line-height: 1.35;
 }
+.dialect-translation {
+  display: grid;
+  gap: 6px;
+  margin-top: 6px;
+}
+.dialect-translation summary {
+  cursor: pointer;
+  font-size: 12px;
+}
+.dialect-translation pre {
+  margin: 0;
+  max-height: 220px;
+  overflow: auto;
+  padding: 8px;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  background: var(--vscode-textCodeBlock-background);
+  color: var(--vscode-editor-foreground);
+  font-family: var(--vscode-editor-font-family);
+  font-size: 11px;
+  line-height: 1.35;
+}
+.dialect-rewrites {
+  margin: 0;
+  padding-left: 18px;
+  font-size: 11px;
+  color: var(--vscode-descriptionForeground);
+}
 .query-history summary {
   cursor: pointer;
   font-size: 12px;

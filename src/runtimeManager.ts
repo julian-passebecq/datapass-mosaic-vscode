@@ -18,6 +18,7 @@ import type {
   SqlPoolFlavor,
   TableProfileView
 } from "./webview/contracts";
+import type { TranslatedDialectId } from "./platform/sqlDialect";
 import { findFreePort, waitForDatapassHealth } from "./platform/runtimeEndpoint";
 import {
   describeSetupOutputLine,
@@ -416,7 +417,8 @@ export class RuntimeManager implements vscode.Disposable {
     return csvImport;
   }
 
-  async runSql(code: string): Promise<LocalCellRunView> {
+  /** Runs a SQL file on the catalog; with a dialect, the runtime translates it to DuckDB first (runtime/sqldialects). */
+  async runSql(code: string, dialect?: TranslatedDialectId): Promise<LocalCellRunView> {
     const url = this.state.status === "running" ? this.state.url : undefined;
     if (!url) throw new Error("Start the Datapass runtime before running SQL.");
     const lastRun = await this.postJson<NonNullable<RuntimeViewState["lastRun"]>>(
@@ -426,14 +428,16 @@ export class RuntimeManager implements vscode.Disposable {
         language: "sql",
         code,
         notebook_id: "vscode-sql",
-        cell_id: "active-sql"
+        cell_id: "active-sql",
+        ...(dialect ? { dialect } : {})
       },
-      10000
+      dialect ? 30000 : 10000
     );
+    const translated = lastRun.dialect ? ` (${lastRun.dialect.label})` : "";
     this.setState({
       ...this.state,
       detail: lastRun.status === "success"
-        ? `SQL completed in ${lastRun.elapsed_ms.toFixed(1)} ms.`
+        ? `SQL completed in ${lastRun.elapsed_ms.toFixed(1)} ms${translated}.`
         : `SQL failed: ${lastRun.error?.message ?? "Unknown error"}`,
       lastRun,
       csvImport: undefined
@@ -478,12 +482,12 @@ export class RuntimeManager implements vscode.Disposable {
   }
 
   /** DuckDB EXPLAIN ANALYZE of one read-only query: it runs once to time each operator. */
-  async explainQuery(query: string, source?: string): Promise<QueryPlanView> {
+  async explainQuery(query: string, source?: string, dialect?: TranslatedDialectId): Promise<QueryPlanView> {
     const url = this.state.status === "running" ? this.state.url : undefined;
     if (!url) throw new Error("Start the Datapass runtime before explaining a query.");
     let plan: QueryPlanView;
     try {
-      plan = { ...await this.postJson<QueryPlanView>(`${url}/api/local/explain`, "POST", { query }, 60000), source };
+      plan = { ...await this.postJson<QueryPlanView>(`${url}/api/local/explain`, "POST", { query, ...(dialect ? { dialect } : {}) }, 60000), source };
     } catch (error) {
       throw new Error(`EXPLAIN ANALYZE refused: ${runtimeErrorDetail(error)}`);
     }

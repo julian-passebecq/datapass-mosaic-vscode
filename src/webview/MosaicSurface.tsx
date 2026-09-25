@@ -9,7 +9,7 @@ import { Badge, Button, Text } from "@fluentui/react-components";
 import { useEffect, useRef, useState } from "react";
 import { MOSAIC_DEFAULT_LAYOUT, type MosaicLayoutItem } from "../platform/mosaicLayout";
 import { querySummary, type QueryHistoryEntry } from "../platform/mosaicTools";
-import type { PythonTrustView, RuntimeViewState } from "./contracts";
+import type { DialectTranslationView, PythonTrustView, RuntimeViewState } from "./contracts";
 import { ResultTable } from "./ResultTable";
 import { TrustedPythonControl } from "./TrustedPythonControl";
 import type { VsCodeApi } from "./WorkbenchApp";
@@ -105,7 +105,7 @@ export function MosaicSurface({
             compactor={verticalCompactor}
           >
             <div key="sql">
-              <MosaicBlock title="SQL workspace" subtitle="DuckDB SQL in a real VS Code file">
+              <MosaicBlock title="SQL workspace" subtitle="DuckDB SQL, or a dialect translated to DuckDB, in a real VS Code file">
                 <div className="button-row">
                   <Button appearance="primary" size="small" onClick={() => vscode.postMessage({ type: "openScratch", kind: "sql" })}>
                     Open SQL scratch
@@ -129,6 +129,14 @@ export function MosaicSurface({
                   </Button>
                 </div>
                 {lastRun && lastRun.language === "sql" && <RunSummary run={lastRun} />}
+                {lastRun && lastRun.language === "sql" && lastRun.dialect && (
+                  <DialectTranslation translation={lastRun.dialect} onOpen={() => vscode.postMessage({ type: "openTranslatedSql" })} />
+                )}
+                {lastRun?.status === "error" && lastRun.error?.type.endsWith("DialectError") && (
+                  <small className="muted">
+                    Outside the dialect's supported subset: rewrite it, or choose another dialect with the SQL: item in the status bar.
+                  </small>
+                )}
                 {runtime.queryPlan && (
                   <div className="mosaic-plan">
                     <div className="mosaic-result-title">
@@ -139,6 +147,12 @@ export function MosaicSurface({
                       </Button>
                     </div>
                     <small className="muted">{runtime.queryPlan.truth}. Read it bottom-up: scans feed joins and aggregates.</small>
+                    {runtime.queryPlan.dialect && (
+                      <details className="dialect-translation">
+                        <summary>Translated query ({runtime.queryPlan.dialect.label})</summary>
+                        <pre>{runtime.queryPlan.dialect.sql}</pre>
+                      </details>
+                    )}
                     <pre>{runtime.queryPlan.plan}</pre>
                   </div>
                 )}
@@ -155,6 +169,7 @@ export function MosaicSurface({
                           <small className="muted">
                             {new Date(entry.at).toLocaleString()}
                             {entry.file ? ` · ${entry.file}` : ""}
+                            {entry.dialect ? ` · ${entry.dialect} translated to DuckDB` : ""}
                             {entry.status === "success"
                               ? ` · ${entry.elapsedMs.toFixed(1)} ms${entry.rows !== undefined ? ` · ${entry.rows} rows` : ""}`
                               : entry.error ? ` · ${entry.error}` : ""}
@@ -302,6 +317,25 @@ export function MosaicSurface({
         )}
       </div>
     </section>
+  );
+}
+
+/** A dialect file's translation: the label says it is not the real engine; the DuckDB SQL is what really ran. */
+function DialectTranslation({ translation, onOpen }: { translation: DialectTranslationView; onOpen: () => void }) {
+  return (
+    <div className="dialect-translation">
+      <div className="mosaic-result-title">
+        <strong>Translated to DuckDB</strong>
+        <Badge appearance="outline" color="warning">{translation.label}</Badge>
+        <Button appearance="subtle" size="small" onClick={onOpen}>Open translated SQL</Button>
+      </div>
+      {translation.rewrites.length > 0 && (
+        <ul className="dialect-rewrites">
+          {translation.rewrites.map(rewrite => <li key={rewrite}>{rewrite}</li>)}
+        </ul>
+      )}
+      <pre>{translation.sql}</pre>
+    </div>
   );
 }
 
