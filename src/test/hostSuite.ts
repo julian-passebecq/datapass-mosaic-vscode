@@ -19,6 +19,7 @@ import { CatalogTreeProvider, openTableScratch } from "../catalogTree";
 import { biFileUri, collectBiDbtFiles, collectBiScripts, copyBiSamples, loadBiState, readBiModel } from "../biState";
 import { loadDbtState } from "../dbtState";
 import { loadExerciseCatalog } from "../exerciseCatalog";
+import { prepareExerciseWorkspace } from "../exerciseWorkspace";
 import { collectDatabricksFiles, collectFactoryFiles, copyFactorySamples, loadFactoryState, readPoolScript } from "../factoryState";
 import { MODULES } from "../modules";
 import { decodeCsvBytes, suggestBronzeAsset, validateBronzeAsset } from "../platform/csvImport";
@@ -144,6 +145,30 @@ export async function run(): Promise<void> {
       assert.equal(airflow.starterPath, "airflow/dags/retail_daily.py");
       assert.equal(airflow.starterExists, true);
       assert.equal(airflow.legacySpecPath, undefined);
+    }],
+    ["opening an exercise labels its tab and declares the runtime's names for Pylance", async () => {
+      const labels = () => vscode.workspace.getConfiguration("workbench.editor", root)
+        .inspect<Record<string, string>>("customLabels.patterns")?.workspaceValue ?? {};
+      await vscode.workspace.getConfiguration("workbench.editor", root)
+        .update("customLabels.patterns", { "**/*.test.ts": "test ${filename}" }, vscode.ConfigurationTarget.Workspace);
+      const catalog = await loadExerciseCatalog(extension.extensionUri);
+      const spark = catalog.find(item => item.language === "sparklab" && item.packId === "spark-lab-v1");
+      assert.ok(spark, "a SparkLab exercise is in the catalog");
+      const directory = vscode.Uri.joinPath(root, "exercises", "spark-e2e", "sparklab");
+      const logged: string[] = [];
+      await prepareExerciseWorkspace(extension.extensionUri, root, ["exercises"], directory, spark, m => logged.push(m));
+      await prepareExerciseWorkspace(extension.extensionUri, root, ["exercises"], directory, spark, m => logged.push(m));
+      assert.deepEqual(logged, [], logged.join("; "));
+      assert.deepEqual(labels(), {
+        "**/*.test.ts": "test ${filename}",
+        "**/exercises/*/*/solution.*": "${dirname(1)} · ${dirname}",
+        "**/exercises/*/*/README.md": "${dirname(1)} · brief"
+      }, "the learner's pattern is kept and ours added once");
+      const builtins = new TextDecoder().decode(await vscode.workspace.fs.readFile(vscode.Uri.joinPath(directory, "__builtins__.pyi")));
+      assert.match(builtins, /^spark: Any$/m);
+      const excludes = vscode.workspace.getConfiguration("files", root).get<Record<string, boolean>>("exclude") ?? {};
+      assert.equal(excludes["**/exercises/*/*/__builtins__.pyi"], true, "the generated stub is hidden from the Explorer");
+      await vscode.workspace.fs.stat(vscode.Uri.joinPath(root, ".datapass", "pylance-stubs", "pyspark", "sql", "functions.py"));
     }],
     ["dbt sample shows static lineage without claiming a run", async () => {
       await copyDirectory(

@@ -144,6 +144,14 @@ Gold customer revenue
 
 Cloud Lab is a local teaching experience. It does not require or impersonate a Microsoft Fabric workspace, an Azure subscription or a Databricks workspace, and nothing it runs leaves your machine.
 
+### Practice
+
+**Open solution** creates `exercises/<exercise>/<language>/solution.*` and its brief, then opens the file beside the
+Workbench. The first time, Datapass also adds to the workspace settings (`.vscode/settings.json`): tab labels such
+as `spark-semi-join-existence · sparklab` instead of `solution.py`, and, for Python files, the folder
+`.datapass/pylance-stubs` in `python.analysis.extraPaths`. Pylance then stops flagging `pyspark` and `airflow`
+imports, which Datapass simulates without installing them. Settings you already have are kept.
+
 ### Mosaic
 
 After **Run local medallion flow** (Cloud Lab › Lakehouse and notebooks) has loaded the CSV into `bronze.orders`, open `notebooks/retail_medallion.sql` and choose **Run active SQL**: it builds `silver.mosaic_orders` and `gold.mosaic_customer_revenue` on real DuckDB. Mosaic SQL works on the shared catalog only; file and network table functions such as `read_csv_auto` are blocked by design.
