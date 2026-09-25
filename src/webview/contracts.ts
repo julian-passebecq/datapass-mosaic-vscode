@@ -1206,6 +1206,8 @@ export interface WorkbenchFocus {
   module: ModuleId;
   tab?: string;
   query?: string;
+  /** Practice: the exercise (`<pack>/<problem>/<language>`) whose language the problem card should show. */
+  exerciseKey?: string;
   seq: number;
 }
 

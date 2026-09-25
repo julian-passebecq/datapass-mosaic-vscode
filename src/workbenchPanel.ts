@@ -1816,7 +1816,7 @@ export class WorkbenchPanel {
       else void vscode.window.showWarningMessage(`Fichier introuvable : ${step.open.file}`);
     }
     this.selectedModule = step.open.module;
-    this.focus = { module: step.open.module, tab: step.open.tab, query, seq: ++this.focusSeq };
+    this.focus = { module: step.open.module, tab: step.open.tab, query, exerciseKey: step.open.exercise, seq: ++this.focusSeq };
     await this.refresh();
   }
 
