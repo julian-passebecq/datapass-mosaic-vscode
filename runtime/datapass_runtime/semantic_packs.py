@@ -2,10 +2,12 @@
 from copy import deepcopy
 import re
 
-LANGUAGES={'sql','python','polars','dbt','sparklab','snowflake','dbt-sql'}
+LANGUAGES={'sql','python','polars','dbt','sparklab','snowflake','tsql','bigquery','dbt-sql'}
 # Runtime adapter and truth of each variant language (default: shared-<language>-v1, real).
 RUNTIMES={'dbt':('dbt-drill-sql-v1','semantic-emulation'),'sparklab':('shared-sparklab-v1','semantic-emulation'),
           'snowflake':('snowflake-dialect-duckdb-v1','semantic-emulation'),
+          'tsql':('tsql-dialect-duckdb-v1','semantic-emulation'),
+          'bigquery':('bigquery-dialect-duckdb-v1','semantic-emulation'),
           'dbt-sql':('datapass-dbt-emulation-v1','semantic-emulation')}
 DBT_SOURCE='zilla'
 MODEL=re.compile('[a-z][a-z0-9_]{0,62}')

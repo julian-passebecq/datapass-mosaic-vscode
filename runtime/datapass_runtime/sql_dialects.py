@@ -6,6 +6,8 @@ from __future__ import annotations
 from typing import Any
 
 DIALECT_IDS = ('tsql', 'snowflake', 'bigquery', 'spark', 'postgres')
+# Practice languages written in a translated dialect: graded like `sql`, with truth semantic-emulation.
+PRACTICE_DIALECTS = frozenset({'snowflake', 'tsql', 'bigquery'})
 
 
 def catalog_types(catalog) -> dict[str, dict[str, dict[str, str]]]:

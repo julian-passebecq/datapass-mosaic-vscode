@@ -17,6 +17,7 @@ from typing import Any
 import uuid
 
 from .catalog import Catalog, json_value, references, statements
+from .sql_dialects import PRACTICE_DIALECTS
 from .content import compile_dbt, get_case, topological_steps
 from sparklab.safe_parser import SafeSparkParser, SparkLabSyntaxError
 from sparklab.sparklab import SparkSession
@@ -105,6 +106,8 @@ class Engine:
                 {'id':'polars','available':self.trusted_python and importlib.util.find_spec('polars') is not None,'truth':'real Polars when installed; no substitute'},
                 {'id':'dbt','available':True,'truth':'literal ref/source teaching adapter; SQL executes; not dbt Core'},
                 {'id':'snowflake','available':self.catalog.kind != 'sqlite','truth':'Snowflake SQL dialect translated to DuckDB with sqlglot for a documented subset; runs on DuckDB; not Snowflake'},
+                {'id':'tsql','available':self.catalog.kind != 'sqlite','truth':'T-SQL dialect translated to DuckDB with sqlglot for a documented subset; runs on DuckDB; not SQL Server'},
+                {'id':'bigquery','available':self.catalog.kind != 'sqlite','truth':'BigQuery SQL dialect translated to DuckDB with sqlglot for a documented subset; runs on DuckDB; not BigQuery'},
                 {'id':'airflow','available':True,'truth':'DAG file parsed, never executed; deterministic Airflow 3 scheduler/task simulation'},
                 {'id':'factory','available':self.catalog.kind != 'sqlite','truth':'Data Factory orchestration simulated; Copy, Lookup, Script, procedures and SparkLab notebooks run on the local catalog'},
                 {'id':'databricks','available':self.catalog.kind != 'sqlite','truth':'Databricks jobs, compute and Unity Catalog simulated; notebook and SQL tasks run on the local catalog'},
@@ -360,14 +363,14 @@ class Engine:
             compiled_sql = None
             parsed = None
             python_inputs = []
-            if language in {'sql', 'dbt', 'snowflake'}:
+            if language in {'sql', 'dbt'} | PRACTICE_DIALECTS:
                 compiled_sql = request['code']
-                dialect = 'snowflake' if language == 'snowflake' else request.get('dialect') if language == 'sql' else None
+                dialect = language if language in PRACTICE_DIALECTS else request.get('dialect') if language == 'sql' else None
                 if dialect:
                     # A dialect translated to DuckDB for a documented subset (runtime/sqldialects); refused outside
                     # it. Practice grades one query on its fixtures; Mosaic runs a script on the catalog.
                     from .sql_dialects import dialect_view, translate_for_catalog
-                    exercise = language == 'snowflake' or request.get('_exercise_fixture_ctes') or request.get('_exercise_fixture_sql')
+                    exercise = language in PRACTICE_DIALECTS or request.get('_exercise_fixture_ctes') or request.get('_exercise_fixture_sql')
                     translation = translate_for_catalog(self.catalog, compiled_sql, dialect, 'query' if exercise else 'script',
                                                         (request.get('_exercise_schema') or {}) if exercise else None)
                     compiled_sql = translation.sql

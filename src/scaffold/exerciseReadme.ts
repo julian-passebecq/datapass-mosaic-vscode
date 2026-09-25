@@ -101,6 +101,18 @@ export function exerciseReadme(exercise: ExerciseSummary): string {
             "DuckDB (Snowflake SQL dialect translated to DuckDB, not Snowflake). Functions outside the supported " +
             "subset are refused by name rather than approximated; unquoted identifiers are case-insensitive, as in " +
             "Snowflake, and result columns are shown in lower case."
+        : exercise.language === "tsql"
+          ? "**Run visible** checks the public example above. **Submit** also runs hidden and edge-case fixtures that " +
+            "are not shown here. Write T-SQL: Datapass translates it to DuckDB with sqlglot and runs it on DuckDB " +
+            "(T-SQL dialect translated to DuckDB, not SQL Server). T-SQL semantics are kept where DuckDB differs " +
+            "(an integer divided by an integer is an integer, NULLs sort first); functions outside the supported " +
+            "subset are refused by name. String comparisons are case-sensitive here, unlike SQL Server's default collation."
+        : exercise.language === "bigquery"
+          ? "**Run visible** checks the public example above. **Submit** also runs hidden and edge-case fixtures that " +
+            "are not shown here. Write BigQuery SQL (GoogleSQL): Datapass translates it to DuckDB with sqlglot and " +
+            "runs it on DuckDB (BigQuery SQL dialect translated to DuckDB, not BigQuery). BigQuery semantics are kept " +
+            "where DuckDB differs (CONCAT with a NULL is NULL, NULLs sort first); arrays and functions outside the " +
+            "supported subset are refused by name."
         : exercise.language === "sqlpool"
           ? "**Run visible** runs your T-SQL on the simulated SQL pool in the public scenario. **Submit** also runs " +
             "hidden and edge-case scenarios that are not shown here. Each check uses an isolated catalog, never your " +

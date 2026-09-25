@@ -1885,6 +1885,8 @@ function extensionFor(language: string): string {
     case "warehouse":
     case "dbt-sql":
     case "snowflake":
+    case "tsql":
+    case "bigquery":
       return "sql";
     case "python":
     case "pandas":

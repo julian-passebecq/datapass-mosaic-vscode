@@ -149,6 +149,20 @@ export function PracticeSurface({
                 </div>
               )}
 
+              {exercise.language === "tsql" && (
+                <div className="pipeline-notice">
+                  T-SQL dialect translated to DuckDB, not SQL Server: your query runs on local DuckDB, and
+                  functions outside the supported subset are refused rather than approximated.
+                </div>
+              )}
+
+              {exercise.language === "bigquery" && (
+                <div className="pipeline-notice">
+                  BigQuery SQL dialect translated to DuckDB, not BigQuery: your query runs on local DuckDB, and
+                  functions outside the supported subset are refused rather than approximated.
+                </div>
+              )}
+
               {result && (
                 <div className="practice-result">
                   <div className="practice-result-header">
