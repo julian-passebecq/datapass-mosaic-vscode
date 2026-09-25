@@ -227,6 +227,8 @@ export interface ExerciseSummary {
   title: string;
   difficulty: string;
   language: string;
+  /** The grading runtime id (for example datapass-dag-design-v1), when the pack declares one. */
+  runtime?: string;
   prompt: string;
   starterSource: string;
   truth?: string;

@@ -5,7 +5,9 @@ Practice exercises live in versioned packs under `content/exercise-packs/<pack>/
 ## Pack formats
 
 - **Per-language pack**: `manifest.json`, `exercises.json` (public definitions), `grading.server.json` (reference solution + fixtures per exercise id). Example: `sql-lab-v1`, `internal-demo`.
-- **Semantic pack**: `manifest.json`, `scenarios.json`, `grading.server.json`. One scenario and one fixture set expand into several language variants (`sql`, `python`, `polars`, `sparklab`, `dbt`) registered as `<scenario>-<language>`. Example: `unified-retail-v1`.
+- **Semantic pack**: `manifest.json`, `scenarios.json`, `grading.server.json`. One scenario and one fixture set expand into several language variants (`sql`, `snowflake`, `python`, `polars`, `sparklab`, `dbt`, `dbt-sql`) registered as `<scenario>-<language>`. Examples: `unified-retail-v1`, `engine-lab-v1`, `zilla-v1`.
+  - A `dbt-sql` variant is a real dbt model on the Datapass dbt emulation: the registry turns each shared fixture into a dbt scenario whose tables are the sources of a small project (`{{ source('zilla', '<table>') }}`), builds the model (`models/<model>.sql`, from the variant's optional `model` name) and grades its table. An ordered result cannot be a model, so ordered scenarios have no `dbt-sql` variant.
+  - A `snowflake` variant is graded like `sql` after the Snowflake-to-DuckDB translation (see below).
 
 Every exercise needs exactly one visible, and any number of hidden and edge fixtures; the public `visible_checks` / `hidden_check_refs` / `edge_check_refs` must match the private fixture ids. **Run visible** grades only visible fixtures; **Submit** grades all of them. Grading compares complete result rows (`validation`: exact schema, bag semantics, numeric tolerance, optional `ordered`); truncated results never pass.
 
@@ -281,6 +283,24 @@ When adding an exercise: design the hidden and edge fixtures around the pitfall,
 
 For a SparkLab plan lesson whose starter already returns the right rows, add the exercise to `PLAN_ONLY_STARTERS`: the gate then requires the starter to pass every result check and fail at least one plan check, so the lesson stays about the plan.
 
+## Editor support (tab labels and Pylance)
+
+Opening an exercise (src/exerciseWorkspace.ts) also prepares the learner's VS Code, never the grading:
+
+- `workbench.editor.customLabels.patterns` in the workspace settings shows `<exercise> · <language>` on the tab
+  instead of `solution.py`, and `<exercise> · brief` for its README;
+- for Python-file languages, a `__builtins__.pyi` next to the solution declares the names the runtime injects for
+  that exercise (`spark`, `dbutils`, `display`, `query`, the fixture tables, the Pipeline Lab calls). Pylance reads
+  it from the file's own folder; `files.exclude` hides it from the Explorer;
+- `content/pylance-stubs/` is copied to `.datapass/pylance-stubs/` and added to `python.analysis.extraPaths`, so
+  `pyspark`, `airflow`, `pendulum` and `mlflow` imports resolve without installing those packages.
+
+The stubs are generated from the readers' own import tables: after SparkLab or the Airflow Lab reader accepts a
+new module or name, run `PYTHONPATH=runtime python scripts/authoring/gen_pylance_stubs.py` (CI runs it with
+`--check`). `scripts/exercise_workspace_smoke.mjs` fails when a starter imports a simulated module or name that
+has no stub. They are `.py` modules, not `.pyi`: Pylance reports a `.pyi` without a source as "could not be
+resolved from source".
+
 ## Installed packs
 
 | Pack | Language(s) | Exercises | Notes |
@@ -296,13 +316,16 @@ For a SparkLab plan lesson whose starter already returns the right rows, add the
 | `databricks-v1` | Cloud Lab Databricks (`databricks-job`, `databricks-notebook`, `databricks-grants`; simulated) | 13 | Authored Azure Databricks lessons: fan-in dependencies, a failure alert with run_if (and why the run then ends Succeeded with failures), an If/else gate on a task value, setting task values in a notebook, job parameters with {{job.start_time.iso_date}}, retries without retrying timeouts, a shared job cluster instead of an all-purpose one, least-privilege grants for a job's service principal, schema-level grants that cover future tables, MLflow tracking, registering a model in Unity Catalog with the champion alias, batch scoring by alias, a for-each task over a job parameter |
 | `dwh-v1` | BI Lab (`warehouse`, `bi-model`; real DuckDB) | 20 | Authored data warehousing lessons (Kimball): flattening a snowflake, surrogate keys and the unknown member, a date dimension with a fiscal calendar, a junk dimension, SCD types 1, 2 and 3, a type 1 attribute in a type 2 dimension, point-in-time joins, late arriving dimensions (inferred members), allocating an order-level amount to the grain, periodic and accumulating snapshots, a factless fact, drilling across conformed dimensions, a weighted bridge; column lineage as a control (certified revenue, personal data); star models with a role-playing date and a bridge |
 | `dbt-v1` | BI Lab dbt (`dbt-sql`, `dbt-yml`; Datapass dbt emulation) | 12 | Authored dbt lessons, cross-checked with dbt Core: ref and source build the DAG (selection), a staging model, generic tests (unique, not_null, relationships, accepted_values), a singular test, test severity and where with dbt build's gating, incremental models (append filter, unique_key replacing rows), snapshots (timestamp; check with hard deletes), a type 2 dimension from a snapshot, generate_schema_name, and a ref inside is_incremental() that needs a depends_on hint |
+| `zilla-v1` | SQL, Snowflake SQL (translated to DuckDB), pandas, Polars, SparkLab, dbt (`dbt-sql`) | 52 scenarios / 278 variants | The 52 ZillaCode problems (Apache-2.0, LICENSE and NOTICE in the pack), from CodeDELeet's normalized import: snake_case contracts, explicit output order and NULL/tie rules, ZillaCode's two tests as visible and hidden fixtures plus authored edge fixtures, 118 mutants. Snowflake variants for all 52, SparkLab for the 25 its subset covers, dbt for the 45 unordered ones. Generated by `scripts/authoring/gen_zilla.py` |
 | `unified-retail-v1`, `internal-demo`, `sparklab-runtime`, `guided-spark-v1`, `pipeline-design-v1` | mixed | earlier packs | |
 
 Donor content deliberately **not** promoted (grading compares result rows, so these cannot be graded honestly here): syntax-only Python drills (variables, printing, file/JSON I/O, pathlib, type hints), DDL/UPDATE SQL (PK/FK, SCD2), Spark I/O (`SparkSession`, `read.parquet`, `write.partitionBy`), donor `repartition` drills (partitioning is now taught through `spark-lab-v1` plan checks instead), donor Airflow DAG code (Airflow is now taught through the authored `airflow-lab-v1` simulator pack), pandas `validate=` errors, BigQuery `SAFE_DIVIDE` (DuckDB already returns NULL on division by zero), and the DAX, C#, bash, PowerShell, git, cron, Docker, Kubernetes, cloud and gateway tracks. Those belong to reference/cheat-sheet material (the standalone WorkNotebook), not graded Practice.
 
 ## Provenance
 
-Record `origin` (`authored` or `migrated`) and a `provenance.source`. `sql-lab-v1` adapts the Datapass `leetcodedataeng` SQL lab (T-SQL rewritten for DuckDB) with newly authored fixtures. Do not import third-party question corpora.
+Record `origin` (`authored` or `migrated`) and a `provenance.source`. `sql-lab-v1` adapts the Datapass `leetcodedataeng` SQL lab (T-SQL rewritten for DuckDB) with newly authored fixtures.
+
+Third-party question corpora are imported only when their license allows it and the user decided it. `zilla-v1` adapts ZillaCode (Apache-2.0): the pack carries the license (`LICENSE`) and a `NOTICE` with the source, the checksums of the normalized import and the modifications; every scenario keeps `provenance.source` (the ZillaCode problem), `upstream_changes` (CodeDELeet's documented corrections) and `datapass_changes`, and a visible **Source** section.
 
 ## Known limitation
 

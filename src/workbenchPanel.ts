@@ -3,6 +3,7 @@ import { AIRFLOW_STARTER_FILE, airflowPaths } from "./airflowState";
 import { biFileUri, biRoot, collectBiDbtFiles, collectBiScripts, copyBiSamples, readBiModel } from "./biState";
 import { BI_LIMITS, BI_MODEL_FILE, DBT_COMMANDS, parseSelect } from "./platform/biRun";
 import { loadExerciseCatalog } from "./exerciseCatalog";
+import { prepareExerciseWorkspace } from "./exerciseWorkspace";
 import { decodeCsvBytes, suggestBronzeAsset, validateBronzeAsset } from "./platform/csvImport";
 import {
   collectDatabricksFiles,
@@ -702,6 +703,7 @@ export class WorkbenchPanel {
         new TextEncoder().encode(exerciseReadme(exercise))
       );
     }
+    await prepareExerciseWorkspace(this.context.extensionUri, root, exerciseRoot, directory, exercise, console.warn);
 
     await this.openBeside(starterUri);
   }
@@ -1249,7 +1251,7 @@ export class WorkbenchPanel {
 
   private async findProject(projectId: string): Promise<ProjectContent | undefined> {
     const project = (await loadProjectContents(this.context.extensionUri)).projects.find(p => p.id === projectId);
-    if (!project) void vscode.window.showErrorMessage(`Projet introuvable : ${projectId}`);
+    if (!project) void vscode.window.showErrorMessage(`Project not found: ${projectId}`);
     return project;
   }
 
@@ -1299,26 +1301,26 @@ export class WorkbenchPanel {
   /** Every file the project's steps need: its starter files and the lab samples. */
   private async prepareProject(projectId: string): Promise<void> {
     if (!vscode.workspace.workspaceFolders?.length) {
-      void vscode.window.showWarningMessage("Ouvrez un dossier de workspace avant de préparer un projet.");
+      void vscode.window.showWarningMessage("Open a workspace folder before preparing a project.");
       return;
     }
     const project = await this.findProject(projectId);
     if (!project) return;
     await this.runScaffolds(project, project.steps.flatMap(step => step.open.scaffold));
     void vscode.window.showInformationMessage(
-      `Fichiers du projet « ${project.title} » prêts (projects/${project.id}/ et les échantillons des labos). Les fichiers existants ont été gardés.`
+      `Files for "${project.title}" are ready (projects/${project.id}/ and the lab samples). Existing files were kept.`
     );
     await this.refresh();
   }
 
-  /** "Ouvrir dans <lab>": create the step's files, open its file or exercise beside, and show its lab and tab. */
+  /** "Open in <lab>": create the step's files, open its file or exercise beside, and show its lab and tab. */
   private async openProjectStep(projectId: string, stepId: string): Promise<void> {
     const project = await this.findProject(projectId);
     const step = project?.steps.find(s => s.id === stepId);
     if (!project || !step) return;
     const root = vscode.workspace.workspaceFolders?.[0]?.uri;
     if (!root) {
-      void vscode.window.showWarningMessage("Ouvrez un dossier de workspace avant d'ouvrir une étape de projet.");
+      void vscode.window.showWarningMessage("Open a workspace folder before opening a project step.");
       return;
     }
     await this.runScaffolds(project, step.open.scaffold);
@@ -1336,10 +1338,10 @@ export class WorkbenchPanel {
     await this.refresh();
   }
 
-  /** "Vérifier": the runtime checks the steps on the workspace; the result is kept in .datapass/progress.json. */
+  /** "Verify": the runtime checks the steps on the workspace; the result is kept in .datapass/progress.json. */
   private async verifyProjectSteps(projectId: string, stepIds: string[]): Promise<void> {
     if (this.runtimeManager.snapshot().status !== "running") {
-      void vscode.window.showWarningMessage("Démarrez le runtime Datapass pour vérifier les étapes : il lit le catalogue et le journal des exécutions.");
+      void vscode.window.showWarningMessage("Start the Datapass runtime to verify steps: it reads the catalog and the journal of what the labs ran.");
       return;
     }
     const project = await this.findProject(projectId);
@@ -1350,12 +1352,12 @@ export class WorkbenchPanel {
     await this.refresh();
     try {
       const progress = await readProgress();
-      if (progress.error) throw new Error(`${progress.error} Corrigez ou supprimez le fichier, puis vérifiez à nouveau.`);
+      if (progress.error) throw new Error(`${progress.error} Fix or delete the file, then verify again.`);
       const result = await this.runtimeManager.checkProject(projectId, known);
       await writeProgress(applyVerification(progress.document, project, result, new Date().toISOString()));
       this.projectsHost = {};
     } catch (error) {
-      this.projectsHost = { error: `Vérification impossible : ${error instanceof Error ? error.message : String(error)}` };
+      this.projectsHost = { error: `Verification failed: ${error instanceof Error ? error.message : String(error)}` };
     }
     await this.refresh();
   }
@@ -1363,14 +1365,14 @@ export class WorkbenchPanel {
   /** The learner ticks a step by hand: kept as a declaration, never as a verification. */
   private async setProjectStepManual(projectId: string, stepId: string, checked: boolean): Promise<void> {
     if (!vscode.workspace.workspaceFolders?.length) {
-      void vscode.window.showWarningMessage("Ouvrez un dossier de workspace pour garder la progression.");
+      void vscode.window.showWarningMessage("Open a workspace folder to keep project progress.");
       return;
     }
     const project = await this.findProject(projectId);
     if (!project || !project.steps.some(step => step.id === stepId)) return;
     const progress = await readProgress();
     if (progress.error) {
-      void vscode.window.showErrorMessage(`${progress.error} Corrigez ou supprimez le fichier.`);
+      void vscode.window.showErrorMessage(`${progress.error} Fix or delete the file.`);
       return;
     }
     await writeProgress(setManual(progress.document, project, stepId, checked === true, new Date().toISOString()));

@@ -80,6 +80,7 @@ function normalizeExercise(
     title,
     difficulty: stringValue(value.difficulty) ?? "unspecified",
     language,
+    runtime: stringValue(value.runtime),
     prompt: stringValue(value.prompt) ?? "",
     starterSource,
     truth: stringValue(value.truth),

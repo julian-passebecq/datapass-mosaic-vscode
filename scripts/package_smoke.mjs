@@ -26,6 +26,9 @@ const required = [
   "runtime/snowflakesql/translate.py",
   "runtime/snowflakesql/README.md",
   "content/exercise-packs/dbt-v1/grading.server.json",
+  "content/exercise-packs/zilla-v1/grading.server.json",
+  "content/exercise-packs/zilla-v1/LICENSE",
+  "content/exercise-packs/zilla-v1/NOTICE",
   "content/exercise-packs/dwh-v1/grading.server.json",
   "content/exercise-packs/sqlpool-v1/grading.server.json",
   "content/exercise-packs/airflow-lab-v1/grading.server.json",
@@ -43,7 +46,9 @@ const required = [
   "content/projects/retail-fabric/project.json",
   "content/projects/retail-fabric/files/projects/retail-fabric/web_orders_2026-03-05.csv",
   "content/projects/databricks-ml/project.json",
-  "content/projects/synapse-to-fabric/project.json"
+  "content/projects/synapse-to-fabric/project.json",
+  "content/pylance-stubs/pyspark/sql/functions.py",
+  "content/pylance-stubs/airflow/sdk.py"
 ];
 
 for (const path of required) {
@@ -58,7 +63,9 @@ for (const forbidden of [
   "runtime/build/**",
   "runtime/**/*.egg-info/**",
   "**/*.map",
-  "content/projects/*/reference/**"
+  "content/projects/*/reference/**",
+  ".claude/**",
+  ".venv/**"
 ]) {
   assert.ok(ignore.includes(forbidden), `VSIX ignore is missing ${forbidden}`);
 }

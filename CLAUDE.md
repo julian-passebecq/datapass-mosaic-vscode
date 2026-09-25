@@ -33,7 +33,7 @@ The standalone Datapass WorkNotebook and Contoso Data Studio are separate produc
 
 Never blur real execution and simulation.
 
-- Projects (module id `projects`): a step is "vérifié" only when the runtime verified every one of its checks on the workspace: state checks run on the catalog (tables, read-only SQL assertions, SQL pool designs, MLflow models) and run checks read the run journal the runtime writes itself when a lab answers (`.datapass/data/run_journal.json`). Each check reports what it saw: real, simulated, emulation, hybrid, or static (SQL lineage). A learner's tick is "coché à la main", counted apart and NEVER turned into a verification; steps without checks are manual. Projects run nothing of their own; `.datapass/project.json` stays the single project manifest.
+- Projects (module id `projects`): a step is "verified" only when the runtime verified every one of its checks on the workspace: state checks run on the catalog (tables, read-only SQL assertions, SQL pool designs, MLflow models) and run checks read the run journal the runtime writes itself when a lab answers (`.datapass/data/run_journal.json`). Each check reports what it saw: real, simulated, emulation, hybrid, or static (SQL lineage). A learner's tick is "ticked by hand", counted apart and NEVER turned into a verification; steps without checks are manual. Projects run nothing of their own; `.datapass/project.json` stays the single project manifest.
 - Mosaic SQL: real local DuckDB execution.
 - Mosaic Python/Polars: real local execution only when explicitly trusted local Python is enabled.
 - Practice: native VS Code solution files with real local grading through the shared runtime.

@@ -53,6 +53,26 @@ try {
   assert.equal(describe("  Requirement already satisfied: fastapi in ./venv"), undefined);
   assert.equal(describe("   ━━━━━━━━━━━━━━━━━━ 35.2/35.2 MB 8.1 MB/s eta 0:00:00"), undefined);
 
+  // uv: found on PATH first, then in its installers' folders; installs into the managed venv.
+  const candidates = mod.uvCandidates("C:/Users/me", "win32").map(c => c.replaceAll("\\", "/"));
+  assert.deepEqual(candidates, ["uv", "C:/Users/me/.local/bin/uv.exe", "C:/Users/me/.cargo/bin/uv.exe"]);
+  assert.ok(mod.uvCandidates("/home/me", "linux")[1].replaceAll("\\", "/").endsWith("/.local/bin/uv"));
+  const uv = mod.uvInstallArgs("/env/bin/python", "/extension/runtime");
+  assert.deepEqual(uv.slice(0, 4), ["pip", "install", "--python", "/env/bin/python"]);
+  assert.equal(uv.at(-1), "/extension/runtime");
+  assert.equal(uv[uv.indexOf("--reinstall-package") + 1], "datapass-runtime", "the runtime is reinstalled even at the same version");
+  assert.equal(uv[uv.indexOf("--refresh-package") + 1], "datapass-runtime", "and rebuilt, not taken from uv's cache");
+  assert.deepEqual(mod.uvVenvArgs("C:/Python314/python.exe", "C:/store/runtime-venv"),
+    ["venv", "--seed", "--python", "C:/Python314/python.exe", "C:/store/runtime-venv"]);
+  assert.deepEqual(mod.pythonExecutableArgs(), ["-c", "import sys; print(sys.executable)"]);
+  assert.equal(describe("Resolved 42 packages in 1.21s"), "Resolved 42 packages");
+  assert.equal(describe("Downloading duckdb (11.0MiB)"), "Downloading duckdb (11.0MiB)");
+  assert.equal(describe("   Building datapass-runtime @ file:///C:/ext/runtime"), "Building datapass-runtime");
+  assert.equal(describe("Prepared 42 packages in 9.87s"), "Prepared 42 packages");
+  assert.equal(describe("Installed 42 packages in 2.02s"), "Packages installed");
+  assert.equal(describe(" + duckdb==1.4.0"), undefined);
+  assert.equal(describe(" Downloaded duckdb"), undefined);
+
   console.log("Managed runtime environment smoke passed.");
 } finally {
   await rm(dir, { recursive: true, force: true });

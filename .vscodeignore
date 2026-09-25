@@ -1,4 +1,9 @@
 .github/**
+# Claude Code settings and the worktrees of parallel sessions (full repository copies).
+.claude/**
+# Local Python environments (the runtime installs into its own managed venv).
+.venv/**
+**/.venv/**
 .vscode/**
 src/**
 scripts/**

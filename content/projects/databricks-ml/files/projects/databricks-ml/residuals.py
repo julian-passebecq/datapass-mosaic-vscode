@@ -1,15 +1,15 @@
-# Projet « Lakehouse Databricks et ML » : contrôler les prédictions avec Polars (Python local de confiance).
-# Mosaic > Run active Python. Ce fichier s'exécute comme du VRAI Python local, seulement après avoir activé
-# le Python de confiance pour ce workspace. query(sql) lit le catalogue ; publish(nom, table) y écrit.
+# Project "Databricks lakehouse and ML": check the predictions with Polars (trusted local Python).
+# Mosaic > Run active Python. This file runs as REAL local Python, only after you enable trusted
+# Python for this workspace. query(sql) reads the catalog; publish(name, table) writes to it.
 import polars as pl
 
 scored = pl.DataFrame(query(
     "SELECT turbine_id, wind_speed, actual_power, prediction FROM gold.turbine_power_scored"
 ))
 
-# TODO : calculez l'erreur absolue (actual_power - prediction), puis par turbine_id :
-#   readings      = nombre de mesures
-#   max_abs_error = plus grande erreur absolue
-# et publiez le résultat dans metrics.turbine_residuals.
+# TODO: compute the absolute error (actual_power - prediction), then per turbine_id:
+#   readings      = number of readings
+#   max_abs_error = largest absolute error
+# and publish the result to metrics.turbine_residuals.
 summary = scored.group_by("turbine_id").agg(pl.len().alias("readings"))
 summary
