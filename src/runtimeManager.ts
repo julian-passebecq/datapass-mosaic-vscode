@@ -30,6 +30,14 @@ import {
   uvInstallArgs,
   uvVenvArgs
 } from "./platform/runtimeEnvironment";
+import {
+  checkManagedRuntime,
+  extensionVersion,
+  readRuntimeMarker,
+  removeRuntimeMarker,
+  runtimeFingerprint,
+  writeRuntimeMarker
+} from "./platform/runtimeFingerprint";
 import { runtimeProcessEnv } from "./platform/pythonTrust";
 import { newRuntimeToken, requestGetJson, requestJson } from "./platform/runtimeClient";
 import { toSparkLabRunView } from "./platform/sparkLabRun";
@@ -81,10 +89,36 @@ export class RuntimeManager implements vscode.Disposable {
     private readonly extensionUri: vscode.Uri,
     private readonly storageUri: vscode.Uri
   ) {
-    const python = this.managedPythonPath();
-    this.environment = existsSync(python)
-      ? { status: "ready", python, detail: "Managed Datapass runtime is installed." }
-      : { status: "missing", detail: "Managed Datapass runtime is not installed yet." };
+    this.environment = this.inspectEnvironment();
+  }
+
+  /**
+   * The managed venv as it is on disk: missing, ready, or stale when its recorded runtime fingerprint differs from
+   * this extension's `runtime/` sources (a newer VSIX over an older Setup). A stale runtime is never started as is.
+   */
+  private inspectEnvironment(): RuntimeEnvironmentView {
+    const venvRoot = this.managedVenvRoot();
+    const python = managedVenvPython(venvRoot);
+    let fingerprint: string;
+    try {
+      fingerprint = runtimeFingerprint(this.runtimeRoot());
+    } catch (error) {
+      return { status: "error", python, detail: `Could not read the bundled runtime: ${error instanceof Error ? error.message : String(error)}` };
+    }
+    const check = checkManagedRuntime({
+      pythonExists: existsSync(python),
+      marker: readRuntimeMarker(venvRoot),
+      fingerprint,
+      extensionVersion: extensionVersion(this.extensionUri.fsPath)
+    });
+    switch (check.status) {
+      case "missing":
+        return { status: "missing", detail: "Managed Datapass runtime is not installed yet." };
+      case "ready":
+        return { status: "ready", python, detail: "Managed Datapass runtime is installed and matches this extension." };
+      case "stale":
+        return { status: "stale", python, detail: check.reason };
+    }
   }
 
   snapshot(): RuntimeViewState {
@@ -100,9 +134,14 @@ export class RuntimeManager implements vscode.Disposable {
       throw new Error("Stop the Datapass runtime before updating its environment.");
     }
 
-    const runtimeRoot = path.join(this.extensionUri.fsPath, "runtime");
-    const venvRoot = path.join(this.storageUri.fsPath, "runtime-venv");
+    const runtimeRoot = this.runtimeRoot();
+    const venvRoot = this.managedVenvRoot();
     const managedPython = managedVenvPython(venvRoot);
+    // Fingerprint the sources before installing: pip builds in the source folder (build/, *.egg-info), which the
+    // fingerprint ignores anyway, and the marker must describe exactly what this install took.
+    const fingerprint = runtimeFingerprint(runtimeRoot);
+    const updating = existsSync(managedPython);
+    const title = updating ? "Datapass runtime update" : "Datapass runtime setup";
 
     const startedAt = Date.now();
     const totalSteps = 3;
@@ -112,7 +151,9 @@ export class RuntimeManager implements vscode.Disposable {
       this.environment = {
         status: "setting-up",
         python: managedPython,
-        detail: "Creating and installing the isolated Datapass runtime…",
+        detail: updating
+          ? "Reinstalling this extension's Datapass runtime into the existing environment…"
+          : "Creating and installing the isolated Datapass runtime…",
         progress: { step, totalSteps, label, activity, startedAt }
       };
       this.changed.fire(this.snapshot());
@@ -130,7 +171,7 @@ export class RuntimeManager implements vscode.Disposable {
 
     try {
       await vscode.window.withProgress(
-        { location: vscode.ProgressLocation.Notification, title: "Datapass runtime setup" },
+        { location: vscode.ProgressLocation.Notification, title },
         async progress => {
           reportNotification = message => progress.report({ message });
           await vscode.workspace.fs.createDirectory(this.storageUri);
@@ -159,6 +200,7 @@ export class RuntimeManager implements vscode.Disposable {
             }
           }
 
+          removeRuntimeMarker(venvRoot);
           let installed = false;
           if (uv) {
             const uvLabel = "Installing runtime dependencies with uv";
@@ -191,6 +233,12 @@ export class RuntimeManager implements vscode.Disposable {
             runtimeVerifyArgs(),
             runtimeRoot
           );
+          writeRuntimeMarker(venvRoot, {
+            schema: 1,
+            fingerprint,
+            extensionVersion: extensionVersion(this.extensionUri.fsPath),
+            installedAt: new Date().toISOString()
+          });
         }
       );
 
@@ -230,8 +278,24 @@ export class RuntimeManager implements vscode.Disposable {
   ): Promise<void> {
     if (this.state.status === "running" || this.state.status === "starting") return;
 
-    const runtimeRoot = path.join(this.extensionUri.fsPath, "runtime");
+    const runtimeRoot = this.runtimeRoot();
     const managedPython = this.managedPythonPath();
+    if (existsSync(managedPython)) {
+      // Re-check on every start: the extension may have been updated since the last check.
+      this.environment = this.inspectEnvironment();
+      if (this.environment.status === "stale") {
+        this.output.appendLine(`${this.environment.detail} Updating it before the start.`);
+        try {
+          await this.setup(pythonCommand);
+        } catch {
+          return; // setup() reported the failure; never fall back to the stale install.
+        }
+      }
+      if (this.environment.status !== "ready") {
+        this.setState({ status: "error", detail: this.environment.detail ?? "The managed Datapass runtime is not ready." });
+        return;
+      }
+    }
     const resolvedPython = existsSync(managedPython) ? managedPython : pythonCommand;
     const port = await findFreePort(HOST);
     const url = `http://${HOST}:${port}`;
@@ -948,8 +1012,16 @@ export class RuntimeManager implements vscode.Disposable {
     this.output.dispose();
   }
 
+  private runtimeRoot(): string {
+    return path.join(this.extensionUri.fsPath, "runtime");
+  }
+
+  private managedVenvRoot(): string {
+    return path.join(this.storageUri.fsPath, "runtime-venv");
+  }
+
   private managedPythonPath(): string {
-    return managedVenvPython(path.join(this.storageUri.fsPath, "runtime-venv"));
+    return managedVenvPython(this.managedVenvRoot());
   }
 
   /** The absolute path of the interpreter `pythonCommand` runs, so uv builds the venv from that same Python. */
