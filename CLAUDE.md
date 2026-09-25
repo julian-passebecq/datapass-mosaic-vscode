@@ -118,4 +118,11 @@ Also manually inspect the Extension Development Host for user-facing changes whe
 
 ## Current continuation point
 
-Read `docs/CLAUDE_HANDOFF_2026-09-24.md` before making substantial changes. It records the implemented execution bridge, known gaps, and prioritized continuation plan; its dated `## YYYY-MM-DD · Title` sections, newest first, are the newest state.
+Before a substantial change, read:
+
+- `docs/HANDOFF.md`: the current state (what exists, truth model, where things live, how to test, known gaps), kept
+  under 200 lines and updated in place;
+- the roadmap artifact (https://claude.ai/artifact/RhQMPGxeuNo9GTFzH5B8aJ) for what comes next;
+- `docs/HANDOFF_HISTORY.md` when you need how something came to be: one dated `## YYYY-MM-DD · Title` section per
+  tranche, newest first, with its "Checked" / "Not checked" notes. Add yours at the top; never number or letter
+  sections.

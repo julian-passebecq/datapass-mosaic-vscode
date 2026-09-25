@@ -1,29 +1,29 @@
-# Claude handoff — Datapass Workbench VS Code
+# Datapass Workbench — handoff history
 
-Date: 2026-09-24 (updated 2026-09-25)
+Dated record of every tranche, newest first. The current state (what exists, the truth model, where things
+live, how to test, known gaps) is in docs/HANDOFF.md; what comes next is in the roadmap artifact
+(https://claude.ai/artifact/RhQMPGxeuNo9GTFzH5B8aJ). Branch names, tips and gate counts in these sections are
+historical.
 
-## Current status — `main` is the baseline
+Add a tranche as a new `## YYYY-MM-DD · Title` section at the top, under this paragraph. Never number or letter
+sections, and refer to another section by its heading, not by a position. Keep the "Checked" and "Not checked"
+notes: they say what was really run.
 
-PR #1 merged the implementation branch into `main` with a merge commit (`f35dbe4`, all 223 commits preserved). CI on `main` after the merge was green on all three jobs (run 36068237602). `codex/bootstrap-datapass-workbench` is kept for history only.
+## 2026-09-26 · Short handoff: current state split from the history (roadmap T-5)
 
-Workflow from here: branch from `main` for each tranche, keep CI green, merge through a pull request. The dated sections below record how the project got here; branch names and tips in them are historical.
+`docs/CLAUDE_HANDOFF_2026-09-24.md` (1,300 lines) was split:
 
-**2026-09-25: stack merged, installed VSIX checked in VS Code.**
+- `docs/HANDOFF.md`: the current state, under 200 lines (what exists per module with its truth and code, the truth
+  model, where things live, how to test with the time-saving notes, known gaps gathered from every tranche's open
+  points, the next directions with a link to the roadmap artifact, what not to do).
+- This file (`git mv` of the old handoff, so `git log --follow` keeps its history): every dated tranche, newest
+  first; the old "Current status" block became two dated sections ("PR #1 ..." and "Stack merged ..."); the old
+  reference sections 1–11 are kept whole under "2026-09-24 · Original handoff reference sections".
+- CLAUDE.md "Current continuation point" points at both files and the roadmap.
 
-- **Merge.** PRs #8–#16 (Airflow; Cloud Lab pipelines, SQL pool and Databricks with their packs; BI Lab and its dbt tab) were merged into `main` bottom-up with merge commits, after resolving their conflicts with the Spark lab (#7). Every section below is now on `main`.
-- **Smoke.** The packaged VSIX was installed and driven in a real VS Code window by Playwright (`_electron.launch`, fresh profile). 22/22 steps passed:
-  1. Labs view, then Workbench, then **Create .datapass project**.
-  2. **Setup runtime**: steps 1/3, 2/3 and 3/3, about 3 minutes.
-  3. **Start runtime**: the badge shows running.
-  4. One exercise per new lab opened and graded, with the starter rejected: spark-lab-v1, airflow-lab-v1, cloud-pipelines-v1, sqlpool-v1, databricks-v1, dwh-v1, dbt-v1.
-  5. The SparkLab, Airflow Lab, Cloud Lab and BI Lab tabs rendered.
-  6. **Stop runtime**.
-- **What it covers.** This replaces the "Not checked in a real F5 session" notes below for these flows, not for every button of each lab.
-- **Bug found.** The Cloud Lab sub-tabs and the execution badge overflowed a narrow Workbench. Fixed in PR #17.
-- **Stacked PRs.** Retarget the next PR to `main` before merging its base with `--delete-branch`. Otherwise GitHub closes it.
-
-Tranche sections below are dated and never numbered or lettered: add a new one at the top as
-`## YYYY-MM-DD · Title`, and refer to another section by its heading, not by a position.
+Checked: a script compared the files: every non-heading line of the old handoff is in this file (0 missing); the
+module ids, paths and packs named in HANDOFF.md were checked against `src/modules.ts`, the tree and the manifests.
+Docs only; the quality gates were run for the conflict-reduction PR just before.
 
 ## 2026-09-26 · Conflict reduction: per-pack quality files, dated handoff sections (roadmap V1-7)
 
@@ -249,6 +249,20 @@ Open points:
   none. dbt Charts is pre-1.0 and pinned to 0.8.x: re-check its conventions before moving the pin.
 - Next: **Terminal Lab** (real bash, PowerShell and Git; Datapass checks the resulting folder and repository state)
   can reuse `missionlab` with new check kinds, then Infra Lab.
+
+## 2026-09-25 · Stack merged, installed VSIX checked in VS Code
+
+- **Merge.** PRs #8–#16 (Airflow; Cloud Lab pipelines, SQL pool and Databricks with their packs; BI Lab and its dbt tab) were merged into `main` bottom-up with merge commits, after resolving their conflicts with the Spark lab (#7). Every section below is now on `main`.
+- **Smoke.** The packaged VSIX was installed and driven in a real VS Code window by Playwright (`_electron.launch`, fresh profile). 22/22 steps passed:
+  1. Labs view, then Workbench, then **Create .datapass project**.
+  2. **Setup runtime**: steps 1/3, 2/3 and 3/3, about 3 minutes.
+  3. **Start runtime**: the badge shows running.
+  4. One exercise per new lab opened and graded, with the starter rejected: spark-lab-v1, airflow-lab-v1, cloud-pipelines-v1, sqlpool-v1, databricks-v1, dwh-v1, dbt-v1.
+  5. The SparkLab, Airflow Lab, Cloud Lab and BI Lab tabs rendered.
+  6. **Stop runtime**.
+- **What it covers.** This replaces the "Not checked in a real F5 session" notes below for these flows, not for every button of each lab.
+- **Bug found.** The Cloud Lab sub-tabs and the execution badge overflowed a narrow Workbench. Fixed in PR #17.
+- **Stacked PRs.** Retarget the next PR to `main` before merging its base with `--delete-branch`. Otherwise GitHub closes it.
 
 ## 2026-09-25 · Vague 1: Practice and Mosaic quick wins
 
@@ -859,7 +873,19 @@ NOT exercised: a human F5 session clicking through the real webview inside VS Co
 4. If wiring Pipeline dbt later: extend the trusted-local opt-in to dbt, validate the project path against the manifest `assets.dbt`, reuse `dbt_runner` artifact validation, never report success without a qualified manifest/run_results pair.
 5. ~~`package-lock.json` is not committed~~ Done: the lockfile is committed and CI uses `npm ci` ("2026-09-25 · Polish tranche").
 
-## 1. Start here
+## 2026-09-24 · PR #1: the implementation branch merged into `main`
+
+PR #1 merged the implementation branch into `main` with a merge commit (`f35dbe4`, all 223 commits preserved). CI on `main` after the merge was green on all three jobs (run 36068237602). `codex/bootstrap-datapass-workbench` is kept for history only.
+
+Workflow from here: branch from `main` for each tranche, keep CI green, merge through a pull request. The dated sections below record how the project got here; branch names and tips in them are historical.
+
+## 2026-09-24 · Original handoff reference sections
+
+Sections 1–11 of the first handoff (`docs/CLAUDE_HANDOFF_2026-09-24.md`), as they stood on 2026-09-26 when the
+file was split. Several are out of date (the module list, the Airflow Lab description, the required tests); the
+current state is in docs/HANDOFF.md. Kept whole so no decision or fact is lost.
+
+### 1. Start here
 
 Repository: `julian-passebecq/datapass-mosaic-vscode`
 
@@ -885,7 +911,7 @@ runtime:   success
 
 Later tranches added the work recorded in the dated sections above; all of it is now on `main`.
 
-## 2. History: why the project looked stopped
+### 2. History: why the project looked stopped
 
 The work did not disappear. It was left on `codex/bootstrap-datapass-workbench` while `main` remained essentially empty, until PR #1 merged it on 2026-09-24.
 
@@ -901,7 +927,7 @@ The branch also progressed materially beyond the older checkpoint `abfe28df`. In
 
 Do not repeat those migrations.
 
-## 3. Product architecture
+### 3. Product architecture
 
 Datapass Workbench is one VS Code extension, not a collection of separate apps.
 
@@ -933,9 +959,9 @@ Keep separate:
 - Contoso Data Studio: separate C# product; datasets/cases may cross the boundary.
 - historical donors: references only.
 
-## 4. Current surface status
+### 4. Current surface status
 
-### Mosaic
+#### Mosaic
 
 Implemented:
 
@@ -951,7 +977,7 @@ Resolved in the 2026-09-24 Claude tranche:
 - **Run active Python** executes the active `.py` file only when trusted local Python is effective; otherwise it is disabled with the reason shown.
 - The layout is persisted to `.datapass/mosaic.json` inside a Datapass project.
 
-### Practice
+#### Practice
 
 Implemented:
 
@@ -965,7 +991,7 @@ Implemented:
 
 This is no longer just a scaffold.
 
-### Fabric Lab
+#### Fabric Lab
 
 Implemented:
 
@@ -981,13 +1007,13 @@ Truth boundary:
 - orchestration/Fabric chrome are teaching semantics;
 - real local engines must be labeled as such.
 
-### SparkLab / ZilaCode
+#### SparkLab / ZilaCode
 
 Runtime capability exists and is bounded.
 
 Direct workflow implemented (2026-09-24 Claude tranche): `notebooks/sparklab.py` scratch, virtual cluster profile + AQE selection, **Run active SparkLab file**, result rows + compiled SQL (real local), teaching logical plan, and a SIMULATED stage/shuffle/credits panel. Unsupported source is rejected with `SparkLabSyntaxError`. No new Spark engine was added.
 
-### dbt Lab
+#### dbt Lab
 
 Rebuilt on 2026-09-25 as the real-life lab (see "2026-09-25 · dbt Lab rebuild: real dbt Core, dbt Charts, missions"): managed dbt Core + dbt-duckdb + dbt Charts installed on
 request, real commands typed in a VS Code terminal, the catalog handoff, the artifacts view, dbt Charts boards and
@@ -995,7 +1021,7 @@ the missions. No static lineage and no emulation here (the emulation is the BI L
 
 Pipeline Lab accepts a dbt activity in the design grammar, but native pipeline dbt execution is deliberately **not wired**. `native_pipeline.py` fails that task once (no retries), states nothing was run, and skips downstream tasks; the graph labels it *Declared only · not executed*.
 
-### Airflow Lab
+#### Airflow Lab
 
 Implemented as deterministic UI-side simulation:
 
@@ -1010,7 +1036,7 @@ Implemented as deterministic UI-side simulation:
 
 Do not replace this with a full Airflow install merely to teach scheduling semantics.
 
-### Pipeline Lab
+#### Pipeline Lab
 
 Implemented:
 
@@ -1039,7 +1065,7 @@ Currently wired activity bodies:
 
 dbt syntax exists but runtime execution is not wired.
 
-## 5. Runtime and security model
+### 5. Runtime and security model
 
 Key files:
 
@@ -1055,7 +1081,7 @@ The kernel worker provides lifecycle isolation and timeout/restart semantics. It
 
 Environment filtering removes obvious TOKEN/SECRET/PASSWORD/API_KEY variables before spawning a worker, but that does not make arbitrary Python safe.
 
-### Trusted Python issue to resolve deliberately
+#### Trusted Python issue to resolve deliberately
 
 `execution.py` only enables Python when `trusted_python=True`.
 
@@ -1095,7 +1121,7 @@ Requirements:
 - no misleading “sandbox” wording;
 - update runtime state/capabilities visibly.
 
-## 6. Important files
+### 6. Important files
 
 Extension host:
 
@@ -1134,7 +1160,7 @@ Runtime/tests:
 - `scripts/package_smoke.mjs`
 - `.github/workflows/ci.yml`
 
-## 7. Donor policy
+### 7. Donor policy
 
 Already audited in `docs/HARVEST_AUDIT.md`.
 
@@ -1158,11 +1184,11 @@ Do not:
 
 The VSIX intentionally excludes donor/development trees.
 
-## 8. Priority continuation plan
+### 8. Priority continuation plan
 
 Proceed in this order unless a newly reproduced bug blocks the sequence.
 
-### P0 — protect `main`
+#### P0 — protect `main`
 
 1. Branch from `main` for each tranche; merge back through a pull request.
 2. Keep CI green after every coherent tranche.
@@ -1171,7 +1197,7 @@ Proceed in this order unless a newly reproduced bug blocks the sequence.
 
 Status after the 2026-09-24 Claude tranches: P1 trusted Python — done; P1 SparkLab — done; P1 E2E — done (`npm run test:host`); P2 pipeline dbt — decided: explicitly unsupported; P2 Mosaic durability — done; P2 content — donor Practice content promoted: `sql-lab-v1` (60), `engine-lab-v1` (68 variants), `python-lab-v1` (12); non-gradable donor tracks intentionally left to reference material. Manual F5 pass done on 2026-09-25 and PR #1 merged to `main`. Remaining: the known limitations listed in "2026-09-24 · Content tranche" ("Recommended next steps") and further content.
 
-### P1 — trusted Python/Polars UX (done)
+#### P1 — trusted Python/Polars UX (done)
 
 Implement explicit workspace/project opt-in.
 
@@ -1184,7 +1210,7 @@ Acceptance criteria:
 - tests cover default-disabled and enabled configuration;
 - no claim of sandboxing.
 
-### P1 — direct SparkLab execution experience
+#### P1 — direct SparkLab execution experience
 
 Use the existing bounded SparkLab parser/runtime.
 
@@ -1199,7 +1225,7 @@ Target:
 
 Do not add a second Spark engine.
 
-### P1 — end-to-end Extension Host smoke
+#### P1 — end-to-end Extension Host smoke
 
 Automated unit/smoke gates are green, but add/strengthen extension-host/E2E coverage for:
 
@@ -1212,7 +1238,7 @@ Automated unit/smoke gates are green, but add/strengthen extension-host/E2E cove
 7. inspect Airflow simulator;
 8. dbt static lineage and real dbt route when available.
 
-### P2 — pipeline dbt activity
+#### P2 — pipeline dbt activity
 
 Either:
 
@@ -1221,7 +1247,7 @@ Either:
 
 Do not fake successful dbt execution.
 
-### P2 — Mosaic durability and UX
+#### P2 — Mosaic durability and UX
 
 The layout currently survives via webview state. Evaluate whether project-portable Mosaic layouts should be stored under `.datapass/`.
 
@@ -1232,11 +1258,11 @@ If added:
 - do not serialize runtime secrets;
 - gracefully migrate old layouts.
 
-### P2 — broader teaching content
+#### P2 — broader teaching content
 
 After the runtime/surface contracts stabilize, promote additional exercises/cases from existing donor content rather than expanding shells first.
 
-## 9. Required tests
+### 9. Required tests
 
 Extension:
 
@@ -1278,7 +1304,7 @@ Manual test:
 11. Airflow: step/run/reset;
 12. dbt Lab: Install dbt tools, run dbt build from the lab (terminal), see the artifacts and the Catalog view, render a board, check a mission.
 
-## 10. Definition of done for the next Claude tranche
+### 10. Definition of done for the next Claude tranche
 
 Do not report the project as finished merely because it compiles.
 
@@ -1293,7 +1319,7 @@ A tranche is done when:
 - user-facing flow is manually exercised where applicable;
 - docs/contracts are updated in the same tranche.
 
-## 11. What not to do
+### 11. What not to do
 
 - Do not restart this project from scratch.
 - Do not commit directly to `main` or rewrite its history; branch from it and merge through a pull request with green CI.
