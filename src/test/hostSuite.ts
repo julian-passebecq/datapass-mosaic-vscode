@@ -650,10 +650,26 @@ export async function run(): Promise<void> {
         });
         let output = "";
         if (integration) {
+          // The prompt may still be drawing when integration is first reported: give it a moment, then make sure the
+          // command really started (a line typed too early is lost), else type it again as text.
+          await new Promise(resolve => setTimeout(resolve, 3000));
+          const started = new Promise<boolean>(resolve => {
+            const timer = setTimeout(() => { listener.dispose(); resolve(false); }, 15_000);
+            const listener = vscode.window.onDidStartTerminalShellExecution(event => {
+              if (event.terminal !== terminal) return;
+              clearTimeout(timer);
+              listener.dispose();
+              resolve(true);
+            });
+          });
           const execution = integration.executeCommand(commandLine);
           void (async () => {
             for await (const data of execution.read()) output += data;
           })();
+          if (!(await started)) {
+            output += "(the command did not start through shell integration: sent as text)";
+            terminal.sendText(commandLine, true);
+          }
         } else {
           await new Promise(resolve => setTimeout(resolve, 5000));
           terminal.sendText(commandLine, true);
