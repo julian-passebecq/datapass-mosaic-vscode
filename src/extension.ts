@@ -9,6 +9,7 @@ import { PythonTrustController } from "./pythonTrustController";
 import { registerReferenceSolutions } from "./referenceSolutions";
 import { registerQueryPlanDocuments } from "./queryPlanDocuments";
 import { RuntimeManager } from "./runtimeManager";
+import { registerSqlDialectStatus } from "./sqlDialectStatus";
 import { WorkbenchPanel } from "./workbenchPanel";
 
 export function activate(context: vscode.ExtensionContext): void {
@@ -30,6 +31,7 @@ export function activate(context: vscode.ExtensionContext): void {
     vscode.window.registerTreeDataProvider("datapass.labs", new LabTreeProvider()),
     registerReferenceSolutions(context.extensionUri),
     registerQueryPlanDocuments(),
+    ...registerSqlDialectStatus(),
     ...registerCatalogTree(runtimeManager, () => WorkbenchPanel.show(context, runtimeManager, pythonTrust, "mosaic", dbtLab))
   );
 

@@ -72,11 +72,17 @@ def profile_table(catalog, asset):
             'truth': 'real DuckDB SUMMARIZE on the local catalog; approx_unique and the quantiles are estimates'}
 
 
-def explain_query(catalog, query):
-    """EXPLAIN ANALYZE of one read-only query: DuckDB runs it once and reports each operator's rows and time."""
+def explain_query(catalog, query, dialect=None):
+    """EXPLAIN ANALYZE of one read-only query: DuckDB runs it once and reports each operator's rows and time.
+    With a dialect, the query is first translated to DuckDB (runtime/sqldialects) and the plan is the translation's."""
     import time
     from .catalog import validate_sql
     _duckdb_only(catalog, 'EXPLAIN ANALYZE')
+    translated = None
+    if dialect:
+        from .sql_dialects import dialect_view, translate_for_catalog
+        translated = dialect_view(translate_for_catalog(catalog, query, dialect, 'query'))
+        query = translated['sql']
     try:
         statement = validate_sql(query, read_only=True)[0].strip().rstrip(';')
     except ValueError as error:
@@ -89,9 +95,13 @@ def explain_query(catalog, query):
         rows = catalog.db.execute('EXPLAIN ANALYZE\n' + statement + '\n').fetchall()
     finally:
         catalog.guard = False
-    return {'plan': '\n'.join(str(row[-1]) for row in rows), 'query': statement,
-            'elapsed_ms': round((time.perf_counter() - started) * 1000, 3), 'engine': catalog.kind,
-            'truth': 'real DuckDB EXPLAIN ANALYZE: the query ran once on the local catalog to time each operator'}
+    result = {'plan': '\n'.join(str(row[-1]) for row in rows), 'query': statement,
+              'elapsed_ms': round((time.perf_counter() - started) * 1000, 3), 'engine': catalog.kind,
+              'truth': 'real DuckDB EXPLAIN ANALYZE: the query ran once on the local catalog to time each operator'}
+    if translated is not None:
+        result['dialect'] = translated
+        result['truth'] += f"; {translated['label']}: the plan is the translated query's"
+    return result
 
 
 def import_file(catalog, asset, file_format, data):

@@ -2,6 +2,7 @@
  * Mosaic data tools: which files the import accepts, and the SQL query history. Pure functions, tested by
  * scripts/mosaic_tools_smoke.mjs. The runtime does the real work (DuckDB SUMMARIZE, EXPLAIN ANALYZE, imports).
  */
+import { SQL_DIALECTS, TranslatedDialectId } from "./sqlDialect";
 
 export type ImportFormat = "csv" | "parquet" | "json";
 
@@ -31,6 +32,8 @@ export interface QueryHistoryEntry {
   /** Workspace-relative path of the file the SQL came from, when there was one. */
   file?: string;
   sql: string;
+  /** The file's `-- dialect:` when it was not DuckDB SQL: a rerun translates it again. */
+  dialect?: TranslatedDialectId;
   status: "success" | "error";
   elapsedMs: number;
   rows?: number;
@@ -44,7 +47,8 @@ export const QUERY_HISTORY_SQL_MAX = 8000;
 export function addQueryHistory(history: readonly QueryHistoryEntry[] | undefined, entry: QueryHistoryEntry,
   max = QUERY_HISTORY_MAX): QueryHistoryEntry[] {
   const sql = entry.sql.length > QUERY_HISTORY_SQL_MAX ? entry.sql.slice(0, QUERY_HISTORY_SQL_MAX) : entry.sql;
-  const kept = (history ?? []).filter(item => !(item.sql.trim() === sql.trim() && item.kind === entry.kind));
+  const kept = (history ?? []).filter(item =>
+    !(item.sql.trim() === sql.trim() && item.kind === entry.kind && item.dialect === entry.dialect));
   return [{ ...entry, sql }, ...kept].slice(0, max);
 }
 
@@ -62,6 +66,8 @@ export function restoreQueryHistory(raw: unknown): QueryHistoryEntry[] {
       kind: value.kind,
       file: typeof value.file === "string" ? value.file : undefined,
       sql: value.sql.slice(0, QUERY_HISTORY_SQL_MAX),
+      ...(SQL_DIALECTS.some(item => item.id !== "duckdb" && item.id === value.dialect)
+        ? { dialect: value.dialect as TranslatedDialectId } : {}),
       status: value.status,
       elapsedMs: typeof value.elapsedMs === "number" ? value.elapsedMs : 0,
       rows: typeof value.rows === "number" ? value.rows : undefined,

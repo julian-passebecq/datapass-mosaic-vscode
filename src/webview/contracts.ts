@@ -58,6 +58,17 @@ export interface TableProfileView {
   };
 }
 
+/** A dialect translated to DuckDB (runtime/sqldialects): what ran, and the rules that kept the engine's result. */
+export interface DialectTranslationView {
+  source: string;
+  target: "duckdb";
+  /** "T-SQL dialect translated to DuckDB, not SQL Server". */
+  label: string;
+  /** The DuckDB SQL that really ran. */
+  sql: string;
+  rewrites: readonly string[];
+}
+
 /** DuckDB EXPLAIN ANALYZE of one read-only query (Mosaic → Explain active SQL). */
 export interface QueryPlanView {
   plan: string;
@@ -66,6 +77,8 @@ export interface QueryPlanView {
   truth: string;
   /** Workspace-relative file the query came from; "selection" is appended when only a selection was explained. */
   source?: string;
+  /** Set when the file declares another dialect: the plan is the translation's. */
+  dialect?: DialectTranslationView;
 }
 
 export interface LocalCellRunView {
@@ -83,6 +96,8 @@ export interface LocalCellRunView {
     type: string;
     message: string;
   };
+  /** Set when the SQL file declares another dialect (`-- dialect: <name>`). */
+  dialect?: DialectTranslationView;
 }
 
 export interface SparkLabStageView {
@@ -1218,6 +1233,7 @@ export type WebviewToHostMessage =
   | { type: "profileTable"; asset: string }
   | { type: "explainActiveSql" }
   | { type: "openQueryPlan" }
+  | { type: "openTranslatedSql" }
   | { type: "rerunQuery"; id: string }
   | { type: "openQueryFile"; id: string }
   | { type: "runActiveSql" }

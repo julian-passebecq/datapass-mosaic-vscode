@@ -30,6 +30,7 @@ import { prepareExerciseWorkspace } from "../exerciseWorkspace";
 import { loadReferenceSolution, referenceUri } from "../referenceSolutions";
 import { collectDatabricksFiles, collectFactoryFiles, copyFactorySamples, loadFactoryState, readPoolScript } from "../factoryState";
 import { MODULES } from "../modules";
+import { runDialect } from "../platform/sqlDialect";
 import { decodeCsvBytes, suggestBronzeAsset, validateBronzeAsset } from "../platform/csvImport";
 import { readMosaicLayout, writeMosaicLayout } from "../mosaicLayoutStore";
 import { loadPipelineState } from "../pipelineState";
@@ -1051,6 +1052,33 @@ export async function run(): Promise<void> {
       assert.match(plan.plan, /HASH_GROUP_BY/);
       assert.equal(runtime!.snapshot().queryPlan?.source, "e2e.sql");
       await assert.rejects(runtime!.explainQuery("DROP TABLE bronze.skus_e2e"), /EXPLAIN ANALYZE refused/);
+    }],
+    ["Mosaic SQL dialects: the status bar command writes the header; T-SQL is translated, run and explained", async () => {
+      const file = vscode.Uri.joinPath(root, "dialect_e2e.sql");
+      await vscode.workspace.fs.writeFile(file, new TextEncoder().encode(
+        "SELECT TOP 1 sku, qty / 2 AS half FROM bronze.skus_e2e ORDER BY qty DESC;\n"));
+      const document = await vscode.workspace.openTextDocument(file);
+      await vscode.window.showTextDocument(document);
+      await vscode.commands.executeCommand("datapass.sql.pickDialect", "tsql");
+      assert.equal(document.lineAt(0).text, "-- dialect: tsql");
+      await document.save();
+      const { dialect } = runDialect(document.getText());
+      assert.equal(dialect, "tsql");
+      const run = await runtime!.runSql(document.getText(), dialect);
+      assert.equal(run.status, "success", JSON.stringify(run.error));
+      assert.deepEqual(run.result?.rows, [{ sku: "B2", half: 2 }], "5 / 2 is an integer division in T-SQL");
+      assert.equal(run.dialect?.label, "T-SQL dialect translated to DuckDB, not SQL Server");
+      assert.match(run.dialect!.sql, /qty \/\/ 2[\s\S]*LIMIT 1/);
+      const plan = await runtime!.explainQuery(document.getText(), "dialect_e2e.sql", dialect);
+      assert.equal(plan.dialect?.source, "tsql");
+      assert.match(plan.truth, /not SQL Server/);
+      const refused = await runtime!.runSql("SELECT GETDATE() AS now", "tsql");
+      assert.equal(refused.status, "error");
+      assert.equal(refused.error?.type, "TsqlDialectError");
+      await vscode.commands.executeCommand("datapass.sql.pickDialect", "duckdb");
+      assert.ok(!document.getText().includes("-- dialect"), "DuckDB needs no header");
+      await document.save();
+      await vscode.commands.executeCommand("workbench.action.closeActiveEditor");
     }],
     ["Projects: the runtime verifies steps on the workspace and progress.json keeps them", async () => {
       const retail = (await loadProjectContents(extension.extensionUri)).projects[0];

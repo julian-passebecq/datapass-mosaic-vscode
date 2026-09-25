@@ -89,7 +89,7 @@ Source: CodeDELeet's normalized import of the 52 ZillaCode problems (`public/pac
 
 **Promoted (2026-09-25)** as the Practice pack `zilla-v1` (52 scenarios, 278 variants), built our way:
 
-- one semantic scenario per problem, graded on our engines: DuckDB SQL, Snowflake SQL translated to DuckDB (`runtime/snowflakesql`), pandas and Polars (trusted Python), SparkLab where its subset covers the problem, and the Datapass dbt emulation;
+- one semantic scenario per problem, graded on our engines: DuckDB SQL, Snowflake SQL translated to DuckDB (`runtime/sqldialects`), pandas and Polars (trusted Python), SparkLab where its subset covers the problem, and the Datapass dbt emulation;
 - snake_case tables and columns, explicit output order, NULL and tie rules, statement-vs-reference conflicts resolved and documented per exercise;
 - ZillaCode's two tests are the visible and hidden fixtures (inputs only: every expected row is recomputed from the Datapass SQL reference and reviewed), plus authored edge fixtures for ties, NULLs and empty groups;
 - CodeDELeet's SparkLite/dbtLite variants and its unverified SQL were not copied: the references were rewritten and are graded in CI.
