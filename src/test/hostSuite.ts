@@ -17,7 +17,7 @@ import * as vscode from "vscode";
 import { loadAirflowState } from "../airflowState";
 import { loadDbtState } from "../dbtState";
 import { loadExerciseCatalog } from "../exerciseCatalog";
-import { collectFactoryFiles, copyFactorySamples, loadFactoryState, readPoolScript } from "../factoryState";
+import { collectDatabricksFiles, collectFactoryFiles, copyFactorySamples, loadFactoryState, readPoolScript } from "../factoryState";
 import { MODULES } from "../modules";
 import { decodeCsvBytes, suggestBronzeAsset, validateBronzeAsset } from "../platform/csvImport";
 import { readMosaicLayout, writeMosaicLayout } from "../mosaicLayoutStore";
@@ -115,13 +115,18 @@ export async function run(): Promise<void> {
       assert.deepEqual(Object.keys(files.pipelines), ["pl_retail_daily_adf"]);
       assert.deepEqual(Object.keys(files.datasets).sort(), ["ds_bronze_orders", "ds_source_orders"]);
       assert.deepEqual(Object.keys(files.procedures), ["warehouse.usp_load_gold_revenue"]);
-      assert.deepEqual(Object.keys(files.notebooks).sort(), ["databricks:/Shared/nb_silver_orders_dbx", "fabric:nb_silver_orders"]);
+      // Pipelines can call every notebook of the lab, including the Databricks job notebooks.
+      assert.ok(["databricks:/Shared/nb_silver_orders_dbx", "fabric:nb_silver_orders"].every(key => key in files.notebooks));
       assert.deepEqual(factory.poolScripts.map(script => `${script.name}:${script.flavor}`),
         ["01_star_schema:synapse", "02_partitions:synapse", "03_procedures:synapse", "04_fabric_warehouse:fabric"]);
       assert.ok((await readPoolScript("factory/sql/pool/01_star_schema.sql")).text?.includes("DISTRIBUTION = REPLICATE"));
       for (const outside of ["factory/sql/procedures/warehouse.usp_load_gold_revenue.sql", "factory/../x.sql", "other/sql/pool/x.sql"]) {
         assert.match((await readPoolScript(outside)).error ?? "", /is not a script/, outside);
       }
+      assert.equal(factory.databricks.exists, true);
+      assert.deepEqual(factory.databricks.jobs.map(job => job.name).sort(), ["power_model_training", "retail_daily_dbx", "segment_reports"]);
+      assert.ok(factory.databricks.jobs.every(job => !job.error && job.tasks.length >= 1));
+      assert.deepEqual(factory.databricks.sqlFiles, ["/Shared/sql/gold_checks.sql"]);
     }],
     ["Airflow starter is a Python DAG file under airflow/dags", async () => {
       assert.equal((await loadAirflowState()).starterExists, false);
@@ -282,6 +287,33 @@ export async function run(): Promise<void> {
       const refused = runtime!.snapshot().sqlpoolRun!;
       assert.equal(refused.status, "error");
       assert.match(refused.statements.at(-1)!.message, /takes no DISTRIBUTION/);
+    }],
+    ["Cloud Lab Databricks runs the sample jobs as their principals", async () => {
+      const { files, jobs, warnings } = await collectDatabricksFiles();
+      assert.deepEqual(warnings, []);
+      assert.deepEqual(Object.keys(jobs).sort(), ["power_model_training", "retail_daily_dbx", "segment_reports"]);
+      assert.ok(files.grants?.includes("sp-ml-training") && files.compute && files.unity_catalog);
+      assert.ok(Object.keys(files.notebooks).includes("databricks:/Shared/ml/nb_train_power_model"));
+      const scenario = { dataPlane: "local" as const, jobParameters: {}, tasks: {}, triggerType: "one_time" as const, clusterStates: {} };
+      await runtime!.simulateDatabricks({ name: "retail_daily_dbx", path: "p", document: jobs.retail_daily_dbx, files, scenario, warnings });
+      const retail = runtime!.snapshot().databricksRun!;
+      assert.equal(retail.run?.statusLabel, "Succeeded", JSON.stringify(retail.issues.concat(retail.run?.tasks.map(t => ({ path: t.key, message: t.error })) ?? [])));
+      assert.equal(retail.run?.tasks.find(t => t.key === "alert_on_failure")?.state, "excluded");
+      assert.ok(retail.tablesChanged.some(table => table.name === "gold.revenue_by_segment"));
+      await runtime!.simulateDatabricks({ name: "power_model_training", path: "p", document: jobs.power_model_training, files, scenario, warnings });
+      const power = runtime!.snapshot().databricksRun!;
+      assert.equal(power.run?.statusLabel, "Succeeded", JSON.stringify(power.run?.tasks.map(t => [t.key, t.error])));
+      assert.equal(power.run?.principal, "sp-ml-training");
+      const state = runtime!.snapshot().databricksState!;
+      assert.equal(state.mlflow.models[0]?.name, "main.ml.power_model");
+      assert.equal(state.unity.owners["main.ml.power_model"], "sp-ml-training");
+      await runtime!.simulateDatabricks({ name: "retail_daily_dbx", path: "p", document: jobs.retail_daily_dbx, files, warnings,
+        scenario: { ...scenario, dataPlane: "simulated", tasks: { ingest_orders: { behavior: "fail_always" } } } });
+      const failed = runtime!.snapshot().databricksRun!;
+      assert.equal(failed.run?.statusLabel, "Failed");
+      assert.equal(failed.run?.tasks.find(t => t.key === "alert_on_failure")?.state, "success");
+      await runtime!.exploreDatabricks(files);
+      assert.equal(runtime!.snapshot().databricksState?.unity.catalog, "main");
     }],
     ["Practice exercise: visible run and submission grade for real", async () => {
       const catalog = await loadExerciseCatalog(extension.extensionUri);

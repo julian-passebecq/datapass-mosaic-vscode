@@ -3,6 +3,7 @@ import { useState } from "react";
 import type { FactoryViewState, RuntimeViewState } from "./contracts";
 import { FactoryPipelines } from "./FactoryPipelines";
 import { SqlPoolLab } from "./SqlPoolLab";
+import { DatabricksLab } from "./DatabricksLab";
 import type { VsCodeApi } from "./WorkbenchApp";
 
 /** Cloud Lab: Fabric / Azure Data Factory / Synapse pipelines, SQL pools and the local lakehouse, all simulated locally. */
@@ -16,14 +17,15 @@ export function FabricSurface({
   factory: FactoryViewState | undefined;
 }) {
   const running = runtime.status === "running";
-  const [tab, setTab] = useState<"pipelines" | "sqlpool" | "lakehouse">(runtime.sqlpoolRun && !runtime.factoryRun ? "sqlpool" : "pipelines");
+  const [tab, setTab] = useState<"pipelines" | "sqlpool" | "databricks" | "lakehouse">(
+    runtime.databricksRun ? "databricks" : runtime.sqlpoolRun && !runtime.factoryRun ? "sqlpool" : "pipelines");
 
   return (
     <section className="lab-surface">
       <div className="lab-toolbar">
         <div>
           <div className="eyebrow">Simulated cloud data platform · runs on this machine</div>
-          <Text size={500} weight="semibold">Pipelines, notebooks, SQL pools and stored procedures for Fabric, Azure Data Factory and Synapse</Text>
+          <Text size={500} weight="semibold">Pipelines, notebooks, SQL pools and Databricks jobs for Fabric, Azure Data Factory, Synapse and Azure Databricks</Text>
         </div>
         <Badge appearance="tint" color={running ? "success" : "informative"}>
           {running ? "local runtime connected" : "runtime stopped"}
@@ -32,10 +34,12 @@ export function FabricSurface({
       <TabList selectedValue={tab} onTabSelect={(_, data) => setTab(data.value as typeof tab)} size="small">
         <Tab value="pipelines">Pipelines</Tab>
         <Tab value="sqlpool">SQL pool</Tab>
+        <Tab value="databricks">Databricks</Tab>
         <Tab value="lakehouse">Lakehouse and notebooks</Tab>
       </TabList>
       {tab === "pipelines" && <FactoryPipelines vscode={vscode} factory={factory} runtime={runtime} />}
       {tab === "sqlpool" && <SqlPoolLab vscode={vscode} factory={factory} runtime={runtime} />}
+      {tab === "databricks" && <DatabricksLab vscode={vscode} factory={factory} runtime={runtime} />}
       {tab === "lakehouse" && <LakehouseOverview vscode={vscode} runtime={runtime} />}
     </section>
   );
@@ -172,6 +176,7 @@ function LakehouseOverview({ vscode, runtime }: { vscode: VsCodeApi; runtime: Ru
         <TruthRow capability="PySpark" truth="Bounded simulation" note="SparkLab covers an explicit DataFrame subset." />
         <TruthRow capability="Pipeline service" truth="Deterministic simulation" note="Data Factory orchestration semantics for Fabric, Azure Data Factory and Synapse pipeline JSON; no cloud execution." />
         <TruthRow capability="Pipeline activities" truth="Real local where supported" note="Copy, Lookup, Script, stored procedures and notebooks run on the local catalog (DuckDB, SparkLab); other activities follow the scenario." />
+        <TruthRow capability="Databricks jobs" truth="Hybrid" note="Jobs API JSON orchestration, compute and cost simulated; notebook and SQL tasks run on the local catalog under Unity Catalog checks; MLflow kept as local data." />
         <TruthRow capability="SQL pool (Synapse, Fabric Warehouse)" truth="Hybrid" note="T-SQL translated to DuckDB for a documented subset really runs; distributions, partitions and data movement are modelled." />
       </div>
     </>

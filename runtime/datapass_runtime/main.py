@@ -1,6 +1,7 @@
 from contextlib import asynccontextmanager
 import json
 import os
+import re
 from pathlib import Path
 from typing import Any, Literal
 
@@ -110,6 +111,49 @@ class SqlPoolRunRequest(BaseModel):
     scale: float = Field(default=1.0, ge=1, le=1e12)
 
 
+class DatabricksFiles(BaseModel):
+    """Databricks Lab files the host sends with a job: notebooks, SQL files, compute and Unity Catalog settings."""
+    model_config = ConfigDict(extra="forbid", strict=True)
+    notebooks: dict[str, str] = Field(default_factory=dict, max_length=60)
+    sql: dict[str, str] = Field(default_factory=dict, max_length=40)
+    compute: dict[str, Any] | None = None
+    unity_catalog: dict[str, Any] | None = None
+    grants: str | None = Field(default=None, max_length=40000)
+
+    @model_validator(mode="after")
+    def bounded(self) -> "DatabricksFiles":
+        for key, text in (*self.notebooks.items(), *self.sql.items()):
+            if not re.fullmatch(r"databricks:/[A-Za-z0-9_./ -]{1,200}", key):
+                raise ValueError(f"unexpected lab file key {key!r}")
+            if len(text) > 40000:
+                raise ValueError("a notebook or SQL file exceeds 40,000 characters")
+        if len(json.dumps([self.compute, self.unity_catalog])) > 100_000:
+            raise ValueError("compute and Unity Catalog settings exceed 100 KB")
+        return self
+
+
+class DatabricksRunRequest(BaseModel):
+    """Databricks Lab: a job (Jobs API JSON), its lab files and a run scenario. Nothing connects to Databricks."""
+    model_config = ConfigDict(extra="forbid", strict=True)
+    name: str = Field(pattern=r"^[A-Za-z0-9][A-Za-z0-9 _.-]{0,99}$")
+    document: dict[str, Any]
+    files: DatabricksFiles = Field(default_factory=DatabricksFiles)
+    scenario: dict[str, Any] = Field(default_factory=dict)
+    # "local": notebook and SQL tasks run on the local catalog; "simulated": dry run.
+    data_plane: Literal["local", "simulated"] = "local"
+
+    @model_validator(mode="after")
+    def bounded(self) -> "DatabricksRunRequest":
+        if len(json.dumps([self.document, self.scenario])) > 400_000:
+            raise ValueError("job document and scenario exceed 400 KB")
+        return self
+
+
+class DatabricksStateRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid", strict=True)
+    files: DatabricksFiles = Field(default_factory=DatabricksFiles)
+
+
 class RetailDemoRequest(BaseModel):
     model_config = ConfigDict(extra="forbid", strict=True)
     dataset_path: str = Field(min_length=1, max_length=500)
@@ -190,6 +234,14 @@ def capabilities() -> dict[str, object]:
             "scheduler": "deterministic-local",
             "dag_source": "Airflow DAG files parsed by a whitelisted AST reader; never executed",
             "semantics": "Airflow 3 timetables, catchup, trigger rules, retries, sensors, branching and templates for the supported subset",
+        },
+        "databricks_lab": {
+            "mode": "hybrid",
+            "jobs": "Jobs API JSON: run_if, If/else condition, for each, retries, timeouts, parameters, task values",
+            "tasks": "notebook tasks on SparkLab (never eval/exec) and SQL tasks on DuckDB, under Unity Catalog rules",
+            "compute": "job clusters, all-purpose clusters, serverless and SQL warehouses modelled with lab DBU figures",
+            "mlflow": "tracking and a Unity Catalog model registry (versions, aliases) kept as local data",
+            "cloud_connection": False,
         },
         "sqlpool_lab": {
             "mode": "hybrid",
@@ -315,6 +367,19 @@ def simulate_factory(body: FactorySimulateRequest) -> object:
 def run_sqlpool(body: SqlPoolRunRequest) -> object:
     """SQL pool Lab: run a script on the simulated dedicated SQL pool (or Fabric Warehouse) and describe its tables."""
     return native_command({"op": "sqlpool_run", "flavor": body.flavor, "script": body.script, "scale": body.scale})
+
+
+@app.post("/api/local/databricks/run")
+def run_databricks_job(body: DatabricksRunRequest) -> object:
+    """Databricks Lab: validate and simulate a job; notebook and SQL tasks run on the local catalog."""
+    return native_command({"op": "databricks_run", "name": body.name, "document": body.document,
+                           "files": body.files.model_dump(), "scenario": body.scenario, "data_plane": body.data_plane})
+
+
+@app.post("/api/local/databricks/state")
+def databricks_state(body: DatabricksStateRequest) -> object:
+    """Databricks Lab: Unity Catalog (owners, grants) and MLflow (experiments, models) as they are."""
+    return native_command({"op": "databricks_state", "files": body.files.model_dump()})
 
 
 @app.post("/api/demo/retail/run")

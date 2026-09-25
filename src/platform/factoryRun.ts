@@ -24,7 +24,12 @@ export type FactoryFileRole =
   | { role: "dataset"; flavor: "adf" | "synapse"; name: string }
   | { role: "procedure"; name: string }
   | { role: "notebook"; key: string }
-  | { role: "poolScript"; name: string };
+  | { role: "poolScript"; name: string }
+  | { role: "dbxJob"; name: string }
+  | { role: "dbxSql"; key: string }
+  | { role: "dbxCompute" }
+  | { role: "dbxUnity" }
+  | { role: "dbxGrants" };
 
 /**
  * Classify a path relative to the factory folder:
@@ -33,6 +38,8 @@ export type FactoryFileRole =
  * - synapse/notebook/<name>.py, databricks/<workspace path>.py (Databricks source format)
  * - sql/procedures/<schema>.<name>.sql
  * - sql/pool/<name>.sql (T-SQL scripts of the SQL pool tab)
+ * - databricks/jobs/<name>.json (Jobs API JSON), databricks/<path>.sql (SQL task files),
+ *   databricks/compute.json, databricks/unity_catalog.json and databricks/grants.sql
  */
 export function classifyFactoryPath(relative: string): FactoryFileRole | undefined {
   const parts = relative.replaceAll("\\", "/").split("/").filter(Boolean);
@@ -55,6 +62,17 @@ export function classifyFactoryPath(relative: string): FactoryFileRole | undefin
   }
   if (top === "databricks" && parts.length >= 2 && parts[parts.length - 1].endsWith(".py")) {
     return { role: "notebook", key: `databricks:/${parts.slice(1).join("/").slice(0, -3)}` };
+  }
+  if (top === "databricks" && parts.length === 3 && second === "jobs" && third.endsWith(".json")) {
+    return { role: "dbxJob", name: third.slice(0, -5) };
+  }
+  if (top === "databricks" && parts.length === 2) {
+    if (second === "compute.json") return { role: "dbxCompute" };
+    if (second === "unity_catalog.json") return { role: "dbxUnity" };
+    if (second === "grants.sql") return { role: "dbxGrants" };
+  }
+  if (top === "databricks" && parts.length >= 2 && parts[parts.length - 1].endsWith(".sql")) {
+    return { role: "dbxSql", key: `databricks:/${parts.slice(1).join("/")}` };
   }
   if (top === "sql" && second === "procedures" && parts.length === 3 && third.endsWith(".sql")) {
     return { role: "procedure", name: third.slice(0, -4) };

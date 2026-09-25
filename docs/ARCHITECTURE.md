@@ -71,6 +71,21 @@ The **SQL pool** tab is the SQL pool Lab (`runtime/sqlpoollab`): a simulated Azu
 - The host reads scripts from `factory/sql/pool/` (an open editor wins) or the active `.sql` editor and sends the text (`POST /api/local/sqlpool/run`, kernel op `sqlpool_run`). The webview shows statements, plans, the distribution chart and partitions.
 - Practice language `sqlpool` grades scripts on an isolated temporary catalog (`datapass_runtime/sqlpool_grading.py`).
 
+The **Databricks** tab is the Databricks Lab (`runtime/databrickslab`, README there):
+
+- `model.py` reads Jobs API JSON with design-time rules (task types, dependencies and cycles, If/else outcomes, compute
+  references, parameters); `engine.py` runs the job on a logical clock: `run_if`, Excluded and Upstream failed, retries
+  and timeouts, If/else, for each, job parameters pushed down as widgets, dynamic value references (`refs.py`), task
+  values, and the leaf-task rule for the run status.
+- `compute.py` models job clusters, all-purpose clusters, serverless and SQL warehouses (start times, DBU, lab cost
+  units); `unity.py` holds the Unity Catalog model (catalog `main`, layers as schemas, owners, grants, privilege checks);
+  `mlflow_store.py` the MLflow tracking and Unity Catalog registry state.
+- `datapass_runtime/databricks_workspace.py` runs notebook tasks on SparkLab (with `dbutils.jobs.taskValues`, the
+  bounded `pyspark.ml` of `sparklab/ml.py` and the MLflow API of `sparklab/mlflow_api.py`) and SQL tasks on DuckDB,
+  checking every read and write for the job's principal; state persists in `databricks_state.json`.
+- The host sends the job and the files it needs (`POST /api/local/databricks/run`, kernel op `databricks_run`;
+  `/api/local/databricks/state` for the explorer).
+
 The **Lakehouse and notebooks** tab keeps the original workflow of lakehouse + notebook + pipeline, reproduced locally:
 
 - Fabric-inspired notebook surface.

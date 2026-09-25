@@ -77,6 +77,27 @@ The **Fabric, Azure Data Factory and Synapse: what differs** table summarizes th
 
 Data statements really run on the local catalog (`dbo` is the `warehouse` layer), translated from T-SQL for a documented subset. Distributions, partitions and plans are modelled from the dedicated SQL pool's design rules; they are not Synapse telemetry. **SQL pool exercises** opens Practice, where the `sqlpool-v1` pack has 12 guided exercises graded on an isolated catalog.
 
+**Databricks** tab: a simulated Azure Databricks workspace.
+
+1. **Create lab files** also writes `factory/databricks/`: notebooks in Databricks source format, SQL files, three jobs in
+   Jobs API JSON (`jobs/*.json`), the workspace compute (`compute.json`), Unity Catalog groups (`unity_catalog.json`) and
+   grants (`grants.sql`).
+2. **Jobs**: pick a job. The canvas shows its tasks and dependencies: If/else branches as `(true)` / `(false)`, failure
+   handlers in red. Set the job parameters, the trigger, the start time and task behavior (fail on some attempts,
+   duration), then **Run now** (notebook and SQL tasks really run on your lakehouse) or **Dry run** (nothing runs; you
+   give the task values). The result lists every task state (Succeeded, Failed, Timed out, Upstream failed, Excluded),
+   explains the run status with the leaf-task rule, and shows the compute used and its modelled cost.
+3. **Catalog**: Unity Catalog `main` with one schema per layer and `ml` for models, owners and grants. Jobs with
+   `run_as` run as that principal: a missing grant fails the task with `INSUFFICIENT_PERMISSIONS`.
+4. **Experiments and models**: MLflow runs (parameters, metrics) and models registered in Unity Catalog, with their
+   versions and aliases (`@champion`).
+5. **Compute**: all-purpose clusters and SQL warehouses, and which compute fits which work (serverless, job cluster,
+   all-purpose cluster, SQL warehouse).
+
+The samples: `retail_daily_dbx` (ingest → If/else on a task value → silver → gold → SQL check on a warehouse, with a
+failure alert), `power_model_training` (train a Spark ML model with MLflow as the service principal `sp-ml-training`,
+gate on RMSE, promote `@champion`, batch score) and `segment_reports` (a for-each task on an all-purpose cluster).
+
 **Lakehouse and notebooks** tab: use the flow diagram to understand the whole project:
 
 ```text
@@ -181,7 +202,7 @@ The runtime is a local IPC/control plane, not a separate Datapass web applicatio
 | --- | --- | --- |
 | Mosaic | VS Code files, DuckDB SQL; Python/Polars only after trusted-Python opt-in | optional teaching overlays |
 | Practice | VS Code files, local tests/runners | exercise scenarios where explicitly marked |
-| Cloud Lab | local files, DuckDB/DuckLake; pipeline Copy, Lookup, Script, stored procedures and SparkLab notebooks on the local catalog; SQL pool data statements (T-SQL translated to DuckDB) | Fabric UI, pipeline orchestration (Data Factory semantics), every other activity (Web, Teams, Outlook, dataflows...); SQL pool distributions, partitions, rowgroups and data movement |
+| Cloud Lab | local files, DuckDB/DuckLake; pipeline Copy, Lookup, Script, stored procedures and SparkLab notebooks on the local catalog; SQL pool data statements (T-SQL translated to DuckDB); Databricks notebook and SQL tasks, Spark ML fits, Unity Catalog checks | Fabric UI, pipeline orchestration (Data Factory semantics), every other activity (Web, Teams, Outlook, dataflows...); SQL pool distributions, partitions, rowgroups and data movement; Databricks job orchestration, compute, start times and cost; MLflow as local data |
 | SparkLab | whitelist parser, compiled SQL and result rows computed locally | stages, shuffle exchanges, duration, credits, cluster behavior; Practice plan checks grade this model |
 | dbt Lab | dbt Core + DuckDB when installed | static lineage fallback is not execution |
 | Airflow Lab | DAG files (Lab and Practice) are parsed, never executed | scheduler/executor/task runtime, runs, task states, logs, rendered templates |

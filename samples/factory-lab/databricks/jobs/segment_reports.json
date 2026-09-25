@@ -1,0 +1,29 @@
+{
+  "name": "segment_reports",
+  "description": "One report per segment with a for_each_task over a job parameter (a JSON array).",
+  "parameters": [
+    {
+      "name": "segments",
+      "default": "[1, 2, 3, 4]"
+    }
+  ],
+  "tasks": [
+    {
+      "task_key": "report_each_segment",
+      "for_each_task": {
+        "inputs": "{{job.parameters.segments}}",
+        "concurrency": 2,
+        "task": {
+          "task_key": "segment_report",
+          "existing_cluster_id": "analytics-shared",
+          "notebook_task": {
+            "notebook_path": "/Workspace/Shared/nb_segment_report",
+            "base_parameters": {
+              "segment_id": "{{input}}"
+            }
+          }
+        }
+      }
+    }
+  ]
+}

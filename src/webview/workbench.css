@@ -1110,9 +1110,18 @@ h2 { margin-bottom: 8px; font-size: 28px; }
 .sqlpool-bars i { position: absolute; left: 0; right: 0; border-top: 1px dashed var(--vscode-charts-green, #2e7d32); }
 .sqlpool-skew { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 10px; color: var(--vscode-descriptionForeground); font-size: 11px; }
 .sqlpool-partitions td { white-space: nowrap; }
+.databricks-columns { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 10px; align-items: start; }
+.databricks-schema { font-size: 12px; }
+.databricks-schema summary { cursor: pointer; }
+.databricks-schema ul { margin: 4px 0 6px; padding-left: 18px; }
+.databricks-schema small, .databricks-block { color: var(--vscode-descriptionForeground); font-size: 10px; }
+.databricks-block { display: block; font-weight: normal; }
+.databricks-task-result { display: grid; gap: 6px; }
+.databricks-task-result p { margin: 0; }
 .sqlpool-sql summary { cursor: pointer; color: var(--vscode-descriptionForeground); font-size: 11px; }
 @media (max-width: 900px) {
   .factory-io { grid-template-columns: 1fr; }
   .factory-legend { margin-left: 0; }
   .sqlpool-run { grid-template-columns: 1fr; }
+  .databricks-columns { grid-template-columns: 1fr; }
 }

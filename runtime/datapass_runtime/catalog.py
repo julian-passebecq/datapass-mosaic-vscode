@@ -66,10 +66,10 @@ def statements(sql: str) -> list[str]:
     for char in sql:
         current += char
         if char == ';' and sqlite3.complete_statement(current):
-            if sql_tokens(current).strip(' ;\n\t'):
+            if sql_tokens(current).strip(' ;\r\n\t'):
                 out.append(current.strip())
             current = ''
-    if sql_tokens(current).strip(' ;\n\t'):
+    if sql_tokens(current).strip(' ;\r\n\t'):  # \r: files with Windows line endings
         out.append(current.strip())
     if not out or len(out) > 20:
         raise ValueError('Submit between 1 and 20 SQL statements.')

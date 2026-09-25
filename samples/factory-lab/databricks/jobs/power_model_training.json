@@ -1,0 +1,63 @@
+{
+  "name": "power_model_training",
+  "description": "Train, gate on RMSE, promote the champion and score the turbines, as a service principal.",
+  "run_as": {
+    "service_principal_name": "sp-ml-training"
+  },
+  "parameters": [
+    {
+      "name": "max_rmse",
+      "default": "1.0"
+    }
+  ],
+  "tasks": [
+    {
+      "task_key": "train",
+      "notebook_task": {
+        "notebook_path": "/Workspace/Shared/ml/nb_train_power_model"
+      }
+    },
+    {
+      "task_key": "good_enough",
+      "depends_on": [
+        {
+          "task_key": "train"
+        }
+      ],
+      "condition_task": {
+        "op": "LESS_THAN_OR_EQUAL",
+        "left": "{{tasks.train.values.rmse}}",
+        "right": "{{job.parameters.max_rmse}}"
+      }
+    },
+    {
+      "task_key": "promote",
+      "depends_on": [
+        {
+          "task_key": "good_enough",
+          "outcome": "true"
+        }
+      ],
+      "notebook_task": {
+        "notebook_path": "/Workspace/Shared/ml/nb_promote_champion",
+        "base_parameters": {
+          "version": "{{tasks.train.values.model_version}}"
+        }
+      }
+    },
+    {
+      "task_key": "score_turbines",
+      "depends_on": [
+        {
+          "task_key": "promote"
+        }
+      ],
+      "notebook_task": {
+        "notebook_path": "/Workspace/Shared/ml/nb_score_turbines"
+      }
+    }
+  ],
+  "tags": {
+    "domain": "ml"
+  }
+}

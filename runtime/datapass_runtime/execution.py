@@ -106,6 +106,7 @@ class Engine:
                 {'id':'dbt','available':True,'truth':'literal ref/source teaching adapter; SQL executes; not dbt Core'},
                 {'id':'airflow','available':True,'truth':'DAG file parsed, never executed; deterministic Airflow 3 scheduler/task simulation'},
                 {'id':'factory','available':self.catalog.kind != 'sqlite','truth':'Data Factory orchestration simulated; Copy, Lookup, Script, procedures and SparkLab notebooks run on the local catalog'},
+                {'id':'databricks','available':self.catalog.kind != 'sqlite','truth':'Databricks jobs, compute and Unity Catalog simulated; notebook and SQL tasks run on the local catalog'},
                 {'id':'sqlpool','available':self.catalog.kind != 'sqlite','truth':'T-SQL translated to DuckDB for a documented subset; distributions, partitions and data movement modelled'},
             ],
             'session_generation': self.generation,
@@ -539,6 +540,12 @@ class Engine:
         if op == 'factory_simulate':
             from .factory_workspace import simulate as factory_simulate
             return factory_simulate(self.catalog, request)
+        if op == 'databricks_run':
+            from .databricks_workspace import run as databricks_run
+            return databricks_run(self.catalog, request)
+        if op == 'databricks_state':
+            from .databricks_workspace import explore as databricks_explore
+            return databricks_explore(self.catalog, request)
         if op == 'sqlpool_run':
             from sqlpoollab.lab import pool_view
             from sqlpoollab.model import Metadata

@@ -174,6 +174,9 @@ export interface RuntimeViewState {
   airflowRun?: AirflowLabView;
   factoryRun?: FactoryLabView;
   sqlpoolRun?: SqlPoolLabView;
+  databricksRun?: DatabricksLabView;
+  /** Unity Catalog, MLflow and compute of the Databricks tab, refreshed after each job run. */
+  databricksState?: DatabricksStateView;
   retailDemo?: RetailDemoRunView;
   catalog?: readonly LocalCatalogAssetView[];
   lastRun?: LocalCellRunView;
@@ -464,6 +467,8 @@ export interface FactoryViewState {
   pipelines: FactoryDesignView[];
   /** T-SQL scripts for the SQL pool tab (factory/sql/pool/*.sql). */
   poolScripts: SqlPoolScriptView[];
+  /** Jobs and files of the Databricks tab (factory/databricks). */
+  databricks: DatabricksViewState;
   warnings: string[];
 }
 
@@ -534,6 +539,206 @@ export interface FactoryLabView {
   run?: FactoryRunView;
   tablesChanged: { name: string; rows: number; producer?: string }[];
   scenario: FactoryScenarioInput;
+}
+
+/** Cloud Lab › Databricks: jobs, compute, Unity Catalog and MLflow, simulated locally. */
+export type DatabricksTaskKind = "notebook" | "condition" | "sql" | "for_each";
+
+export interface DatabricksTaskDesignView {
+  key: string;
+  kind: DatabricksTaskKind;
+  /** Notebook path, SQL file, condition expression or for-each inputs. */
+  detail: string;
+  runIf: string;
+  dependsOn: { taskKey: string; outcome?: string }[];
+  compute: string;
+  maxRetries: number;
+  timeoutSeconds: number;
+  parameters: Record<string, string>;
+  inner?: DatabricksTaskDesignView;
+}
+
+/** A job file as the host reads it for the canvas; the runtime validates it when it runs. */
+export interface DatabricksJobDesignView {
+  name: string;
+  /** Workspace-relative path of the job file. */
+  path: string;
+  description: string;
+  parameters: { name: string; defaultValue: string }[];
+  runAs?: string;
+  schedule?: string;
+  clusters: { key: string; label: string }[];
+  tasks: DatabricksTaskDesignView[];
+  error?: string;
+}
+
+export interface DatabricksViewState {
+  exists: boolean;
+  jobs: DatabricksJobDesignView[];
+  notebooks: string[];
+  sqlFiles: string[];
+  warnings: string[];
+}
+
+export type DatabricksTaskBehavior = "success" | "fail_once" | "fail_twice" | "fail_always";
+
+export interface DatabricksTaskBehaviorInput {
+  behavior: DatabricksTaskBehavior;
+  durationSeconds?: number;
+  /** JSON object text: task values the task sets in a dry run. */
+  values?: string;
+}
+
+export type DatabricksTriggerType = "one_time" | "periodic" | "file_arrival" | "table" | "continuous";
+
+export interface DatabricksScenarioInput {
+  /** local: notebook and SQL tasks run on the local catalog; simulated: dry run. */
+  dataPlane: "local" | "simulated";
+  /** Text as typed; blank keeps the job's default. */
+  jobParameters: Record<string, string>;
+  tasks: Record<string, DatabricksTaskBehaviorInput>;
+  triggerType: DatabricksTriggerType;
+  /** UTC "YYYY-MM-DDTHH:MM": the run's start time. */
+  now?: string;
+  clusterStates: Record<string, "RUNNING" | "TERMINATED">;
+}
+
+export interface DatabricksAttemptView {
+  number: number;
+  startS: number;
+  endS: number;
+  status: string;
+  error: string;
+}
+
+export interface DatabricksTaskRunView {
+  key: string;
+  kind: string;
+  state: string;
+  stateLabel: string;
+  startS: number;
+  endS: number;
+  durationS: number;
+  attempts: DatabricksAttemptView[];
+  compute: string;
+  parameters: Record<string, string>;
+  outcome?: string;
+  condition?: { left: string; op: string; right: string; leftExpression: string; rightExpression: string; result: boolean };
+  exitValue?: string;
+  values: Record<string, unknown>;
+  error: string;
+  errorCode: string;
+  tablesWritten: string[];
+  notes: string[];
+  columns: string[];
+  rows: Record<string, string | number | boolean | null>[];
+  iterations: (DatabricksTaskRunView & { input: unknown })[];
+  reason: string;
+}
+
+export interface DatabricksComputeUsageView {
+  key: string;
+  kind: string;
+  label: string;
+  requestedS: number;
+  readyS: number;
+  endS: number;
+  startupS: number;
+  billedS: number;
+  nodes: number;
+  dbuPerHour: number;
+  dbu: number;
+  rate: number;
+  cost: number;
+  tasks: string[];
+  idleAfterS: number;
+  idleDbu: number;
+  idleCost: number;
+  notes: string[];
+}
+
+export interface DatabricksRunView {
+  runId: number;
+  jobId: number;
+  resultState: string;
+  statusLabel: string;
+  explanation: string;
+  leaves: string[];
+  durationS: number;
+  principal: string;
+  startTime: string;
+  triggerType: string;
+  parameters: Record<string, string>;
+  tasks: DatabricksTaskRunView[];
+  compute: DatabricksComputeUsageView[];
+  cost: { dbu: number; cost: number; idleDbu: number; idleCost: number };
+  notes: string[];
+}
+
+export interface DatabricksUnityView {
+  catalog: string;
+  labUser: string;
+  groups: Record<string, string[]>;
+  grants: { privilege: string; securable: string; name: string; principal: string }[];
+  owners: Record<string, string>;
+  schemas: {
+    name: string;
+    readOnly: boolean;
+    tables: { name: string; table: string; rows: number; owner: string; producer?: string }[];
+    models: { name: string; owner: string; versions: number; aliases: Record<string, number> }[];
+  }[];
+  warnings: string[];
+}
+
+export interface DatabricksMlflowView {
+  experiments: {
+    name: string;
+    id: string;
+    runs: {
+      runId: string;
+      runName: string;
+      status: string;
+      params: Record<string, string>;
+      metrics: Record<string, number>;
+      models: string[];
+      start: string;
+      job?: string;
+      task?: string;
+      user?: string;
+    }[];
+  }[];
+  models: {
+    name: string;
+    owner: string;
+    aliases: Record<string, number>;
+    versions: { version: number; runId: string; created: string; metrics: Record<string, number>; kind?: string; inputs: string[]; user?: string }[];
+  }[];
+}
+
+export interface DatabricksComputeCatalogView {
+  clusters: { clusterId: string; name: string; nodeType: string; workers: number; autoterminationMinutes: number; running: boolean }[];
+  warehouses: { id: string; name: string; size: string; serverless: boolean }[];
+}
+
+export interface DatabricksStateView {
+  truth: string;
+  unity: DatabricksUnityView;
+  mlflow: DatabricksMlflowView;
+  computeCatalog: DatabricksComputeCatalogView;
+  warnings: string[];
+}
+
+export interface DatabricksLabView {
+  jobName: string;
+  path: string;
+  status: "simulated" | "invalid" | "error";
+  truth: string;
+  dataPlane: "local" | "simulated";
+  issues: { path: string; message: string }[];
+  warnings: string[];
+  run?: DatabricksRunView;
+  tablesChanged: { name: string; rows: number; producer?: string }[];
+  scenario: DatabricksScenarioInput;
 }
 
 /** Cloud Lab › SQL pool: a simulated Azure Synapse dedicated SQL pool or Microsoft Fabric Data Warehouse. */
@@ -726,6 +931,8 @@ export type WebviewToHostMessage =
   | { type: "simulateFactory"; flavor: FactoryFlavor; name: string; scenario: FactoryScenarioInput }
   | { type: "runSqlPool"; flavor: SqlPoolFlavor; scale: number; source: "file" | "active" | "describe"; path?: string }
   | { type: "revealSqlPoolLine"; line: number }
+  | { type: "simulateDatabricks"; name: string; scenario: DatabricksScenarioInput }
+  | { type: "refreshDatabricksState" }
   | { type: "openDbtProject" }
   | { type: "refreshDbt" }
   | { type: "runDbtBuild" };

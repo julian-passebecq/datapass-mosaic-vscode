@@ -1,0 +1,20 @@
+{
+  "clusters": [
+    {
+      "cluster_id": "analytics-shared",
+      "cluster_name": "Shared analytics (all-purpose)",
+      "node_type_id": "Standard_DS3_v2",
+      "num_workers": 2,
+      "autotermination_minutes": 60,
+      "state": "TERMINATED"
+    }
+  ],
+  "warehouses": [
+    {
+      "id": "serverless-sql",
+      "name": "Serverless Starter Warehouse",
+      "cluster_size": "2X-Small",
+      "enable_serverless_compute": true
+    }
+  ]
+}
