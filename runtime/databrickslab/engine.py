@@ -181,6 +181,8 @@ class JobRun:
                     return str(result.run_id if result else 0)
                 if rest == ['execution_count']:
                     return str(len(result.attempts) + 1 if result else 1)
+                if rest == ['retry_count']:  # the deprecated {{task_retry_count}}
+                    return str(len(result.attempts) if result else 0)
                 if rest == ['notebook_path'] and task.kind == 'notebook':
                     return task.notebook_path
             elif head == 'tasks' and len(rest) >= 2:

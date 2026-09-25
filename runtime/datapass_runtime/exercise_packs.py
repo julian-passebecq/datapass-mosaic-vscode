@@ -40,7 +40,9 @@ NAMED_TABLE_LANGUAGES = {'sql', 'python', 'polars', 'sparklab'}
 CLUSTER_PROFILES = set(json.loads((Path(__file__).resolve().parents[1] / 'sparklab' / 'cluster_profiles.json').read_text(encoding='utf-8')))
 # Languages graded on simulation scenarios, with the runtime adapter that grades them.
 SCENARIO_LANGUAGES = {'airflow': 'datapass-airflow-sim-v1', 'factory': 'datapass-factory-sim-v1',
-                      'factory-notebook': 'datapass-factory-sim-v1', 'sqlpool': 'datapass-sqlpool-sim-v1'}
+                      'factory-notebook': 'datapass-factory-sim-v1', 'sqlpool': 'datapass-sqlpool-sim-v1',
+                      'databricks-job': 'datapass-databricks-sim-v1', 'databricks-notebook': 'datapass-databricks-sim-v1',
+                      'databricks-grants': 'datapass-databricks-sim-v1'}
 
 
 def _check_factory_scenario(definition, raw):
@@ -57,6 +59,19 @@ def _check_factory_scenario(definition, raw):
         if any(not isinstance(v,(str,int,float,bool,type(None))) or isinstance(v,float) and not math.isfinite(v)
                for row in table.rows for v in row.values()):
             raise ValueError('Fixture values must be finite JSON scalars: '+definition.id)
+
+
+def _check_databricks_scenario(definition, raw):
+    from databrickslab.exercise import DbxScenario
+    scenario = DbxScenario.model_validate(raw)
+    if definition.language == 'databricks-notebook' and not (scenario.job and scenario.notebook):
+        raise ValueError('A databricks-notebook fixture names the job to run and the notebook the learner writes: '
+                         + definition.id)
+    if definition.language == 'databricks-grants' and scenario.files.grants is not None:
+        raise ValueError('A databricks-grants fixture takes the grants from the learner: ' + definition.id)
+    for table in scenario.tables:
+        if any(not COLUMN_TYPE.fullmatch(t) for t in table.types.values()):
+            raise ValueError('Unsupported fixture column type in '+definition.id)
 
 
 def _check_pool_scenario(definition, raw):
@@ -95,7 +110,8 @@ class PackRegistry:
                 raise ValueError('Exercise identity must fit a shared notebook ID')
             if definition.canonical_placement.topic not in definition.topics:
                 raise ValueError('Canonical topic must belong to exercise topics')
-            if definition.language not in {'sql','python','polars','sparklab','dbt','airflow','factory','factory-notebook','sqlpool'}:
+            if definition.language not in {'sql','python','polars','sparklab','dbt','airflow','factory','factory-notebook','sqlpool',
+                                           'databricks-job','databricks-notebook','databricks-grants'}:
                 raise ValueError('No grading adapter for '+definition.language)
             private = GradingDefinition.model_validate(grading[definition.id])
             refs = {'visible': [c.id for c in definition.visible_checks], 'hidden': definition.hidden_check_refs, 'edge': definition.edge_check_refs}
@@ -147,6 +163,8 @@ class PackRegistry:
                         Scenario.model_validate(fixture.scenario)
                     elif definition.language == 'sqlpool':
                         _check_pool_scenario(definition, fixture.scenario)
+                    elif definition.language.startswith('databricks-'):
+                        _check_databricks_scenario(definition, fixture.scenario)
                     else:
                         _check_factory_scenario(definition, fixture.scenario)
             for fixture in private.fixtures:

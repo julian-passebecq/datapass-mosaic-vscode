@@ -97,6 +97,8 @@ Data statements really run on the local catalog (`dbo` is the `warehouse` layer)
 The samples: `retail_daily_dbx` (ingest → If/else on a task value → silver → gold → SQL check on a warehouse, with a
 failure alert), `power_model_training` (train a Spark ML model with MLflow as the service principal `sp-ml-training`,
 gate on RMSE, promote `@champion`, batch score) and `segment_reports` (a for-each task on an all-purpose cluster).
+**Databricks exercises** opens Practice, where the `databricks-v1` pack has 13 guided exercises: you write a job's JSON,
+a notebook a job runs, or Unity Catalog grants, and each check runs the job on an isolated catalog.
 
 **Lakehouse and notebooks** tab: use the flow diagram to understand the whole project:
 

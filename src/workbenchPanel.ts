@@ -1046,6 +1046,7 @@ function extensionFor(language: string): string {
     case "sql":
     case "dbt":
     case "sqlpool":
+    case "databricks-grants":
       return "sql";
     case "python":
     case "pandas":
@@ -1054,8 +1055,10 @@ function extensionFor(language: string): string {
     case "pyspark":
     case "airflow":
     case "factory-notebook":
+    case "databricks-notebook":
       return "py";
     case "factory":
+    case "databricks-job":
       return "json";
     case "powershell":
       return "ps1";
