@@ -11,6 +11,7 @@ from fastapi.responses import JSONResponse
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
 from airflowlab.lab import lab_view
+from sqldialects import dialects as sql_dialect_list
 from missionlab.check import evaluate as evaluate_mission, fixture_statements, sql_queries as mission_queries
 from missionlab.model import find_mission
 
@@ -329,9 +330,13 @@ class TableProfileRequest(BaseModel):
     asset: str = Field(pattern=r"^(source|bronze|silver|gold|warehouse|features|metrics)\.[A-Za-z][A-Za-z0-9_]{0,62}$")
 
 
+SqlDialect = Literal["tsql", "snowflake", "bigquery", "spark", "postgres"]
+
+
 class ExplainRequest(BaseModel):
     model_config = ConfigDict(extra="forbid", strict=True)
     query: str = Field(min_length=1, max_length=40000)
+    dialect: SqlDialect | None = None
 
 
 class ProjectCheckRequest(BaseModel):
@@ -351,6 +356,14 @@ class LocalExecuteRequest(BaseModel):
     output_asset: str | None = Field(default=None, max_length=100)
     profile: str = Field(default="generic_8x8", max_length=80)
     aqe: bool = True
+    # SQL written in another dialect, translated to DuckDB (runtime/sqldialects): Mosaic's `-- dialect:` header.
+    dialect: SqlDialect | None = None
+
+    @model_validator(mode="after")
+    def dialect_is_sql(self) -> "LocalExecuteRequest":
+        if self.dialect is not None and (self.language != "sql" or self.output_asset is not None):
+            raise ValueError("A SQL dialect applies to SQL runs without an output asset.")
+        return self
 
 
 @app.get("/api/health")
@@ -375,6 +388,7 @@ def capabilities() -> dict[str, object]:
             "file_import": "new bronze tables only; Parquet (types from the file) or JSON (read_json_auto types) up to 10 MB / 100,000 rows; never overwrites",
             "profile": "DuckDB SUMMARIZE of a catalog table",
             "explain": "DuckDB EXPLAIN ANALYZE of one read-only query (it runs once)",
+            "sql_dialects": sql_dialect_list(),
         },
         "practice": {"mode": "local-tests", "editors": "vscode-native"},
         "fabric_lab": {"mode": "simulation", "notebook": "fabric-inspired", "lakehouse": "duckdb-ducklake", "kernel": "sparklab", "cloud_connection": False},
@@ -559,7 +573,7 @@ def local_profile(body: TableProfileRequest) -> object:
 def local_explain(body: ExplainRequest) -> object:
     """EXPLAIN ANALYZE of one read-only query: it runs once on the local catalog."""
     try:
-        return native_command({"op": "explain_query", "query": body.query})
+        return native_command({"op": "explain_query", "query": body.query, "dialect": body.dialect})
     except ValueError as error:
         raise HTTPException(status_code=400, detail=str(error)) from error
 
@@ -587,7 +601,7 @@ def local_exercise(body: ExerciseGradeRequest) -> object:
 
 @app.post("/api/local/execute")
 def local_execute(body: LocalExecuteRequest) -> object:
-    return record_run("execute", body.model_dump(include={"language", "profile", "aqe"}), native_command({
+    return record_run("execute", body.model_dump(include={"language", "profile", "aqe", "dialect"}), native_command({
         "op": "execute",
         "language": body.language,
         "code": body.code,
@@ -596,6 +610,7 @@ def local_execute(body: LocalExecuteRequest) -> object:
         "output_asset": body.output_asset,
         "profile": body.profile,
         "aqe": body.aqe,
+        "dialect": body.dialect,
     }))
 
 

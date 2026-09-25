@@ -91,7 +91,7 @@ Layout durability: inside a Datapass project the block geometry is saved to `.da
 
 Practice is the LeetCode-style layer: select challenge, open starter file in native VS Code, run local tests, show pass/fail/hints/explanation/review status.
 
-Practice language `snowflake` takes Snowflake SQL: `runtime/snowflakesql` translates it to DuckDB with sqlglot for a
+Practice language `snowflake` takes Snowflake SQL: `runtime/sqldialects` translates it to DuckDB with sqlglot for a
 documented subset (functions outside it are refused by name) and the result is graded like `sql` on DuckDB. It is
 labelled "Snowflake SQL dialect translated to DuckDB, not Snowflake".
 

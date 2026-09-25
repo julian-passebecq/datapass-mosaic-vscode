@@ -35,7 +35,7 @@ jobs:
           python-version: "3.12"
       - run: python -m pip install --upgrade pip
       - run: python -m pip install ./runtime
-      - run: python -m compileall -q runtime/datapass_runtime runtime/sparklab runtime/airflowlab runtime/factorylab runtime/sqlpoollab runtime/databrickslab runtime/bilab runtime/dbtlab runtime/snowflakesql runtime/missionlab
+      - run: python -m compileall -q runtime/datapass_runtime runtime/sparklab runtime/airflowlab runtime/factorylab runtime/sqlpoollab runtime/databrickslab runtime/bilab runtime/dbtlab runtime/sqldialects runtime/missionlab
       - run: python scripts/authoring/gen_pylance_stubs.py --check
         env:
           PYTHONPATH: runtime

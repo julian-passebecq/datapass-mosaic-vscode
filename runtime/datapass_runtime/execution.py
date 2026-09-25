@@ -362,12 +362,16 @@ class Engine:
             python_inputs = []
             if language in {'sql', 'dbt', 'snowflake'}:
                 compiled_sql = request['code']
-                if language == 'snowflake':
-                    # Snowflake dialect translated to DuckDB for a documented subset; refused outside it.
-                    from snowflakesql import translate
-                    translation = translate(compiled_sql)
+                dialect = 'snowflake' if language == 'snowflake' else request.get('dialect') if language == 'sql' else None
+                if dialect:
+                    # A dialect translated to DuckDB for a documented subset (runtime/sqldialects); refused outside
+                    # it. Practice grades one query on its fixtures; Mosaic runs a script on the catalog.
+                    from .sql_dialects import dialect_view, translate_for_catalog
+                    exercise = language == 'snowflake' or request.get('_exercise_fixture_ctes') or request.get('_exercise_fixture_sql')
+                    translation = translate_for_catalog(self.catalog, compiled_sql, dialect, 'query' if exercise else 'script',
+                                                        (request.get('_exercise_schema') or {}) if exercise else None)
                     compiled_sql = translation.sql
-                    run['dialect'] = {'source': 'snowflake', 'target': 'duckdb', 'rewrites': translation.rewrites}
+                    run['dialect'] = dialect_view(translation)
                 if language == 'dbt':
                     if request.get('_exercise_fixture_sql'):
                         from .dbt_drills import compile_fixture_sql
@@ -517,7 +521,7 @@ class Engine:
             return profile_table(self.catalog, request['asset'])
         if op == 'explain_query':
             from .local_data import explain_query
-            return explain_query(self.catalog, request['query'])
+            return explain_query(self.catalog, request['query'], request.get('dialect'))
         if op == 'import_file':
             from .local_data import import_file
             return {**import_file(self.catalog, request['asset'], request['format'], request['data']),

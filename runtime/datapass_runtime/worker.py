@@ -21,7 +21,8 @@ def main():
                 engine = Engine(Path(args.directory), args.mode, args.trusted_python)
             payload = {'ok':True, 'result':engine.handle(request)}
         except Exception as error:
-            payload = {'ok':False,'error':str(error),'error_type':type(error).__name__}
+            # Subclasses (a SQL dialect's refusal) are rejected requests too, not an outage.
+            payload = {'ok':False,'error':str(error),'error_type':'ValueError' if isinstance(error, ValueError) else type(error).__name__}
         encoded = json.dumps(payload, allow_nan=False, default=str)
         if len(encoded) > 3_000_000:
             encoded = json.dumps({'ok':False,'error':'Kernel output exceeded the 3 MB protocol limit.'})

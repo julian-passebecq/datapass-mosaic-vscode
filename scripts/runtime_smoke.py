@@ -971,6 +971,34 @@ with TemporaryDirectory(prefix="datapass-csv-import-smoke-") as temp:
             still = client.post("/api/local/query", json={"query": "SELECT COUNT(*) AS n FROM bronze.orders_pq"}).json()
             assert still["result"]["rows"] == [{"n": 5}], still
 
+            # Mosaic's `-- dialect:` files: translated to DuckDB (runtime/sqldialects) with the catalog's types, run for real.
+            tsql = client.post("/api/local/execute", json={"language": "sql", "dialect": "tsql", "notebook_id": "vscode-sql", "cell_id": "active-sql", "code": (
+                "-- dialect: tsql\nCREATE TABLE silver.orders_tsql AS\nSELECT TOP 3 [order_id], order_id / 2 AS pair, "
+                "CAST(order_id AS VARCHAR(10)) + '#' AS tag FROM bronze.orders_pq ORDER BY order_id;\n"
+                "SELECT COUNT_BIG(*) AS n, SUM(pair) AS pairs, MAX(tag) AS last_tag FROM silver.orders_tsql;")}).json()
+            assert tsql["status"] == "success", tsql
+            assert tsql["result"]["rows"] == [{"n": 3, "pairs": 2, "last_tag": "3#"}], tsql["result"]  # 1/2 + 2/2 + 3/2 as integers
+            assert tsql["dialect"]["source"] == "tsql" and tsql["dialect"]["label"] == "T-SQL dialect translated to DuckDB, not SQL Server"
+            assert "order_id // 2" in tsql["dialect"]["sql"] and "LIMIT 3" in tsql["dialect"]["sql"], tsql["dialect"]["sql"]
+            assert any("Integer / integer" in r for r in tsql["dialect"]["rewrites"]), tsql["dialect"]["rewrites"]
+            assert "silver.orders_tsql" in {a["name"] for a in tsql["catalog"]}
+            refused_tsql = client.post("/api/local/execute", json={"language": "sql", "dialect": "tsql", "code": "SELECT GETDATE() AS now"}).json()
+            assert refused_tsql["status"] == "error" and refused_tsql["error"]["type"] == "TsqlDialectError", refused_tsql
+            assert "not SQL Server" in refused_tsql["error"]["message"], refused_tsql
+            escape_dialect = client.post("/api/local/execute", json={"language": "sql", "dialect": "postgres",
+                                                                     "code": "SELECT * FROM read_csv('secrets.csv')"}).json()
+            assert escape_dialect["status"] == "error" and "table functions" in escape_dialect["error"]["message"], escape_dialect
+            bq_plan = client.post("/api/local/explain", json={"dialect": "bigquery", "query":
+                "SELECT order_date, COUNTIF(amount > 1) AS big FROM `bronze.orders_pq` GROUP BY order_date QUALIFY ROW_NUMBER() OVER (ORDER BY order_date) = 1"})
+            assert bq_plan.status_code == 200, bq_plan.text
+            assert bq_plan.json()["dialect"]["source"] == "bigquery" and "COUNT_IF" in bq_plan.json()["query"], bq_plan.json()
+            assert "not BigQuery" in bq_plan.json()["truth"], bq_plan.json()["truth"]
+            assert client.post("/api/local/explain", json={"dialect": "bigquery", "query": "SELECT CURRENT_DATE()"}).status_code == 400
+            for bad in ({"language": "python", "code": "x = 1", "dialect": "tsql"}, {"language": "sql", "code": "SELECT 1", "dialect": "mysql"},
+                        {"language": "sql", "code": "SELECT 1", "dialect": "tsql", "output_asset": "silver.x"}):
+                assert client.post("/api/local/execute", json=bad).status_code == 422, bad
+            assert [d["id"] for d in capabilities()["mosaic"]["sql_dialects"]] == ["tsql", "snowflake", "bigquery", "spark", "postgres"]
+
             # Airflow Lab: the DAG text is parsed and simulated, never executed.
             lab_dag = AIRFLOW_HEAD + (
                 "from airflow.providers.standard.operators.python import BranchPythonOperator\n"
@@ -1139,12 +1167,12 @@ assert runtime_caps["trusted_local_python"] is False, runtime_caps
 assert runtime_caps["python_sandboxed"] is False, runtime_caps
 
 
-# --- Snowflake SQL dialect translated to DuckDB (runtime/snowflakesql) ---------------------------------------------
+# --- SQL dialects translated to DuckDB (runtime/sqldialects): Snowflake --------------------------------------------
 # Each expected value is Snowflake's documented result, so a sqlglot change that alters a translation fails here.
 import datetime as _dt
 
 import duckdb as _duckdb
-from snowflakesql import SnowflakeDialectError, translate
+from sqldialects import SnowflakeDialectError, translate
 
 _sf = _duckdb.connect()
 _sf.execute("""CREATE TABLE t AS SELECT * FROM (VALUES
@@ -1277,12 +1305,249 @@ with TemporaryDirectory(prefix="datapass-snowflake-smoke-") as temp:
     assert run["status"] == "success", run
     assert run["result"]["columns"] == ["order_id", "due", "tag"], run["result"]
     assert run["result"]["rows"] == [{"order_id": 1, "due": "2024-02-29", "tag": None}, {"order_id": 2, "due": "2024-03-01", "tag": "#gift"}], run["result"]
-    assert run["dialect"] == {"source": "snowflake", "target": "duckdb", "rewrites": ["DATEADD of a DATE stays a DATE"]}, run["dialect"]
+    assert run["dialect"]["source"] == "snowflake" and run["dialect"]["target"] == "duckdb", run["dialect"]
+    assert run["dialect"]["rewrites"] == ["DATEADD of a DATE stays a DATE"], run["dialect"]
+    assert run["dialect"]["label"] == "Snowflake SQL dialect translated to DuckDB, not Snowflake", run["dialect"]
     refused = engine.execute({"language": "snowflake", "cell_id": "c", "notebook_id": "n", "_exercise_fixture_ctes": orders,
                               "code": "SELECT REGEXP_INSTR(note, 'g') AS i FROM orders"})
     assert refused["status"] == "error" and refused["error"]["type"] == "SnowflakeDialectError", refused
     assert "REGEXP_INSTR" in refused["error"]["message"], refused
     engine.catalog.close()
+
+
+# --- SQL dialects translated to DuckDB: T-SQL, BigQuery, Spark SQL (ANSI), PostgreSQL ---------------------------------
+# Each expected value is the engine's documented result; types come from a schema, as the catalog gives them.
+from decimal import Decimal as _Decimal
+
+from sqldialects import DialectError, translate_expression
+
+_T = _dt.datetime
+
+DIALECT_TABLE = """CREATE TABLE t AS SELECT * FROM (VALUES
+    (1, 'Ann', 'a1b22', DATE '2024-01-31', TIMESTAMP '2024-01-31 10:15:00', 10.0::DOUBLE, NULL::VARCHAR, 'x', 7, 2.50::DECIMAL(10,2)),
+    (2, 'bob', 'xyz', DATE '2024-02-29', TIMESTAMP '2024-02-29 23:30:00', 0.0::DOUBLE, 'k', 'x', -7, 3.75::DECIMAL(10,2)),
+    (3, 'Cy', NULL, DATE '2024-03-10', TIMESTAMP '2024-03-10 00:00:00', 2.5::DOUBLE, 'm', 'y', 2, 1.00::DECIMAL(10,2))
+) AS v(id, name, code, d, ts, amount, note, grp, qty, price)"""
+DIALECT_SCHEMA = {'t': {'id': 'INTEGER', 'name': 'VARCHAR', 'code': 'VARCHAR', 'd': 'DATE', 'ts': 'TIMESTAMP', 'amount': 'DOUBLE',
+                'note': 'VARCHAR', 'grp': 'VARCHAR', 'qty': 'INTEGER', 'price': 'DECIMAL(10,2)'}}
+
+DIALECT_SEMANTICS = {
+    'tsql': [
+        ("SELECT 7 / 2 AS a, -7 / 2 AS b, 7 / 2.0 AS c, 7 % 3 AS m, -7 % 3 AS n", [(3, -3, 3.5, 1, -1)]),
+        ("SELECT qty / 2 AS h FROM t ORDER BY id", [(3,), (-3,), (1,)]),
+        ("SELECT SUM(qty) / COUNT(*) AS s, AVG(qty + 10) AS a, ROUND(AVG(price), 2) AS p FROM t", [(0, 10, 2.42)]),
+        ("SELECT id, AVG(id) OVER (ORDER BY id ROWS BETWEEN 1 PRECEDING AND CURRENT ROW) AS w FROM t ORDER BY id", [(1, 1), (2, 1), (3, 2)]),
+        ("SELECT note FROM t ORDER BY note", [(None,), ("k",), ("m",)]),
+        ("SELECT note FROM t ORDER BY note DESC", [("m",), ("k",), (None,)]),
+        ("SELECT name + '-' + grp AS c, 'a' + note AS n FROM t ORDER BY id", [("Ann-x", None), ("bob-x", "ak"), ("Cy-y", "am")]),
+        ("SELECT CONCAT('a', note, 'b') AS c, CONCAT_WS('-', 'a', note, 'b') AS w FROM t WHERE id = 1", [("ab", "a-b")]),
+        ("SELECT LEN('ab  ') AS l, LEN('  ab') AS m, LEN(name) AS n FROM t WHERE id = 1", [(2, 4, 3)]),
+        ("SELECT CAST(2.5 AS INT) AS a, CAST(-2.5 AS INT) AS b, CAST(amount AS INT) AS c, CAST(price AS INT) AS p FROM t WHERE id = 3", [(2, -2, 2, 1)]),
+        ("SELECT CAST('42' AS INT) AS a, TRY_CAST('2.5' AS INT) AS b, TRY_CAST(' 7 ' AS INT) AS c, TRY_CONVERT(INT, 'x') AS e", [(42, None, 7, None)]),
+        ("SELECT CAST('abcdef' AS VARCHAR(3)) AS a, CAST(123 AS VARCHAR(2)) AS b, CAST('ab' AS CHAR(4)) + '|' AS c, CAST(REPLICATE('x', 40) AS VARCHAR) AS d",
+         [("abc", "*", "ab  |", "x" * 30)]),
+        ("SELECT DATEADD(month, 1, d) AS m, DATEADD(day, 1, d) AS n, DATEADD(hour, 2, ts) AS h, DATEADD(quarter, 1, d) AS q FROM t WHERE id = 1",
+         [(_D(2024, 2, 29), _D(2024, 2, 1), _T(2024, 1, 31, 12, 15), _D(2024, 4, 30))]),
+        ("SELECT DATEADD(day, 30, '2026-01-01') AS d", [(_T(2026, 1, 31),)]),
+        ("SELECT DATEDIFF(day, '2024-01-01', '2024-03-01') AS d, DATEDIFF(month, '2024-01-31', '2024-02-01') AS m, "
+         "DATEDIFF(year, '2023-12-31', '2024-01-01') AS y, DATEDIFF(week, '2024-01-06', '2024-01-07') AS w, "
+         "DATEDIFF(week, '2024-01-07', '2024-01-13') AS w0, DATEDIFF(hour, '2024-01-01 10:59', '2024-01-01 11:01') AS h, "
+         "DATEDIFF(day, d, ts) AS dd FROM t WHERE id = 2", [(60, 1, 1, 1, 0, 1, 0)]),
+        ("SELECT DATEPART(weekday, d) AS w, DATEPART(dayofyear, d) AS y, DATEPART(iso_week, d) AS i, DATEPART(quarter, d) AS q, "
+         "YEAR(d) AS yy, MONTH(d) AS mm, DAY(d) AS dd, DATEPART(hour, ts) AS hh FROM t WHERE id = 3", [(1, 70, 10, 1, 2024, 3, 10, 0)]),
+        ("SELECT DATENAME(month, d) AS m, DATENAME(weekday, d) AS w FROM t WHERE id = 1", [("January", "Wednesday")]),
+        ("SELECT EOMONTH(d) AS e, EOMONTH(d, 1) AS n, DATEFROMPARTS(2024, 2, 29) AS p FROM t WHERE id = 1", [(_D(2024, 1, 31), _D(2024, 2, 29), _D(2024, 2, 29))]),
+        ("SELECT CONVERT(VARCHAR(10), d, 103) AS a, CONVERT(VARCHAR(8), d, 112) AS b, CONVERT(VARCHAR(19), ts, 120) AS c, "
+         "CONVERT(VARCHAR(10), ts, 120) AS c10, CONVERT(DATE, '31/01/2024', 103) AS p, CONVERT(INT, '12') AS i FROM t WHERE id = 1",
+         [("31/01/2024", "20240131", "2024-01-31 10:15:00", "2024-01-31", _D(2024, 1, 31), 12)]),
+        ("SELECT TOP 2 id FROM t ORDER BY id DESC", [(3,), (2,)]),
+        ("SELECT id FROM t ORDER BY id OFFSET 1 ROWS FETCH NEXT 1 ROWS ONLY", [(2,)]),
+        ("SELECT * FROM (SELECT TOP 1 name FROM t ORDER BY id DESC) AS x", [("Cy",)]),
+        ("SELECT IIF(1 > 2, 'y', 'n') AS i, ISNULL(NULL, 2) AS n, NULLIF(1, 1) AS ni, COALESCE(NULL, NULL, 4) AS c, GREATEST(1, NULL, 3) AS g",
+         [("n", 2, None, 4, 3)]),
+        ("SELECT LEFT('abc', 2) AS l, RIGHT('abc', 2) AS r, SUBSTRING('abcdef', 2, 3) AS s, SUBSTRING('abcdef', 0, 2) AS s0, "
+         "SUBSTRING('abcdef', -1, 3) AS sn, CHARINDEX('c', 'abcabc') AS c, CHARINDEX('c', 'abcabc', 4) AS c2, REPLICATE('x', 3) AS rep, "
+         "STUFF('abcdef', 2, 3, 'X') AS st, REVERSE('ab') AS rv, UPPER('a') AS u, LTRIM('  a') AS lt, RTRIM('a  ') AS rt, TRIM('  a  ') AS tr",
+         [("ab", "bc", "bcd", "a", "a", 3, 6, "xxx", "aXef", "ba", "A", "a", "a", "a")]),
+        ("SELECT grp, STRING_AGG(name, ',') WITHIN GROUP (ORDER BY name DESC) AS l FROM t GROUP BY grp ORDER BY grp", [("x", "bob,Ann"), ("y", "Cy")]),
+        ("SELECT id, ROW_NUMBER() OVER (ORDER BY note) AS rn, LAG(id) OVER (ORDER BY id) AS lg, LEAD(id, 1, 0) OVER (ORDER BY id) AS ld FROM t ORDER BY id",
+         [(1, 1, None, 2), (2, 2, 1, 3), (3, 3, 2, 0)]),
+        ("SELECT ROUND(2.5, 0) AS r, ROUND(-2.5, 0) AS rn, ROUND(2.345, 2) AS r2, CEILING(1.2) AS c, FLOOR(-1.2) AS f, ABS(-2) AS a, "
+         "POWER(2, 3) AS p, POWER(2, 0.5) AS p2, SQRT(16.0) AS q, SIGN(-3) AS s", [(3, -3, 2.35, 2, -2, 2, 8, 1, 4.0, -1)]),
+        ("SELECT CAST('12' AS BIGINT) AS i, CAST('7.5' AS DECIMAL(10, 2)) AS n, CAST(7.6 AS DECIMAL) AS n0, CAST('2024-01-02' AS DATE) AS d, "
+         "CAST(1 AS BIT) AS b, CAST('1.5' AS FLOAT) AS f", [(12, 7.5, 8, _D(2024, 1, 2), True, 1.5)]),
+        ("WITH a AS (SELECT id FROM t WHERE id < 3) SELECT a.id FROM a WHERE EXISTS (SELECT 1 FROM t AS c WHERE c.id = a.id) ORDER BY a.id", [(1,), (2,)]),
+        ("SELECT [id], N'x' AS [s] FROM [t] WHERE [id] = 1 OPTION (LABEL = 'report')", [(1, "x")]),
+        ("SELECT COUNT_BIG(*) AS n, STDEVP(id) AS sp, VARP(id) AS vp FROM t", [(3, 0.816496580927726, 0.6666666666666666)]),
+    ],
+    'bigquery': [
+        ("SELECT 7 / 2 AS a, DIV(7, 2) AS b, DIV(-7, 2) AS c, MOD(-7, 3) AS m, SAFE_DIVIDE(1, 0) AS s", [(3.5, 3, -3, -1, None)]),
+        ("SELECT note FROM t ORDER BY note", [(None,), ("k",), ("m",)]),
+        ("SELECT note FROM t ORDER BY note DESC", [("m",), ("k",), (None,)]),
+        ("SELECT CONCAT('a', NULL) AS c, CONCAT('a', 'b') AS d, 'a' || 'b' AS e", [(None, "ab", "ab")]),
+        ("SELECT GREATEST(1, NULL, 3) AS g, LEAST(2, 5) AS l", [(None, 2)]),
+        ("SELECT DATE_ADD(d, INTERVAL 1 MONTH) AS m, DATE_SUB(d, INTERVAL 1 DAY) AS s, DATE_ADD(d, INTERVAL 1 QUARTER) AS q FROM t WHERE id = 1",
+         [(_D(2024, 2, 29), _D(2024, 1, 30), _D(2024, 4, 30))]),
+        ("SELECT DATE_DIFF(DATE '2024-03-01', DATE '2024-01-01', DAY) AS d, DATE_DIFF(DATE '2024-02-01', DATE '2024-01-31', MONTH) AS m, "
+         "DATE_DIFF(DATE '2024-01-07', DATE '2024-01-06', WEEK) AS w, DATE_DIFF(DATE '2024-01-13', DATE '2024-01-07', WEEK) AS w0, "
+         "DATE_DIFF(DATE '2024-01-08', DATE '2024-01-07', ISOWEEK) AS iw", [(60, 1, 1, 0, 1)]),
+        ("SELECT DATE_TRUNC(d, MONTH) AS m, DATE_TRUNC(d, WEEK) AS w, DATE_TRUNC(d, ISOWEEK) AS iw, DATE_TRUNC(d, YEAR) AS y FROM t WHERE id = 1",
+         [(_D(2024, 1, 1), _D(2024, 1, 28), _D(2024, 1, 29), _D(2024, 1, 1))]),
+        ("SELECT EXTRACT(DAYOFWEEK FROM d) AS w, EXTRACT(DAYOFYEAR FROM d) AS y, EXTRACT(ISOWEEK FROM d) AS iw, EXTRACT(QUARTER FROM d) AS q FROM t WHERE id = 3",
+         [(1, 70, 10, 1)]),
+        ("SELECT FORMAT_DATE('%Y-%m', d) AS f, FORMAT_DATE('%d %b %Y', d) AS g, PARSE_DATE('%d/%m/%Y', '31/01/2024') AS p FROM t WHERE id = 1",
+         [("2024-01", "31 Jan 2024", _D(2024, 1, 31))]),
+        ("SELECT DATE(2024, 2, 29) AS d, LAST_DAY(DATE '2024-02-10') AS l, DATE(ts) AS dt FROM t WHERE id = 1", [(_D(2024, 2, 29), _D(2024, 2, 29), _D(2024, 1, 31))]),
+        ("SELECT REGEXP_CONTAINS('abc', r'b') AS c, REGEXP_EXTRACT('ab12c34', r'[0-9]+') AS e, REGEXP_EXTRACT('abc', r'[0-9]+') AS n, "
+         "REGEXP_EXTRACT('ab12', r'b([0-9])') AS g, REGEXP_REPLACE('a1b2', r'[0-9]', '#') AS r", [(True, "12", None, "1", "a#b#")]),
+        ("SELECT CAST(2.5 AS INT64) AS a, CAST(-2.5 AS INT64) AS b, CAST(amount AS INT64) AS c, CAST('42' AS INT64) AS d, SAFE_CAST('2.5' AS INT64) AS e, "
+         "CAST('7.123456789' AS NUMERIC) AS n, CAST(1.5 AS STRING) AS s FROM t WHERE id = 3", [(3, -3, 3, 42, None, 7.123456789, "1.5")]),
+        ("SELECT SUBSTR('abcdef', 2, 3) AS a, SUBSTR('abcdef', 0, 2) AS b, SUBSTR('abcdef', -2) AS c, STRPOS('abc', 'c') AS p, LENGTH('abc') AS l, "
+         "STARTS_WITH('abc', 'a') AS s, LPAD('7', 3, '0') AS lp", [("bcd", "ab", "ef", 3, 3, True, "007")]),
+        ("SELECT grp, COUNT(*) AS n, COUNTIF(amount > 1) AS c, STRING_AGG(name, ',' ORDER BY name DESC) AS l, LOGICAL_AND(id > 0) AS a, AVG(id) AS av "
+         "FROM t GROUP BY grp ORDER BY grp", [("x", 2, 1, "bob,Ann", True, 1.5), ("y", 1, 1, "Cy", True, 3.0)]),
+        ("SELECT id FROM t WHERE TRUE QUALIFY ROW_NUMBER() OVER (PARTITION BY grp ORDER BY id DESC) = 1 ORDER BY id", [(2,), (3,)]),
+        ("SELECT * EXCEPT (name, code, d, ts, amount, note, qty, price) FROM t ORDER BY id", [(1, "x"), (2, "x"), (3, "y")]),
+        ("SELECT IF(1 > 2, 'y', 'n') AS i, IFNULL(NULL, 2) AS n, COALESCE(NULL, 3) AS c", [("n", 2, 3)]),
+        ("SELECT `id` FROM `t` WHERE `id` = 1", [(1,)]),
+        ("SELECT ROUND(2.5) AS a, ROUND(-2.5) AS b, ROUND(amount) AS c, TRUNC(2.7) AS t FROM t WHERE id = 3", [(3, -3, 3.0, 2)]),
+    ],
+    'spark': [
+        ("SELECT 7 / 2 AS a, 7 DIV 2 AS b, -7 DIV 2 AS c, -7 % 3 AS m", [(3.5, 3, -3, -1)]),
+        ("SELECT note FROM t ORDER BY note", [(None,), ("k",), ("m",)]),
+        ("SELECT note FROM t ORDER BY note DESC", [("m",), ("k",), (None,)]),
+        ("SELECT CONCAT('a', NULL) AS c, CONCAT_WS('-', 'a', NULL, 'b') AS w, GREATEST(1, NULL, 3) AS g", [(None, "a-b", 3)]),
+        ("SELECT DATE_ADD(d, 1) AS a, DATE_SUB(d, 1) AS s, ADD_MONTHS(d, 1) AS m, DATEDIFF(d, DATE '2024-01-01') AS dd, TRUNC(d, 'MM') AS tm, "
+         "DATE_TRUNC('MONTH', d) AS dm, LAST_DAY(d) AS l FROM t WHERE id = 1",
+         [(_D(2024, 2, 1), _D(2024, 1, 30), _D(2024, 2, 29), 30, _D(2024, 1, 1), _T(2024, 1, 1), _D(2024, 1, 31))]),
+        ("SELECT DAYOFWEEK(d) AS w, EXTRACT(DAYOFWEEK FROM d) AS e, DAYOFYEAR(d) AS y, QUARTER(d) AS q, YEAR(d) AS yy FROM t WHERE id = 3", [(1, 1, 70, 1, 2024)]),
+        ("SELECT DATE_FORMAT(d, 'yyyy-MM') AS f, DATE_FORMAT(ts, 'yyyy-MM-dd HH:mm') AS g, TO_DATE('31/01/2024', 'dd/MM/yyyy') AS p, TO_DATE('2024-01-02') AS q "
+         "FROM t WHERE id = 1", [("2024-01", "2024-01-31 10:15", _D(2024, 1, 31), _D(2024, 1, 2))]),
+        ("SELECT 'abc' RLIKE 'b' AS r, REGEXP_EXTRACT('ab12', '([0-9]+)') AS e, REGEXP_EXTRACT('abc', '([0-9]+)', 1) AS n, REGEXP_REPLACE('a1b2', '[0-9]', '#') AS rr",
+         [(True, "12", "", "a#b#")]),
+        ("SELECT CAST(2.5 AS INT) AS a, CAST(-2.5 AS INT) AS b, CAST(amount AS INT) AS c, CAST('42' AS INT) AS d, TRY_CAST('2.5' AS INT) AS e, "
+         "CAST('7.5' AS DECIMAL(10, 1)) AS n, CAST(7.6 AS DECIMAL) AS n0 FROM t WHERE id = 3", [(2, -2, 2, 42, None, 7.5, 8)]),
+        ("SELECT SUBSTRING('abcdef', 0, 2) AS a, SUBSTR('abcdef', -2) AS b, INSTR('abc', 'c') AS i, LOCATE('c', 'abc') AS l, SPLIT_PART('a,b,c', ',', -1) AS sp, "
+         "LENGTH('ab ') AS n", [("ab", "ef", 3, 3, "c", 3)]),
+        ("SELECT grp, COUNT_IF(amount > 1) AS c, MEDIAN(id) AS m, BOOL_AND(id > 0) AS b FROM t GROUP BY grp ORDER BY grp", [("x", 1, 1.5, True), ("y", 1, 3.0, True)]),
+        ("SELECT IF(1 > 2, 'y', 'n') AS i, NVL(NULL, 2) AS n, NVL2(NULL, 1, 2) AS n2, COALESCE(NULL, 3) AS c", [("n", 2, 2, 3)]),
+        ("SELECT ROUND(2.5) AS a, ROUND(-2.5) AS b, ROUND(amount) AS c FROM t WHERE id = 3", [(3, -3, 3.0)]),
+        ("SELECT `id` FROM `t` WHERE `id` = 1", [(1,)]),
+        ("SELECT id FROM t QUALIFY ROW_NUMBER() OVER (PARTITION BY grp ORDER BY id DESC) = 1 ORDER BY id", [(2,), (3,)]),
+    ],
+    'postgres': [
+        ("SELECT 7 / 2 AS a, -7 / 2 AS b, 7.0 / 2 AS c, 7 % 3 AS m, -7 % 3 AS n, DIV(7, 2) AS d", [(3, -3, 3.5, 1, -1, 3)]),
+        ("SELECT qty / 2 AS h FROM t ORDER BY id", [(3,), (-3,), (1,)]),
+        ("SELECT note FROM t ORDER BY note", [("k",), ("m",), (None,)]),
+        ("SELECT note FROM t ORDER BY note DESC", [(None,), ("m",), ("k",)]),
+        ("SELECT CONCAT('a', NULL, 'b') AS c, 'a' || NULL AS p, CONCAT_WS('-', 'a', NULL, 'b') AS w", [("ab", None, "a-b")]),
+        ("SELECT CAST(2.5 AS INT) AS a, CAST(-2.5 AS INT) AS b, 2.5::float8::int AS c, 3.5::float8::int AS c2, '42'::int AS d, "
+         "'abcdef'::varchar(3) AS v, 1.5::numeric AS n", [(3, -3, 2, 4, 42, "abc", 1.5)]),
+        ("SELECT ROUND(2.5) AS a, ROUND(-2.5) AS b, ROUND(2.5::float8) AS c, ROUND(3.5::float8) AS d, ROUND(2.345, 2) AS e, TRUNC(2.99) AS t, "
+         "ROUND(AVG(qty)::numeric, 2) AS av FROM t", [(3, -3, 2.0, 4.0, 2.35, 2, 0.67)]),
+        ("SELECT d + 1 AS a, d - DATE '2024-01-01' AS b, d + INTERVAL '1 month' AS c, DATE_TRUNC('month', d) AS m, EXTRACT(DOW FROM d) AS w, "
+         "EXTRACT(ISODOW FROM d) AS iw, EXTRACT(DOY FROM d) AS y FROM t WHERE id = 3", [(_D(2024, 3, 11), 69, _T(2024, 4, 10), _T(2024, 3, 1), 0, 7, 70)]),
+        ("SELECT TO_CHAR(d, 'YYYY-MM-DD') AS a, TO_CHAR(ts, 'HH24:MI') AS b, TO_DATE('31/01/2024', 'DD/MM/YYYY') AS c FROM t WHERE id = 1",
+         [("2024-01-31", "10:15", _D(2024, 1, 31))]),
+        ("SELECT SUBSTRING('abcdef', 2, 3) AS a, SUBSTRING('abcdef' FROM 2 FOR 3) AS b, SUBSTRING('abcdef', 0, 2) AS c, SUBSTRING('abcdef', -1, 3) AS d, "
+         "POSITION('c' IN 'abc') AS p, LEFT('abcdef', -2) AS l, SPLIT_PART('a,b,c', ',', -1) AS sp, 'abc' ~ 'b' AS rx, 'ABC' ~* 'b' AS rxi, "
+         "REGEXP_REPLACE('a1b2', '[0-9]', '#') AS r1, REGEXP_REPLACE('a1b2', '[0-9]', '#', 'g') AS rg",
+         [("bcd", "bcd", "a", "a", 3, "abcd", "c", True, True, "a#b2", "a#b#")]),
+        ("SELECT grp, STRING_AGG(name, ',' ORDER BY name DESC) AS l, COUNT(*) FILTER (WHERE amount > 1) AS c, BOOL_AND(id > 0) AS b, AVG(id) AS a "
+         "FROM t GROUP BY grp ORDER BY grp", [("x", "bob,Ann", 1, True, 1.5), ("y", "Cy", 1, True, 3.0)]),
+        ("SELECT PERCENTILE_CONT(0.5) WITHIN GROUP (ORDER BY id) AS m FROM t", [(2.0,)]),
+        ("SELECT DISTINCT ON (grp) grp, id FROM t ORDER BY grp, id DESC", [("x", 2), ("y", 3)]),
+        ("SELECT GREATEST(1, NULL, 3) AS g, LEAST(2, NULL) AS l", [(3, 2)]),
+        ("SELECT id FROM t ORDER BY id LIMIT 1 OFFSET 1", [(2,)]),
+        ("SELECT ID, Name AS FullName FROM T WHERE id = 1", [(1, "Ann")]),
+    ],
+}
+DIALECT_COLUMNS = {('postgres', "SELECT ID, Name AS FullName FROM T WHERE id = 1"): ['id', 'fullname']}
+DIALECT_DIVISION = {'tsql': 'Divide by zero', 'bigquery': 'division by zero', 'spark': 'DIVIDE_BY_ZERO', 'postgres': 'division by zero'}
+DIALECT_REFUSED = {
+    'tsql': {
+        "SELECT GETDATE() AS g": "the clock", "SELECT NEWID() AS u": "the clock", "SELECT * FROM #tmp": "Temporary tables",
+        "SELECT @x AS v": "Variables", "SELECT @@ROWCOUNT AS r": "System variable", "SELECT id INTO t2 FROM t": "SELECT ... INTO",
+        "SELECT TOP 10 PERCENT id FROM t": "PERCENT", "SELECT FORMAT(d, 'yyyy-MM') FROM t": "FORMAT and DATENAME",
+        "SELECT CAST(ts AS VARCHAR(20)) FROM t": "style 0", "SELECT CAST(amount AS VARCHAR(10)) FROM t": "scientific",
+        "SELECT DATEPART(week, d) FROM t": "iso_week", "SELECT CONVERT(VARCHAR(10), d, 107) FROM t": "CONVERT style 107",
+        "SELECT CHOOSE(1, 'a', 'b')": "CHOOSE is not in the supported T-SQL subset", "SELECT PATINDEX('%a%', name) FROM t": "PATINDEX",
+        "SELECT name FROM t WHERE name LIKE '[A-C]%'": "character classes", "SELECT d + 1 FROM t": "use DATEADD",
+        "SELECT ROUND(amount) FROM t": "ROUND needs its length", "SELECT DATEADD(hour, 1, d) FROM t": "of a DATE is an error",
+        "SELECT * FROM t CROSS APPLY (SELECT 1 AS x) AS a": "APPLY", "DELETE FROM t": "Only a SELECT query",
+        "SELECT FROM WHERE": "could not be parsed", "SELECT * FROM read_csv('x.csv')": "table functions",
+        "SELECT CAST(x AS DATETIMEOFFSET) FROM t": "Type", "SELECT 1; SELECT 2": "exactly one query",
+    },
+    'bigquery': {
+        "SELECT x FROM UNNEST([1, 2]) AS x": "UNNEST", "SELECT ARRAY_AGG(id) FROM t": "ARRAY_AGG", "SELECT CURRENT_DATE()": "the clock",
+        "SELECT EXTRACT(WEEK FROM d) FROM t": "ISOWEEK", "SELECT REGEXP_EXTRACT(name, r'(a)(b)') FROM t": "more than one capturing group",
+        "SELECT FORMAT_DATE('%E4Y', d) FROM t": "format", "SELECT id FROM myproject.silver.t": "project.dataset.table",
+        "SELECT CAST(id AS BIGNUMERIC) FROM t": "Type", "SELECT APPROX_COUNT_DISTINCT(id) FROM t": "APPROX_COUNT_DISTINCT",
+        "SELECT STRUCT(1 AS a) AS s": "STRUCT", "SELECT TIMESTAMP_ADD(ts, INTERVAL 1 HOUR) FROM t": "TIMESTAMP_ADD",
+    },
+    'spark': {
+        "SELECT EXPLODE(ARRAY(1, 2))": "EXPLODE", "SELECT COLLECT_LIST(id) FROM t": "COLLECT_LIST", "SELECT SPLIT(name, ',') FROM t": "SPLIT",
+        "SELECT CURRENT_DATE()": "the clock", "SELECT MONTHS_BETWEEN(d, d) FROM t": "MONTHS_BETWEEN", "SELECT FIRST(id) FROM t": "FIRST",
+        "SELECT DATE_FORMAT(d, 'Q') FROM t": "pattern", "SELECT BROUND(amount) FROM t": "BROUND",
+    },
+    'postgres': {
+        "SELECT NOW()": "the clock", "SELECT GENERATE_SERIES(1, 3)": "GENERATE_SERIES", "SELECT ARRAY[1, 2]": "Array is not in the supported",
+        "SELECT AGE(d, d) FROM t": "AGE", "SELECT ts::timestamptz FROM t": "Type", "SELECT ROUND(amount, 1) FROM t": "does not exist",
+        "SELECT EXTRACT(EPOCH FROM ts) FROM t": "EPOCH", "SELECT SUBSTRING(name FROM 'a.') FROM t": "FROM pattern",
+        "SELECT name::char(3) FROM t": "Type", "SELECT REGEXP_REPLACE(name, 'a', 'b', 'i') FROM t": "flags",
+        "SELECT ts - ts FROM t": "INTERVAL",
+    },
+}
+
+_dx = _duckdb.connect()
+_dx.execute(DIALECT_TABLE)
+for _dialect, _cases in DIALECT_SEMANTICS.items():
+    for source, expected in _cases:
+        translated = translate(source, _dialect, schema=DIALECT_SCHEMA).sql
+        cursor = _dx.execute(translated)
+        actual = [tuple(float(v) if isinstance(v, _Decimal) else v for v in row) for row in cursor.fetchall()]
+        assert actual == expected, (_dialect, source, translated, actual, expected)
+        if (_dialect, source) in DIALECT_COLUMNS:
+            assert [d[0] for d in cursor.description] == DIALECT_COLUMNS[(_dialect, source)], cursor.description
+    try:
+        _dx.execute(translate("SELECT 10 / amount AS r FROM t", _dialect, schema=DIALECT_SCHEMA).sql).fetchall()
+        raise AssertionError(f"{_dialect} raises on division by zero")
+    except _duckdb.Error as error:
+        assert DIALECT_DIVISION[_dialect] in str(error), (_dialect, error)
+    for source, fragment in DIALECT_REFUSED[_dialect].items():
+        try:
+            translate(source, _dialect, schema=DIALECT_SCHEMA)
+            raise AssertionError(f"{_dialect} subset should refuse: {source}")
+        except DialectError as error:
+            assert fragment in str(error), (_dialect, source, str(error))
+            assert "could not be parsed" in str(error) or "dialect translated to DuckDB, not" in str(error), str(error)
+# Without a schema, a rule that needs a type refuses instead of guessing.
+for _dialect, source in (("tsql", "SELECT qty / 2 FROM t"), ("postgres", "SELECT qty / 2 FROM t"), ("tsql", "SELECT AVG(qty) FROM t"),
+                         ("tsql", "SELECT CAST(amount AS INT) FROM t"), ("postgres", "SELECT ROUND(amount) FROM t")):
+    try:
+        translate(source, _dialect)
+        raise AssertionError(f"{_dialect}: {source} needs a known type")
+    except DialectError as error:
+        assert "known here" in str(error), (source, str(error))
+# Scripts (Mosaic): CREATE TABLE/VIEW AS, INSERT, DROP; other statements are refused with the supported list.
+_catalog_types = {"main": {"t": DIALECT_SCHEMA["t"]}}  # {schema: {table: columns}}, as the catalog gives them
+script = translate("CREATE TABLE silver.x AS SELECT TOP 2 id, qty / 2 AS h FROM main.t ORDER BY id;\nINSERT INTO silver.x SELECT 9, 9 / 2;\n"
+                   "CREATE OR REPLACE VIEW silver.v AS SELECT * FROM silver.x;\nSELECT SUM(h) AS s FROM silver.v;\nDROP VIEW IF EXISTS silver.v;",
+                   "tsql", mode="script", schema=_catalog_types)
+assert len(script.statements) == 5 and script.sql.endswith(";"), script.sql
+_dx.execute("CREATE SCHEMA silver")
+for statement in script.statements:
+    _dx.execute(statement)
+assert _dx.execute("SELECT SUM(h) FROM silver.x").fetchall() == [(3 - 3 + 4,)]  # 7 / 2, -7 / 2 and 9 / 2 as integers
+for source, fragment in {"UPDATE t SET id = 1": "UPDATE statements are not translated", "CREATE TABLE silver.y (a INT)": "column definitions",
+                         "SELECT id INTO silver.z FROM t": "SELECT ... INTO", "MERGE INTO t USING t AS s ON t.id = s.id WHEN MATCHED THEN DELETE": "MERGE"}.items():
+    try:
+        translate(source, "tsql", mode="script", schema=_catalog_types)
+        raise AssertionError(source)
+    except DialectError as error:
+        assert fragment in str(error), (source, str(error))
+assert translate_expression("CONCAT('a', ISNULL(NULL, 'b'))", "tsql").sql == "CONCAT('a', COALESCE(NULL, 'b'))"
+_dx.close()
 
 
 # Mirrors the SparkLab scratch starter written by the extension (src/scaffold/starters.ts).
