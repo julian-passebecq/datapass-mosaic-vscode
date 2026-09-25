@@ -51,7 +51,8 @@ try {
   assert.equal(tools.pythonCandidates("linux")[0].command, "python3.13");
 
   // DuckDB is pinned to the runtime's exact version, so dbt and the runtime share one storage format.
-  assert.deepEqual(tools.dbtToolRequirements("1.5.5"), ["dbt-core>=1.10,<1.13", "dbt-duckdb>=1.9,<1.12", "duckdb==1.5.5"]);
+  assert.deepEqual(tools.dbtToolRequirements("1.5.5"),
+    ["dbt-core>=1.10,<1.13", "dbt-duckdb>=1.9,<1.12", "dbt-charts>=0.8,<0.9", "duckdb==1.5.5"]);
   assert.deepEqual(tools.dbtToolRequirements("garbage").at(-1), "duckdb>=1.4");
 
   // profiles.yml: one output per profile, the workspace file, no secrets.
@@ -135,6 +136,47 @@ try {
   assert.throws(() => artifacts.toDbtCoreRunView({}, undefined), /not a dbt manifest/);
   assert.equal(artifacts.commandFromArgs({ which: "generate" }), "dbt docs generate");
   assert.equal(artifacts.commandFromArgs({ which: "run", select: "a", full_refresh: true }), "dbt run --select a --full-refresh");
+
+  // dbt Charts: real dct command lines; board paths stay inside the project; serve is loopback only.
+  assert.equal(tools.buildDctCommand({ action: "validate" }), "dct validate");
+  assert.equal(tools.buildDctCommand({ action: "validate", board: "charts/revenue.yml" }), "dct validate charts/revenue.yml");
+  assert.equal(tools.buildDctCommand({ action: "render", board: "charts/revenue.yml", format: "png" }), "dct render charts/revenue.yml --format png");
+  assert.equal(tools.buildDctCommand({ action: "render", board: "charts/sub/sales.yaml", format: "json" }),
+    "dct render charts/sub/sales.yaml --format json --output renders/sales.json");
+  assert.equal(tools.buildDctCommand({ action: "serve", port: 8765 }), "dct serve --host 127.0.0.1 --port 8765");
+  for (const bad of ["../x.yml", "charts/../../x.yml", "/etc/x.yml", "charts/x.yml; rm", "charts/x.txt", "C:/x.yml"]) {
+    assert.throws(() => tools.buildDctCommand({ action: "validate", board: bad }), /not a board file/, bad);
+  }
+  assert.throws(() => tools.buildDctCommand({ action: "serve", port: 80 }), /port/);
+  assert.equal(tools.renderPath("charts/sub/sales.yml", "png"), "renders/sales.png");
+
+  const validation = tools.toDctValidation({
+    success: true, path: "charts/revenue.yml", errors: [],
+    warnings: [{ code: "WARN-DBT-QUERY-COLUMNS-INDETERMINATE", message: "Query uses dbt", range: { start_line: 12 } }]
+  }, "charts/revenue.yml", "t");
+  assert.deepEqual(validation, { board: "charts/revenue.yml", success: true, errors: [], checkedAt: "t",
+    warnings: [{ code: "WARN-DBT-QUERY-COLUMNS-INDETERMINATE", message: "Query uses dbt", line: 12 }] });
+  const failed = tools.toDctValidation([{ success: false, path: "charts/a.yml", errors: [{ code: "ERR-VALIDATION-FIELD", message: "bad" }], warnings: [] },
+    { success: true, path: "charts/b.yml", errors: [], warnings: [] }], "charts/a.yml", "t");
+  assert.equal(failed.success, false);
+  assert.equal(failed.errors[0].code, "ERR-VALIDATION-FIELD");
+
+  // The JSON render dct writes: charts with their resolved data (as dct 0.8 prints it).
+  const render = tools.toDctRender({
+    id: "revenue_over_time", title: "Revenue over time",
+    items: [
+      { type: "chart", chart: { id: "monthly", title: "", chart_type: "bar", x: "order_month", y: "revenue" },
+        data: [{ order_month: "2026-01", revenue: "695.00" }, { order_month: "2026-02", revenue: "920.00" }] },
+      { type: "row", items: [{ type: "chart", chart: { id: "by_customer", chart_type: "bar" }, data: [{ customer_name: "Alice", revenue: 1, extra: { a: 1 } }] }] },
+      { type: "text", text: "hello" }
+    ],
+    warnings: [{ code: "WARN-X", message: "m" }]
+  });
+  assert.equal(render.title, "Revenue over time");
+  assert.deepEqual(render.charts.map(chart => [chart.id, chart.type, chart.totalRows]), [["monthly", "bar", 2], ["by_customer", "bar", 1]]);
+  assert.deepEqual(render.charts[1].rows[0], { customer_name: "Alice", revenue: 1, extra: "{\"a\":1}" });
+  assert.deepEqual(render.warnings, ["WARN-X"]);
+  assert.throws(() => tools.toDctRender({ title: "x" }), /Not a dct JSON render/);
 
   console.log("dbt Lab smoke passed.");
 } finally {

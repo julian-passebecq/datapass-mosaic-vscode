@@ -1,3 +1,5 @@
+# dbt Charts project config: boards in charts/ read the dbt project through its profile.
+# The Datapass dbt Lab generates the datapass_retail profile in .datapass/dbt/profiles.yml (local DuckDB, no secrets).
 sources:
   db:
     type: dbt_profile

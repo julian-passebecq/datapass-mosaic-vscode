@@ -222,6 +222,17 @@ dbt in the runtime and never approximates it (the emulation lives in the BI Lab)
   shell integration, new artifacts trigger a reattach attempt and **Reattach catalog** is always available. A lock
   held by a process the runtime did not lend the file to (a dbt run in an outside terminal) is reported as HTTP 409
   with an explanation instead of a raw IO error.
+- **dbt Charts**: `dbt-charts>=0.8,<0.9` in the same venv (pre-1.0, so pinned to a minor). Conventions checked on
+  dct 0.8.0 itself (`dct --help`, `dct docs`): `dbt_charts.yml` at the project root declares sources (`type:
+  dbt_profile`, found through `DBT_PROFILES_DIR`), boards live in `charts/`, queries use `{{ ref('model') }}` resolved
+  against `target/manifest.json`, `dct render` writes `renders/<stem>.<ext>` (it does not create the folder of an
+  `--output` path, so the lab creates `renders/`), `--format json` gives the resolved board with each chart's data,
+  `dct validate --json` needs no database, and dct opens DuckDB read-only (still refused while the runtime holds the
+  file, hence the same handoff). `buildDctCommand` builds validate/render/serve lines (board paths confined to the
+  project; serve always `--host 127.0.0.1` on a free port). `dct serve` runs in a second terminal of the session (a
+  server keeps its terminal busy); commands in one terminal are queued until the previous one ends, because
+  `executeCommand` would interrupt it. The PNG reaches the webview as a `data:` image (already allowed by the CSP);
+  rendered HTML is never injected: it opens with `vscode.env.openExternal`, and the live server in the Simple Browser.
 - **Artifacts** (`src/platform/dbtArtifacts.ts`): `target/manifest.json` + `target/run_results.json` of the selected
   project → command (from `args`), counts, DAG, problems, node details; a manifest newer than the results (after
   `dbt parse` or `docs generate`) is flagged. Labelled "dbt Core (real)".

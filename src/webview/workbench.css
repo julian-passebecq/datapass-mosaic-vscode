@@ -1323,3 +1323,8 @@ h2 { margin-bottom: 8px; font-size: 28px; }
 @media (max-width: 520px) {
   .project-step-status, .project-step-body { margin-left: 0; }
 }
+
+/* dbt Lab: dbt Charts boards (the PNG is dct's own render, shown as a data: image) */
+.dct-board { display: grid; gap: 6px; padding-top: 8px; border-top: 1px solid var(--vscode-panel-border); }
+.dct-render { margin: 0; }
+.dct-render img { display: block; max-width: min(100%, 720px); height: auto; border-radius: 6px; background: #fff; }
