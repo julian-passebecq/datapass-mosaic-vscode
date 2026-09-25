@@ -1,0 +1,1995 @@
+[
+  {
+    "schema_version": 1,
+    "id": "spark-left-join-filter-placement",
+    "version": "1",
+    "title": "Keep every customer when filtering the joined side",
+    "difficulty": "easy",
+    "topics": [
+      "joins",
+      "left-join",
+      "filter-placement"
+    ],
+    "tags": [
+      "spark-lab",
+      "sparklab",
+      "pyspark"
+    ],
+    "origin": "authored",
+    "language": "sparklab",
+    "runtime": "shared-sparklab-v1",
+    "prompt": "Return every customer with each of their COMPLETED orders. A customer with no completed order still appears once, with NULL order_id and amount. Output customer_id, customer_name, order_id, amount.",
+    "sections": [
+      {
+        "title": "Tables",
+        "body": "customers(customer_id INTEGER, customer_name VARCHAR)\norders(order_id INTEGER, customer_id INTEGER, status VARCHAR, amount DOUBLE)"
+      },
+      {
+        "title": "Output",
+        "body": "Columns in this order: customer_id, customer_name, order_id, amount. Row order does not matter."
+      },
+      {
+        "title": "Common pitfall",
+        "body": "Filtering on an orders column after a left join removes the rows where the join found no match, so the left join silently becomes an inner join. Filter the right side before joining."
+      }
+    ],
+    "starter_source": "from pyspark.sql import functions as F\ncustomers = spark.table(\"customers\")\norders = spark.table(\"orders\")\n# Bug: customers without a COMPLETED order disappear.\njoined = customers.join(orders, on=\"customer_id\", how=\"left\")\nresult = joined.filter(F.col(\"status\") == \"COMPLETED\").select(\"customer_id\", \"customer_name\", \"order_id\", \"amount\")\n",
+    "fixtures": [
+      {
+        "id": "spark-left-join-filter-placement-fixtures",
+        "version": "1"
+      }
+    ],
+    "visible_checks": [
+      {
+        "id": "example",
+        "description": "Public example: the tables shown in data_context."
+      }
+    ],
+    "hidden_check_refs": [
+      "several-completed-orders"
+    ],
+    "edge_check_refs": [
+      "no-orders-at-all"
+    ],
+    "hints": [
+      "Which rows does a WHERE-style filter on status remove when status is NULL?",
+      "Filter orders to COMPLETED first, then left-join customers to that smaller DataFrame."
+    ],
+    "solution": {
+      "available": true,
+      "reveal": "explicit"
+    },
+    "explanation": "A left join keeps unmatched customers by filling the orders columns with NULL. A later filter on status evaluates NULL = 'COMPLETED' as unknown and drops those rows. Filtering orders before the join keeps the join's left-preserving semantics.",
+    "follow_ups": [
+      "How would you also keep customers whose only orders are CANCELLED, but show a count of them?"
+    ],
+    "canonical_placement": {
+      "domain": "sparklab",
+      "topic": "joins"
+    },
+    "related_associations": [
+      "sparklab/spark-concepts"
+    ],
+    "recommendation": {
+      "rank": 1,
+      "reason": "Spark lab progression"
+    },
+    "validator_version": "rows-v2",
+    "validation": {
+      "kind": "rows",
+      "ordered": false,
+      "duplicate_sensitive": true,
+      "relative_tolerance": 1e-09,
+      "absolute_tolerance": 1e-06,
+      "required_columns": [
+        "customer_id",
+        "customer_name",
+        "order_id",
+        "amount"
+      ],
+      "exact_schema": [
+        "customer_id",
+        "customer_name",
+        "order_id",
+        "amount"
+      ],
+      "forbidden_extra_columns": true,
+      "null_semantics": "equal"
+    },
+    "data_context": [
+      {
+        "name": "customers",
+        "columns": {
+          "customer_id": "INTEGER",
+          "customer_name": "VARCHAR"
+        },
+        "sample_rows": [
+          {
+            "customer_id": 1,
+            "customer_name": "Ana"
+          },
+          {
+            "customer_id": 2,
+            "customer_name": "Bo"
+          },
+          {
+            "customer_id": 3,
+            "customer_name": "Cy"
+          }
+        ]
+      },
+      {
+        "name": "orders",
+        "columns": {
+          "order_id": "INTEGER",
+          "customer_id": "INTEGER",
+          "status": "VARCHAR",
+          "amount": "DOUBLE"
+        },
+        "sample_rows": [
+          {
+            "order_id": 10,
+            "customer_id": 1,
+            "status": "COMPLETED",
+            "amount": 120.0
+          },
+          {
+            "order_id": 11,
+            "customer_id": 1,
+            "status": "CANCELLED",
+            "amount": 40.0
+          },
+          {
+            "order_id": 12,
+            "customer_id": 2,
+            "status": "CANCELLED",
+            "amount": 55.0
+          }
+        ]
+      }
+    ],
+    "output_schema": {
+      "customer_id": "value",
+      "customer_name": "value",
+      "order_id": "value",
+      "amount": "value"
+    },
+    "runtime_requirements": [
+      "sparklab"
+    ],
+    "provenance": {
+      "source": "Authored for Datapass Workbench: Spark DataFrame pitfalls and plan choices on SparkLab",
+      "fixtures": "Authored for Datapass; expected rows computed from the reference solution and reviewed"
+    },
+    "constraints": {
+      "fixtures": "At most 200 rows per table; complete results are graded, truncated results never pass.",
+      "truth": "Result rows run locally on DuckDB through SparkLab's bounded PySpark subset. Plan checks grade SparkLab's simulated Spark plan, not Apache Spark."
+    },
+    "truth": "semantic-emulation"
+  },
+  {
+    "schema_version": 1,
+    "id": "spark-semi-join-existence",
+    "version": "1",
+    "title": "Customers who ordered: a semi join returns each customer once",
+    "difficulty": "easy",
+    "topics": [
+      "joins",
+      "semi-join",
+      "duplicates"
+    ],
+    "tags": [
+      "spark-lab",
+      "sparklab",
+      "pyspark"
+    ],
+    "origin": "authored",
+    "language": "sparklab",
+    "runtime": "shared-sparklab-v1",
+    "prompt": "Return the customers who placed at least one order in 2026, once each, with only the customer columns. Output customer_id, customer_name, country.",
+    "sections": [
+      {
+        "title": "Tables",
+        "body": "customers(customer_id INTEGER, customer_name VARCHAR, country VARCHAR)\norders(order_id INTEGER, customer_id INTEGER, order_date DATE)"
+      },
+      {
+        "title": "Output",
+        "body": "Columns in this order: customer_id, customer_name, country. Row order does not matter."
+      },
+      {
+        "title": "Common pitfall",
+        "body": "An inner join returns one row per matching order, so a customer with three orders appears three times. A left_semi join only tests existence and never duplicates the left side."
+      }
+    ],
+    "starter_source": "from pyspark.sql import functions as F\ncustomers = spark.table(\"customers\")\norders = spark.table(\"orders\")\norders_2026 = orders.filter(F.col(\"order_date\").between(\"2026-01-01\", \"2026-12-31\"))\n# Bug: a customer with several 2026 orders is returned several times.\nresult = customers.join(orders_2026, on=\"customer_id\", how=\"inner\").select(\"customer_id\", \"customer_name\", \"country\")\n",
+    "fixtures": [
+      {
+        "id": "spark-semi-join-existence-fixtures",
+        "version": "1"
+      }
+    ],
+    "visible_checks": [
+      {
+        "id": "example",
+        "description": "Public example: the tables shown in data_context."
+      }
+    ],
+    "hidden_check_refs": [
+      "year-boundaries"
+    ],
+    "edge_check_refs": [
+      "no-orders"
+    ],
+    "hints": [
+      "Count how many rows an inner join produces for a customer with two orders.",
+      "join(..., how=\"left_semi\") keeps each left row at most once and adds no right-side columns."
+    ],
+    "solution": {
+      "available": true,
+      "reveal": "explicit"
+    },
+    "explanation": "Existence questions are semi joins. Spark implements left_semi without adding right-side columns and without multiplying left rows, so no distinct() is needed afterwards.",
+    "follow_ups": [
+      "Which join type returns the customers with no 2026 order?",
+      "Why is join + distinct() more expensive than a semi join on large data?"
+    ],
+    "canonical_placement": {
+      "domain": "sparklab",
+      "topic": "joins"
+    },
+    "related_associations": [
+      "sparklab/spark-concepts"
+    ],
+    "recommendation": {
+      "rank": 2,
+      "reason": "Spark lab progression"
+    },
+    "validator_version": "rows-v2",
+    "validation": {
+      "kind": "rows",
+      "ordered": false,
+      "duplicate_sensitive": true,
+      "relative_tolerance": 1e-09,
+      "absolute_tolerance": 1e-06,
+      "required_columns": [
+        "customer_id",
+        "customer_name",
+        "country"
+      ],
+      "exact_schema": [
+        "customer_id",
+        "customer_name",
+        "country"
+      ],
+      "forbidden_extra_columns": true,
+      "null_semantics": "equal"
+    },
+    "data_context": [
+      {
+        "name": "customers",
+        "columns": {
+          "customer_id": "INTEGER",
+          "customer_name": "VARCHAR",
+          "country": "VARCHAR"
+        },
+        "sample_rows": [
+          {
+            "customer_id": 1,
+            "customer_name": "Ana",
+            "country": "FR"
+          },
+          {
+            "customer_id": 2,
+            "customer_name": "Bo",
+            "country": "DE"
+          },
+          {
+            "customer_id": 3,
+            "customer_name": "Cy",
+            "country": "FR"
+          }
+        ]
+      },
+      {
+        "name": "orders",
+        "columns": {
+          "order_id": "INTEGER",
+          "customer_id": "INTEGER",
+          "order_date": "DATE"
+        },
+        "sample_rows": [
+          {
+            "order_id": 10,
+            "customer_id": 1,
+            "order_date": "2026-02-01"
+          },
+          {
+            "order_id": 11,
+            "customer_id": 1,
+            "order_date": "2026-03-15"
+          },
+          {
+            "order_id": 12,
+            "customer_id": 3,
+            "order_date": "2025-12-31"
+          }
+        ]
+      }
+    ],
+    "output_schema": {
+      "customer_id": "value",
+      "customer_name": "value",
+      "country": "value"
+    },
+    "runtime_requirements": [
+      "sparklab"
+    ],
+    "provenance": {
+      "source": "Authored for Datapass Workbench: Spark DataFrame pitfalls and plan choices on SparkLab",
+      "fixtures": "Authored for Datapass; expected rows computed from the reference solution and reviewed"
+    },
+    "constraints": {
+      "fixtures": "At most 200 rows per table; complete results are graded, truncated results never pass.",
+      "truth": "Result rows run locally on DuckDB through SparkLab's bounded PySpark subset. Plan checks grade SparkLab's simulated Spark plan, not Apache Spark."
+    },
+    "truth": "semantic-emulation"
+  },
+  {
+    "schema_version": 1,
+    "id": "spark-count-column-vs-star",
+    "version": "1",
+    "title": "count(\"*\") vs count(column): clicks per campaign",
+    "difficulty": "easy",
+    "topics": [
+      "aggregation",
+      "count",
+      "nulls"
+    ],
+    "tags": [
+      "spark-lab",
+      "sparklab",
+      "pyspark"
+    ],
+    "origin": "authored",
+    "language": "sparklab",
+    "runtime": "shared-sparklab-v1",
+    "prompt": "For each campaign return impressions (every event) and clicks (events whose clicked_at is set). Output campaign_id, impressions, clicks.",
+    "sections": [
+      {
+        "title": "Tables",
+        "body": "events(event_id INTEGER, campaign_id VARCHAR, clicked_at TIMESTAMP)"
+      },
+      {
+        "title": "Output",
+        "body": "Columns in this order: campaign_id, impressions, clicks. Row order does not matter."
+      },
+      {
+        "title": "Common pitfall",
+        "body": "F.count(\"*\") counts rows; F.count(\"column\") counts non-NULL values. F.countDistinct also merges equal values, so two clicks at the same timestamp count once."
+      }
+    ],
+    "starter_source": "from pyspark.sql import functions as F\nevents = spark.table(\"events\")\n# Bug: clicks equals impressions.\nresult = events.groupBy(\"campaign_id\").agg(F.count(\"*\").alias(\"impressions\"), F.count(\"*\").alias(\"clicks\"))\n",
+    "fixtures": [
+      {
+        "id": "spark-count-column-vs-star-fixtures",
+        "version": "1"
+      }
+    ],
+    "visible_checks": [
+      {
+        "id": "example",
+        "description": "Public example: the tables shown in data_context."
+      }
+    ],
+    "hidden_check_refs": [
+      "same-second-clicks"
+    ],
+    "edge_check_refs": [
+      "no-clicks"
+    ],
+    "hints": [
+      "Which of count(\"*\") and count(\"clicked_at\") ignores NULL?"
+    ],
+    "solution": {
+      "available": true,
+      "reveal": "explicit"
+    },
+    "explanation": "count(\"*\") counts rows, count(col) counts non-NULL values of col, countDistinct(col) counts distinct non-NULL values. A campaign with no click still has impressions and 0 clicks.",
+    "follow_ups": [
+      "How would you compute a click-through rate that never divides by zero?"
+    ],
+    "canonical_placement": {
+      "domain": "sparklab",
+      "topic": "aggregation"
+    },
+    "related_associations": [
+      "sparklab/spark-concepts"
+    ],
+    "recommendation": {
+      "rank": 3,
+      "reason": "Spark lab progression"
+    },
+    "validator_version": "rows-v2",
+    "validation": {
+      "kind": "rows",
+      "ordered": false,
+      "duplicate_sensitive": true,
+      "relative_tolerance": 1e-09,
+      "absolute_tolerance": 1e-06,
+      "required_columns": [
+        "campaign_id",
+        "impressions",
+        "clicks"
+      ],
+      "exact_schema": [
+        "campaign_id",
+        "impressions",
+        "clicks"
+      ],
+      "forbidden_extra_columns": true,
+      "null_semantics": "equal"
+    },
+    "data_context": [
+      {
+        "name": "events",
+        "columns": {
+          "event_id": "INTEGER",
+          "campaign_id": "VARCHAR",
+          "clicked_at": "TIMESTAMP"
+        },
+        "sample_rows": [
+          {
+            "event_id": 1,
+            "campaign_id": "spring",
+            "clicked_at": null
+          },
+          {
+            "event_id": 2,
+            "campaign_id": "spring",
+            "clicked_at": "2026-03-01 10:00:00"
+          },
+          {
+            "event_id": 3,
+            "campaign_id": "spring",
+            "clicked_at": null
+          },
+          {
+            "event_id": 4,
+            "campaign_id": "summer",
+            "clicked_at": "2026-06-01 09:00:00"
+          }
+        ]
+      }
+    ],
+    "output_schema": {
+      "campaign_id": "value",
+      "impressions": "value",
+      "clicks": "value"
+    },
+    "runtime_requirements": [
+      "sparklab"
+    ],
+    "provenance": {
+      "source": "Authored for Datapass Workbench: Spark DataFrame pitfalls and plan choices on SparkLab",
+      "fixtures": "Authored for Datapass; expected rows computed from the reference solution and reviewed"
+    },
+    "constraints": {
+      "fixtures": "At most 200 rows per table; complete results are graded, truncated results never pass.",
+      "truth": "Result rows run locally on DuckDB through SparkLab's bounded PySpark subset. Plan checks grade SparkLab's simulated Spark plan, not Apache Spark."
+    },
+    "truth": "semantic-emulation"
+  },
+  {
+    "schema_version": 1,
+    "id": "spark-null-safe-change-detection",
+    "version": "1",
+    "title": "Detect changed values with eqNullSafe",
+    "difficulty": "medium",
+    "topics": [
+      "nulls",
+      "change-detection",
+      "joins"
+    ],
+    "tags": [
+      "spark-lab",
+      "sparklab",
+      "pyspark"
+    ],
+    "origin": "authored",
+    "language": "sparklab",
+    "runtime": "shared-sparklab-v1",
+    "prompt": "Compare yesterday's and today's customer snapshots. Return the customers present in both whose email changed, including a change from NULL or to NULL. Output customer_id, old_email, new_email.",
+    "sections": [
+      {
+        "title": "Tables",
+        "body": "yesterday(customer_id INTEGER, email VARCHAR)\ntoday(customer_id INTEGER, email VARCHAR)"
+      },
+      {
+        "title": "Output",
+        "body": "Columns in this order: customer_id, old_email, new_email. Row order does not matter."
+      },
+      {
+        "title": "Common pitfall",
+        "body": "old != new is NULL, not true, when either side is NULL, so a filter drops those changes. ~a.eqNullSafe(b) (SQL IS DISTINCT FROM) treats NULL as a comparable value."
+      }
+    ],
+    "starter_source": "from pyspark.sql import functions as F\nold = spark.table(\"yesterday\").withColumnRenamed(\"email\", \"old_email\")\nnew = spark.table(\"today\").withColumnRenamed(\"email\", \"new_email\")\n# Bug: a change from or to NULL is missed.\nresult = old.join(new, on=\"customer_id\", how=\"inner\").filter(F.col(\"old_email\") != F.col(\"new_email\"))\n",
+    "fixtures": [
+      {
+        "id": "spark-null-safe-change-detection-fixtures",
+        "version": "1"
+      }
+    ],
+    "visible_checks": [
+      {
+        "id": "example",
+        "description": "Public example: the tables shown in data_context."
+      }
+    ],
+    "hidden_check_refs": [
+      "cleared-and-unchanged-null"
+    ],
+    "edge_check_refs": [
+      "nothing-changed"
+    ],
+    "hints": [
+      "What does NULL != 'cy@c.io' evaluate to?",
+      "Column.eqNullSafe is Spark's <=>: two NULLs are equal and NULL vs a value is not."
+    ],
+    "solution": {
+      "available": true,
+      "reveal": "explicit"
+    },
+    "explanation": "Change detection must treat NULL as a value: NULL to value and value to NULL are changes, NULL to NULL is not. ~old.eqNullSafe(new) expresses exactly that; a plain != silently drops both NULL cases.",
+    "follow_ups": [
+      "How would you compare several columns at once without writing one condition per column?"
+    ],
+    "canonical_placement": {
+      "domain": "sparklab",
+      "topic": "nulls"
+    },
+    "related_associations": [
+      "sparklab/spark-concepts"
+    ],
+    "recommendation": {
+      "rank": 4,
+      "reason": "Spark lab progression"
+    },
+    "validator_version": "rows-v2",
+    "validation": {
+      "kind": "rows",
+      "ordered": false,
+      "duplicate_sensitive": true,
+      "relative_tolerance": 1e-09,
+      "absolute_tolerance": 1e-06,
+      "required_columns": [
+        "customer_id",
+        "old_email",
+        "new_email"
+      ],
+      "exact_schema": [
+        "customer_id",
+        "old_email",
+        "new_email"
+      ],
+      "forbidden_extra_columns": true,
+      "null_semantics": "equal"
+    },
+    "data_context": [
+      {
+        "name": "yesterday",
+        "columns": {
+          "customer_id": "INTEGER",
+          "email": "VARCHAR"
+        },
+        "sample_rows": [
+          {
+            "customer_id": 1,
+            "email": "ana@a.io"
+          },
+          {
+            "customer_id": 2,
+            "email": "bo@b.io"
+          },
+          {
+            "customer_id": 3,
+            "email": null
+          }
+        ]
+      },
+      {
+        "name": "today",
+        "columns": {
+          "customer_id": "INTEGER",
+          "email": "VARCHAR"
+        },
+        "sample_rows": [
+          {
+            "customer_id": 1,
+            "email": "ana@a.io"
+          },
+          {
+            "customer_id": 2,
+            "email": "bo@new.io"
+          },
+          {
+            "customer_id": 3,
+            "email": "cy@c.io"
+          }
+        ]
+      }
+    ],
+    "output_schema": {
+      "customer_id": "value",
+      "old_email": "value",
+      "new_email": "value"
+    },
+    "runtime_requirements": [
+      "sparklab"
+    ],
+    "provenance": {
+      "source": "Authored for Datapass Workbench: Spark DataFrame pitfalls and plan choices on SparkLab",
+      "fixtures": "Authored for Datapass; expected rows computed from the reference solution and reviewed"
+    },
+    "constraints": {
+      "fixtures": "At most 200 rows per table; complete results are graded, truncated results never pass.",
+      "truth": "Result rows run locally on DuckDB through SparkLab's bounded PySpark subset. Plan checks grade SparkLab's simulated Spark plan, not Apache Spark."
+    },
+    "truth": "semantic-emulation"
+  },
+  {
+    "schema_version": 1,
+    "id": "spark-full-outer-reconcile",
+    "version": "1",
+    "title": "Reconcile two systems with a full outer join",
+    "difficulty": "medium",
+    "topics": [
+      "joins",
+      "full-outer-join",
+      "reconciliation"
+    ],
+    "tags": [
+      "spark-lab",
+      "sparklab",
+      "pyspark"
+    ],
+    "origin": "authored",
+    "language": "sparklab",
+    "runtime": "shared-sparklab-v1",
+    "prompt": "billing and ledger should hold the same invoices. Return one row per invoice found in either system with status 'missing_in_ledger', 'missing_in_billing', 'amount_mismatch' or 'match'. Amounts are never NULL in the source tables. Output invoice_id, billed_amount, booked_amount, status.",
+    "sections": [
+      {
+        "title": "Tables",
+        "body": "billing(invoice_id INTEGER, billed_amount DOUBLE)\nledger(invoice_id INTEGER, booked_amount DOUBLE)"
+      },
+      {
+        "title": "Output",
+        "body": "Columns in this order: invoice_id, billed_amount, booked_amount, status. Row order does not matter."
+      },
+      {
+        "title": "Common pitfall",
+        "body": "A left join only sees invoices that exist in billing, so ledger-only invoices never show up. With on=\"invoice_id\", a full join returns a single invoice_id column filled from either side."
+      }
+    ],
+    "starter_source": "from pyspark.sql import functions as F\nbilling = spark.table(\"billing\")\nledger = spark.table(\"ledger\")\n# Bug: invoices that exist only in the ledger are missing.\njoined = billing.join(ledger, on=\"invoice_id\", how=\"left\")\nresult = joined.withColumn(\n    \"status\",\n    F.when(F.col(\"booked_amount\").isNull(), \"missing_in_ledger\")\n    .when(F.col(\"billed_amount\").isNull(), \"missing_in_billing\")\n    .when(F.col(\"billed_amount\") != F.col(\"booked_amount\"), \"amount_mismatch\")\n    .otherwise(\"match\"),\n)\n",
+    "fixtures": [
+      {
+        "id": "spark-full-outer-reconcile-fixtures",
+        "version": "1"
+      }
+    ],
+    "visible_checks": [
+      {
+        "id": "example",
+        "description": "Public example: the tables shown in data_context."
+      }
+    ],
+    "hidden_check_refs": [
+      "disjoint-systems"
+    ],
+    "edge_check_refs": [
+      "empty-billing"
+    ],
+    "hints": [
+      "Which join type keeps unmatched rows from both sides?",
+      "when() conditions are tested in order: check the missing sides before comparing amounts."
+    ],
+    "solution": {
+      "available": true,
+      "reveal": "explicit"
+    },
+    "explanation": "Reconciliation needs every key from both systems: a full outer join. Joining on a column name merges the two invoice_id columns into one, so it is never NULL, while each amount column is NULL on the side where the invoice is missing.",
+    "follow_ups": [
+      "What changes if amounts can be NULL in the source tables?"
+    ],
+    "canonical_placement": {
+      "domain": "sparklab",
+      "topic": "joins"
+    },
+    "related_associations": [
+      "sparklab/spark-concepts"
+    ],
+    "recommendation": {
+      "rank": 5,
+      "reason": "Spark lab progression"
+    },
+    "validator_version": "rows-v2",
+    "validation": {
+      "kind": "rows",
+      "ordered": false,
+      "duplicate_sensitive": true,
+      "relative_tolerance": 1e-09,
+      "absolute_tolerance": 1e-06,
+      "required_columns": [
+        "invoice_id",
+        "billed_amount",
+        "booked_amount",
+        "status"
+      ],
+      "exact_schema": [
+        "invoice_id",
+        "billed_amount",
+        "booked_amount",
+        "status"
+      ],
+      "forbidden_extra_columns": true,
+      "null_semantics": "equal"
+    },
+    "data_context": [
+      {
+        "name": "billing",
+        "columns": {
+          "invoice_id": "INTEGER",
+          "billed_amount": "DOUBLE"
+        },
+        "sample_rows": [
+          {
+            "invoice_id": 1,
+            "billed_amount": 100.0
+          },
+          {
+            "invoice_id": 2,
+            "billed_amount": 50.0
+          },
+          {
+            "invoice_id": 3,
+            "billed_amount": 75.0
+          }
+        ]
+      },
+      {
+        "name": "ledger",
+        "columns": {
+          "invoice_id": "INTEGER",
+          "booked_amount": "DOUBLE"
+        },
+        "sample_rows": [
+          {
+            "invoice_id": 1,
+            "booked_amount": 100.0
+          },
+          {
+            "invoice_id": 2,
+            "booked_amount": 45.0
+          },
+          {
+            "invoice_id": 4,
+            "booked_amount": 20.0
+          }
+        ]
+      }
+    ],
+    "output_schema": {
+      "invoice_id": "value",
+      "billed_amount": "value",
+      "booked_amount": "value",
+      "status": "value"
+    },
+    "runtime_requirements": [
+      "sparklab"
+    ],
+    "provenance": {
+      "source": "Authored for Datapass Workbench: Spark DataFrame pitfalls and plan choices on SparkLab",
+      "fixtures": "Authored for Datapass; expected rows computed from the reference solution and reviewed"
+    },
+    "constraints": {
+      "fixtures": "At most 200 rows per table; complete results are graded, truncated results never pass.",
+      "truth": "Result rows run locally on DuckDB through SparkLab's bounded PySpark subset. Plan checks grade SparkLab's simulated Spark plan, not Apache Spark."
+    },
+    "truth": "semantic-emulation"
+  },
+  {
+    "schema_version": 1,
+    "id": "spark-join-fanout-before-sum",
+    "version": "1",
+    "title": "Aggregate before joining to avoid fan-out",
+    "difficulty": "hard",
+    "topics": [
+      "joins",
+      "fan-out",
+      "aggregation"
+    ],
+    "tags": [
+      "spark-lab",
+      "sparklab",
+      "pyspark"
+    ],
+    "origin": "authored",
+    "language": "sparklab",
+    "runtime": "shared-sparklab-v1",
+    "prompt": "An order can use several promo codes. For each customer return revenue (the sum of order amounts, each order counted once) and promo_uses (the number of promo codes applied to their orders; 0 when none). Output customer_id, revenue, promo_uses.",
+    "sections": [
+      {
+        "title": "Tables",
+        "body": "orders(order_id INTEGER, customer_id INTEGER, amount DOUBLE)\norder_promos(order_id INTEGER, promo_code VARCHAR)"
+      },
+      {
+        "title": "Output",
+        "body": "Columns in this order: customer_id, revenue, promo_uses. Row order does not matter."
+      },
+      {
+        "title": "Common pitfall",
+        "body": "Joining orders to a one-to-many table repeats each order once per promo code, so summing amount after the join counts an order several times. Reduce the many side to one row per order first."
+      }
+    ],
+    "starter_source": "from pyspark.sql import functions as F\norders = spark.table(\"orders\")\npromos = spark.table(\"order_promos\")\n# Bug: an order with two promo codes is counted twice in revenue.\njoined = orders.join(promos, on=\"order_id\", how=\"left\")\nresult = joined.groupBy(\"customer_id\").agg(F.sum(\"amount\").alias(\"revenue\"), F.count(\"promo_code\").alias(\"promo_uses\"))\n",
+    "fixtures": [
+      {
+        "id": "spark-join-fanout-before-sum-fixtures",
+        "version": "1"
+      }
+    ],
+    "visible_checks": [
+      {
+        "id": "example",
+        "description": "Public example: the tables shown in data_context."
+      }
+    ],
+    "hidden_check_refs": [
+      "three-promos-and-none"
+    ],
+    "edge_check_refs": [
+      "no-promos"
+    ],
+    "hints": [
+      "After the join, how many rows does order 1 of the example have?",
+      "groupBy(\"order_id\") on order_promos gives one row per order; join that instead.",
+      "A left join leaves promo_count NULL for orders without promos: coalesce it to 0 before summing."
+    ],
+    "solution": {
+      "available": true,
+      "reveal": "explicit"
+    },
+    "explanation": "Joining on a key that is unique on only one side multiplies rows. Aggregate the many side to the join grain first (one row per order), then join and aggregate to the customer grain. The left join keeps orders without promo codes, and coalesce turns their missing count into 0.",
+    "follow_ups": [
+      "How would you detect fan-out in a pipeline before it corrupts a revenue table?"
+    ],
+    "canonical_placement": {
+      "domain": "sparklab",
+      "topic": "joins"
+    },
+    "related_associations": [
+      "sparklab/spark-concepts"
+    ],
+    "recommendation": {
+      "rank": 6,
+      "reason": "Spark lab progression"
+    },
+    "validator_version": "rows-v2",
+    "validation": {
+      "kind": "rows",
+      "ordered": false,
+      "duplicate_sensitive": true,
+      "relative_tolerance": 1e-09,
+      "absolute_tolerance": 1e-06,
+      "required_columns": [
+        "customer_id",
+        "revenue",
+        "promo_uses"
+      ],
+      "exact_schema": [
+        "customer_id",
+        "revenue",
+        "promo_uses"
+      ],
+      "forbidden_extra_columns": true,
+      "null_semantics": "equal"
+    },
+    "data_context": [
+      {
+        "name": "orders",
+        "columns": {
+          "order_id": "INTEGER",
+          "customer_id": "INTEGER",
+          "amount": "DOUBLE"
+        },
+        "sample_rows": [
+          {
+            "order_id": 1,
+            "customer_id": 10,
+            "amount": 100.0
+          },
+          {
+            "order_id": 2,
+            "customer_id": 10,
+            "amount": 50.0
+          },
+          {
+            "order_id": 3,
+            "customer_id": 20,
+            "amount": 80.0
+          }
+        ]
+      },
+      {
+        "name": "order_promos",
+        "columns": {
+          "order_id": "INTEGER",
+          "promo_code": "VARCHAR"
+        },
+        "sample_rows": [
+          {
+            "order_id": 1,
+            "promo_code": "SPRING"
+          },
+          {
+            "order_id": 1,
+            "promo_code": "VIP"
+          },
+          {
+            "order_id": 3,
+            "promo_code": "SPRING"
+          }
+        ]
+      }
+    ],
+    "output_schema": {
+      "customer_id": "value",
+      "revenue": "value",
+      "promo_uses": "value"
+    },
+    "runtime_requirements": [
+      "sparklab"
+    ],
+    "provenance": {
+      "source": "Authored for Datapass Workbench: Spark DataFrame pitfalls and plan choices on SparkLab",
+      "fixtures": "Authored for Datapass; expected rows computed from the reference solution and reviewed"
+    },
+    "constraints": {
+      "fixtures": "At most 200 rows per table; complete results are graded, truncated results never pass.",
+      "truth": "Result rows run locally on DuckDB through SparkLab's bounded PySpark subset. Plan checks grade SparkLab's simulated Spark plan, not Apache Spark."
+    },
+    "truth": "semantic-emulation"
+  },
+  {
+    "schema_version": 1,
+    "id": "spark-running-total-ties",
+    "version": "1",
+    "title": "Running balance when dates tie: RANGE vs ROWS frames",
+    "difficulty": "hard",
+    "topics": [
+      "window-functions",
+      "window-frames",
+      "ties"
+    ],
+    "tags": [
+      "spark-lab",
+      "sparklab",
+      "pyspark"
+    ],
+    "origin": "authored",
+    "language": "sparklab",
+    "runtime": "shared-sparklab-v1",
+    "prompt": "For each account return every transaction with running_balance: the sum of that account's amounts up to and including this transaction, in (txn_date, txn_id) order. Two transactions on the same date get different balances. Output account_id, txn_id, txn_date, amount, running_balance.",
+    "sections": [
+      {
+        "title": "Tables",
+        "body": "transactions(account_id VARCHAR, txn_id INTEGER, txn_date DATE, amount DOUBLE)"
+      },
+      {
+        "title": "Output",
+        "body": "Columns in this order: account_id, txn_id, txn_date, amount, running_balance. Row order does not matter."
+      },
+      {
+        "title": "Common pitfall",
+        "body": "With orderBy and no explicit frame, Spark uses RANGE BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW: rows that tie on the ordering key are peers and all get the total of the whole tie group."
+      }
+    ],
+    "starter_source": "from pyspark.sql import functions as F\nfrom pyspark.sql.window import Window\ntransactions = spark.table(\"transactions\")\n# Bug: transactions on the same date show the same balance.\nw = Window.partitionBy(\"account_id\").orderBy(\"txn_date\")\nresult = transactions.withColumn(\"running_balance\", F.sum(\"amount\").over(w))\n",
+    "fixtures": [
+      {
+        "id": "spark-running-total-ties-fixtures",
+        "version": "1"
+      }
+    ],
+    "visible_checks": [
+      {
+        "id": "example",
+        "description": "Public example: the tables shown in data_context."
+      }
+    ],
+    "hidden_check_refs": [
+      "three-way-tie"
+    ],
+    "edge_check_refs": [
+      "single-transaction"
+    ],
+    "hints": [
+      "What frame does Spark use when a window has orderBy but no rowsBetween?",
+      "Order by txn_date then txn_id so every row has a unique position, and say ROWS explicitly."
+    ],
+    "solution": {
+      "available": true,
+      "reveal": "explicit"
+    },
+    "explanation": "The default frame of an ordered window is RANGE-based, so peers (equal ordering values) share one running total. A unique ordering (txn_date, txn_id) plus an explicit rowsBetween(Window.unboundedPreceding, Window.currentRow) gives one balance per transaction, deterministically.",
+    "follow_ups": [
+      "Why is rowsBetween without the txn_id tie-breaker still unsafe?",
+      "When is the RANGE behavior actually what you want?"
+    ],
+    "canonical_placement": {
+      "domain": "sparklab",
+      "topic": "window-functions"
+    },
+    "related_associations": [
+      "sparklab/spark-concepts"
+    ],
+    "recommendation": {
+      "rank": 7,
+      "reason": "Spark lab progression"
+    },
+    "validator_version": "rows-v2",
+    "validation": {
+      "kind": "rows",
+      "ordered": false,
+      "duplicate_sensitive": true,
+      "relative_tolerance": 1e-09,
+      "absolute_tolerance": 1e-06,
+      "required_columns": [
+        "account_id",
+        "txn_id",
+        "txn_date",
+        "amount",
+        "running_balance"
+      ],
+      "exact_schema": [
+        "account_id",
+        "txn_id",
+        "txn_date",
+        "amount",
+        "running_balance"
+      ],
+      "forbidden_extra_columns": true,
+      "null_semantics": "equal"
+    },
+    "data_context": [
+      {
+        "name": "transactions",
+        "columns": {
+          "account_id": "VARCHAR",
+          "txn_id": "INTEGER",
+          "txn_date": "DATE",
+          "amount": "DOUBLE"
+        },
+        "sample_rows": [
+          {
+            "account_id": "A",
+            "txn_id": 1,
+            "txn_date": "2026-01-01",
+            "amount": 100.0
+          },
+          {
+            "account_id": "A",
+            "txn_id": 2,
+            "txn_date": "2026-01-02",
+            "amount": -30.0
+          },
+          {
+            "account_id": "A",
+            "txn_id": 3,
+            "txn_date": "2026-01-02",
+            "amount": 50.0
+          },
+          {
+            "account_id": "B",
+            "txn_id": 4,
+            "txn_date": "2026-01-01",
+            "amount": 10.0
+          }
+        ]
+      }
+    ],
+    "output_schema": {
+      "account_id": "value",
+      "txn_id": "value",
+      "txn_date": "value",
+      "amount": "value",
+      "running_balance": "value"
+    },
+    "runtime_requirements": [
+      "sparklab"
+    ],
+    "provenance": {
+      "source": "Authored for Datapass Workbench: Spark DataFrame pitfalls and plan choices on SparkLab",
+      "fixtures": "Authored for Datapass; expected rows computed from the reference solution and reviewed"
+    },
+    "constraints": {
+      "fixtures": "At most 200 rows per table; complete results are graded, truncated results never pass.",
+      "truth": "Result rows run locally on DuckDB through SparkLab's bounded PySpark subset. Plan checks grade SparkLab's simulated Spark plan, not Apache Spark."
+    },
+    "truth": "semantic-emulation"
+  },
+  {
+    "schema_version": 1,
+    "id": "spark-coalesce-output-partitions",
+    "version": "1",
+    "title": "Fewer output partitions without a shuffle: coalesce vs repartition",
+    "difficulty": "easy",
+    "topics": [
+      "partitions",
+      "coalesce",
+      "shuffle"
+    ],
+    "tags": [
+      "spark-lab",
+      "sparklab",
+      "pyspark"
+    ],
+    "origin": "authored",
+    "language": "sparklab",
+    "runtime": "shared-sparklab-v1",
+    "prompt": "Keep the French (country = 'FR') events with event_id, event_date and amount. The writer downstream must receive at most 16 partitions, and the plan must not add a shuffle.",
+    "sections": [
+      {
+        "title": "Tables",
+        "body": "events(event_id INTEGER, event_date DATE, country VARCHAR, amount DOUBLE)"
+      },
+      {
+        "title": "Output",
+        "body": "Columns in this order: event_id, event_date, amount. Row order does not matter."
+      },
+      {
+        "title": "Common pitfall",
+        "body": "repartition(n) always performs a full shuffle. coalesce(n) only merges existing partitions, so it reduces the partition count without moving rows across the network."
+      },
+      {
+        "title": "Plan requirement (simulated)",
+        "body": "Besides the result rows, Submit grades the Spark plan SparkLab models for your code at the input sizes listed below. The model applies Spark's exchange and join-strategy rules; it is not Apache Spark, and no data of that size is processed."
+      }
+    ],
+    "starter_source": "from pyspark.sql import functions as F\nevents = spark.table(\"events\")\n# 16 partitions, but repartition() shuffles every surviving row.\nresult = events.filter(F.col(\"country\") == \"FR\").select(\"event_id\", \"event_date\", \"amount\").repartition(16)\n",
+    "fixtures": [
+      {
+        "id": "spark-coalesce-output-partitions-fixtures",
+        "version": "1"
+      }
+    ],
+    "visible_checks": [
+      {
+        "id": "example",
+        "description": "Public example: the tables shown in data_context."
+      }
+    ],
+    "hidden_check_refs": [
+      "mixed-countries"
+    ],
+    "edge_check_refs": [
+      "no-french-events"
+    ],
+    "hints": [
+      "Which of repartition() and coalesce() is a narrow transformation?"
+    ],
+    "solution": {
+      "available": true,
+      "reveal": "explicit"
+    },
+    "explanation": "coalesce(16) merges the 1,536 scan partitions into 16 without an exchange. The trade-off: Spark pushes the coalesce into the scan stage, so the filter itself then runs in only 16 tasks. When the upstream work is heavy, repartition(16) can be faster despite its shuffle; here the filter is cheap, so avoiding a 96 GB-scale shuffle wins.",
+    "follow_ups": [
+      "When would repartition(16) be the better choice before a write?",
+      "What does coalesce(4000) do when there are only 1,536 partitions?"
+    ],
+    "canonical_placement": {
+      "domain": "sparklab",
+      "topic": "partitions"
+    },
+    "related_associations": [
+      "sparklab/spark-concepts"
+    ],
+    "recommendation": {
+      "rank": 8,
+      "reason": "Spark lab progression"
+    },
+    "validator_version": "rows-v2",
+    "validation": {
+      "kind": "rows",
+      "ordered": false,
+      "duplicate_sensitive": true,
+      "relative_tolerance": 1e-09,
+      "absolute_tolerance": 1e-06,
+      "required_columns": [
+        "event_id",
+        "event_date",
+        "amount"
+      ],
+      "exact_schema": [
+        "event_id",
+        "event_date",
+        "amount"
+      ],
+      "forbidden_extra_columns": true,
+      "null_semantics": "equal"
+    },
+    "data_context": [
+      {
+        "name": "events",
+        "columns": {
+          "event_id": "INTEGER",
+          "event_date": "DATE",
+          "country": "VARCHAR",
+          "amount": "DOUBLE"
+        },
+        "sample_rows": [
+          {
+            "event_id": 1,
+            "event_date": "2026-05-01",
+            "country": "FR",
+            "amount": 10.0
+          },
+          {
+            "event_id": 2,
+            "event_date": "2026-05-01",
+            "country": "DE",
+            "amount": 20.0
+          },
+          {
+            "event_id": 3,
+            "event_date": "2026-05-02",
+            "country": "FR",
+            "amount": 30.0
+          }
+        ]
+      }
+    ],
+    "output_schema": {
+      "event_id": "value",
+      "event_date": "value",
+      "amount": "value"
+    },
+    "runtime_requirements": [
+      "sparklab"
+    ],
+    "provenance": {
+      "source": "Authored for Datapass Workbench: Spark DataFrame pitfalls and plan choices on SparkLab",
+      "fixtures": "Authored for Datapass; expected rows computed from the reference solution and reviewed"
+    },
+    "constraints": {
+      "fixtures": "At most 200 rows per table; complete results are graded, truncated results never pass.",
+      "truth": "Result rows run locally on DuckDB through SparkLab's bounded PySpark subset. Plan checks grade SparkLab's simulated Spark plan, not Apache Spark."
+    },
+    "truth": "semantic-emulation",
+    "spark_plan": {
+      "profile": "generic_8x8",
+      "aqe": true,
+      "scale": {
+        "events": {
+          "rows": 2400000000,
+          "bytes": 103079215104,
+          "partitions": 1536
+        }
+      },
+      "checks": [
+        {
+          "id": "plan-no-shuffle",
+          "description": "The plan adds no shuffle exchange.",
+          "rule": "max_exchanges",
+          "value": 0
+        },
+        {
+          "id": "plan-at-most-16-partitions",
+          "description": "The result has at most 16 partitions.",
+          "rule": "max_output_partitions",
+          "value": 16
+        }
+      ]
+    }
+  },
+  {
+    "schema_version": 1,
+    "id": "spark-one-pass-aggregation",
+    "version": "1",
+    "title": "Compute several metrics in one groupBy",
+    "difficulty": "easy",
+    "topics": [
+      "aggregation",
+      "shuffle",
+      "plan"
+    ],
+    "tags": [
+      "spark-lab",
+      "sparklab",
+      "pyspark"
+    ],
+    "origin": "authored",
+    "language": "sparklab",
+    "runtime": "shared-sparklab-v1",
+    "prompt": "For each customer return order_count (every order, including orders with a NULL amount) and revenue. Compute both in a single pass: the plan may use at most one shuffle exchange. Output customer_id, order_count, revenue.",
+    "sections": [
+      {
+        "title": "Tables",
+        "body": "orders(order_id INTEGER, customer_id INTEGER, amount DOUBLE)"
+      },
+      {
+        "title": "Output",
+        "body": "Columns in this order: customer_id, order_count, revenue. Row order does not matter."
+      },
+      {
+        "title": "Common pitfall",
+        "body": "Each groupBy shuffles its input. Two groupBys on the same key followed by a join shuffle the orders twice, although one groupBy(...).agg(...) can compute every metric in one exchange."
+      },
+      {
+        "title": "Plan requirement (simulated)",
+        "body": "Besides the result rows, Submit grades the Spark plan SparkLab models for your code at the input sizes listed below. The model applies Spark's exchange and join-strategy rules; it is not Apache Spark, and no data of that size is processed."
+      }
+    ],
+    "starter_source": "from pyspark.sql import functions as F\norders = spark.table(\"orders\")\n# Right result, but the orders are shuffled twice.\ncounts = orders.groupBy(\"customer_id\").agg(F.count(\"*\").alias(\"order_count\"))\nrevenue = orders.groupBy(\"customer_id\").agg(F.sum(\"amount\").alias(\"revenue\"))\nresult = counts.join(revenue, on=\"customer_id\", how=\"inner\")\n",
+    "fixtures": [
+      {
+        "id": "spark-one-pass-aggregation-fixtures",
+        "version": "1"
+      }
+    ],
+    "visible_checks": [
+      {
+        "id": "example",
+        "description": "Public example: the tables shown in data_context."
+      }
+    ],
+    "hidden_check_refs": [
+      "null-amounts"
+    ],
+    "edge_check_refs": [
+      "single-order"
+    ],
+    "hints": [
+      "agg() accepts several aggregate expressions.",
+      "count(\"amount\") skips NULL amounts; the prompt counts every order."
+    ],
+    "solution": {
+      "available": true,
+      "reveal": "explicit"
+    },
+    "explanation": "One groupBy(\"customer_id\").agg(count, sum) needs one hash exchange by customer_id. The two-groupBy version exchanges the orders twice; the join itself adds no third exchange because both sides are already hash-partitioned by customer_id, but the extra full shuffle remains.",
+    "follow_ups": [
+      "Why does the join of the two aggregates not need its own exchange?"
+    ],
+    "canonical_placement": {
+      "domain": "sparklab",
+      "topic": "aggregation"
+    },
+    "related_associations": [
+      "sparklab/spark-concepts"
+    ],
+    "recommendation": {
+      "rank": 9,
+      "reason": "Spark lab progression"
+    },
+    "validator_version": "rows-v2",
+    "validation": {
+      "kind": "rows",
+      "ordered": false,
+      "duplicate_sensitive": true,
+      "relative_tolerance": 1e-09,
+      "absolute_tolerance": 1e-06,
+      "required_columns": [
+        "customer_id",
+        "order_count",
+        "revenue"
+      ],
+      "exact_schema": [
+        "customer_id",
+        "order_count",
+        "revenue"
+      ],
+      "forbidden_extra_columns": true,
+      "null_semantics": "equal"
+    },
+    "data_context": [
+      {
+        "name": "orders",
+        "columns": {
+          "order_id": "INTEGER",
+          "customer_id": "INTEGER",
+          "amount": "DOUBLE"
+        },
+        "sample_rows": [
+          {
+            "order_id": 1,
+            "customer_id": 10,
+            "amount": 20.0
+          },
+          {
+            "order_id": 2,
+            "customer_id": 10,
+            "amount": 30.0
+          },
+          {
+            "order_id": 3,
+            "customer_id": 20,
+            "amount": 5.0
+          }
+        ]
+      }
+    ],
+    "output_schema": {
+      "customer_id": "value",
+      "order_count": "value",
+      "revenue": "value"
+    },
+    "runtime_requirements": [
+      "sparklab"
+    ],
+    "provenance": {
+      "source": "Authored for Datapass Workbench: Spark DataFrame pitfalls and plan choices on SparkLab",
+      "fixtures": "Authored for Datapass; expected rows computed from the reference solution and reviewed"
+    },
+    "constraints": {
+      "fixtures": "At most 200 rows per table; complete results are graded, truncated results never pass.",
+      "truth": "Result rows run locally on DuckDB through SparkLab's bounded PySpark subset. Plan checks grade SparkLab's simulated Spark plan, not Apache Spark."
+    },
+    "truth": "semantic-emulation",
+    "spark_plan": {
+      "profile": "generic_8x8",
+      "aqe": true,
+      "scale": {
+        "orders": {
+          "rows": 300000000,
+          "bytes": 25769803776,
+          "partitions": 192
+        }
+      },
+      "checks": [
+        {
+          "id": "plan-single-shuffle",
+          "description": "The plan uses at most one shuffle exchange.",
+          "rule": "max_exchanges",
+          "value": 1
+        }
+      ]
+    }
+  },
+  {
+    "schema_version": 1,
+    "id": "spark-broadcast-dimension",
+    "version": "1",
+    "title": "Broadcast a dimension above the auto-broadcast threshold",
+    "difficulty": "medium",
+    "topics": [
+      "joins",
+      "broadcast-join",
+      "shuffle"
+    ],
+    "tags": [
+      "spark-lab",
+      "sparklab",
+      "pyspark"
+    ],
+    "origin": "authored",
+    "language": "sparklab",
+    "runtime": "shared-sparklab-v1",
+    "prompt": "Return revenue per region. stores is 48 MB, above the default 10 MB spark.sql.autoBroadcastJoinThreshold, so Spark plans a sort-merge join that shuffles all of sales (72 GB). Make the join a broadcast join so that only the groupBy(\"region\") shuffle remains. Sales for an unknown store are excluded. Output region, revenue.",
+    "sections": [
+      {
+        "title": "Tables",
+        "body": "sales(sale_id INTEGER, store_id INTEGER, amount DOUBLE)\nstores(store_id INTEGER, region VARCHAR)"
+      },
+      {
+        "title": "Output",
+        "body": "Columns in this order: region, revenue. Row order does not matter."
+      },
+      {
+        "title": "Common pitfall",
+        "body": "Spark broadcasts automatically only below spark.sql.autoBroadcastJoinThreshold (10 MB by default). F.broadcast() on the small side overrides that; broadcasting the large side instead fails in real Spark, which refuses to broadcast more than 8 GB."
+      },
+      {
+        "title": "Plan requirement (simulated)",
+        "body": "Besides the result rows, Submit grades the Spark plan SparkLab models for your code at the input sizes listed below. The model applies Spark's exchange and join-strategy rules; it is not Apache Spark, and no data of that size is processed."
+      }
+    ],
+    "starter_source": "from pyspark.sql import functions as F\nsales = spark.table(\"sales\")\nstores = spark.table(\"stores\")\n# Right result, but a sort-merge join shuffles both inputs.\nresult = sales.join(stores, on=\"store_id\", how=\"inner\").groupBy(\"region\").agg(F.sum(\"amount\").alias(\"revenue\"))\n",
+    "fixtures": [
+      {
+        "id": "spark-broadcast-dimension-fixtures",
+        "version": "1"
+      }
+    ],
+    "visible_checks": [
+      {
+        "id": "example",
+        "description": "Public example: the tables shown in data_context."
+      }
+    ],
+    "hidden_check_refs": [
+      "unknown-store"
+    ],
+    "edge_check_refs": [
+      "no-sales"
+    ],
+    "hints": [
+      "F.broadcast(df) marks a DataFrame to be sent to every executor.",
+      "Keep sales on the left and broadcast the small right side."
+    ],
+    "solution": {
+      "available": true,
+      "reveal": "explicit"
+    },
+    "explanation": "A broadcast hash join ships the 48 MB stores table to every executor and streams sales without moving it, which removes both join exchanges. The aggregation by region still needs one hash exchange. Broadcasting costs executor and driver memory, so reserve it for inputs that comfortably fit, or raise the threshold deliberately.",
+    "follow_ups": [
+      "Could AQE have switched to a broadcast join at runtime here? Why not?",
+      "What happens with F.broadcast(sales)?"
+    ],
+    "canonical_placement": {
+      "domain": "sparklab",
+      "topic": "joins"
+    },
+    "related_associations": [
+      "sparklab/spark-concepts"
+    ],
+    "recommendation": {
+      "rank": 10,
+      "reason": "Spark lab progression"
+    },
+    "validator_version": "rows-v2",
+    "validation": {
+      "kind": "rows",
+      "ordered": false,
+      "duplicate_sensitive": true,
+      "relative_tolerance": 1e-09,
+      "absolute_tolerance": 1e-06,
+      "required_columns": [
+        "region",
+        "revenue"
+      ],
+      "exact_schema": [
+        "region",
+        "revenue"
+      ],
+      "forbidden_extra_columns": true,
+      "null_semantics": "equal"
+    },
+    "data_context": [
+      {
+        "name": "sales",
+        "columns": {
+          "sale_id": "INTEGER",
+          "store_id": "INTEGER",
+          "amount": "DOUBLE"
+        },
+        "sample_rows": [
+          {
+            "sale_id": 1,
+            "store_id": 1,
+            "amount": 100.0
+          },
+          {
+            "sale_id": 2,
+            "store_id": 2,
+            "amount": 40.0
+          },
+          {
+            "sale_id": 3,
+            "store_id": 1,
+            "amount": 60.0
+          }
+        ]
+      },
+      {
+        "name": "stores",
+        "columns": {
+          "store_id": "INTEGER",
+          "region": "VARCHAR"
+        },
+        "sample_rows": [
+          {
+            "store_id": 1,
+            "region": "North"
+          },
+          {
+            "store_id": 2,
+            "region": "South"
+          }
+        ]
+      }
+    ],
+    "output_schema": {
+      "region": "value",
+      "revenue": "value"
+    },
+    "runtime_requirements": [
+      "sparklab"
+    ],
+    "provenance": {
+      "source": "Authored for Datapass Workbench: Spark DataFrame pitfalls and plan choices on SparkLab",
+      "fixtures": "Authored for Datapass; expected rows computed from the reference solution and reviewed"
+    },
+    "constraints": {
+      "fixtures": "At most 200 rows per table; complete results are graded, truncated results never pass.",
+      "truth": "Result rows run locally on DuckDB through SparkLab's bounded PySpark subset. Plan checks grade SparkLab's simulated Spark plan, not Apache Spark."
+    },
+    "truth": "semantic-emulation",
+    "spark_plan": {
+      "profile": "generic_8x8",
+      "aqe": true,
+      "scale": {
+        "sales": {
+          "rows": 600000000,
+          "bytes": 77309411328,
+          "partitions": 576
+        },
+        "stores": {
+          "rows": 40000,
+          "bytes": 50331648,
+          "partitions": 1
+        }
+      },
+      "checks": [
+        {
+          "id": "plan-broadcast-join",
+          "description": "The sales-stores join is a broadcast hash join.",
+          "rule": "min_broadcast_joins",
+          "value": 1
+        },
+        {
+          "id": "plan-single-shuffle",
+          "description": "Only the groupBy(\"region\") shuffle exchange remains.",
+          "rule": "max_exchanges",
+          "value": 1
+        }
+      ]
+    }
+  },
+  {
+    "schema_version": 1,
+    "id": "spark-remove-random-repartition",
+    "version": "1",
+    "title": "Drop the random repartition before a window",
+    "difficulty": "medium",
+    "topics": [
+      "partitions",
+      "window-functions",
+      "shuffle"
+    ],
+    "tags": [
+      "spark-lab",
+      "sparklab",
+      "pyspark"
+    ],
+    "origin": "authored",
+    "language": "sparklab",
+    "runtime": "shared-sparklab-v1",
+    "prompt": "Number each customer's orders chronologically as order_seq (1 = first order; order_id breaks ties on order_ts). The inherited code calls repartition(400) first \"to speed things up\". The plan may use at most one shuffle exchange. Output order_id, customer_id, order_ts, amount, order_seq.",
+    "sections": [
+      {
+        "title": "Tables",
+        "body": "orders(order_id INTEGER, customer_id INTEGER, order_ts TIMESTAMP, amount DOUBLE)"
+      },
+      {
+        "title": "Output",
+        "body": "Columns in this order: order_id, customer_id, order_ts, amount, order_seq. Row order does not matter."
+      },
+      {
+        "title": "Common pitfall",
+        "body": "repartition(400) distributes rows round-robin, so the window still has to shuffle again by customer_id: two full shuffles for one result. A window partitioned by customer_id brings its own exchange."
+      },
+      {
+        "title": "Plan requirement (simulated)",
+        "body": "Besides the result rows, Submit grades the Spark plan SparkLab models for your code at the input sizes listed below. The model applies Spark's exchange and join-strategy rules; it is not Apache Spark, and no data of that size is processed."
+      }
+    ],
+    "starter_source": "from pyspark.sql import functions as F\nfrom pyspark.sql.window import Window\norders = spark.table(\"orders\")\nw = Window.partitionBy(\"customer_id\").orderBy(\"order_ts\", \"order_id\")\n# Right result, but repartition(400) adds a second full shuffle.\nresult = orders.repartition(400).withColumn(\"order_seq\", F.row_number().over(w))\n",
+    "fixtures": [
+      {
+        "id": "spark-remove-random-repartition-fixtures",
+        "version": "1"
+      }
+    ],
+    "visible_checks": [
+      {
+        "id": "example",
+        "description": "Public example: the tables shown in data_context."
+      }
+    ],
+    "hidden_check_refs": [
+      "timestamp-ties"
+    ],
+    "edge_check_refs": [
+      "single-order"
+    ],
+    "hints": [
+      "Which exchange does Window.partitionBy(\"customer_id\") already require?",
+      "Does a round-robin repartition put one customer's orders in the same partition?"
+    ],
+    "solution": {
+      "available": true,
+      "reveal": "explicit"
+    },
+    "explanation": "The window needs rows clustered by customer_id and adds that hash exchange itself. A round-robin repartition(400) does not cluster by customer, so the window shuffles again. Removing it leaves one exchange. repartition(400, \"customer_id\") would also pass: its hash partitioning already satisfies the window, so it replaces the window's exchange rather than adding one.",
+    "follow_ups": [
+      "When is an explicit repartition before a window worth it?"
+    ],
+    "canonical_placement": {
+      "domain": "sparklab",
+      "topic": "partitions"
+    },
+    "related_associations": [
+      "sparklab/spark-concepts"
+    ],
+    "recommendation": {
+      "rank": 11,
+      "reason": "Spark lab progression"
+    },
+    "validator_version": "rows-v2",
+    "validation": {
+      "kind": "rows",
+      "ordered": false,
+      "duplicate_sensitive": true,
+      "relative_tolerance": 1e-09,
+      "absolute_tolerance": 1e-06,
+      "required_columns": [
+        "order_id",
+        "customer_id",
+        "order_ts",
+        "amount",
+        "order_seq"
+      ],
+      "exact_schema": [
+        "order_id",
+        "customer_id",
+        "order_ts",
+        "amount",
+        "order_seq"
+      ],
+      "forbidden_extra_columns": true,
+      "null_semantics": "equal"
+    },
+    "data_context": [
+      {
+        "name": "orders",
+        "columns": {
+          "order_id": "INTEGER",
+          "customer_id": "INTEGER",
+          "order_ts": "TIMESTAMP",
+          "amount": "DOUBLE"
+        },
+        "sample_rows": [
+          {
+            "order_id": 1,
+            "customer_id": 10,
+            "order_ts": "2026-01-05 10:00:00",
+            "amount": 20.0
+          },
+          {
+            "order_id": 2,
+            "customer_id": 10,
+            "order_ts": "2026-01-03 09:00:00",
+            "amount": 15.0
+          },
+          {
+            "order_id": 3,
+            "customer_id": 20,
+            "order_ts": "2026-01-04 08:00:00",
+            "amount": 30.0
+          }
+        ]
+      }
+    ],
+    "output_schema": {
+      "order_id": "value",
+      "customer_id": "value",
+      "order_ts": "value",
+      "amount": "value",
+      "order_seq": "value"
+    },
+    "runtime_requirements": [
+      "sparklab"
+    ],
+    "provenance": {
+      "source": "Authored for Datapass Workbench: Spark DataFrame pitfalls and plan choices on SparkLab",
+      "fixtures": "Authored for Datapass; expected rows computed from the reference solution and reviewed"
+    },
+    "constraints": {
+      "fixtures": "At most 200 rows per table; complete results are graded, truncated results never pass.",
+      "truth": "Result rows run locally on DuckDB through SparkLab's bounded PySpark subset. Plan checks grade SparkLab's simulated Spark plan, not Apache Spark."
+    },
+    "truth": "semantic-emulation",
+    "spark_plan": {
+      "profile": "generic_8x8",
+      "aqe": true,
+      "scale": {
+        "orders": {
+          "rows": 300000000,
+          "bytes": 25769803776,
+          "partitions": 192
+        }
+      },
+      "checks": [
+        {
+          "id": "plan-single-shuffle",
+          "description": "The plan uses at most one shuffle exchange.",
+          "rule": "max_exchanges",
+          "value": 1
+        }
+      ]
+    }
+  },
+  {
+    "schema_version": 1,
+    "id": "spark-window-instead-of-self-join",
+    "version": "1",
+    "title": "Replace an aggregate self-join with a window",
+    "difficulty": "medium",
+    "topics": [
+      "window-functions",
+      "joins",
+      "shuffle"
+    ],
+    "tags": [
+      "spark-lab",
+      "sparklab",
+      "pyspark"
+    ],
+    "origin": "authored",
+    "language": "sparklab",
+    "runtime": "shared-sparklab-v1",
+    "prompt": "Return every order with its customer's total (customer_total) and the order's share of it (amount_share = amount / customer_total). The inherited code aggregates and joins the totals back; compute it with at most one shuffle exchange. Output order_id, customer_id, amount, customer_total, amount_share.",
+    "sections": [
+      {
+        "title": "Tables",
+        "body": "orders(order_id INTEGER, customer_id INTEGER, amount DOUBLE)"
+      },
+      {
+        "title": "Output",
+        "body": "Columns in this order: order_id, customer_id, amount, customer_total, amount_share. Row order does not matter."
+      },
+      {
+        "title": "Common pitfall",
+        "body": "groupBy + join back shuffles the orders for the aggregate and again for the join. A window partitioned by customer_id computes the same total on every row with a single exchange. Adding orderBy to that window would turn the total into a running sum."
+      },
+      {
+        "title": "Plan requirement (simulated)",
+        "body": "Besides the result rows, Submit grades the Spark plan SparkLab models for your code at the input sizes listed below. The model applies Spark's exchange and join-strategy rules; it is not Apache Spark, and no data of that size is processed."
+      }
+    ],
+    "starter_source": "from pyspark.sql import functions as F\norders = spark.table(\"orders\")\n# Right result, but the orders are shuffled for the aggregate and again for the join.\ntotals = orders.groupBy(\"customer_id\").agg(F.sum(\"amount\").alias(\"customer_total\"))\njoined = orders.join(totals, on=\"customer_id\", how=\"inner\")\nresult = (\n    joined.withColumn(\"amount_share\", F.col(\"amount\") / F.col(\"customer_total\"))\n    .select(\"order_id\", \"customer_id\", \"amount\", \"customer_total\", \"amount_share\")\n)\n",
+    "fixtures": [
+      {
+        "id": "spark-window-instead-of-self-join-fixtures",
+        "version": "1"
+      }
+    ],
+    "visible_checks": [
+      {
+        "id": "example",
+        "description": "Public example: the tables shown in data_context."
+      }
+    ],
+    "hidden_check_refs": [
+      "three-orders"
+    ],
+    "edge_check_refs": [
+      "single-order"
+    ],
+    "hints": [
+      "F.sum(\"amount\").over(Window.partitionBy(\"customer_id\")) puts the customer total on every row.",
+      "Leave orderBy out of this window: with orderBy the default frame stops at the current row."
+    ],
+    "solution": {
+      "available": true,
+      "reveal": "explicit"
+    },
+    "explanation": "A window aggregate keeps every input row and needs one hash exchange by customer_id. The self-join version exchanges the orders once for the aggregate and once more for the join (the aggregated side is already partitioned by customer_id, so it is reused).",
+    "follow_ups": [
+      "When is the groupBy + broadcast join version a reasonable alternative?"
+    ],
+    "canonical_placement": {
+      "domain": "sparklab",
+      "topic": "window-functions"
+    },
+    "related_associations": [
+      "sparklab/spark-concepts"
+    ],
+    "recommendation": {
+      "rank": 12,
+      "reason": "Spark lab progression"
+    },
+    "validator_version": "rows-v2",
+    "validation": {
+      "kind": "rows",
+      "ordered": false,
+      "duplicate_sensitive": true,
+      "relative_tolerance": 1e-09,
+      "absolute_tolerance": 1e-06,
+      "required_columns": [
+        "order_id",
+        "customer_id",
+        "amount",
+        "customer_total",
+        "amount_share"
+      ],
+      "exact_schema": [
+        "order_id",
+        "customer_id",
+        "amount",
+        "customer_total",
+        "amount_share"
+      ],
+      "forbidden_extra_columns": true,
+      "null_semantics": "equal"
+    },
+    "data_context": [
+      {
+        "name": "orders",
+        "columns": {
+          "order_id": "INTEGER",
+          "customer_id": "INTEGER",
+          "amount": "DOUBLE"
+        },
+        "sample_rows": [
+          {
+            "order_id": 1,
+            "customer_id": 10,
+            "amount": 20.0
+          },
+          {
+            "order_id": 2,
+            "customer_id": 10,
+            "amount": 30.0
+          },
+          {
+            "order_id": 3,
+            "customer_id": 20,
+            "amount": 50.0
+          }
+        ]
+      }
+    ],
+    "output_schema": {
+      "order_id": "value",
+      "customer_id": "value",
+      "amount": "value",
+      "customer_total": "value",
+      "amount_share": "value"
+    },
+    "runtime_requirements": [
+      "sparklab"
+    ],
+    "provenance": {
+      "source": "Authored for Datapass Workbench: Spark DataFrame pitfalls and plan choices on SparkLab",
+      "fixtures": "Authored for Datapass; expected rows computed from the reference solution and reviewed"
+    },
+    "constraints": {
+      "fixtures": "At most 200 rows per table; complete results are graded, truncated results never pass.",
+      "truth": "Result rows run locally on DuckDB through SparkLab's bounded PySpark subset. Plan checks grade SparkLab's simulated Spark plan, not Apache Spark."
+    },
+    "truth": "semantic-emulation",
+    "spark_plan": {
+      "profile": "generic_8x8",
+      "aqe": true,
+      "scale": {
+        "orders": {
+          "rows": 300000000,
+          "bytes": 25769803776,
+          "partitions": 192
+        }
+      },
+      "checks": [
+        {
+          "id": "plan-single-shuffle",
+          "description": "The plan uses at most one shuffle exchange.",
+          "rule": "max_exchanges",
+          "value": 1
+        }
+      ]
+    }
+  }
+]

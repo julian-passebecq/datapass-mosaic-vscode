@@ -37,6 +37,7 @@ RESERVED_TABLES = {'source', 'bronze', 'silver', 'gold', 'warehouse', 'features'
                    # Python grading namespace names that a table must not shadow.
                    'input_rows', 'tables', 'display', 'query', 'publish'}
 NAMED_TABLE_LANGUAGES = {'sql', 'python', 'polars', 'sparklab'}
+CLUSTER_PROFILES = set(json.loads((Path(__file__).resolve().parents[1] / 'sparklab' / 'cluster_profiles.json').read_text(encoding='utf-8')))
 
 
 class GradingDefinition(Contract):
@@ -92,6 +93,17 @@ class PackRegistry:
                     for context in definition.data_context:
                         if any(set(row) != set(context.columns) for row in fixture.tables[context.name]):
                             raise ValueError('Fixture table schema disagrees with data_context: '+definition.id+'.'+context.name)
+            if definition.spark_plan is not None:
+                plan = definition.spark_plan
+                if definition.language != 'sparklab':
+                    raise ValueError('spark_plan checks require a SparkLab exercise: '+definition.id)
+                if not set(plan.scale) <= {c.name for c in definition.data_context} | {'input'}:
+                    raise ValueError('spark_plan scale names a table the exercise does not read: '+definition.id)
+                check_ids = [c.id for c in plan.checks]
+                if len(check_ids) != len(set(check_ids)) or set(check_ids) & set(ids):
+                    raise ValueError('spark_plan check ids must be unique and distinct from fixture ids: '+definition.id)
+                if plan.profile not in CLUSTER_PROFILES:
+                    raise ValueError('Unknown SparkLab cluster profile in '+definition.id)
             for fixture in private.fixtures:
                 if (fixture.scenario is not None) != (definition.language == 'airflow'):
                     raise ValueError('Airflow fixtures, and only they, need a simulation scenario: '+definition.id)

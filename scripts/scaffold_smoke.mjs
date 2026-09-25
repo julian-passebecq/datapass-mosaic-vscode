@@ -125,6 +125,27 @@ try {
   assert.match(brief, /<details><summary>Hint 1<\/summary>/);
   assert.match(brief, /## Common pitfall/);
   assert.match(brief, /hidden and edge-case fixtures that are not shown/);
+  assert.ok(!brief.includes("Spark plan checks"), "no plan section without spark_plan");
+
+  const sparkBrief = readmeMod.exerciseReadme({
+    key: "spark-lab-v1/b/sparklab", packId: "spark-lab-v1", packTitle: "Spark lab", id: "b", version: "1",
+    title: "Broadcast", difficulty: "medium", language: "sparklab", prompt: "Revenue per region.",
+    starterSource: "x", truth: "semantic-emulation", topics: ["joins"], sections: [], hints: [], dataContext: [],
+    sparkPlan: {
+      profile: "generic_8x8", aqe: true,
+      scale: [
+        { table: "sales", rows: 600000000, bytes: 72 * 1024 ** 3, partitions: 576, catalogStatistics: true },
+        { table: "stores", rows: 40000, bytes: 48 * 1024 ** 2, partitions: 1, catalogStatistics: false }
+      ],
+      checks: [{ id: "plan-broadcast-join", description: "The join is a broadcast hash join." }]
+    }
+  });
+  assert.match(sparkBrief, /## Spark plan checks \(simulated\)/);
+  assert.match(sparkBrief, /`generic_8x8` profile, AQE on/);
+  assert.ok(sparkBrief.includes("| `sales` | 600,000,000 | 72 GB | 576 | available |"), sparkBrief);
+  assert.ok(sparkBrief.includes("| `stores` | 40,000 | 48 MB | 1 | unavailable |"));
+  assert.match(sparkBrief, /- \*\*plan-broadcast-join\*\*: The join is a broadcast hash join\./);
+  assert.match(sparkBrief, /Both also grade the simulated Spark plan checks/);
 
   const airflowBrief = readmeMod.exerciseReadme({
     key: "airflow-lab-v1/a/airflow", packId: "airflow-lab-v1", packTitle: "Airflow lab", id: "a", version: "1",

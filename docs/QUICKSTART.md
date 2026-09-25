@@ -88,6 +88,8 @@ Use **SparkLab / ZilaCode** for bounded PySpark DataFrame practice.
 
 The source is parsed by a whitelist, never executed as Python. Result rows and compiled SQL are real local computation; the logical plan is a teaching plan; stages, shuffle, virtual duration and credits are explicitly simulated. The supported API is deliberately narrower than PySpark and unsupported syntax is rejected.
 
+For targeted Spark practice, filter Practice on **Spark lab**: 12 exercises on DataFrame pitfalls (left-join filters, semi joins, `eqNullSafe`, join fan-out, RANGE vs ROWS frames, ...) and plan choices (broadcast joins, `coalesce` vs `repartition`, one-pass aggregation, windows instead of self-joins). Plan exercises are also graded on the simulated Spark plan at the input sizes shown in their brief, for example "at most one shuffle exchange".
+
 ### Trusted local Python (opt-in)
 
 Python/Polars files are not executed by default. To run them from Mosaic (**Run active Python**), Practice or Pipeline Lab, choose **Enable trusted local Python…** in Mosaic's Python / Polars block and confirm the warning. This executes real local code with your permissions; the runtime worker is not a sandbox. The choice is stored as `runtime.trustedLocalPython` in `.datapass/project.json` plus a confirmation on this machine, and requires VS Code Workspace Trust.
@@ -148,7 +150,7 @@ The runtime is a local IPC/control plane, not a separate Datapass web applicatio
 | Mosaic | VS Code files, DuckDB SQL; Python/Polars only after trusted-Python opt-in | optional teaching overlays |
 | Practice | VS Code files, local tests/runners | exercise scenarios where explicitly marked |
 | Fabric Lab | local files, DuckDB/DuckLake | Fabric UI/orchestration semantics |
-| SparkLab | whitelist parser, compiled SQL and result rows computed locally | stages, shuffle, duration, credits, cluster behavior |
+| SparkLab | whitelist parser, compiled SQL and result rows computed locally | stages, shuffle exchanges, duration, credits, cluster behavior; Practice plan checks grade this model |
 | dbt Lab | dbt Core + DuckDB when installed | static lineage fallback is not execution |
 | Airflow Lab | DAG files (Lab and Practice) are parsed, never executed | scheduler/executor/task runtime, runs, task states, logs, rendered templates |
 | Pipeline Lab | source files, bounded compiler, SQL/quality execution; Python/Polars after trusted-Python opt-in | scheduler/service semantics; dbt activity declared only, never executed or reported as success |
