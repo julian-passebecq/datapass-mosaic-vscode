@@ -4,7 +4,7 @@ Local-first VS Code data-engineering practice environment.
 
 ## Product split
 
-- **Datapass Workbench (this repository):** Mosaic, LeetCode-style practice, local Fabric-style notebooks/pipelines, SparkLab/ZilaCode, dbt lineage, Airflow simulation and pipeline orchestration.
+- **Datapass Workbench (this repository):** Mosaic, LeetCode-style practice, local Fabric-style notebooks/pipelines, SparkLab/ZilaCode, a real-life dbt Lab (real dbt Core and dbt Charts in a VS Code terminal, with missions), Airflow simulation and pipeline orchestration.
 - **Datapass WorkNotebook (standalone web):** cheatsheets, references, lightweight playgrounds and public/free learning areas.
 - **Contoso Data Studio:** separate C# application and optional dataset/case-study source.
 
@@ -15,19 +15,20 @@ VS Code owns editing, files, terminals, Git and Jupyter. Datapass owns the teach
 ```text
 VS Code
 ├─ Native editor / Explorer / Terminal / Git / Jupyter
-├─ Datapass activity bar
+├─ Datapass activity bar (Labs, Catalog)
 │  ├─ Mosaic
 │  ├─ Practice
 │  ├─ Fabric Lab
 │  ├─ SparkLab / ZilaCode
-│  ├─ dbt Lab
+│  ├─ dbt Lab (real dbt Core + dbt Charts, missions)
 │  ├─ Airflow Lab
 │  └─ Pipeline Lab
 └─ Datapass local runtime
    ├─ FastAPI control plane
    ├─ DuckDB / DuckLake
    ├─ Polars
-   ├─ dbt adapter
+   ├─ catalog handoff to the learner's dbt Core / dct runs
+   ├─ missions checker
    ├─ SparkLab simulation
    └─ workflow/scheduler simulation
 ```
