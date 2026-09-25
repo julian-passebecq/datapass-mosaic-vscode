@@ -13,6 +13,10 @@ from typing import Any, Callable
 
 REFERENCE = re.compile(r'\{\{\s*([^{}]*?)\s*\}\}')
 NAMESPACES = {'job', 'task', 'tasks', 'workspace', 'input', 'backfill'}
+# Deprecated references Databricks still resolves, and their current equivalents.
+DEPRECATED = {'job_id': ['job', 'id'], 'run_id': ['task', 'run_id'], 'start_date': ['job', 'start_time', 'iso_date'],
+              'start_time': ['job', 'start_time', 'timestamp_ms'], 'task_retry_count': ['task', 'retry_count'],
+              'parent_run_id': ['job', 'run_id'], 'task_key': ['task', 'name']}
 TIME_ARGS = ('iso_weekday', 'is_weekday', 'iso_date', 'iso_datetime', 'year', 'month', 'day', 'hour', 'minute',
              'second', 'timestamp_ms')
 RESULT_STATES = ('success', 'failed', 'excluded', 'canceled', 'evicted', 'timedout', 'upstream_canceled',
@@ -62,6 +66,8 @@ def resolve(text: str, lookup: Callable[[list[str]], Any]) -> str:
     """Replace every reference of `text`; `lookup` raises ReferenceError_ for an invalid known reference."""
     def replace(match: re.Match[str]) -> str:
         path = split_path(match.group(1))
+        if len(path) == 1 and path[0] in DEPRECATED:
+            path = DEPRECATED[path[0]]
         if not path or path[0] not in NAMESPACES:
             return match.group(0)  # unknown namespace: literal text, as Databricks does
         return as_text(lookup(path))

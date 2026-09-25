@@ -55,6 +55,10 @@ export function exerciseReadme(exercise: ExerciseSummary): string {
         ? "**Run visible** runs the pipeline in the public scenario. **Submit** also runs hidden and edge-case " +
           "scenarios that are not shown here. The pipeline is simulated; notebooks run on SparkLab and are never " +
           "executed as Python; local data activities use an isolated catalog, never your workspace lakehouse."
+        : exercise.language.startsWith("databricks-")
+          ? "**Run visible** runs the job in the public scenario. **Submit** also runs hidden and edge-case scenarios " +
+            "that are not shown here. The job is simulated; notebooks run on SparkLab and are never executed as Python; " +
+            "each check uses an isolated catalog and Unity Catalog, never your workspace lakehouse."
         : exercise.language === "sqlpool"
           ? "**Run visible** runs your T-SQL on the simulated SQL pool in the public scenario. **Submit** also runs " +
             "hidden and edge-case scenarios that are not shown here. Each check uses an isolated catalog, never your " +

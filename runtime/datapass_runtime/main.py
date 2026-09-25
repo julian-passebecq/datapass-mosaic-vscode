@@ -168,7 +168,8 @@ class ExerciseGradeRequest(BaseModel):
     model_config = ConfigDict(extra="forbid", strict=True)
     exercise_id: str = Field(pattern=r"^[A-Za-z0-9_-]{1,100}$")
     exercise_version: str = Field(min_length=1, max_length=40)
-    language: Literal["sql", "sparklab", "python", "polars", "dbt", "airflow", "factory", "factory-notebook", "sqlpool"]
+    language: Literal["sql", "sparklab", "python", "polars", "dbt", "airflow", "factory", "factory-notebook", "sqlpool",
+                      "databricks-job", "databricks-notebook", "databricks-grants"]
     code: str = Field(min_length=1, max_length=40000)
     mode: Literal["run", "submit"]
     notebook_id: str = Field(pattern=r"^[A-Za-z0-9_-]{1,100}$")

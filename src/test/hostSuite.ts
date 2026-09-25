@@ -469,6 +469,20 @@ export async function run(): Promise<void> {
       const synapseOptions = await submit(fabricPort, fabricPort.starterSource);
       assert.equal(synapseOptions.status, "failed");
       assert.match(synapseOptions.checks[0].message, /takes no DISTRIBUTION/);
+      // Databricks: jobs, notebooks and grants graded on simulated runs, each on an isolated catalog.
+      const databricks = catalog.filter(item => item.packId === "databricks-v1");
+      assert.equal(databricks.length, 13);
+      assert.deepEqual([...new Set(databricks.map(item => item.language))].sort(), ["databricks-grants", "databricks-job", "databricks-notebook"]);
+      const dbxGrading = JSON.parse(new TextDecoder().decode(await vscode.workspace.fs.readFile(
+        vscode.Uri.joinPath(extension.extensionUri, "content", "exercise-packs", "databricks-v1", "grading.server.json")
+      ))) as Record<string, { solution: string }>;
+      const leastPrivilege = databricks.find(item => item.id === "uc-least-privilege-job")!;
+      const granted = await submit(leastPrivilege, dbxGrading[leastPrivilege.id].solution);
+      assert.equal(granted.status, "passed", JSON.stringify(granted.checks));
+      assert.equal((await submit(leastPrivilege, "GRANT ALL PRIVILEGES ON CATALOG main TO `sp-etl`;")).status, "failed");
+      const taskValue = databricks.find(item => item.id === "dbx-task-value-notebook")!;
+      assert.equal((await submit(taskValue, dbxGrading[taskValue.id].solution)).status, "passed");
+      assert.equal((await submit(taskValue, taskValue.starterSource)).status, "failed", "an exit value is not a task value");
       await runtime!.refreshCatalog();
       assert.equal(JSON.stringify(runtime!.snapshot().catalog?.map(item => [item.name, item.row_count])), catalogBefore,
         "exercise grading must not touch the workspace catalog");
