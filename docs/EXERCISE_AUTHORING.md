@@ -28,7 +28,7 @@ Every exercise needs exactly one visible, and any number of hidden and edge fixt
 
 Language `snowflake` (the learner writes Snowflake SQL, `solution.sql`), truth `semantic-emulation`, labelled
 "Snowflake SQL dialect translated to DuckDB, not Snowflake". The query is translated with sqlglot by
-`runtime/snowflakesql` (see its README for the subset) and graded exactly like a `sql` exercise: the same fixtures, the
+`runtime/sqldialects` (see its README for the subset) and graded exactly like a `sql` exercise: the same fixtures, the
 same typed CTEs, the same result contract. A query outside the subset fails the check with the refusal message (the
 function's name), so references, starters and mutants must stay inside it.
 

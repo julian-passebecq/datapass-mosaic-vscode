@@ -52,7 +52,7 @@ See `docs/ARCHITECTURE.md` for the target architecture and `docs/HARVEST_AUDIT.m
 
 ## Practice packs
 
-Practice grades native solution files on the local runtime (see `docs/EXERCISE_AUTHORING.md` for every pack). `zilla-v1` brings the 52 ZillaCode problems (Apache-2.0) with one result contract per problem in DuckDB SQL, Snowflake SQL, pandas, Polars, SparkLab and dbt. The Snowflake variant is labelled "Snowflake SQL dialect translated to DuckDB, not Snowflake": the query is translated with sqlglot for a documented subset (`runtime/snowflakesql/README.md`) and runs on local DuckDB; nothing connects to Snowflake.
+Practice grades native solution files on the local runtime (see `docs/EXERCISE_AUTHORING.md` for every pack). `zilla-v1` brings the 52 ZillaCode problems (Apache-2.0) with one result contract per problem in DuckDB SQL, Snowflake SQL, pandas, Polars, SparkLab and dbt. The Snowflake variant is labelled "Snowflake SQL dialect translated to DuckDB, not Snowflake": the query is translated with sqlglot for a documented subset (`runtime/sqldialects/README.md`) and runs on local DuckDB; nothing connects to Snowflake.
 
 ## Try the connected demo
 

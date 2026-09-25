@@ -118,6 +118,10 @@ def _execute(request, response):
     facts: dict[str, Any] = {'columns': [str(c) for c in _list(result.get('columns'))],
                              'rows': result.get('total_rows')}
     truth = 'real'
+    if request.get('dialect'):
+        # Another dialect translated to DuckDB: the DuckDB run is real, the dialect's semantics are emulated.
+        truth = 'emulation'
+        facts['dialect'] = request['dialect']
     if language == 'sparklab':
         truth = 'emulation'
         plan = _dict(_dict(_dict(response.get('simulation')).get('metrics')).get('plan_facts'))
