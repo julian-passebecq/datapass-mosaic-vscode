@@ -1,0 +1,287 @@
+{
+  "flags": {
+    "runnable_starters": true
+  },
+  "mutants": {
+    "zilla-001-popular-videos-sparklab": [
+      "from pyspark.sql import functions as F\nvideos = spark.table(\"input_df\")\nvideos.filter((F.col(\"view_count\") > 1000000) & (F.col(\"release_year\") >= 2019)).select(\"video_id\", \"title\", \"genre\", \"release_year\", \"duration\", \"view_count\").distinct()\n"
+    ],
+    "zilla-001-popular-videos-sql": [
+      "SELECT video_id, title, genre, release_year, duration, view_count FROM input_df WHERE view_count >= 1000000 AND release_year >= 2019",
+      "SELECT video_id, title, genre, release_year, duration, view_count FROM input_df WHERE view_count > 1000000 AND release_year > 2019"
+    ],
+    "zilla-002-crm-orders-sql": [
+      "SELECT o.order_id, concat_ws(' ', c.first_name, c.last_name) AS customer_name, c.email AS customer_email, p.product_name, p.category AS product_category, o.order_date FROM orders AS o JOIN customers AS c ON o.customer_id = c.customer_id JOIN products AS p ON o.product_id = p.product_id",
+      "SELECT o.order_id, c.first_name || ' ' || c.last_name AS customer_name, c.email AS customer_email, p.product_name, p.category AS product_category, o.order_date FROM orders AS o JOIN customers AS c ON o.customer_id = c.customer_id LEFT JOIN products AS p ON o.product_id = p.product_id"
+    ],
+    "zilla-003-landlord-income-python": [
+      "import pandas as pd\n\ndef etl(properties_df, landlords_df):\n    income = properties_df.groupby(\"landlord_id\", as_index=False)[\"rent\"].sum().rename(columns={\"rent\": \"total_rental_income\"})\n    result = income.merge(landlords_df.drop_duplicates(), on=\"landlord_id\")\n    result[\"landlord_name\"] = result[\"first_name\"] + \" \" + result[\"last_name\"]\n    return result[[\"landlord_id\", \"landlord_name\", \"total_rental_income\"]]\n\n\ndisplay(etl(pd.DataFrame(properties_df), pd.DataFrame(landlords_df)))\n"
+    ],
+    "zilla-003-landlord-income-sql": [
+      "SELECT l.landlord_id, l.first_name || ' ' || l.last_name AS landlord_name, SUM(p.rent) AS total_rental_income FROM properties_df AS p JOIN landlords_df AS l ON p.landlord_id = l.landlord_id GROUP BY l.landlord_id, l.first_name, l.last_name"
+    ],
+    "zilla-004-pii-masking-python": [
+      "import pandas as pd\n\ndef etl(input_df):\n    return pd.DataFrame({\n        \"user_id\": input_df[\"user_id\"],\n        \"email_domain\": input_df[\"email\"].str.split(\"@\").str[1],\n        \"anon_phone\": \"******\" + input_df[\"phone\"].astype(str).str[6:],\n    })\n\n\ndisplay(etl(pd.DataFrame(input_df)))\n"
+    ],
+    "zilla-004-pii-masking-sql": [
+      "SELECT user_id, split_part(email, '@', 2) AS email_domain, concat('******', substr(CAST(phone AS VARCHAR), 7)) AS anon_phone FROM input_df"
+    ],
+    "zilla-005-category-orders-sparklab": [
+      "from pyspark.sql import functions as F\norders = spark.table(\"orders_df\")\nproducts = spark.table(\"products_df\")\nproducts.join(orders, \"product_id\", \"left\").groupBy(\"category\").agg(F.avg(\"price\").alias(\"avg_price\"), F.count(\"order_id\").alias(\"total_orders_count\"))\n"
+    ],
+    "zilla-005-category-orders-sql": [
+      "SELECT p.category, AVG(p.price) AS avg_price, COUNT(o.order_id) AS total_orders_count FROM products_df AS p LEFT JOIN orders_df AS o ON o.product_id = p.product_id GROUP BY p.category"
+    ],
+    "zilla-006-replace-word-polars": [
+      "import polars as pl\n\ndef etl(social_media):\n    return social_media.with_columns(pl.col(\"text\").str.replace(\"Python\", \"PySpark\", literal=True))\n\n\ndisplay(etl(pl.DataFrame(social_media)))\n"
+    ],
+    "zilla-006-replace-word-sql": [
+      "SELECT id, regexp_replace(text, 'Python', 'PySpark') AS text, date, likes, comments, shares, platform FROM social_media"
+    ],
+    "zilla-007-top-products-snowflake": [
+      "SELECT p.category, p.product_name, SUM(s.revenue) AS revenue, RANK() OVER (PARTITION BY p.category ORDER BY SUM(s.revenue) DESC) AS rank FROM products AS p JOIN sales AS s ON p.product_id = s.product_id GROUP BY p.product_id, p.category, p.product_name QUALIFY rank <= 3"
+    ],
+    "zilla-007-top-products-sql": [
+      "WITH r AS (SELECT p.category, p.product_name, SUM(s.revenue) AS revenue FROM products AS p JOIN sales AS s ON p.product_id = s.product_id GROUP BY p.product_id, p.category, p.product_name), k AS (SELECT category, product_name, revenue, RANK() OVER (PARTITION BY category ORDER BY revenue DESC) AS rank FROM r) SELECT category, product_name, revenue, rank FROM k WHERE rank <= 3",
+      "WITH r AS (SELECT p.category, p.product_name, SUM(s.revenue) AS revenue FROM products AS p JOIN sales AS s ON p.product_id = s.product_id GROUP BY p.product_id, p.category, p.product_name), k AS (SELECT category, product_name, revenue, ROW_NUMBER() OVER (PARTITION BY category ORDER BY revenue DESC) AS rank FROM r) SELECT category, product_name, revenue, rank FROM k WHERE rank <= 3"
+    ],
+    "zilla-008-calls-per-day-sql": [
+      "SELECT c.date, COUNT(c.cust_id) AS num_customers, SUM(c.duration) AS total_duration FROM calls_df AS c JOIN customers_df AS cu ON c.cust_id = cu.cust_id GROUP BY c.date",
+      "SELECT date, COUNT(DISTINCT cust_id) AS num_customers, SUM(duration) AS total_duration FROM calls_df GROUP BY date"
+    ],
+    "zilla-009-author-numbers-sql": [
+      "SELECT a.paper_id, a.author_id, a.name, ROW_NUMBER() OVER (PARTITION BY a.paper_id ORDER BY a.author_id) AS row_number FROM authors AS a JOIN research_papers AS p ON a.paper_id = p.paper_id",
+      "SELECT paper_id, author_id, name, ROW_NUMBER() OVER (PARTITION BY paper_id ORDER BY name) AS row_number FROM authors WHERE paper_id IN (SELECT paper_id FROM research_papers)"
+    ],
+    "zilla-010-product-summary-sql": [
+      "SELECT p.product_id, p.name, p.category, COALESCE(SUM(s.quantity), 0) AS total_quantity, COALESCE(SUM(s.revenue), 0) AS total_revenue, COALESCE(SUM(i.stock), 0) AS total_stock FROM products AS p LEFT JOIN sales AS s ON p.product_id = s.product_id LEFT JOIN inventory AS i ON p.product_id = i.product_id GROUP BY p.product_id, p.name, p.category",
+      "WITH sold AS (SELECT product_id, SUM(quantity) AS total_quantity, SUM(revenue) AS total_revenue FROM sales GROUP BY product_id), stocked AS (SELECT product_id, SUM(stock) AS total_stock FROM inventory GROUP BY product_id) SELECT p.product_id, p.name, p.category, s.total_quantity, s.total_revenue, i.total_stock FROM products AS p LEFT JOIN sold AS s ON p.product_id = s.product_id LEFT JOIN stocked AS i ON p.product_id = i.product_id"
+    ],
+    "zilla-011-missing-box-office-python": [
+      "import pandas as pd\n\ndef etl(movies_df):\n    return movies_df[(movies_df[\"box_office_collection\"].isna()) | (movies_df[\"box_office_collection\"] == 0)]\n\n\ndisplay(etl(pd.DataFrame(movies_df)))\n"
+    ],
+    "zilla-011-missing-box-office-sql": [
+      "SELECT * FROM movies_df WHERE box_office_collection = NULL",
+      "SELECT * FROM movies_df WHERE box_office_collection IS NULL OR box_office_collection = 0"
+    ],
+    "zilla-012-append-customers-python": [
+      "import pandas as pd\n\ndef etl(input_df1, input_df2):\n    return pd.concat([input_df1, input_df2], ignore_index=True).drop_duplicates()\n\n\ndisplay(etl(pd.DataFrame(input_df1), pd.DataFrame(input_df2)))\n"
+    ],
+    "zilla-012-append-customers-sql": [
+      "SELECT * FROM input_df1 UNION SELECT * FROM input_df2"
+    ],
+    "zilla-013-last-climb-snowflake": [
+      "SELECT mountain_name, climber_name AS last_climber_name, climb_date AS last_climb_date, climb_time AS last_climb_time FROM mountain_climbers WHERE mountain_name IN (SELECT name FROM mountain_info) QUALIFY ROW_NUMBER() OVER (PARTITION BY mountain_name ORDER BY climb_date DESC) = 1"
+    ],
+    "zilla-013-last-climb-sql": [
+      "WITH r AS (SELECT mountain_name, climber_name, climb_date, climb_time, ROW_NUMBER() OVER (PARTITION BY mountain_name ORDER BY climb_date DESC) AS n FROM mountain_climbers WHERE mountain_name IN (SELECT name FROM mountain_info)) SELECT mountain_name, climber_name AS last_climber_name, climb_date AS last_climb_date, climb_time AS last_climb_time FROM r WHERE n = 1",
+      "WITH r AS (SELECT mountain_name, climber_name, climb_date, climb_time, RANK() OVER (PARTITION BY mountain_name ORDER BY climb_date DESC) AS n FROM mountain_climbers) SELECT mountain_name, climber_name AS last_climber_name, climb_date AS last_climb_date, climb_time AS last_climb_time FROM r WHERE n = 1"
+    ],
+    "zilla-014-pe-full-outer-python": [
+      "import pandas as pd\n\ndef etl(pe_firms, pe_funds, pe_investments):\n    joined = pe_firms.merge(pe_funds, on=\"firm_id\", how=\"outer\").merge(pe_investments, on=\"fund_id\", how=\"outer\")\n    return joined[[\"investment_id\", \"fund_id\", \"firm_id\", \"firm_name\", \"founded_year\", \"location\", \"fund_name\",\n                   \"fund_size\", \"fund_start_year\", \"fund_end_year\", \"company_name\", \"investment_amount\",\n                   \"investment_date\"]]\n\n\ndisplay(etl(pd.DataFrame(pe_firms), pd.DataFrame(pe_funds), pd.DataFrame(pe_investments)))\n"
+    ],
+    "zilla-014-pe-full-outer-sql": [
+      "SELECT i.investment_id, fu.fund_id, f.firm_id, f.firm_name, f.founded_year, f.location, fu.fund_name, fu.fund_size, fu.fund_start_year, fu.fund_end_year, i.company_name, i.investment_amount, i.investment_date FROM pe_firms AS f LEFT JOIN pe_funds AS fu ON f.firm_id = fu.firm_id LEFT JOIN pe_investments AS i ON fu.fund_id = i.fund_id",
+      "SELECT i.investment_id, fu.fund_id, f.firm_id, f.firm_name, f.founded_year, f.location, fu.fund_name, fu.fund_size, fu.fund_start_year, fu.fund_end_year, i.company_name, i.investment_amount, i.investment_date FROM pe_firms AS f FULL OUTER JOIN pe_funds AS fu ON f.firm_id = fu.firm_id FULL OUTER JOIN pe_investments AS i ON fu.fund_id = i.fund_id",
+      "SELECT i.investment_id, COALESCE(fu.fund_id, i.fund_id) AS fund_id, COALESCE(f.firm_id, fu.firm_id) AS firm_id, f.firm_name, f.founded_year, f.location, fu.fund_name, fu.fund_size, fu.fund_start_year, fu.fund_end_year, i.company_name, i.investment_amount, i.investment_date FROM pe_firms AS f FULL OUTER JOIN pe_funds AS fu ON f.firm_id = fu.firm_id FULL OUTER JOIN pe_investments AS i ON fu.fund_id = i.fund_id"
+    ],
+    "zilla-015-best-pages-polars": [
+      "import polars as pl\n\ndef etl(pages):\n    ordered = pages.sort([\"seo_score\", \"url\"], descending=[True, False])\n    best = ordered.unique(\"domain\", keep=\"first\", maintain_order=True)\n    top = pl.col(\"url\") == ordered[\"url\"][0]\n    return best.select(\"domain\", pl.col(\"url\").alias(\"highest_seo_page\"), pl.col(\"seo_score\").alias(\"highest_seo_score\"),\n                       pl.when(top).then(pl.col(\"url\")).alias(\"overall_highest_page\"),\n                       pl.when(top).then(pl.col(\"seo_score\")).alias(\"overall_highest_score\"))\n\n\ndisplay(etl(pl.DataFrame(pages)))\n"
+    ],
+    "zilla-015-best-pages-snowflake": [
+      "WITH r AS (SELECT domain, url, seo_score, ROW_NUMBER() OVER (PARTITION BY domain ORDER BY seo_score DESC, url) AS d, ROW_NUMBER() OVER (ORDER BY seo_score DESC, url) AS o FROM pages) SELECT b.domain, b.url AS highest_seo_page, b.seo_score AS highest_seo_score, t.url AS overall_highest_page, t.seo_score AS overall_highest_score FROM r AS b LEFT JOIN r AS t ON t.domain = b.domain AND t.o = 1 WHERE b.d = 1"
+    ],
+    "zilla-015-best-pages-sql": [
+      "WITH r AS (SELECT domain, url, seo_score, ROW_NUMBER() OVER (PARTITION BY domain ORDER BY seo_score DESC NULLS FIRST, url) AS d, ROW_NUMBER() OVER (ORDER BY seo_score DESC NULLS FIRST, url) AS o FROM pages) SELECT b.domain, b.url AS highest_seo_page, b.seo_score AS highest_seo_score, t.url AS overall_highest_page, t.seo_score AS overall_highest_score FROM r AS b LEFT JOIN r AS t ON t.domain = b.domain AND t.o = 1 WHERE b.d = 1",
+      "WITH r AS (SELECT domain, url, seo_score, ROW_NUMBER() OVER (PARTITION BY domain ORDER BY seo_score DESC NULLS LAST, url DESC) AS d, ROW_NUMBER() OVER (ORDER BY seo_score DESC NULLS LAST, url DESC) AS o FROM pages) SELECT b.domain, b.url AS highest_seo_page, b.seo_score AS highest_seo_score, t.url AS overall_highest_page, t.seo_score AS overall_highest_score FROM r AS b LEFT JOIN r AS t ON t.domain = b.domain AND t.o = 1 WHERE b.d = 1"
+    ],
+    "zilla-016-overtime-pay-sql": [
+      "SELECT e.employee_id, e.name, e.position, CASE WHEN p.hours_worked <= 40 THEN p.hours_worked * p.hourly_rate ELSE p.hours_worked * p.hourly_rate * 1.5 END AS pay FROM employees AS e JOIN payroll AS p ON e.employee_id = p.employee_id",
+      "SELECT e.employee_id, e.name, e.position, CASE WHEN p.hours_worked <= 40 THEN p.hours_worked * p.hourly_rate ELSE 40 * p.hourly_rate + (p.hours_worked - 40) * p.hourly_rate * 1.5 END AS pay FROM employees AS e LEFT JOIN payroll AS p ON e.employee_id = p.employee_id"
+    ],
+    "zilla-017-extract-digits-python": [
+      "import pandas as pd\n\ndef etl(input_df):\n    return input_df.assign(age=input_df[\"description\"].str.extract(r\"(\\d+)\", expand=False))\n\n\ndisplay(etl(pd.DataFrame(input_df)))\n"
+    ],
+    "zilla-017-extract-digits-snowflake": [
+      "SELECT sample_id, description, REGEXP_SUBSTR(description, '[0-9]+') AS age FROM input_df"
+    ],
+    "zilla-017-extract-digits-sql": [
+      "SELECT sample_id, description, regexp_extract(description, '[0-9]') AS age FROM input_df"
+    ],
+    "zilla-018-dedupe-then-join-sparklab": [
+      "products = spark.table(\"products_df\")\nprocesses = spark.table(\"manufacturing_processes_df\").distinct()\nproducts.join(processes, \"product_id\").select(\"product_id\", \"product_name\", \"category\", \"process_id\", \"process_name\", \"duration\")\n"
+    ],
+    "zilla-018-dedupe-then-join-sql": [
+      "SELECT p.product_id, p.product_name, p.category, m.process_id, m.process_name, m.duration FROM products_df AS p JOIN manufacturing_processes_df AS m ON p.product_id = m.product_id"
+    ],
+    "zilla-019-industry-ranking-sql": [
+      "SELECT c.industry, SUM(i.amount) AS total_investment FROM companies AS c JOIN investments AS i ON c.company_id = i.company_id GROUP BY c.industry ORDER BY total_investment",
+      "SELECT c.industry, SUM(i.amount) AS total_investment FROM companies AS c JOIN investments AS i ON c.company_id = i.company_id GROUP BY c.industry ORDER BY total_investment DESC, c.industry DESC"
+    ],
+    "zilla-020-project-summary-polars": [
+      "import polars as pl\n\ndef etl(projects, employees, equipment):\n    staff = employees.group_by(\"project_id\").agg(pl.col(\"employee_id\").count().alias(\"total_employees\"), pl.col(\"role\").n_unique().alias(\"unique_roles\"))\n    gear = equipment.group_by(\"project_id\").agg(pl.col(\"cost\").sum().alias(\"total_equipment_cost\"))\n    result = projects.join(staff, on=\"project_id\", how=\"left\").join(gear, on=\"project_id\", how=\"left\")\n    return result.select(\"project_id\", \"project_name\", \"start_date\", \"end_date\",\n        (pl.col(\"end_date\").str.to_date() - pl.col(\"start_date\").str.to_date()).dt.total_days().alias(\"duration_days\"),\n        pl.col(\"total_employees\").fill_null(0), pl.col(\"unique_roles\").fill_null(0), pl.col(\"total_equipment_cost\").fill_null(0))\n\n\ndisplay(etl(pl.DataFrame(projects), pl.DataFrame(employees), pl.DataFrame(equipment)))\n"
+    ],
+    "zilla-020-project-summary-sql": [
+      "SELECT p.project_id, p.project_name, p.start_date, p.end_date, date_diff('day', p.start_date, p.end_date) AS duration_days, COUNT(e.employee_id) AS total_employees, COUNT(DISTINCT e.role) AS unique_roles, COALESCE(SUM(q.cost), 0) AS total_equipment_cost FROM projects AS p LEFT JOIN employees AS e ON p.project_id = e.project_id LEFT JOIN equipment AS q ON p.project_id = q.project_id GROUP BY p.project_id, p.project_name, p.start_date, p.end_date"
+    ],
+    "zilla-021-previous-product-snowflake": [
+      "WITH o AS (SELECT customer_id, product_id, quantity, date, LAG(product_id) OVER (PARTITION BY customer_id ORDER BY date, product_id) AS previous_product FROM transactions) SELECT customer_id, product_id, quantity, date, previous_product, CONCAT(date, ' ', previous_product) AS date_and_product FROM o"
+    ],
+    "zilla-021-previous-product-sql": [
+      "WITH o AS (SELECT customer_id, product_id, quantity, date, LAG(product_id) OVER (PARTITION BY customer_id ORDER BY date, product_id) AS previous_product FROM transactions) SELECT customer_id, product_id, quantity, date, COALESCE(previous_product, 'None') AS previous_product, date || ' ' || COALESCE(previous_product, 'None') AS date_and_product FROM o",
+      "WITH o AS (SELECT customer_id, product_id, quantity, date, LAG(product_id) OVER (PARTITION BY customer_id ORDER BY date DESC, product_id) AS previous_product FROM transactions) SELECT customer_id, product_id, quantity, date, previous_product, date || ' ' || COALESCE(previous_product, 'None') AS date_and_product FROM o"
+    ],
+    "zilla-022-active-watch-time-sql": [
+      "SELECT b.user_id, SUM(b.watch_duration) AS total_watch_time FROM user_behavior_df AS b JOIN subscription_df AS s ON s.user_id = b.user_id WHERE b.date >= s.subscription_start AND (s.subscription_end = 'ongoing' OR b.date <= TRY_CAST(s.subscription_end AS DATE)) GROUP BY b.user_id",
+      "SELECT b.user_id, SUM(b.watch_duration) AS total_watch_time FROM user_behavior_df AS b WHERE EXISTS (SELECT 1 FROM subscription_df AS s WHERE s.user_id = b.user_id AND b.date >= s.subscription_start AND (s.subscription_end = 'ongoing' OR b.date < TRY_CAST(s.subscription_end AS DATE))) GROUP BY b.user_id"
+    ],
+    "zilla-023-model-metrics-python": [
+      "import pandas as pd\n\ndef etl(df_models, df_usage):\n    joined = df_models.merge(df_usage, on=\"model_id\")\n    joined[\"total_uses\"] = joined.groupby(\"model_id\")[\"uses\"].transform(\"sum\")\n    joined[\"average_accuracy\"] = joined.groupby(\"model_type\")[\"accuracy\"].transform(\"mean\")\n    return joined.drop_duplicates(\"model_id\")[[\"model_id\", \"model_name\", \"model_type\", \"accuracy\", \"total_uses\", \"average_accuracy\"]]\n\n\ndisplay(etl(pd.DataFrame(df_models), pd.DataFrame(df_usage)))\n"
+    ],
+    "zilla-023-model-metrics-sql": [
+      "WITH j AS (SELECT m.model_id, m.model_name, m.model_type, m.accuracy, u.uses FROM df_models AS m JOIN df_usage AS u ON m.model_id = u.model_id) SELECT model_id, model_name, model_type, accuracy, SUM(uses) OVER (PARTITION BY model_id) AS total_uses, AVG(accuracy) OVER (PARTITION BY model_type) AS average_accuracy FROM j QUALIFY ROW_NUMBER() OVER (PARTITION BY model_id ORDER BY uses) = 1"
+    ],
+    "zilla-024-churn-timeline-polars": [
+      "import polars as pl\n\ndef etl(df_accounts, df_activities, df_exit_surveys):\n    combined = (df_accounts.join(df_activities.unique(), on=\"user_id\", how=\"full\", coalesce=True)\n                .join(df_exit_surveys, on=\"user_id\", how=\"full\", coalesce=True))\n    return combined.sort([\"user_id\", \"activity_date\", \"activity_type\"], descending=[False, True, False]).select(\n        \"user_id\", \"account_created_date\", \"location\", \"activity_date\", \"activity_type\", \"exit_date\", \"exit_reason\")\n\n\ndisplay(etl(pl.DataFrame(df_accounts), pl.DataFrame(df_activities), pl.DataFrame(df_exit_surveys)))\n"
+    ],
+    "zilla-024-churn-timeline-snowflake": [
+      "WITH activities AS (SELECT DISTINCT user_id, activity_date, activity_type FROM df_activities) SELECT COALESCE(a.user_id, act.user_id, e.user_id) AS user_id, a.account_created_date, a.location, act.activity_date, act.activity_type, e.exit_date, e.exit_reason FROM df_accounts AS a FULL OUTER JOIN activities AS act ON a.user_id = act.user_id FULL OUTER JOIN df_exit_surveys AS e ON COALESCE(a.user_id, act.user_id) = e.user_id ORDER BY user_id, act.activity_date DESC, act.activity_type"
+    ],
+    "zilla-024-churn-timeline-sql": [
+      "WITH act AS (SELECT DISTINCT user_id, activity_date, activity_type FROM df_activities) SELECT a.user_id, a.account_created_date, a.location, act.activity_date, act.activity_type, e.exit_date, e.exit_reason FROM df_accounts AS a LEFT JOIN act ON a.user_id = act.user_id LEFT JOIN df_exit_surveys AS e ON a.user_id = e.user_id ORDER BY a.user_id, act.activity_date DESC NULLS LAST, act.activity_type",
+      "SELECT COALESCE(a.user_id, act.user_id, e.user_id) AS user_id, a.account_created_date, a.location, act.activity_date, act.activity_type, e.exit_date, e.exit_reason FROM df_accounts AS a FULL OUTER JOIN df_activities AS act ON a.user_id = act.user_id FULL OUTER JOIN df_exit_surveys AS e ON COALESCE(a.user_id, act.user_id) = e.user_id ORDER BY user_id, act.activity_date DESC NULLS LAST, act.activity_type"
+    ],
+    "zilla-025-minerals-per-location-sql": [
+      "SELECT m.location, e.mineral, SUM(e.quantity) AS total_quantity FROM mines AS m JOIN extraction AS e ON m.id = e.mine_id GROUP BY m.location, e.mineral ORDER BY e.mineral, m.location",
+      "SELECT m.location, e.mineral, SUM(e.quantity) AS total_quantity FROM mines AS m JOIN extraction AS e ON m.id = e.mine_id GROUP BY m.id, m.location, e.mineral ORDER BY m.location, e.mineral"
+    ],
+    "zilla-026-discount-tags-snowflake": [
+      "SELECT store_id, product_name, category, sold_units, description, ZEROIFNULL(TRY_CAST(REGEXP_SUBSTR(description, '[0-9]+') AS FLOAT) / 100) AS discount FROM df"
+    ],
+    "zilla-026-discount-tags-sql": [
+      "SELECT store_id, product_name, category, sold_units, description, COALESCE(TRY_CAST(regexp_extract(description, '([0-9]+)', 1) AS DOUBLE) / 100, 0) AS discount FROM df",
+      "SELECT store_id, product_name, category, sold_units, description, COALESCE(TRY_CAST(regexp_extract(description, '\\[([0-9]{1,3})% off\\]', 1) AS DOUBLE) / 100, 0) AS discount FROM df"
+    ],
+    "zilla-027-mortgage-rate-sql": [
+      "SELECT d.mortgage_type, AVG(d.interest_rate) AS rate_of_mortgage FROM user_mortgages AS u JOIN mortgage_details AS d ON u.mortgage_id = d.mortgage_id GROUP BY d.mortgage_type",
+      "SELECT d.mortgage_type, SUM(d.interest_rate) / COUNT(u.user_id) AS rate_of_mortgage FROM user_mortgages AS u JOIN mortgage_details AS d ON u.mortgage_id = d.mortgage_id GROUP BY d.mortgage_type"
+    ],
+    "zilla-028-serial-numbers-sql": [
+      "SELECT a.product_id, a.manufacturing_date, a.manufacturing_location, b.product_name, b.product_type, ROW_NUMBER() OVER (ORDER BY a.manufacturing_date, a.product_id DESC) AS row_number FROM df1 AS a JOIN df2 AS b ON a.product_id = b.product_id",
+      "WITH n AS (SELECT *, ROW_NUMBER() OVER (ORDER BY manufacturing_date, product_id) AS row_number FROM df1) SELECT n.product_id, n.manufacturing_date, n.manufacturing_location, b.product_name, b.product_type, n.row_number FROM n JOIN df2 AS b ON n.product_id = b.product_id"
+    ],
+    "zilla-029-budget-variance-sql": [
+      "WITH b AS (SELECT department, CAST(TRUNC(VAR_POP(budget)) AS BIGINT) AS budget_variance FROM budget_df GROUP BY department), s AS (SELECT department, CAST(TRUNC(VAR_POP(spending)) AS BIGINT) AS spending_variance FROM spending_df GROUP BY department) SELECT b.department, b.budget_variance, s.spending_variance FROM b JOIN s ON b.department = s.department",
+      "WITH b AS (SELECT department, CAST(ROUND(VAR_SAMP(budget)) AS BIGINT) AS budget_variance FROM budget_df GROUP BY department), s AS (SELECT department, CAST(ROUND(VAR_SAMP(spending)) AS BIGINT) AS spending_variance FROM spending_df GROUP BY department) SELECT b.department, b.budget_variance, s.spending_variance FROM b JOIN s ON b.department = s.department"
+    ],
+    "zilla-030-valid-keys-snowflake": [
+      "WITH t AS (SELECT transaction_id, client_id, date, amount FROM df_transactions WHERE transaction_id > 0 AND REGEXP_LIKE(date, '[0-9]{4}-[0-9]{2}-[0-9]{2}') AND TRY_TO_DATE(date, 'YYYY-MM-DD') IS NOT NULL QUALIFY COUNT(*) OVER (PARTITION BY transaction_id) = 1), c AS (SELECT client_id, client_name, industry FROM df_clients QUALIFY COUNT(*) OVER (PARTITION BY client_id) = 1) SELECT t.transaction_id, t.client_id, t.date, t.amount, c.client_name, c.industry FROM t JOIN c ON t.client_id = c.client_id WHERE c.client_id > 0"
+    ],
+    "zilla-030-valid-keys-sql": [
+      "WITH t AS (SELECT transaction_id, client_id, date, amount FROM (SELECT *, ROW_NUMBER() OVER (PARTITION BY transaction_id ORDER BY date) AS n FROM df_transactions) WHERE n = 1 AND transaction_id > 0 AND regexp_full_match(date, '[0-9]{4}-[0-9]{2}-[0-9]{2}') AND TRY_CAST(date AS DATE) IS NOT NULL), c AS (SELECT client_id, client_name, industry FROM (SELECT *, COUNT(*) OVER (PARTITION BY client_id) AS copies FROM df_clients) WHERE copies = 1 AND client_id > 0) SELECT t.transaction_id, t.client_id, t.date, t.amount, c.client_name, c.industry FROM t JOIN c ON t.client_id = c.client_id",
+      "WITH t AS (SELECT transaction_id, client_id, date, amount FROM (SELECT *, COUNT(*) OVER (PARTITION BY transaction_id) AS copies FROM df_transactions) WHERE copies = 1 AND transaction_id > 0 AND regexp_full_match(date, '[0-9]{4}-[0-9]{2}-[0-9]{2}')), c AS (SELECT client_id, client_name, industry FROM (SELECT *, COUNT(*) OVER (PARTITION BY client_id) AS copies FROM df_clients) WHERE copies = 1 AND client_id > 0) SELECT t.transaction_id, t.client_id, t.date, t.amount, c.client_name, c.industry FROM t JOIN c ON t.client_id = c.client_id"
+    ],
+    "zilla-031-weekend-orders-python": [
+      "import pandas as pd\n\ndef etl(df_orders, df_products):\n    joined = df_orders.merge(df_products, on=\"product_id\")\n    dates = pd.to_datetime(joined[\"order_date\"], format=\"%m/%d/%Y\", errors=\"coerce\")\n    joined[\"is_weekend\"] = dates.dt.dayofweek >= 5\n    return joined[[\"user_id\", \"product_name\", \"category\", \"order_date\", \"is_weekend\"]]\n\n\ndisplay(etl(pd.DataFrame(df_orders), pd.DataFrame(df_products)))\n"
+    ],
+    "zilla-031-weekend-orders-snowflake": [
+      "SELECT o.user_id, p.product_name, p.category, o.order_date, DAYOFWEEKISO(TRY_TO_DATE(o.order_date, 'MM/DD/YYYY')) IN (0, 6) AS is_weekend FROM df_orders AS o JOIN df_products AS p ON o.product_id = p.product_id"
+    ],
+    "zilla-031-weekend-orders-sql": [
+      "SELECT o.user_id, p.product_name, p.category, o.order_date, dayofweek(try_strptime(o.order_date, '%m/%d/%Y')) IN (5, 6) AS is_weekend FROM df_orders AS o JOIN df_products AS p ON o.product_id = p.product_id",
+      "SELECT o.user_id, p.product_name, p.category, o.order_date, COALESCE(dayofweek(try_strptime(o.order_date, '%m/%d/%Y')) IN (0, 6), FALSE) AS is_weekend FROM df_orders AS o JOIN df_products AS p ON o.product_id = p.product_id"
+    ],
+    "zilla-032-anomalous-rides-sql": [
+      "WITH a AS (SELECT ride_id, AVG(rating) AS average_rating FROM visitors WHERE ride_id IN (SELECT ride_id FROM rides) GROUP BY ride_id), o AS (SELECT AVG(rating) AS overall_rating FROM visitors WHERE ride_id IN (SELECT ride_id FROM rides)) SELECT r.ride_id, r.ride_name, a.average_rating, a.average_rating < 0.5 * o.overall_rating OR a.average_rating > 1.5 * o.overall_rating AS is_anomalous FROM rides AS r JOIN a ON r.ride_id = a.ride_id CROSS JOIN o",
+      "WITH a AS (SELECT ride_id, AVG(rating) AS average_rating FROM visitors GROUP BY ride_id), o AS (SELECT AVG(average_rating) AS overall_rating FROM a) SELECT r.ride_id, r.ride_name, a.average_rating, a.average_rating < 0.5 * o.overall_rating OR a.average_rating > 1.5 * o.overall_rating AS is_anomalous FROM rides AS r JOIN a ON r.ride_id = a.ride_id CROSS JOIN o"
+    ],
+    "zilla-033-status-labels-sql": [
+      "SELECT a.id, a.name AS equipment_name, a.type AS equipment_type, a.status AS equipment_status, c.name AS company_name, c.country, CASE WHEN a.status = 'active' AND c.country = 'USA' THEN 'Domestic Active' WHEN a.status = 'active' AND c.country != 'USA' THEN 'Foreign Active' ELSE 'Inactive' END AS status_label FROM aerospace_df AS a LEFT JOIN company_df AS c ON a.company_id = c.id",
+      "SELECT a.id, a.name AS equipment_name, a.type AS equipment_type, a.status AS equipment_status, c.name AS company_name, c.country, CASE WHEN a.status = 'active' AND c.country = 'USA' THEN 'Domestic Active' WHEN a.status = 'active' THEN 'Foreign Active' ELSE 'Inactive' END AS status_label FROM aerospace_df AS a JOIN company_df AS c ON a.company_id = c.id"
+    ],
+    "zilla-034-interaction-log-sql": [
+      "SELECT user_id, page_id, visit_time AS interaction_time, 'visit' AS interaction_type FROM page_visits UNION SELECT user_id, page_id, like_time, 'like' FROM page_likes UNION SELECT user_id, page_id, comment_time, 'comment' FROM page_comments"
+    ],
+    "zilla-035-daily-category-sales-sql": [
+      "SELECT s.date, p.product_category, SUM(s.quantity_sold) AS total_quantity FROM df_sales AS s JOIN df_products AS p ON s.product_id = p.product_id GROUP BY s.date, p.product_category, p.product_id",
+      "SELECT s.date, p.product_category, SUM(s.quantity_sold) AS total_quantity FROM df_sales AS s LEFT JOIN df_products AS p ON s.product_id = p.product_id GROUP BY s.date, p.product_category"
+    ],
+    "zilla-036-vc-above-limit-sql": [
+      "SELECT v.vc_id, v.vc_name, AVG(s.funding) AS avg_funding FROM venture_capitalist_df AS v JOIN funded_startups_df AS s ON v.vc_id = s.vc_id GROUP BY v.vc_id, v.vc_name, v.funding_limit HAVING AVG(s.funding) >= v.funding_limit",
+      "SELECT v.vc_id, v.vc_name, SUM(s.funding) / COUNT(*) AS avg_funding FROM venture_capitalist_df AS v JOIN funded_startups_df AS s ON v.vc_id = s.vc_id GROUP BY v.vc_id, v.vc_name, v.funding_limit HAVING SUM(s.funding) / COUNT(*) > v.funding_limit"
+    ],
+    "zilla-037-latest-maintenance-snowflake": [
+      "WITH ranked AS (SELECT e.equipment_id, e.equipment_name, e.purchase_date, m.maintenance_date, MAX(m.maintenance_date) OVER (PARTITION BY m.equipment_id) AS latest_maintenance_date, DENSE_RANK() OVER (PARTITION BY m.equipment_id ORDER BY m.maintenance_cost DESC) AS cost_rank FROM df1 AS e JOIN df2 AS m ON e.equipment_id = m.equipment_id) SELECT equipment_id, equipment_name, purchase_date, latest_maintenance_date, MIN(cost_rank) AS maintenance_cost_rank FROM ranked WHERE maintenance_date = latest_maintenance_date GROUP BY equipment_id, equipment_name, purchase_date, latest_maintenance_date"
+    ],
+    "zilla-037-latest-maintenance-sql": [
+      "WITH r AS (SELECT e.equipment_id, e.equipment_name, e.purchase_date, m.maintenance_date, MAX(m.maintenance_date) OVER () AS latest_maintenance_date, DENSE_RANK() OVER (ORDER BY m.maintenance_cost DESC NULLS LAST) AS cost_rank FROM df1 AS e JOIN df2 AS m ON e.equipment_id = m.equipment_id) SELECT equipment_id, equipment_name, purchase_date, latest_maintenance_date, MIN(cost_rank) AS maintenance_cost_rank FROM r WHERE maintenance_date = latest_maintenance_date GROUP BY equipment_id, equipment_name, purchase_date, latest_maintenance_date",
+      "WITH latest AS (SELECT e.equipment_id, e.equipment_name, e.purchase_date, m.maintenance_date, m.maintenance_cost FROM df1 AS e JOIN df2 AS m ON e.equipment_id = m.equipment_id QUALIFY m.maintenance_date = MAX(m.maintenance_date) OVER (PARTITION BY m.equipment_id)) SELECT equipment_id, equipment_name, purchase_date, maintenance_date AS latest_maintenance_date, MIN(r) AS maintenance_cost_rank FROM (SELECT *, DENSE_RANK() OVER (PARTITION BY equipment_id ORDER BY maintenance_cost DESC NULLS LAST) AS r FROM latest) GROUP BY equipment_id, equipment_name, purchase_date, maintenance_date"
+    ],
+    "zilla-038-cross-join-sql": [
+      "SELECT t.trans_id, t.trans_amt, t.date, c.cust_id, c.first_name, c.last_name, c.age FROM transactions AS t JOIN customers AS c ON t.cust_id = c.cust_id",
+      "SELECT t.trans_id, t.trans_amt, t.date, t.cust_id, c.first_name, c.last_name, c.age FROM transactions AS t CROSS JOIN customers AS c"
+    ],
+    "zilla-039-self-interactions-sql": [
+      "SELECT user1_id AS user_id, COUNT(*) AS self_interaction_count FROM input_df WHERE user1_id IS NOT DISTINCT FROM user2_id GROUP BY user1_id",
+      "SELECT user1_id AS user_id, COUNT(DISTINCT interaction_type) AS self_interaction_count FROM input_df WHERE user1_id = user2_id GROUP BY user1_id"
+    ],
+    "zilla-040-count-list-items-snowflake": [
+      "SELECT check_id, full_name, dob, LENGTH(criminal_record) - LENGTH(REPLACE(criminal_record, ',', '')) + 1 AS crime_count, LENGTH(employment_history) - LENGTH(REPLACE(employment_history, ',', '')) + 1 AS jobs_count, LENGTH(education_history) - LENGTH(REPLACE(education_history, ',', '')) + 1 AS degrees_count, LENGTH(address) - LENGTH(REPLACE(address, ',', '')) + 1 AS places_lived_count FROM background_checks"
+    ],
+    "zilla-040-count-list-items-sql": [
+      "SELECT check_id, full_name, dob, len(string_split(criminal_record, ',')) AS crime_count, len(string_split(employment_history, ',')) AS jobs_count, len(string_split(education_history, ',')) AS degrees_count, len(string_split(address, ',')) AS places_lived_count FROM background_checks"
+    ],
+    "zilla-041-height-per-floor-snowflake": [
+      "SELECT id, name, city, country, IFF(floors != 0, ROUND(height_m / floors, 2), 0) AS avg_height_per_floor FROM buildings"
+    ],
+    "zilla-041-height-per-floor-sql": [
+      "SELECT id, name, city, country, CASE WHEN floors != 0 THEN ROUND(height_m / floors, 2) ELSE 0 END AS avg_height_per_floor FROM buildings"
+    ],
+    "zilla-042-species-by-climate-sql": [
+      "SELECT a.species, r.climate, AVG(a.age) AS avg_age, CAST(ROUND(AVG(a.weight)) AS INTEGER) AS avg_weight, COUNT(*) AS total_animals FROM animal_data AS a JOIN region_data AS r ON a.region = r.region GROUP BY a.species, r.climate",
+      "SELECT a.species, MIN(r.climate) AS climate, AVG(a.age) AS avg_age, CAST(FLOOR(AVG(a.weight)) AS INTEGER) AS avg_weight, COUNT(*) AS total_animals FROM animal_data AS a JOIN region_data AS r ON a.region = r.region GROUP BY a.species"
+    ],
+    "zilla-043-top-observations-sql": [
+      "SELECT o.obs_id, o.species_id, s.species_name, o.location_id, o.count FROM observations AS o JOIN species AS s ON o.species_id = s.species_id ORDER BY o.count DESC, o.obs_id LIMIT 3",
+      "WITH r AS (SELECT o.obs_id, o.species_id, s.species_name, o.location_id, o.count, DENSE_RANK() OVER (ORDER BY o.count DESC) AS k FROM observations AS o JOIN species AS s ON o.species_id = s.species_id) SELECT obs_id, species_id, species_name, location_id, count FROM r WHERE k <= 3 ORDER BY count DESC, obs_id"
+    ],
+    "zilla-044-portfolio-value-sql": [
+      "SELECT p.pe_firm, pr.date, SUM(p.shares) * SUM(pr.closing_price) AS portfolio_value FROM portfolio AS p JOIN prices AS pr ON p.company = pr.company GROUP BY p.pe_firm, pr.date"
+    ],
+    "zilla-045-gdp-growth-sql": [
+      "WITH g AS (SELECT country, year, gdp FROM df1 UNION SELECT country, year, gdp FROM df2) SELECT country, year, ROUND((gdp - LAG(gdp) OVER (PARTITION BY country ORDER BY year)) / NULLIF(LAG(gdp) OVER (PARTITION BY country ORDER BY year), 0) * 100, 2) AS gdp_growth_rate FROM g ORDER BY country, year",
+      "WITH g AS (SELECT country, year, gdp FROM df1 UNION ALL SELECT country, year, gdp FROM df2) SELECT cur.country, cur.year, ROUND((cur.gdp - prev.gdp) / NULLIF(prev.gdp, 0) * 100, 2) AS gdp_growth_rate FROM g AS cur LEFT JOIN g AS prev ON prev.country = cur.country AND prev.year = cur.year - 1 ORDER BY cur.country, cur.year"
+    ],
+    "zilla-046-gas-law-sql": [
+      "SELECT t.experiment_id, t.temperature * p.pressure AS result FROM df_temperature AS t LEFT JOIN df_pressure AS p ON t.experiment_id = p.experiment_id ORDER BY t.experiment_id",
+      "SELECT t.experiment_id, t.temperature * p.pressure AS result FROM df_temperature AS t JOIN df_pressure AS p ON t.experiment_id = p.experiment_id ORDER BY result"
+    ],
+    "zilla-047-experiments-full-join-sql": [
+      "SELECT e.experiment_id, e.material_id, m.material_name, m.material_type, e.experiment_date, e.experiment_results FROM df_experiments AS e FULL OUTER JOIN df_materials AS m ON e.material_id = m.material_id",
+      "SELECT e.experiment_id, e.material_id, m.material_name, m.material_type, e.experiment_date, e.experiment_results FROM df_experiments AS e LEFT JOIN df_materials AS m ON e.material_id = m.material_id"
+    ],
+    "zilla-048-split-fields-snowflake": [
+      "SELECT o.order_id, c.customer_id, SPLIT_PART(c.full_name, ' ', 1) AS first_name, SPLIT_PART(c.full_name, ' ', -1) AS last_name, c.location, p.product_id, SPLIT_PART(p.product_info, ',', 1) AS product_type, SPLIT_PART(p.product_info, ',', 2) AS product_color, o.quantity FROM orders AS o JOIN customers AS c ON o.customer_id = c.customer_id JOIN products AS p ON o.product_id = p.product_id"
+    ],
+    "zilla-048-split-fields-sql": [
+      "SELECT o.order_id, c.customer_id, split_part(c.full_name, ' ', 1) AS first_name, split_part(c.full_name, ' ', 2) AS last_name, c.location, p.product_id, split_part(p.product_info, ',', 1) AS product_type, split_part(p.product_info, ',', 2) AS product_color, o.quantity FROM orders AS o JOIN customers AS c ON o.customer_id = c.customer_id JOIN products AS p ON o.product_id = p.product_id"
+    ],
+    "zilla-049-name-lengths-sql": [
+      "SELECT f.flight_id, length(o.airport_name) AS origin_airport_name_length, length(d.airport_name) AS destination_airport_name_length, length(p.plane_model) AS plane_model_length FROM flights AS f LEFT JOIN airports AS o ON f.origin_airport = o.airport_id LEFT JOIN airports AS d ON f.destination_airport = d.airport_id LEFT JOIN planes AS p ON f.flight_id = p.plane_id",
+      "SELECT f.flight_id, length(trim(o.airport_name)) AS origin_airport_name_length, length(trim(d.airport_name)) AS destination_airport_name_length, length(trim(p.plane_model)) AS plane_model_length FROM flights AS f JOIN airports AS o ON f.origin_airport = o.airport_id JOIN airports AS d ON f.destination_airport = d.airport_id JOIN planes AS p ON f.flight_id = p.plane_id"
+    ],
+    "zilla-050-bulk-artifacts-sql": [
+      "SELECT id, item, period, upper(material) AS material, quantity FROM artifacts WHERE quantity >= 100"
+    ],
+    "zilla-051-valid-expressions-polars": [
+      "import polars as pl\n\ndef etl(df_math_expr):\n    return df_math_expr.filter(pl.col(\"expression\").str.contains(r\"([0-9]+[-+*/])+[0-9]+\")).sort(\"id\")\n\n\ndisplay(etl(pl.DataFrame(df_math_expr)))\n"
+    ],
+    "zilla-051-valid-expressions-sql": [
+      "SELECT id, expression FROM df_math_expr WHERE regexp_matches(expression, '([0-9]+[-+*/])+[0-9]+') ORDER BY id"
+    ],
+    "zilla-052-stars-and-planets-sql": [
+      "SELECT s.name AS star_name, s.color AS star_color, s.type AS star_type, p.name AS planet_name, p.type AS planet_type, s.distance AS distance_star_earth, p.distance AS distance_planet_star FROM df_star AS s JOIN df_planet AS p ON p.id = s.id",
+      "SELECT s.name AS star_name, s.color AS star_color, s.type AS star_type, p.name AS planet_name, p.type AS planet_type, p.distance AS distance_star_earth, s.distance AS distance_planet_star FROM df_star AS s JOIN df_planet AS p ON p.star_id = s.id"
+    ]
+  }
+}

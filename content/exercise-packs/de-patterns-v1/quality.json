@@ -1,0 +1,73 @@
+{
+  "flags": {
+    "runnable_starters": true
+  },
+  "mutants": {
+    "de-clean-imported-text": [
+      "SELECT CAST(order_id AS INTEGER) AS order_id, TRY_CAST(amount AS DOUBLE) AS amount, LOWER(status) AS status FROM raw_orders",
+      "SELECT CAST(order_id AS INTEGER) AS order_id, TRY_CAST(NULLIF(TRIM(amount), '') AS DOUBLE) AS amount, LOWER(TRIM(status)) AS status FROM raw_orders"
+    ],
+    "de-latest-cdc-record": [
+      "SELECT customer_id, email, updated_at FROM customer_changes QUALIFY RANK() OVER (PARTITION BY customer_id ORDER BY updated_at DESC) = 1",
+      "SELECT customer_id, email, updated_at FROM customer_changes QUALIFY ROW_NUMBER() OVER (PARTITION BY customer_id ORDER BY ingest_seq DESC) = 1",
+      "SELECT c.customer_id, c.email, c.updated_at FROM customer_changes c JOIN (SELECT customer_id, MAX(updated_at) AS m FROM customer_changes GROUP BY customer_id) x ON x.customer_id = c.customer_id AND x.m = c.updated_at"
+    ],
+    "de-not-in-null-trap": [
+      "SELECT customer_id, name FROM customers WHERE customer_id NOT IN (SELECT customer_id FROM orders)"
+    ],
+    "de-login-streaks": [
+      "WITH g AS (SELECT user_id, CAST(login_at AS DATE) AS d, CAST(login_at AS DATE) - CAST(ROW_NUMBER() OVER (PARTITION BY user_id ORDER BY login_at) AS INTEGER) AS island FROM logins) SELECT user_id, MIN(d) AS streak_start, MAX(d) AS streak_end, COUNT(*) AS days FROM g GROUP BY user_id, island",
+      "WITH login_days AS (SELECT DISTINCT user_id, CAST(login_at AS DATE) AS d FROM logins), g AS (SELECT user_id, d, d - CAST(ROW_NUMBER() OVER (ORDER BY d, user_id) AS INTEGER) AS island FROM login_days) SELECT user_id, MIN(d) AS streak_start, MAX(d) AS streak_end, COUNT(*) AS days FROM g GROUP BY user_id, island"
+    ],
+    "de-sessionize-clicks": [
+      "WITH f AS (SELECT user_id, event_at, CASE WHEN event_at - LAG(event_at) OVER (PARTITION BY user_id ORDER BY event_at) < INTERVAL 30 MINUTE THEN 0 ELSE 1 END AS s FROM clicks), n AS (SELECT user_id, event_at, SUM(s) OVER (PARTITION BY user_id ORDER BY event_at ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW) AS session_no FROM f) SELECT user_id, session_no, MIN(event_at) AS session_start, MAX(event_at) AS session_end, COUNT(*) AS events FROM n GROUP BY user_id, session_no",
+      "WITH f AS (SELECT user_id, event_at, CASE WHEN event_at - LAG(event_at) OVER (ORDER BY event_at) <= INTERVAL 30 MINUTE THEN 0 ELSE 1 END AS s FROM clicks), n AS (SELECT user_id, event_at, SUM(s) OVER (PARTITION BY user_id ORDER BY event_at ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW) AS session_no FROM f) SELECT user_id, session_no, MIN(event_at) AS session_start, MAX(event_at) AS session_end, COUNT(*) AS events FROM n GROUP BY user_id, session_no"
+    ],
+    "de-asof-trade-prices": [
+      "SELECT t.trade_id, t.symbol, t.traded_at, p.price FROM trades t ASOF JOIN prices p ON t.symbol = p.symbol AND t.traded_at >= p.quoted_at",
+      "SELECT t.trade_id, t.symbol, t.traded_at, p.price FROM trades t ASOF LEFT JOIN prices p ON t.symbol = p.symbol AND t.traded_at > p.quoted_at",
+      "SELECT t.trade_id, t.symbol, t.traded_at, p.price FROM trades t ASOF LEFT JOIN prices p ON t.traded_at >= p.quoted_at"
+    ],
+    "de-scd2-validity": [
+      "SELECT customer_id, tier, changed_on AS valid_from, LEAD(changed_on) OVER (ORDER BY changed_on) AS valid_to, LEAD(changed_on) OVER (ORDER BY changed_on) IS NULL AS is_current FROM tier_changes",
+      "SELECT customer_id, tier, changed_on AS valid_from, LAG(changed_on) OVER (PARTITION BY customer_id ORDER BY changed_on) AS valid_to, LAG(changed_on) OVER (PARTITION BY customer_id ORDER BY changed_on) IS NULL AS is_current FROM tier_changes"
+    ],
+    "de-upsert-result": [
+      "SELECT COALESCE(u.id, t.id) AS id, COALESCE(u.name, t.name) AS name, COALESCE(u.city, t.city) AS city FROM target t FULL JOIN updates u ON u.id = t.id",
+      "SELECT t.id, COALESCE(u.name, t.name) AS name, CASE WHEN u.id IS NULL THEN t.city ELSE u.city END AS city FROM target t LEFT JOIN updates u ON u.id = t.id"
+    ],
+    "de-dq-rule-violations": [
+      "SELECT order_id, CASE WHEN email IS NULL OR TRIM(email) = '' THEN 'missing_email' WHEN amount < 0 THEN 'negative_amount' WHEN order_date > DATE '2026-09-30' THEN 'future_date' END AS rule FROM orders WHERE (email IS NULL OR TRIM(email) = '') OR amount < 0 OR order_date > DATE '2026-09-30'",
+      "SELECT order_id, 'missing_email' AS rule FROM orders WHERE email IS NULL UNION ALL SELECT order_id, 'negative_amount' FROM orders WHERE amount < 0 UNION ALL SELECT order_id, 'future_date' FROM orders WHERE order_date > DATE '2026-09-30'",
+      "SELECT order_id, 'missing_email' AS rule FROM orders WHERE email IS NULL OR TRIM(email) = '' UNION ALL SELECT order_id, 'negative_amount' FROM orders WHERE amount <= 0 UNION ALL SELECT order_id, 'future_date' FROM orders WHERE order_date >= DATE '2026-09-30'"
+    ],
+    "de-monthly-revenue-gaps": [
+      "SELECT CAST(date_trunc('month', sold_on) AS DATE) AS month, SUM(amount) AS revenue FROM sales WHERE sold_on BETWEEN DATE '2026-01-01' AND DATE '2026-06-30' GROUP BY 1",
+      "SELECT CAST(m.month AS DATE) AS month, SUM(s.amount) AS revenue FROM generate_series(DATE '2026-01-01', DATE '2026-06-01', INTERVAL 1 MONTH) AS m(month) LEFT JOIN sales s ON date_trunc('month', s.sold_on) = m.month GROUP BY m.month"
+    ],
+    "de-funnel-conversion": [
+      "SELECT step, COUNT(*) AS users, ROUND(100.0 * COUNT(*) / NULLIF((SELECT COUNT(*) FROM events WHERE step = 'view'), 0), 1) AS pct_of_viewers FROM events GROUP BY step",
+      "WITH t AS (SELECT COUNT(DISTINCT user_id) FILTER (WHERE step = 'view') AS v, COUNT(DISTINCT user_id) FILTER (WHERE step = 'cart') AS c, COUNT(DISTINCT user_id) FILTER (WHERE step = 'purchase') AS p FROM events) SELECT 'view' AS step, v AS users, ROUND(100.0 * v / NULLIF(v, 0), 1) AS pct_of_viewers FROM t UNION ALL SELECT 'cart', c, ROUND(100.0 * c / NULLIF(v, 0), 1) FROM t UNION ALL SELECT 'purchase', p, ROUND(100.0 * p / NULLIF(v, 0), 1) FROM t"
+    ],
+    "de-median-delivery": [
+      "SELECT carrier, AVG(days) AS median_days FROM deliveries GROUP BY carrier",
+      "SELECT carrier, CAST(quantile_disc(days, 0.5) AS DOUBLE) AS median_days FROM deliveries GROUP BY carrier"
+    ],
+    "de-cohort-retention": [
+      "WITH monthly AS (SELECT customer_id, CAST(date_trunc('month', ordered_on) AS DATE) AS order_month FROM orders), cohorts AS (SELECT customer_id, MIN(order_month) AS cohort_month FROM monthly GROUP BY customer_id) SELECT c.cohort_month, CAST(date_diff('month', c.cohort_month, m.order_month) AS INTEGER) AS month_offset, COUNT(*) AS customers FROM monthly m JOIN cohorts c USING (customer_id) GROUP BY 1, 2",
+      "SELECT CAST(date_trunc('month', ordered_on) AS DATE) AS cohort_month, 0 AS month_offset, COUNT(DISTINCT customer_id) AS customers FROM orders GROUP BY 1"
+    ],
+    "de-split-tags": [
+      "WITH e AS (SELECT article_id, LOWER(raw_tag) AS tag FROM (SELECT article_id, UNNEST(string_split(tags, ',')) AS raw_tag FROM articles)) SELECT tag, COUNT(DISTINCT article_id) AS articles FROM e WHERE tag <> '' GROUP BY tag",
+      "WITH e AS (SELECT article_id, LOWER(TRIM(raw_tag)) AS tag FROM (SELECT article_id, UNNEST(string_split(tags, ',')) AS raw_tag FROM articles)) SELECT tag, COUNT(*) AS articles FROM e WHERE tag <> '' GROUP BY tag"
+    ],
+    "de-incremental-watermark": [
+      "SELECT s.id, s.updated_at FROM source_rows s WHERE s.updated_at >= COALESCE((SELECT MAX(last_loaded_at) FROM watermark WHERE table_name = 'source_rows'), TIMESTAMP '1900-01-01 00:00:00')",
+      "SELECT s.id, s.updated_at FROM source_rows s WHERE s.updated_at > (SELECT MAX(last_loaded_at) FROM watermark WHERE table_name = 'source_rows')",
+      "SELECT s.id, s.updated_at FROM source_rows s WHERE s.updated_at > COALESCE((SELECT MAX(last_loaded_at) FROM watermark), TIMESTAMP '1900-01-01 00:00:00')"
+    ],
+    "de-pivot-status-filter": [
+      "SELECT opened_on, COUNT(status = 'open') AS open_count, COUNT(status = 'closed') AS closed_count, COUNT(*) AS total FROM tickets GROUP BY opened_on"
+    ]
+  }
+}

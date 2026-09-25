@@ -9,9 +9,10 @@ from __future__ import annotations
 
 import copy
 import json
-import tempfile
 import textwrap
 from pathlib import Path
+
+from pack_quality import write_mutants
 
 ROOT = Path.cwd()
 PACK = ROOT / "content" / "exercise-packs" / "cloud-pipelines-v1"
@@ -1129,8 +1130,7 @@ def main() -> None:
     PACK.mkdir(parents=True, exist_ok=True)
     for name, data in (("manifest.json", manifest), ("exercises.json", definitions), ("grading.server.json", grading)):
         (PACK / name).write_text(json.dumps(data, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
-    (Path(tempfile.gettempdir()) / "cloud_pipelines_mutants.json").write_text(
-        json.dumps({spec["id"]: spec["mutants"] for spec in EXERCISES}, indent=2), encoding="utf-8")
+    write_mutants(PACK, {spec["id"]: spec["mutants"] for spec in EXERCISES})
     for spec in EXERCISES:
         print(f"== {spec['id']}")
         for fixture in grading[spec["id"]]["fixtures"]:

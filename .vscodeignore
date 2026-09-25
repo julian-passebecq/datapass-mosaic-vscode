@@ -18,6 +18,8 @@ content/projects/*/reference/**
 # Mission reference solutions and mutants are for scripts/missions_smoke.py, not for learners.
 content/missions/*/*/solution/**
 content/missions/*/*/mutants/**
+# Exercise mutants and gate flags are for scripts/exercise_packs_smoke.py, not for learners.
+content/exercise-packs/*/quality.json
 *.vsix
 dist-test/**
 # Local build output from `pip install ./runtime`; the managed venv installs from source.
