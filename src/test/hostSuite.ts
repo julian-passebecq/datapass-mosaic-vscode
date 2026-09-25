@@ -648,11 +648,16 @@ export async function run(): Promise<void> {
             resolve(event.shellIntegration);
           });
         });
+        let output = "";
         if (integration) {
-          integration.executeCommand(commandLine);
+          const execution = integration.executeCommand(commandLine);
+          void (async () => {
+            for await (const data of execution.read()) output += data;
+          })();
         } else {
           await new Promise(resolve => setTimeout(resolve, 5000));
           terminal.sendText(commandLine, true);
+          output = "(no shell integration: the line was sent as text)";
         }
         let status: string | undefined;
         for (let attempt = 0; attempt < 45 && status !== "passed"; attempt++) {
@@ -661,7 +666,8 @@ export async function run(): Promise<void> {
           status = (await missions.progress()).missions[id].lastCheck?.status;
         }
         const last = (await missions.progress()).missions[id].lastCheck;
-        assert.equal(status, "passed", JSON.stringify(last?.criteria));
+        assert.equal(status, "passed", `${JSON.stringify(last?.criteria)}
+Terminal (${shell}, shell integration: ${Boolean(integration)}): ${output.replace(/[[0-9;?]*[A-Za-z]/g, "").slice(-1500)}`);
         return folder;
       };
       try {
