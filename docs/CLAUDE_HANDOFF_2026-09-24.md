@@ -8,6 +8,20 @@ PR #1 merged the implementation branch into `main` with a merge commit (`f35dbe4
 
 Workflow from here: branch from `main` for each tranche, keep CI green, merge through a pull request. The dated sections below record how the project got here; branch names and tips in them are historical.
 
+**2026-09-25: stack merged, installed VSIX checked in VS Code.**
+
+- **Merge.** PRs #8–#16 (Airflow; Cloud Lab pipelines, SQL pool and Databricks with their packs; BI Lab and its dbt tab) were merged into `main` bottom-up with merge commits, after resolving their conflicts with the Spark lab (#7). Every section below is now on `main`.
+- **Smoke.** The packaged VSIX was installed and driven in a real VS Code window by Playwright (`_electron.launch`, fresh profile). 22/22 steps passed:
+  1. Labs view, then Workbench, then **Create .datapass project**.
+  2. **Setup runtime**: steps 1/3, 2/3 and 3/3, about 3 minutes.
+  3. **Start runtime**: the badge shows running.
+  4. One exercise per new lab opened and graded, with the starter rejected: spark-lab-v1, airflow-lab-v1, cloud-pipelines-v1, sqlpool-v1, databricks-v1, dwh-v1, dbt-v1.
+  5. The SparkLab, Airflow Lab, Cloud Lab and BI Lab tabs rendered.
+  6. **Stop runtime**.
+- **What it covers.** This replaces the "Not checked in a real F5 session" notes below for these flows, not for every button of each lab.
+- **Bug found.** The Cloud Lab sub-tabs and the execution badge overflowed a narrow Workbench. Fixed in PR #17.
+- **Stacked PRs.** Retarget the next PR to `main` before merging its base with `--delete-branch`. Otherwise GitHub closes it.
+
 ## 0. BI-2: dbt in the BI Lab (Datapass dbt emulation) — Claude, 2026-09-25 (newest)
 
 Branch `feature/bi-dbt`, stacked on `feature/bi-lab` (§0a). The user asked to continue with BI-2 (dbt in the BI
