@@ -490,7 +490,7 @@ export class RuntimeManager implements vscode.Disposable {
 
   async refreshCatalog(): Promise<void> {
     const url = this.state.status === "running" ? this.state.url : undefined;
-    if (!url) return;
+    if (!url || this.state.catalogLease) return;
     try {
       // The first call after a start spawns the kernel and creates and seeds the DuckDB catalog: about 4 s on a
       // Windows machine with antivirus, more than requestGetJson's 3 s default.
@@ -507,10 +507,49 @@ export class RuntimeManager implements vscode.Disposable {
     }
   }
 
+  /**
+   * dbt Lab handoff: the runtime closes the workspace catalog so a real dbt Core or dct command can open the DuckDB
+   * file (one writer per file). Every catalog request is refused until {@link reattachCatalog}. Without a running
+   * runtime there is nothing to release.
+   */
+  async releaseCatalog(holder: string): Promise<boolean> {
+    const url = this.state.status === "running" ? this.state.url : undefined;
+    if (!url) return false;
+    if (this.state.catalogLease) return true;
+    const lease = await requestJson<{ holder?: string; since?: string }>(
+      `${url}/api/local/catalog/release`, "POST", { holder: holder.slice(0, 200) }, 30000
+    );
+    this.output.appendLine(`Catalog lent to: ${holder}`);
+    this.setState({
+      ...this.state,
+      detail: `Catalog lent to ${holder}. It is reattached when the command ends.`,
+      catalogLease: { holder: lease.holder ?? holder, since: lease.since ?? new Date().toISOString() }
+    });
+    return true;
+  }
+
+  /** Take the catalog back after a dbt Core or dct command. Returns false (and says why) if the file is still held. */
+  async reattachCatalog(): Promise<boolean> {
+    const url = this.state.status === "running" ? this.state.url : undefined;
+    if (!url || !this.state.catalogLease) return true;
+    try {
+      await requestJson<unknown>(`${url}/api/local/catalog/reattach`, "POST", {}, 30000);
+    } catch (error) {
+      const reason = runtimeErrorDetail(error);
+      this.setState({ ...this.state, detail: reason, catalogLease: { ...this.state.catalogLease, reattachError: reason } });
+      return false;
+    }
+    this.output.appendLine("Catalog reattached.");
+    this.setState({ ...this.state, detail: "Catalog reattached: the runtime sees what dbt built.", catalogLease: undefined });
+    await this.refreshCatalog();
+    return true;
+  }
+
   /** Catalog tree view: every schema's tables and views with columns, types and row counts. */
   async fetchCatalogSchema(): Promise<unknown> {
     const url = this.state.status === "running" ? this.state.url : undefined;
     if (!url) throw new Error("Start the Datapass runtime to browse the catalog.");
+    if (this.state.catalogLease) throw new Error(`The catalog is lent to ${this.state.catalogLease.holder}.`);
     return requestGetJson<unknown>(`${url}/api/local/catalog/schema`, 20000);
   }
 

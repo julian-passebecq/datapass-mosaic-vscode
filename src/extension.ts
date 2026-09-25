@@ -1,5 +1,6 @@
 import * as vscode from "vscode";
 import { registerCatalogTree } from "./catalogTree";
+import { DbtTerminalSession, DbtToolsManager } from "./dbtLab";
 import { LabTreeProvider } from "./labTree";
 import { MODULES } from "./modules";
 import { PythonTrustController } from "./pythonTrustController";
@@ -9,17 +10,21 @@ import { WorkbenchPanel } from "./workbenchPanel";
 export function activate(context: vscode.ExtensionContext): void {
   const runtimeManager = new RuntimeManager(context.extensionUri, context.globalStorageUri);
   const pythonTrust = new PythonTrustController(context);
+  const dbtTools = new DbtToolsManager(context.globalStorageUri);
+  const dbtLab = { tools: dbtTools, terminal: new DbtTerminalSession(runtimeManager, dbtTools) };
 
   context.subscriptions.push(
     runtimeManager,
+    dbtLab.tools,
+    dbtLab.terminal,
     vscode.window.registerTreeDataProvider("datapass.labs", new LabTreeProvider()),
-    ...registerCatalogTree(runtimeManager, () => WorkbenchPanel.show(context, runtimeManager, pythonTrust, "mosaic"))
+    ...registerCatalogTree(runtimeManager, () => WorkbenchPanel.show(context, runtimeManager, pythonTrust, "mosaic", dbtLab))
   );
 
   for (const module of MODULES) {
     context.subscriptions.push(
       vscode.commands.registerCommand(module.command, () => {
-        void WorkbenchPanel.show(context, runtimeManager, pythonTrust, module.id);
+        void WorkbenchPanel.show(context, runtimeManager, pythonTrust, module.id, dbtLab);
       })
     );
   }

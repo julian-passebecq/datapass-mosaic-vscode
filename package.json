@@ -80,6 +80,12 @@
         "command": "datapass.catalog.copyName",
         "title": "Copy Qualified Name",
         "category": "Datapass"
+      },
+      {
+        "command": "datapass.catalog.reattach",
+        "title": "Reattach Catalog",
+        "category": "Datapass",
+        "icon": "$(plug)"
       }
     ],
     "viewsContainers": {
@@ -147,6 +153,16 @@
           "when": "false"
         }
       ]
+    },
+    "configuration": {
+      "title": "Datapass",
+      "properties": {
+        "datapass.dbtTools.python": {
+          "type": "string",
+          "default": "",
+          "markdownDescription": "Python 3.10–3.13 used to create the dbt Lab's managed dbt tools environment. Empty: Datapass looks for one (`py -3.13` … on Windows, `python3.13` … elsewhere)."
+        }
+      }
     }
   },
   "scripts": {
@@ -157,7 +173,7 @@
     "vscode:prepublish": "npm run compile",
     "test:host": "npm run build && node scripts/extension_host_e2e.mjs",
     "package": "vsce package --skip-license",
-    "test": "node scripts/scaffold_smoke.mjs && node scripts/runtime_endpoint_smoke.mjs && node scripts/package_smoke.mjs && node scripts/runtime_environment_smoke.mjs && node scripts/trust_smoke.mjs && node scripts/mosaic_layout_smoke.mjs && node scripts/csv_import_smoke.mjs && node scripts/airflow_lab_smoke.mjs && node scripts/factory_lab_smoke.mjs && node scripts/sqlpool_lab_smoke.mjs && node scripts/databricks_lab_smoke.mjs && node scripts/bi_lab_smoke.mjs && node scripts/catalog_tree_smoke.mjs && node scripts/projects_ui_smoke.mjs && node scripts/exercise_workspace_smoke.mjs && node scripts/practice_progress_smoke.mjs"
+    "test": "node scripts/scaffold_smoke.mjs && node scripts/runtime_endpoint_smoke.mjs && node scripts/package_smoke.mjs && node scripts/runtime_environment_smoke.mjs && node scripts/trust_smoke.mjs && node scripts/mosaic_layout_smoke.mjs && node scripts/csv_import_smoke.mjs && node scripts/airflow_lab_smoke.mjs && node scripts/factory_lab_smoke.mjs && node scripts/sqlpool_lab_smoke.mjs && node scripts/databricks_lab_smoke.mjs && node scripts/bi_lab_smoke.mjs && node scripts/catalog_tree_smoke.mjs && node scripts/projects_ui_smoke.mjs && node scripts/exercise_workspace_smoke.mjs && node scripts/practice_progress_smoke.mjs && node scripts/dbt_lab_smoke.mjs"
   },
   "dependencies": {
     "@fluentui/react-components": "^9.68.0",

@@ -18,7 +18,9 @@ import {
 import { JOB_NAME } from "./platform/databricksRun";
 import { FACTORY_FLAVORS, PIPELINE_NAME, pipelineRelativePath } from "./platform/factoryRun";
 import { SQLPOOL_FLAVORS, SQLPOOL_LIMITS, isValidScale } from "./platform/sqlpoolRun";
-import { probeDbtCli } from "./dbtState";
+import { findDbtProjects, projectFolder } from "./dbtState";
+import { writeDbtProfiles, type DbtTerminalSession, type DbtToolsManager } from "./dbtLab";
+import { buildDbtCommand, type DbtCommand } from "./platform/dbtTools";
 import { MODULES, type ModuleId } from "./modules";
 import { writeMosaicLayout } from "./mosaicLayoutStore";
 import { createDefaultProjectManifest, readProjectManifest, writeProjectManifest } from "./project/projectManifest";
@@ -54,6 +56,14 @@ import type {
   WorkbenchFocus
 } from "./webview/contracts";
 
+/** The dbt Lab's host services: the managed dbt tools and the terminal that runs real dbt Core commands. */
+export interface DbtLabServices {
+  tools: DbtToolsManager;
+  terminal: DbtTerminalSession;
+}
+
+const DBT_SELECTED_KEY = "datapass.dbt.selectedProject";
+
 export class WorkbenchPanel {
   private static current?: WorkbenchPanel;
 
@@ -61,7 +71,8 @@ export class WorkbenchPanel {
     context: vscode.ExtensionContext,
     runtimeManager: RuntimeManager,
     pythonTrust: PythonTrustController,
-    initialModule: ModuleId
+    initialModule: ModuleId,
+    dbtLab: DbtLabServices
   ): Promise<void> {
     if (WorkbenchPanel.current) {
       WorkbenchPanel.current.selectedModule = initialModule;
@@ -86,7 +97,8 @@ export class WorkbenchPanel {
       context,
       runtimeManager,
       pythonTrust,
-      initialModule
+      initialModule,
+      dbtLab
     );
   }
 
@@ -115,12 +127,14 @@ export class WorkbenchPanel {
     private readonly context: vscode.ExtensionContext,
     private readonly runtimeManager: RuntimeManager,
     private readonly pythonTrust: PythonTrustController,
-    initialModule: ModuleId
+    initialModule: ModuleId,
+    private readonly dbtLab: DbtLabServices
   ) {
     this.selectedModule = initialModule;
     this.rememberEditor(vscode.window.activeTextEditor);
     this.panel.webview.html = this.html(this.panel.webview);
-    const dbtArtifactWatcher = vscode.workspace.createFileSystemWatcher("**/target/manifest.json");
+    // A real dbt run rewrites target/run_results.json and target/manifest.json.
+    const dbtArtifactWatcher = vscode.workspace.createFileSystemWatcher("**/target/{manifest,run_results}.json");
 
     this.disposables.push(
       dbtArtifactWatcher,
@@ -128,6 +142,16 @@ export class WorkbenchPanel {
         if (this.selectedModule === "dbt") void this.refresh();
       }),
       dbtArtifactWatcher.onDidChange(() => {
+        if (this.selectedModule === "dbt") void this.refresh();
+        // Without shell integration the terminal never reports the end of a command: new artifacts are the signal.
+        if (this.runtimeManager.snapshot().catalogLease && !this.dbtLab.terminal.hasShellIntegration) {
+          setTimeout(() => void this.runtimeManager.reattachCatalog(), 2000);
+        }
+      }),
+      this.dbtLab.tools.onDidChange(() => {
+        if (this.selectedModule === "dbt") void this.refresh();
+      }),
+      this.dbtLab.terminal.onDidEndCommand(() => {
         if (this.selectedModule === "dbt") void this.refresh();
       }),
       this.panel.onDidDispose(() => this.dispose()),
@@ -293,14 +317,36 @@ export class WorkbenchPanel {
       case "runBiDbt":
         await this.runBiDbt(message.command, message.select, message.fullRefresh);
         break;
-      case "openDbtProject":
-        await this.openDbtProject();
+      case "createDbtSample":
+        await this.createDbtSample();
         return;
-      case "refreshDbt":
+      case "selectDbtProject":
+        await this.context.workspaceState.update(DBT_SELECTED_KEY, message.path);
         await this.refresh();
         return;
-      case "runDbtBuild":
-        await this.runDbtBuild();
+      case "refreshDbt":
+        this.dbtLab.tools.refresh();
+        await this.refresh();
+        return;
+      case "installDbtTools":
+        await this.installDbtTools();
+        return;
+      case "showDbtToolsLog":
+        this.dbtLab.tools.showLog();
+        return;
+      case "runDbtCommand":
+        await this.runDbtCommand(message.command, message.select, message.exclude, message.fullRefresh);
+        return;
+      case "openDbtTerminal":
+        await this.runDbtCommand(undefined, "", "", false);
+        return;
+      case "openDbtFile":
+        await this.openDbtFile(message.path);
+        return;
+      case "reattachCatalog":
+        if (!(await this.runtimeManager.reattachCatalog())) {
+          void vscode.window.showWarningMessage(this.runtimeManager.snapshot().catalogLease?.reattachError ?? "The catalog is still held.");
+        }
         return;
       case "prepareProject":
         await this.prepareProject(message.projectId);
@@ -446,7 +492,7 @@ export class WorkbenchPanel {
 
     await this.openPipelineSource();
     await this.openAirflowSource();
-    await this.openDbtProject();
+    await this.createDbtSample();
 
     const readme = vscode.Uri.joinPath(root, "README_DATAPASS_RETAIL.md");
     await this.openBeside(readme);
@@ -1138,69 +1184,95 @@ export class WorkbenchPanel {
     editor.revealRange(new vscode.Range(position, position), vscode.TextEditorRevealType.InCenter);
   }
 
-  private async openDbtProject(): Promise<void> {
+  /** Copy the bundled retail dbt sample to <assets.dbt>/retail-dbt (never overwriting) and select it. */
+  private async createDbtSample(): Promise<void> {
     const root = vscode.workspace.workspaceFolders?.[0]?.uri;
     if (!root) {
-      void vscode.window.showWarningMessage("Open a workspace folder before creating a dbt Lab project.");
+      void vscode.window.showWarningMessage("Open a workspace folder before creating a dbt project.");
       return;
     }
-
     const manifest = await readProjectManifest();
     const dbtRoot = safeRelativeParts(manifest.manifest?.assets?.dbt, "dbt");
     const projectRoot = vscode.Uri.joinPath(root, ...dbtRoot, "retail-dbt");
+    await copyDirectoryWithoutOverwrite(vscode.Uri.joinPath(this.context.extensionUri, "samples", "dbt", "retail-dbt"), projectRoot);
     const projectFile = vscode.Uri.joinPath(projectRoot, "dbt_project.yml");
-
-    const donor = vscode.Uri.joinPath(
-      this.context.extensionUri,
-      "samples",
-      "dbt",
-      "retail-dbt"
-    );
-    await copyDirectoryWithoutOverwrite(donor, projectRoot);
-
     if (!(await exists(projectFile))) {
       void vscode.window.showErrorMessage("The bundled dbt retail sample is incomplete: dbt_project.yml was not found.");
       return;
     }
-
-    await ensureDbtProfile(root);
+    await this.context.workspaceState.update(DBT_SELECTED_KEY, [...dbtRoot, "retail-dbt"].join("/"));
+    await writeDbtProfiles(root, (await findDbtProjects()).map(project => project.file));
     await this.openBeside(projectFile);
     await this.refresh();
   }
 
-  private async runDbtBuild(): Promise<void> {
+  /** Explicit action only: create the managed dbt tools environment and install dbt Core + dbt-duckdb in it. */
+  private async installDbtTools(): Promise<void> {
+    const choice = await vscode.window.showInformationMessage(
+      "Install dbt Core and dbt-duckdb for the dbt Lab? Datapass creates a separate Python environment in its " +
+      "extension storage (about 200 MB, a few minutes). Nothing else on your machine changes.",
+      { modal: true },
+      "Install dbt tools"
+    );
+    if (choice !== "Install dbt tools") return;
+    const runtimeEnv = this.runtimeManager.snapshot().environment;
+    try {
+      await this.dbtLab.tools.install(runtimeEnv?.status === "ready" ? runtimeEnv.python : undefined);
+      void vscode.window.showInformationMessage("dbt tools installed. Pick a command in the dbt Lab: it runs in a terminal in the project folder.");
+    } catch (error) {
+      void vscode.window.showErrorMessage(`dbt tools install failed: ${error instanceof Error ? error.message : String(error)}`);
+    }
+    await this.refresh();
+  }
+
+  /**
+   * Type a real dbt Core command in the dbt Lab terminal (project folder, managed tools on PATH, generated profiles).
+   * Without a command, only open the terminal for the learner to type in.
+   */
+  private async runDbtCommand(command: DbtCommand | undefined, select: string, exclude: string, fullRefresh: boolean): Promise<void> {
     const root = vscode.workspace.workspaceFolders?.[0]?.uri;
     if (!root) {
       void vscode.window.showWarningMessage("Open a workspace folder before running dbt.");
       return;
     }
-
-    const probe = await probeDbtCli();
-    if (!probe.available || !probe.adapterAvailable) {
-      void vscode.window.showWarningMessage(
-        probe.available
-          ? "dbt Core is installed, but dbt-duckdb was not detected. Install dbt-duckdb before running this project."
-          : "dbt CLI was not detected. Install dbt-core and dbt-duckdb first."
-      );
+    if (this.dbtLab.tools.refresh().status !== "ready") {
+      void vscode.window.showWarningMessage("Install the dbt tools first (dbt Lab > Install dbt tools).");
       return;
     }
-
-    const manifest = await readProjectManifest();
-    const dbtRoot = safeRelativeParts(manifest.manifest?.assets?.dbt, "dbt");
-    const projectRoot = vscode.Uri.joinPath(root, ...dbtRoot, "retail-dbt");
-    const projectFile = vscode.Uri.joinPath(projectRoot, "dbt_project.yml");
-    if (!(await exists(projectFile))) {
-      await this.openDbtProject();
+    const projects = await findDbtProjects();
+    const selected = this.context.workspaceState.get<string>(DBT_SELECTED_KEY);
+    const project = projects.find(item => item.path === selected) ?? projects[0];
+    const folder = project ? projectFolder(project.path) : undefined;
+    if (!project || !folder) {
+      void vscode.window.showWarningMessage("No dbt project in this workspace. Create the retail sample or start a mission first.");
       return;
     }
+    let commandLine: string | undefined;
+    try {
+      commandLine = command ? buildDbtCommand({ command, select, exclude, fullRefresh }) : undefined;
+    } catch (error) {
+      void vscode.window.showWarningMessage(error instanceof Error ? error.message : String(error));
+      return;
+    }
+    const profilesDir = await writeDbtProfiles(root, projects.map(item => item.file));
+    await this.dbtLab.terminal.run(folder, profilesDir, commandLine);
+    await this.refresh();
+  }
 
-    const profilesDir = await ensureDbtProfile(root);
-    const terminal = vscode.window.createTerminal({
-      name: "Datapass dbt",
-      cwd: projectRoot
-    });
-    terminal.show();
-    terminal.sendText(`dbt build --profiles-dir ${quoteShellArg(profilesDir.fsPath)}`, true);
+  /** Open a file of the selected dbt project (a model, or its compiled SQL under target/). */
+  private async openDbtFile(relative: string): Promise<void> {
+    const selected = this.context.workspaceState.get<string>(DBT_SELECTED_KEY);
+    const projects = await findDbtProjects();
+    const project = projects.find(item => item.path === selected) ?? projects[0];
+    const folder = project ? projectFolder(project.path) : undefined;
+    const parts = relative.replaceAll("\\", "/").split("/").filter(Boolean);
+    if (!folder || !parts.length || parts.some(part => part === ".." || part.includes(":"))) return;
+    const uri = vscode.Uri.joinPath(folder, ...parts);
+    if (!(await exists(uri))) {
+      void vscode.window.showWarningMessage(`${relative} does not exist (compiled files appear after dbt compiles the node).`);
+      return;
+    }
+    await this.openBeside(uri);
   }
 
   // ---- Projects ----------------------------------------------------------------------------------------
@@ -1353,7 +1425,15 @@ export class WorkbenchPanel {
       this.runtimeManager,
       this.context.extensionUri,
       this.pythonTrust,
-      { focus: this.focus, projects: this.projectsHost }
+      {
+        focus: this.focus,
+        projects: this.projectsHost,
+        dbtLab: {
+          tools: this.dbtLab.tools.snapshot(),
+          selected: this.context.workspaceState.get<string>(DBT_SELECTED_KEY),
+          shellIntegration: this.dbtLab.terminal.hasShellIntegration
+        }
+      }
     );
     if (seq !== this.refreshSeq) return;
     await this.panel.webview.postMessage({ type: "state", state });
@@ -1452,33 +1532,6 @@ function safeRelativeParts(value: string | undefined, fallback: string): string[
   return parts;
 }
 
-async function ensureDbtProfile(root: vscode.Uri): Promise<vscode.Uri> {
-  const profilesDir = vscode.Uri.joinPath(root, ".datapass", "dbt");
-  const dataDir = vscode.Uri.joinPath(root, ".datapass", "data");
-  const profile = vscode.Uri.joinPath(profilesDir, "profiles.yml");
-  const database = vscode.Uri.joinPath(dataDir, "workspace.duckdb");
-
-  await vscode.workspace.fs.createDirectory(profilesDir);
-  await vscode.workspace.fs.createDirectory(dataDir);
-
-  if (!(await exists(profile))) {
-    const databasePath = database.fsPath.replaceAll("\\", "/").replaceAll("'", "''");
-    const content = [
-      "datapass_retail:",
-      "  target: dev",
-      "  outputs:",
-      "    dev:",
-      "      type: duckdb",
-      `      path: '${databasePath}'`,
-      "      threads: 4",
-      ""
-    ].join("\n");
-    await vscode.workspace.fs.writeFile(profile, new TextEncoder().encode(content));
-  }
-
-  return profilesDir;
-}
-
 async function writeIfMissing(uri: vscode.Uri, content: string): Promise<void> {
   if (!(await exists(uri))) {
     await vscode.workspace.fs.writeFile(uri, new TextEncoder().encode(content));
@@ -1502,10 +1555,6 @@ async function copyDirectoryWithoutOverwrite(source: vscode.Uri, target: vscode.
 
 function escapeRegExp(value: string): string {
   return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-}
-
-function quoteShellArg(value: string): string {
-  return `"${value.replaceAll('"', '\\"')}"`;
 }
 
 async function activeSavedDocument(

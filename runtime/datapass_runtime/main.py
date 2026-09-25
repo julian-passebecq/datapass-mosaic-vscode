@@ -6,11 +6,13 @@ import sys
 from pathlib import Path
 from typing import Any, Literal
 
-from fastapi import FastAPI, HTTPException
-from pydantic import BaseModel, ConfigDict, Field, model_validator
+from fastapi import FastAPI, HTTPException, Request
+from fastapi.responses import JSONResponse
+from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
 from airflowlab.lab import lab_view
 
+from .catalog_lease import CatalogLease, CatalogLocked, CatalogReleased, is_lock_error
 from .pipeline_compiler import compile_response
 from .kernels import KernelManager
 from .retail_demo import run_retail_demo
@@ -34,6 +36,14 @@ async def lifespan(_app: FastAPI):
 
 
 app = FastAPI(title="Datapass Runtime", version="0.1.0", lifespan=lifespan)
+catalog_lease = CatalogLease()
+
+
+@app.exception_handler(CatalogReleased)
+@app.exception_handler(CatalogLocked)
+async def catalog_unavailable(_request: Request, error: Exception) -> JSONResponse:
+    # 409: the catalog exists but another process has it; the request can be retried after a reattach.
+    return JSONResponse(status_code=409, content={"detail": str(error), "catalog": catalog_lease.view()})
 
 
 def workspace_root() -> Path:
@@ -53,8 +63,18 @@ def workspace_data_dir() -> Path:
 
 
 def native_command(body: dict[str, object]) -> object:
-    # Trusted Python resolves relative paths from the workspace root, like `python file.py`.
-    return kernel_manager.call(NATIVE_WORKSPACE_ID, workspace_data_dir(), body, cwd=workspace_root())
+    # The lease check and the call share the workspace gate, so a release cannot slip between them.
+    with kernel_manager.workspace_lease(NATIVE_WORKSPACE_ID):
+        catalog_lease.check()
+        try:
+            # Trusted Python resolves relative paths from the workspace root, like `python file.py`.
+            return kernel_manager.call(NATIVE_WORKSPACE_ID, workspace_data_dir(), body, cwd=workspace_root())
+        except RuntimeError as error:
+            if is_lock_error(error):
+                raise CatalogLocked(
+                    "Another process holds .datapass/data/workspace.duckdb (a dbt Core or dct run started outside "
+                    "the dbt Lab?). DuckDB allows one writer per file: wait for it to end, then retry.") from error
+            raise
 
 
 def record_run(lab: str, request: dict[str, Any], response: object) -> object:
@@ -226,6 +246,19 @@ class BiDbtRequest(BaseModel):
         return self
 
 
+class CatalogReleaseRequest(BaseModel):
+    """Who borrows the catalog file: the command line shown in the UI, e.g. `dbt build --select tag:daily`."""
+    model_config = ConfigDict(extra="forbid", strict=True)
+    holder: str = Field(min_length=1, max_length=200)
+
+    @field_validator("holder")
+    @classmethod
+    def printable(cls, value: str) -> str:
+        if not value.isprintable():
+            raise ValueError("holder must be one printable line")
+        return value
+
+
 class RetailDemoRequest(BaseModel):
     model_config = ConfigDict(extra="forbid", strict=True)
     dataset_path: str = Field(min_length=1, max_length=500)
@@ -374,6 +407,42 @@ def local_catalog_schema() -> object:
     return native_command({"op": "catalog_schema"})
 
 
+@app.get("/api/local/catalog/lease")
+def catalog_lease_view() -> dict[str, object]:
+    return catalog_lease.view()
+
+
+@app.post("/api/local/catalog/release")
+def release_catalog(body: CatalogReleaseRequest) -> dict[str, object]:
+    """Close the workspace catalog so an external process (dbt Core, dct) can open the DuckDB file.
+
+    Waits for a running request to finish; every catalog request is then refused (HTTP 409) until reattached.
+    """
+    with kernel_manager.workspace_lease(NATIVE_WORKSPACE_ID):
+        catalog_lease.hold(body.holder)
+        kernel_manager.restart(NATIVE_WORKSPACE_ID)
+    return catalog_lease.view()
+
+
+@app.post("/api/local/catalog/reattach")
+def reattach_catalog() -> dict[str, object]:
+    """Reopen the workspace catalog. If the file is still held, the catalog stays lent and HTTP 409 says why."""
+    with kernel_manager.workspace_lease(NATIVE_WORKSPACE_ID):
+        previous = catalog_lease.clear()
+        try:
+            native_command({"op": "capabilities"})
+        except CatalogLocked:
+            catalog_lease.hold(previous or "another process")
+            raise CatalogLocked(
+                "The catalog file is still held by another process (is a dbt or dct command still running, "
+                "such as dct serve?). Stop it, then reattach.") from None
+        except (RuntimeError, ValueError) as error:
+            # Any other reopen failure: the catalog stays lent and the reason is shown; a retry may succeed.
+            catalog_lease.hold(previous or "another process")
+            raise CatalogLocked(f"The catalog could not be reopened yet: {error}") from None
+    return catalog_lease.view()
+
+
 @app.post("/api/local/query")
 def local_query(body: LocalQueryRequest) -> object:
     return native_command({"op": "read_query", "query": body.query})
@@ -505,6 +574,7 @@ def databricks_state(body: DatabricksStateRequest) -> object:
 @app.post("/api/demo/retail/run")
 def execute_retail_demo(body: RetailDemoRequest) -> dict[str, object]:
     """Execute the local retail medallion path with Polars + DuckDB."""
+    catalog_lease.check()
     try:
         kernel_manager.restart(NATIVE_WORKSPACE_ID)
         return record_run("lakehouse", {}, run_retail_demo(body.dataset_path))

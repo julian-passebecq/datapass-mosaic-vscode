@@ -12,14 +12,18 @@ import type { PythonTrustController } from "./pythonTrustController";
 import type { RuntimeManager } from "./runtimeManager";
 import { loadProjectsState, readProgress } from "./projectState";
 import { emptyPracticeProgress } from "./platform/practiceProgress";
-import type { PracticeViewState, ProjectsHostState, SparkLabProfileView, WorkbenchFocus, WorkbenchViewState } from "./webview/contracts";
+import type { DbtToolsView, PracticeViewState, ProjectsHostState, SparkLabProfileView, WorkbenchFocus, WorkbenchViewState } from "./webview/contracts";
 
 export async function collectWorkbenchState(
   selectedModule: ModuleId,
   runtimeManager: RuntimeManager,
   extensionUri: vscode.Uri,
   pythonTrust: PythonTrustController,
-  extras: { focus?: WorkbenchFocus; projects?: ProjectsHostState } = {}
+  extras: {
+    focus?: WorkbenchFocus;
+    projects?: ProjectsHostState;
+    dbtLab?: { tools: DbtToolsView; selected?: string; shellIntegration?: boolean };
+  } = {}
 ): Promise<WorkbenchViewState> {
   const folder = vscode.workspace.workspaceFolders?.[0];
   const manifest = await readProjectManifest();
@@ -32,8 +36,8 @@ export async function collectWorkbenchState(
   const airflow = selectedModule === "airflow"
     ? await loadAirflowState()
     : undefined;
-  const dbt = selectedModule === "dbt"
-    ? await loadDbtState()
+  const dbt = selectedModule === "dbt" && extras.dbtLab
+    ? await loadDbtState(extras.dbtLab)
     : undefined;
   const factory = selectedModule === "fabric"
     ? await loadFactoryState()

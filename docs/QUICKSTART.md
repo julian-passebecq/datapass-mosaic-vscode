@@ -235,11 +235,28 @@ For targeted Airflow practice, filter Practice on **Airflow**: 13 exercises wher
 
 ### dbt Lab
 
-Open the retained `dbt/retail-dbt` sample.
+The dbt Lab is the real-life dbt lab: real dbt Core and dbt-duckdb, typed in a real VS Code terminal, on the local
+catalog. (The BI Lab keeps the guided dbt emulation.)
 
-Without dbt installed, Datapass can show static project lineage.
-
-With `dbt-core` and `dbt-duckdb` available, choose **Run dbt build**. Datapass then prefers the real `target/manifest.json` artifact for lineage.
+1. **Install dbt tools** (once). Datapass asks first, then creates a separate Python environment in its extension
+   storage with dbt Core and dbt-duckdb, DuckDB pinned to the runtime's version. It needs Python 3.10–3.13 (found with
+   `py -3.13` … on Windows, `python3.13` … elsewhere, or set `datapass.dbtTools.python`). Nothing is installed silently.
+2. Pick a project: every folder with a `dbt_project.yml` is listed. **Create retail sample** copies `dbt/retail-dbt`.
+3. Choose a command (`build`, `run`, `test`, `seed`, `snapshot`, `compile`, `deps`, `docs generate`, `debug`, `parse`),
+   `--select`, `--exclude` and `--full-refresh`, then **Run in terminal**. Datapass opens a terminal in the project
+   folder, with the managed tools first on `PATH` and `DBT_PROFILES_DIR` set to `.datapass/dbt/`, and types the real
+   command. Edit it and press Enter to run it again, or type any other dbt command there.
+4. `.datapass/dbt/profiles.yml` is generated: one DuckDB output per project profile, on
+   `.datapass/data/workspace.duckdb`, schema `dbt_dev` (projects with their own `generate_schema_name` build into the
+   catalog layers). No secrets, never inside the project. dbt's anonymous usage statistics are turned off.
+5. **Catalog handoff.** DuckDB lets one process write the file. When a `dbt` (or `dct`) command starts in that
+   terminal, the runtime closes the catalog ("Catalog lent to dbt" in the lab and in the Catalog view); when it ends,
+   the runtime reattaches it and the Catalog view shows what dbt built. VS Code's shell integration reports both
+   moments (bash, zsh, fish, PowerShell). In a shell without it, such as cmd.exe, click **Reattach catalog** when the
+   command has finished. You no longer stop the runtime by hand.
+6. After a run the lab reads `target/manifest.json` and `target/run_results.json`, labelled **dbt Core (real)**: the
+   command, dbt version, invocation, status counts, the DAG colored by status (tests optional), failures and warnings,
+   and each node's message, file and compiled SQL. `dbt parse` shows the DAG without touching the database.
 
 ## 4. Runtime
 

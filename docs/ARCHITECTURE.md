@@ -200,7 +200,35 @@ When disabled, SQL and bounded SparkLab work normally; Mosaic's **Run active Pyt
 
 ## dbt Lab
 
-Prefer real dbt Core over a fake dbt engine. Datapass adds project scaffolding, manifest lineage, tests/results UI and learning overlays.
+The real-life dbt lab: real dbt Core + dbt-duckdb, run by the learner in a VS Code integrated terminal. Datapass adds
+the managed tools environment, the generated profile, the catalog handoff and a view of the artifacts; it never runs
+dbt in the runtime and never approximates it (the emulation lives in the BI Lab).
+
+- **Tools** (`src/dbtLab.ts`, `DbtToolsManager`): a venv `dbt-tools-venv` in the extension's global storage, created
+  only by **Install dbt tools** (modal confirmation), separate from the runtime venv because dbt pins its own
+  dependencies and needs Python 3.10–3.13. Requirements in `src/platform/dbtTools.ts`; DuckDB is pinned to the
+  runtime venv's version so both processes share one storage format. Versions come from package metadata.
+- **Terminal** (`DbtTerminalSession`): one terminal per project folder, env = managed tools first on `PATH`,
+  `VIRTUAL_ENV`, `DBT_PROFILES_DIR=.datapass/dbt`, `DBT_SEND_ANONYMOUS_USAGE_STATS=false`, `DO_NOT_TRACK=1`. Buttons
+  build the command line (`buildDbtCommand`, selectors validated, quoted for every shell) and type it through shell
+  integration (`executeCommand`), or `sendText` without it.
+- **Catalog handoff**: the runtime's kernel worker holds `.datapass/data/workspace.duckdb` open, and DuckDB refuses a
+  second writer (and a read-only opener) from another process. `POST /api/local/catalog/release` (holder = the command
+  line) waits for the running request, stops the worker gracefully (the connection closes, the lock is freed) and
+  makes every catalog request answer HTTP 409 until `POST /api/local/catalog/reattach`, which reopens the catalog or
+  answers 409 if the file is still held. `GET /api/local/catalog/lease` reports it. The terminal session releases on
+  `onDidStartTerminalShellExecution` for a catalog command (`isCatalogCommand`: dbt and dct, except commands that
+  never open the database) and reattaches on `onDidEndTerminalShellExecution` or when the terminal closes; without
+  shell integration, new artifacts trigger a reattach attempt and **Reattach catalog** is always available. A lock
+  held by a process the runtime did not lend the file to (a dbt run in an outside terminal) is reported as HTTP 409
+  with an explanation instead of a raw IO error.
+- **Artifacts** (`src/platform/dbtArtifacts.ts`): `target/manifest.json` + `target/run_results.json` of the selected
+  project → command (from `args`), counts, DAG, problems, node details; a manifest newer than the results (after
+  `dbt parse` or `docs generate`) is flagged. Labelled "dbt Core (real)".
+
+Retired with this rebuild: the regex-based static lineage of the old dbt Lab (use `dbt parse` for a real manifest,
+or the BI Lab's emulation), the `dbt --version` probe of a dbt on the user's `PATH` (`src/platform/dbtVersion.ts`), and
+the single hard-coded `dbt/retail-dbt` project (the sample remains, as one project among others).
 
 ## Airflow Lab
 

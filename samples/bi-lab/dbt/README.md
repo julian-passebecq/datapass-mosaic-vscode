@@ -21,22 +21,6 @@ for a documented subset and was checked against them, but it is not dbt Core.
 
 ## With real dbt Core
 
-The project also runs with dbt Core and dbt-duckdb. Stop the Datapass runtime first: DuckDB lets one process at a
-time write the catalog file. Then, from this folder:
-
-```bash
-dbt build --profiles-dir .
-```
-
-with a `profiles.yml` next to `dbt_project.yml`:
-
-```yaml
-datapass_bi:
-  target: dev
-  outputs:
-    dev:
-      type: duckdb
-      path: '../../.datapass/data/workspace.duckdb'
-      schema: silver
-      threads: 1
-```
+The project also runs with real dbt Core and dbt-duckdb: open the **dbt Lab**, install the dbt tools, pick `bi/dbt`
+and run `dbt build` in its terminal. The lab generates the `datapass_bi` profile in `.datapass/dbt/profiles.yml` and
+lends the catalog file to dbt while the command runs (DuckDB lets one process at a time write it), then takes it back.

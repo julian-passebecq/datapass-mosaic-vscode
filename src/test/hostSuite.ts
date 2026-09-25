@@ -10,6 +10,7 @@
  * purpose: the runtime must still start with trusted Python disabled.
  */
 import assert from "node:assert/strict";
+import { spawn } from "node:child_process";
 import { mkdtemp } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import * as path from "node:path";
@@ -17,7 +18,8 @@ import * as vscode from "vscode";
 import { loadAirflowState } from "../airflowState";
 import { CatalogTreeProvider, openTableScratch } from "../catalogTree";
 import { biFileUri, collectBiDbtFiles, collectBiScripts, copyBiSamples, loadBiState, readBiModel } from "../biState";
-import { loadDbtState } from "../dbtState";
+import { DbtTerminalSession, writeDbtProfiles } from "../dbtLab";
+import { findDbtProjects, loadDbtState } from "../dbtState";
 import { loadExerciseCatalog } from "../exerciseCatalog";
 import { prepareExerciseWorkspace } from "../exerciseWorkspace";
 import { collectDatabricksFiles, collectFactoryFiles, copyFactorySamples, loadFactoryState, readPoolScript } from "../factoryState";
@@ -49,6 +51,7 @@ export async function run(): Promise<void> {
   const root = vscode.workspace.workspaceFolders?.[0]?.uri;
   assert.ok(root, "The E2E runner must open a workspace folder.");
   const python = process.env.DATAPASS_E2E_PYTHON?.trim();
+  const dbtPython = process.env.DATAPASS_DBT_PYTHON?.trim();
   let runtime: RuntimeManager | undefined;
 
   const write = (relative: string, content: string) =>
@@ -171,15 +174,21 @@ export async function run(): Promise<void> {
       assert.equal(excludes["**/exercises/*/*/__builtins__.pyi"], true, "the generated stub is hidden from the Explorer");
       await vscode.workspace.fs.stat(vscode.Uri.joinPath(root, ".datapass", "pylance-stubs", "pyspark", "sql", "functions.py"));
     }],
-    ["dbt sample shows static lineage without claiming a run", async () => {
+    ["dbt Lab finds the workspace's dbt projects and claims no run before target/ exists", async () => {
       await copyDirectory(
         vscode.Uri.joinPath(extension.extensionUri, "samples", "dbt", "retail-dbt"),
         vscode.Uri.joinPath(root, "dbt", "retail-dbt")
       );
-      const dbt = await loadDbtState();
-      assert.equal(dbt.exists, true, dbt.errors.join("; "));
-      assert.equal(dbt.lineageSource, "static");
-      assert.ok(dbt.modelCount > 0 && dbt.graph.edges.length > 0);
+      const dbt = await loadDbtState({ tools: { status: "missing" } });
+      const retail = dbt.projects.find(project => project.path === "dbt/retail-dbt");
+      assert.deepEqual(retail, { path: "dbt/retail-dbt", name: "datapass_retail", profile: "datapass_retail" });
+      assert.equal(dbt.selected, dbt.projects[0].path);
+      assert.equal(dbt.run, undefined);
+      const profilesDir = await writeDbtProfiles(root, (await findDbtProjects()).map(project => project.file));
+      const profiles = new TextDecoder().decode(await vscode.workspace.fs.readFile(vscode.Uri.joinPath(profilesDir, "profiles.yml")));
+      assert.match(profiles, /^datapass_retail:$/m);
+      assert.match(profiles, /path: '.*\/\.datapass\/data\/workspace\.duckdb'/);
+      assert.doesNotMatch(profiles, /^\s*(password|token|secret|user)\s*:/im);
     }]
   ];
 
@@ -447,6 +456,64 @@ export async function run(): Promise<void> {
       assert.equal(refused.status, "error");
       assert.match(refused.message, /depends_on/);
     }],
+    ["the runtime lends the catalog file to another writer and takes it back", async () => {
+      assert.equal(await runtime!.releaseCatalog("dbt run --select e2e"), true);
+      assert.equal(runtime!.snapshot().catalogLease?.holder, "dbt run --select e2e");
+      await assert.rejects(runtime!.runSql("SELECT 1"), /409|lent to/);
+      const database = path.join(root.fsPath, ".datapass", "data", "workspace.duckdb");
+      const writer = spawn(python!, ["-c", [
+        "import duckdb, sys",
+        "c = duckdb.connect(sys.argv[1])",
+        "c.execute('CREATE OR REPLACE TABLE silver.e2e_handoff AS SELECT 7 AS n')",
+        "print('ready', flush=True)",
+        "sys.stdin.readline()",
+        "c.close()"
+      ].join("\n"), database], { stdio: ["pipe", "pipe", "inherit"] });
+      try {
+        await new Promise<void>((resolve, reject) => {
+          writer.stdout!.once("data", () => resolve());
+          writer.once("exit", code => reject(new Error(`writer exited ${code}`)));
+        });
+        assert.equal(await runtime!.reattachCatalog(), false, "the file is still held");
+        assert.match(runtime!.snapshot().catalogLease?.reattachError ?? "", /still held/);
+      } finally {
+        writer.stdin!.end("done\n");
+        await new Promise(resolve => writer.once("exit", resolve));
+      }
+      assert.equal(await runtime!.reattachCatalog(), true);
+      assert.equal(runtime!.snapshot().catalogLease, undefined);
+      assert.ok(runtime!.snapshot().catalog?.some(asset => asset.name === "silver.e2e_handoff"));
+    }],
+    ...(!dbtPython ? [] : [["dbt Core builds the BI project in a real terminal, with the catalog handed off and back", async () => {
+      const binDir = path.dirname(dbtPython);
+      const session = new DbtTerminalSession(runtime!, { binDir, venvRoot: path.dirname(binDir) });
+      try {
+        const projects = await findDbtProjects();
+        const profilesDir = await writeDbtProfiles(root, projects.map(project => project.file));
+        const leases: string[] = [];
+        const watch = runtime!.onDidChange(state => { if (state.catalogLease) leases.push(state.catalogLease.holder); });
+        const ended = new Promise<{ commandLine: string; exitCode: number | undefined }>((resolve, reject) => {
+          const timer = setTimeout(() => reject(new Error("dbt build did not report its end within 240 s")), 240_000);
+          session.onDidEndCommand(event => { clearTimeout(timer); resolve(event); });
+        });
+        await session.run(vscode.Uri.joinPath(root, "bi", "dbt"), profilesDir, "dbt build");
+        const end = await ended;
+        watch.dispose();
+        assert.equal(end.commandLine.trim(), "dbt build");
+        assert.ok(leases.includes("dbt build"), "the catalog was lent while dbt ran");
+        assert.equal(runtime!.snapshot().catalogLease, undefined, "and reattached afterwards");
+        const dbt = await loadDbtState({ tools: { status: "ready" }, selected: "bi/dbt" });
+        assert.equal(dbt.run?.command, "dbt build", dbt.artifactError);
+        assert.ok(dbt.run!.truth.startsWith("dbt Core (real)"));
+        assert.ok((dbt.run!.counts.success ?? 0) > 5 && (dbt.run!.counts.pass ?? 0) > 5, JSON.stringify(dbt.run!.counts));
+        assert.deepEqual(dbt.run!.problems, []);
+        assert.equal(end.exitCode ?? 0, 0);
+        await runtime!.refreshCatalog();
+        assert.ok(runtime!.snapshot().catalog?.some(asset => asset.name === "warehouse.fct_sales"));
+      } finally {
+        session.dispose();
+      }
+    }] as Step]),
     ["Catalog tree lists layers, tables, columns and row counts, and opens a SQL scratch", async () => {
       const tree = new CatalogTreeProvider(runtime!);
       try {

@@ -2,6 +2,8 @@ from importlib import resources
 import json
 import os
 from pathlib import Path
+import subprocess
+import sys
 from tempfile import TemporaryDirectory
 import time
 
@@ -840,6 +842,35 @@ with TemporaryDirectory(prefix="datapass-csv-import-smoke-") as temp:
             assert visits["columns"] == [{"name": "city", "type": "VARCHAR"}, {"name": "visits", "type": "VARCHAR"}], visits
             assert by_name["silver.visits_v"]["kind"] == "view" and by_name["silver.visits_v"]["row_count"] == 2, by_name["silver.visits_v"]
             assert by_name["source.orders"]["row_count"] == 12 and by_name["source.orders"]["fresh"] is True, by_name["source.orders"]
+
+            # Catalog handoff: releasing closes the worker's connection, so another process can write the file
+            # (as dbt Core does); catalog requests are refused until reattached; a held file blocks the reattach.
+            assert client.get("/api/local/catalog/lease").json() == {"attached": True, "holder": None, "since": None}
+            released = client.post("/api/local/catalog/release", json={"holder": "dbt build --select tag:daily"})
+            assert released.status_code == 200 and released.json()["holder"] == "dbt build --select tag:daily", released.text
+            refused = client.get("/api/local/catalog")
+            assert refused.status_code == 409 and "lent to" in refused.json()["detail"], refused.text
+            assert client.post("/api/local/exercise", json={
+                "exercise_id": "x", "exercise_version": "1", "language": "sql", "code": "SELECT 1", "mode": "run",
+                "notebook_id": "n", "cell_id": "c", "source_revision": 0}).status_code == 409
+            db_file = str(Path(temp) / ".datapass" / "data" / "workspace.duckdb")
+            holder_code = ("import duckdb, sys, time; c = duckdb.connect(sys.argv[1]); "
+                           "c.execute('CREATE OR REPLACE TABLE silver.from_dbt AS SELECT 42 AS answer'); "
+                           "print('ready', flush=True); sys.stdin.readline(); c.close()")
+            external = subprocess.Popen([sys.executable, "-c", holder_code, db_file], stdin=subprocess.PIPE,
+                                        stdout=subprocess.PIPE, text=True)
+            try:
+                assert external.stdout.readline().strip() == "ready", "an external writer can open the released file"
+                blocked = client.post("/api/local/catalog/reattach")
+                assert blocked.status_code == 409 and "still held" in blocked.json()["detail"], blocked.text
+                assert client.get("/api/local/catalog/lease").json()["attached"] is False
+            finally:
+                external.communicate("done\n", timeout=30)
+            reattached = client.post("/api/local/catalog/reattach")
+            assert reattached.status_code == 200 and reattached.json()["attached"] is True, reattached.text
+            answer = client.post("/api/local/query", json={"query": "SELECT answer FROM silver.from_dbt"}).json()
+            assert answer["result"]["rows"] == [{"answer": 42}], answer
+            assert client.post("/api/local/catalog/release", json={"holder": "two\nlines"}).status_code == 422
 
             # Imports never overwrite, and only create bronze tables.
             again = client.post("/api/local/import-csv", json={"asset": "bronze.city_visits", "text": "city\nNice\n"})

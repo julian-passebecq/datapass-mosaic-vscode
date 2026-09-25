@@ -175,7 +175,7 @@ export function WorkbenchApp({ vscode }: { vscode: VsCodeApi }) {
             ) : selected.id === "airflow" ? (
               <AirflowSurface vscode={vscode} airflow={state.airflow} runtime={state.runtime} />
             ) : selected.id === "dbt" ? (
-              <DbtSurface vscode={vscode} dbt={state.dbt} />
+              <DbtSurface vscode={vscode} dbt={state.dbt} runtime={state.runtime} />
             ) : (
               <>
                 <div className="feature-grid">
