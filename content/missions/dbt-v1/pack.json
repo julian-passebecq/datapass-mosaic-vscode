@@ -1,0 +1,15 @@
+{
+  "id": "dbt-v1",
+  "title": "dbt missions",
+  "lab": "dbt",
+  "version": "1",
+  "description": "Tickets from the analytics team, done with real dbt Core and dbt Charts on the shop's project.",
+  "base": "base",
+  "missions": [
+    "prod-unique-failure",
+    "source-freshness",
+    "incremental-order-lines",
+    "backfill-daily-sales",
+    "sales-board"
+  ]
+}

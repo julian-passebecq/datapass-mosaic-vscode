@@ -21,6 +21,7 @@ import { CatalogTreeProvider, openTableScratch } from "../catalogTree";
 import { biFileUri, collectBiDbtFiles, collectBiScripts, copyBiSamples, loadBiState, readBiModel } from "../biState";
 import { DbtTerminalSession, writeDbtProfiles } from "../dbtLab";
 import { findDbtProjects, loadDbtState } from "../dbtState";
+import { MissionsService } from "../missions";
 import { buildDctCommand } from "../platform/dbtTools";
 import { loadExerciseCatalog } from "../exerciseCatalog";
 import { prepareExerciseWorkspace } from "../exerciseWorkspace";
@@ -557,6 +558,59 @@ export async function run(): Promise<void> {
           session.dispose();
         }
       }] as Step]),
+    ["a mission starts in its own folder, and the hidden checker judges the real result", async () => {
+      const binDir = dbtPython ? path.dirname(dbtPython) : path.join(root.fsPath, "no-dbt");
+      const tools = { binDir, venvRoot: path.dirname(binDir), snapshot: () => ({ status: "missing" as const }) };
+      const missions = new MissionsService(extension.extensionUri, runtime!, tools);
+      const list = await missions.list("dbt");
+      assert.deepEqual(list.map(m => m.id), ["prod-unique-failure", "source-freshness", "incremental-order-lines", "backfill-daily-sales", "sales-board"]);
+      const folder = await missions.start("prod-unique-failure");
+      const read = async (relative: string) => new TextDecoder().decode(await vscode.workspace.fs.readFile(vscode.Uri.joinPath(folder, ...relative.split("/"))));
+      assert.match(await read("TICKET.md"), /^# \[FAILED\] nightly dbt build/m);
+      assert.match(await read("dbt_project.yml"), /raw_schema: uniq_raw/);
+      await assert.rejects(Promise.resolve(vscode.workspace.fs.stat(vscode.Uri.joinPath(folder, "solution"))), "the reference is not copied");
+      await assert.rejects(Promise.resolve(vscode.workspace.fs.stat(vscode.Uri.joinPath(folder, "fixtures"))), "fixtures are not copied");
+      await missions.revealHint("prod-unique-failure");
+      await missions.check("prod-unique-failure");
+      let progress = (await missions.progress()).missions["prod-unique-failure"];
+      assert.equal(progress.hintsShown, 1);
+      assert.deepEqual(progress.batches, ["landing"]);
+      assert.equal(progress.lastCheck?.status, "not-yet");
+      assert.match(progress.lastCheck!.criteria.find(c => c.id === "green")!.details[0], /No target\/run_results\.json yet/);
+      if (!dbtPython) return;
+      // With real dbt Core: reproduce the failure, fix it as the ticket asks, and pass.
+      const session = new DbtTerminalSession(runtime!, tools);
+      const build = async () => {
+        const ended = new Promise<{ exitCode: number | undefined }>((resolve, reject) => {
+          const timer = setTimeout(() => reject(new Error("dbt build did not report its end within 240 s")), 240_000);
+          const listener = session.onDidEndCommand(event => {
+            if (event.commandLine.trim() !== "dbt build") return;
+            clearTimeout(timer);
+            listener.dispose();
+            resolve(event);
+          });
+        });
+        await session.run(folder, vscode.Uri.joinPath(root, ".datapass", "dbt"), "dbt build");
+        return ended;
+      };
+      try {
+        assert.notEqual((await build()).exitCode ?? 1, 0, "the unique test fails as in prod");
+        await missions.check("prod-unique-failure");
+        progress = (await missions.progress()).missions["prod-unique-failure"];
+        assert.equal(progress.lastCheck?.criteria.find(c => c.id === "green")?.passed, false);
+        await vscode.workspace.fs.writeFile(vscode.Uri.joinPath(folder, "models", "staging", "stg_shop__orders.sql"), new TextEncoder().encode(
+          "select order_id, customer_id, order_date, channel, payment_type, loaded_at\n" +
+          "from {{ source('shop', 'shop_orders') }}\n" +
+          "qualify row_number() over (partition by order_id order by loaded_at desc) = 1\n"));
+        assert.equal((await build()).exitCode ?? 0, 0);
+        await missions.check("prod-unique-failure");
+        progress = (await missions.progress()).missions["prod-unique-failure"];
+        assert.equal(progress.lastCheck?.status, "passed", JSON.stringify(progress.lastCheck?.criteria));
+        assert.ok(progress.passedAt);
+      } finally {
+        session.dispose();
+      }
+    }],
     ["Catalog tree lists layers, tables, columns and row counts, and opens a SQL scratch", async () => {
       const tree = new CatalogTreeProvider(runtime!);
       try {

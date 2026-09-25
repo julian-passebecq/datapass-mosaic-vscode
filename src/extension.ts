@@ -1,6 +1,7 @@
 import * as vscode from "vscode";
 import { registerCatalogTree } from "./catalogTree";
 import { DbtTerminalSession, DbtToolsManager } from "./dbtLab";
+import { MissionsService } from "./missions";
 import { LabTreeProvider } from "./labTree";
 import { MODULES } from "./modules";
 import { PythonTrustController } from "./pythonTrustController";
@@ -11,7 +12,11 @@ export function activate(context: vscode.ExtensionContext): void {
   const runtimeManager = new RuntimeManager(context.extensionUri, context.globalStorageUri);
   const pythonTrust = new PythonTrustController(context);
   const dbtTools = new DbtToolsManager(context.globalStorageUri);
-  const dbtLab = { tools: dbtTools, terminal: new DbtTerminalSession(runtimeManager, dbtTools) };
+  const dbtLab = {
+    tools: dbtTools,
+    terminal: new DbtTerminalSession(runtimeManager, dbtTools),
+    missions: new MissionsService(context.extensionUri, runtimeManager, dbtTools)
+  };
 
   context.subscriptions.push(
     runtimeManager,

@@ -1,0 +1,136 @@
+{
+  "id": "sales-board",
+  "version": "1",
+  "lab": "dbt",
+  "title": "A sales board in dbt Charts",
+  "level": "intermediate",
+  "estimate": "30-45 min",
+  "skills": [
+    "dbt Charts boards",
+    "ref() in board queries",
+    "filters",
+    "dct validate and render"
+  ],
+  "ticket": {
+    "from": "Sam (head of sales)",
+    "subject": "Monthly sales by category",
+    "body": [
+      "Could we have a board in the repo, next to the models, instead of another spreadsheet?",
+      "",
+      "- net sales per month as a bar or line chart;",
+      "- a filter on the product category;",
+      "- a table of the top products would be a bonus.",
+      "",
+      "It must read the `fct_order_lines` model (not the raw tables), validate with `dct validate`, and I want",
+      "the rendered board for the Monday review: a PNG, and the JSON render so finance can check the numbers.",
+      "Build the models first: the board reads what dbt built."
+    ]
+  },
+  "acceptance": [
+    {
+      "id": "valid",
+      "text": "charts/sales.yml validates with dct (no errors).",
+      "checks": [
+        {
+          "kind": "dct_validate",
+          "board": "charts/sales.yml"
+        }
+      ]
+    },
+    {
+      "id": "reads-model",
+      "text": "The board reads ref('fct_order_lines'), filters on category, and has a bar, line or area chart.",
+      "checks": [
+        {
+          "kind": "board",
+          "board": "charts/sales.yml",
+          "ref": "fct_order_lines",
+          "variable_column": "category",
+          "chart_types": [
+            "bar",
+            "line",
+            "area"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "numbers",
+      "text": "renders/sales.json has a chart whose values add up to the warehouse's net sales.",
+      "checks": [
+        {
+          "kind": "render",
+          "file": "renders/sales.json",
+          "chart_types": [
+            "bar",
+            "line",
+            "area"
+          ],
+          "total_sql": "SELECT CAST(sum(net_amount) AS DOUBLE) AS total FROM dbt_dev_board.fct_order_lines"
+        }
+      ]
+    },
+    {
+      "id": "png",
+      "text": "renders/sales.png is there for the review.",
+      "checks": [
+        {
+          "kind": "file",
+          "path": "renders/sales.png",
+          "min_bytes": 1000
+        }
+      ]
+    }
+  ],
+  "requires": [
+    {
+      "message": "The models are not built yet: run dbt build first.",
+      "check": {
+        "kind": "sql",
+        "sql": "SELECT count(*) > 0 AS built FROM information_schema.tables WHERE table_schema = 'dbt_dev_board' AND table_name = 'fct_order_lines'",
+        "expected": [
+          {
+            "built": true
+          }
+        ]
+      }
+    }
+  ],
+  "hints": [
+    "`dct docs getting-started` and `dct examples` work offline; `dct docs variables` covers filters.",
+    "In a board query, `{{ ref('fct_order_lines') }}` reads the dbt model through the project's manifest.",
+    "A select filter can take its options from a column (`column: table.column`); `{{ filter('name', name) }}` applies it.",
+    "The dbt Lab's Render buttons type `dct render charts/sales.yml --format png` (or json) for you."
+  ],
+  "workspace": {
+    "raw_schema": "board_raw",
+    "dev_schema": "dbt_dev_board"
+  },
+  "batches": [
+    {
+      "id": "landing",
+      "label": "The shop and ERP exports",
+      "sql": [
+        "fixtures/erp.sql",
+        "fixtures/shop.sql"
+      ]
+    }
+  ],
+  "reference": [
+    {
+      "batch": "landing"
+    },
+    {
+      "dbt": "build"
+    },
+    {
+      "dct_validate": "charts/sales.yml"
+    },
+    {
+      "dct": "render charts/sales.yml --format json --output renders/sales.json"
+    },
+    {
+      "dct": "render charts/sales.yml --format png"
+    }
+  ]
+}

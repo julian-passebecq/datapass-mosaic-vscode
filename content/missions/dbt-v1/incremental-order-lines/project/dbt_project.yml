@@ -1,0 +1,20 @@
+name: shop
+version: '1.0.0'
+config-version: 2
+profile: datapass_missions
+
+model-paths: [models]
+test-paths: [tests]
+
+vars:
+  # The schema the ingestion lands the exports in.
+  raw_schema: incr_raw
+
+models:
+  shop:
+    # Built into <target schema>_incr (dbt_dev_incr with the dbt Lab's profile).
+    +schema: incr
+    staging:
+      +materialized: view
+    marts:
+      +materialized: table

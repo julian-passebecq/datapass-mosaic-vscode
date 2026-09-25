@@ -1,0 +1,164 @@
+{
+  "id": "incremental-order-lines",
+  "version": "1",
+  "lab": "dbt",
+  "title": "Keep order history when the shop exports only what changed",
+  "level": "intermediate",
+  "estimate": "30-45 min",
+  "skills": [
+    "incremental models",
+    "is_incremental()",
+    "unique_key",
+    "late-arriving data"
+  ],
+  "ticket": {
+    "from": "Maya (data platform)",
+    "subject": "fct_order_lines will lose history from tomorrow",
+    "body": [
+      "Heads-up: from tomorrow's export (13 March) the new shop platform no longer sends every order line.",
+      "It sends every order, but only the **lines created or changed since the previous export**, and the",
+      "ingestion replaces `shop_order_lines` in the landing schema each night, as it does today.",
+      "",
+      "`fct_order_lines` is a plain table rebuilt from staging on each run, so after tomorrow's run it will only",
+      "hold the lines of one export. Finance reconciles revenue on it every morning.",
+      "",
+      "Can you change it so it keeps every line it has seen, exactly once, and takes corrections into account",
+      "(a line can come back with a new discount, and a line can be added to an old order)? Today's full export",
+      "is already in the landing schema. Once your version runs, load tomorrow's export with **Load next batch**",
+      "and run it again the way the nightly job would."
+    ]
+  },
+  "acceptance": [
+    {
+      "id": "incremental",
+      "text": "fct_order_lines is an incremental model keyed on order_id and line_number.",
+      "checks": [
+        {
+          "kind": "node",
+          "name": "fct_order_lines",
+          "materialized": "incremental",
+          "unique_key": [
+            "order_id",
+            "line_number"
+          ],
+          "code_contains": [
+            "is_incremental"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "history",
+      "text": "After tomorrow's run, every order line of both exports is in the fact exactly once.",
+      "checks": [
+        {
+          "kind": "sql",
+          "sql": "SELECT count(*) AS order_lines, count(DISTINCT order_id || '/' || line_number) AS distinct_lines, count(DISTINCT order_id) AS orders FROM dbt_dev_incr.fct_order_lines",
+          "expected": [
+            {
+              "order_lines": 17,
+              "distinct_lines": 17,
+              "orders": 11
+            }
+          ],
+          "fail": "Lines are missing or duplicated."
+        }
+      ]
+    },
+    {
+      "id": "changes",
+      "text": "The corrected discount and the late line are in the fact.",
+      "checks": [
+        {
+          "kind": "sql",
+          "sql": "SELECT order_id, line_number, net_amount FROM dbt_dev_incr.fct_order_lines WHERE (order_id = 'SO1008' AND line_number = 1) OR (order_id = 'SO1007' AND line_number = 2) ORDER BY 1, 2",
+          "expected": [
+            {
+              "order_id": "SO1007",
+              "line_number": 2,
+              "net_amount": 69.0
+            },
+            {
+              "order_id": "SO1008",
+              "line_number": 1,
+              "net_amount": 358.0
+            }
+          ],
+          "fail": "A changed or late line is missing or out of date."
+        }
+      ]
+    },
+    {
+      "id": "nightly-run",
+      "text": "Your last run was a normal (not full-refresh) dbt build, and everything passed.",
+      "checks": [
+        {
+          "kind": "run",
+          "command": "build",
+          "full_refresh": false,
+          "no_failures": true,
+          "nodes": {
+            "fct_order_lines": [
+              "success"
+            ]
+          }
+        }
+      ]
+    }
+  ],
+  "requires": [
+    {
+      "message": "Tomorrow's export has not landed yet: click Load next batch, then run dbt build again.",
+      "check": {
+        "kind": "sql",
+        "sql": "SELECT count(*) AS n FROM incr_raw.shop_orders WHERE order_id = 'SO1011'",
+        "expected": [
+          {
+            "n": 1
+          }
+        ]
+      }
+    }
+  ],
+  "hints": [
+    "Look at what tomorrow's `shop_order_lines` will contain, and at what a table materialization does with it.",
+    "An incremental model runs its SQL with `is_incremental()` true once the table exists; `{{ this }}` is the table itself.",
+    "Which column tells you a line is new or changed: the order date, or the time the export landed?",
+    "A unique_key can be a list of columns; with dbt-duckdb's default strategy (delete+insert) a changed line replaces the old one."
+  ],
+  "workspace": {
+    "raw_schema": "incr_raw",
+    "dev_schema": "dbt_dev_incr"
+  },
+  "batches": [
+    {
+      "id": "day-1",
+      "label": "12 March: first full export",
+      "sql": [
+        "fixtures/erp.sql",
+        "incremental-order-lines/fixtures/day-1.sql"
+      ]
+    },
+    {
+      "id": "day-2",
+      "label": "13 March: changed lines only",
+      "sql": [
+        "incremental-order-lines/fixtures/day-2.sql"
+      ]
+    }
+  ],
+  "reference": [
+    {
+      "batch": "day-1"
+    },
+    {
+      "dbt": "build"
+    },
+    {
+      "batch": "day-2"
+    },
+    {
+      "dbt": "build"
+    }
+  ]
+}

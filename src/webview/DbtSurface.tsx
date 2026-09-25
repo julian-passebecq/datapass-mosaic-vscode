@@ -1,9 +1,10 @@
-import { Badge, Button, Text } from "@fluentui/react-components";
+import { Badge, Button, Tab, TabList, Text } from "@fluentui/react-components";
 import { useMemo, useState } from "react";
 import type { DbtViewState, RuntimeViewState } from "./contracts";
 import type { VsCodeApi } from "./WorkbenchApp";
 import { SharedGraphCanvas } from "./SharedGraphCanvas";
 import { ResultTable } from "./ResultTable";
+import { MissionsPanel } from "./MissionsPanel";
 import { countsLine, dbtCoreGraph, type DbtCoreNodeView } from "../platform/dbtArtifacts";
 import {
   DBT_COMMANDS,
@@ -32,6 +33,7 @@ export function DbtSurface({
   const [exclude, setExclude] = useState("");
   const [fullRefresh, setFullRefresh] = useState(false);
   const [withTests, setWithTests] = useState(false);
+  const [tab, setTab] = useState<"run" | "missions">("run");
   const [chosen, setChosen] = useState<string>();
   const run = dbt?.run;
   const graph = useMemo(() => (run ? dbtCoreGraph(run, withTests) : { nodes: [], edges: [] }), [run, withTests]);
@@ -60,6 +62,11 @@ export function DbtSurface({
         </div>
       </div>
 
+      <TabList className="lab-subtabs" selectedValue={tab} onTabSelect={(_, data) => setTab(data.value as "run" | "missions")} size="small">
+        <Tab value="run">Run &amp; artifacts</Tab>
+        <Tab value="missions">Missions{dbt.missions ? ` (${dbt.missions.missions.length})` : ""}</Tab>
+      </TabList>
+
       {lease && (
         <div className="pipeline-notice dbt-lease" role="status">
           <strong>The catalog file is lent to <code>{lease.holder}</code></strong> since {formatTime(lease.since)}.
@@ -74,6 +81,19 @@ export function DbtSurface({
       )}
 
       {dbt.tools.status !== "ready" && <ToolsCard dbt={dbt} vscode={vscode} />}
+
+      {tab === "missions" && dbt.missions && (
+        <MissionsPanel
+          state={dbt.missions}
+          vscode={vscode}
+          canRun={runtime.status === "running" && !lease}
+          blockedReason={runtime.status !== "running"
+            ? "Start the runtime: a mission loads its data into the catalog and the checker queries it."
+            : lease ? "The catalog is lent to a dbt command: wait for it to end." : undefined}
+        />
+      )}
+
+      {tab === "run" && <>
 
       {dbt.projects.length === 0 ? (
         <div className="factory-empty">
@@ -194,6 +214,7 @@ export function DbtSurface({
       )}
 
       {dbt.projects.length > 0 && <ChartsPanel dbt={dbt} vscode={vscode} ready={ready} />}
+      </>}
     </section>
   );
 }

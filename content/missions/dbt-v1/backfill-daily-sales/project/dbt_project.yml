@@ -1,0 +1,22 @@
+name: shop
+version: '1.0.0'
+config-version: 2
+profile: datapass_missions
+
+model-paths: [models]
+test-paths: [tests]
+
+vars:
+  # The schema the ingestion lands the exports in.
+  raw_schema: bkfl_raw
+
+models:
+  shop:
+    # Built into <target schema>_bkfl (dbt_dev_bkfl with the dbt Lab's profile).
+    +schema: bkfl
+    # The nightly job runs `dbt build --select tag:daily --vars '{run_date: <day>}'`.
+    +tags: [daily]
+    staging:
+      +materialized: view
+    marts:
+      +materialized: table

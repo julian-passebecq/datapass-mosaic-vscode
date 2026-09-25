@@ -11,7 +11,9 @@ import {
   parsePythonVersion,
   profilesYaml,
   pythonCandidates,
-  readProfileName
+  readProfileName,
+  toDctValidation,
+  type DctValidationView
 } from "./platform/dbtTools";
 import { describeSetupOutputLine, managedVenvPython } from "./platform/runtimeEnvironment";
 import type { RuntimeManager } from "./runtimeManager";
@@ -193,6 +195,27 @@ function execOutput(command: string, args: string[]): Promise<string | undefined
       resolve(error ? undefined : String(stdout || stderr || ""));
     });
   });
+}
+
+/**
+ * The real `dct validate --json <board>` in the project folder (no database, nothing executed): run without a shell
+ * by the host, for the lab's board badges and for the missions' checker.
+ */
+export async function dctValidate(tools: Pick<DbtToolsManager, "binDir" | "venvRoot">, folder: vscode.Uri,
+  profilesDir: vscode.Uri, board: string): Promise<DctValidationView> {
+  const env = dbtTerminalEnv(process.env, tools.binDir, tools.venvRoot, profilesDir.fsPath, path.delimiter);
+  const output = await new Promise<string>(resolve => {
+    execFile(path.join(tools.binDir, process.platform === "win32" ? "dct.exe" : "dct"), ["--no-workspace-guard", "validate", "--json", board], {
+      cwd: folder.fsPath, env: { ...process.env, ...env, PYTHONIOENCODING: "utf-8" }, timeout: 60_000, windowsHide: true, maxBuffer: 4_000_000
+    }, (_error, stdout, stderr) => resolve(String(stdout || stderr || "")));
+  });
+  const checkedAt = new Date().toISOString();
+  try {
+    return toDctValidation(JSON.parse(output), board, checkedAt);
+  } catch {
+    const message = output.trim().split(/\r?\n/).slice(-3).join(" ") || "dct validate gave no JSON.";
+    return { board, success: false, checkedAt, warnings: [], errors: [{ code: "", message }] };
+  }
 }
 
 /** Write `.datapass/dbt/profiles.yml` with one DuckDB output per dbt project profile found in the workspace. */

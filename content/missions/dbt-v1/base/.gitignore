@@ -1,0 +1,4 @@
+target/
+logs/
+renders/
+dbt_packages/

@@ -872,6 +872,34 @@ with TemporaryDirectory(prefix="datapass-csv-import-smoke-") as temp:
             assert answer["result"]["rows"] == [{"answer": 42}], answer
             assert client.post("/api/local/catalog/release", json={"holder": "two\nlines"}).status_code == 422
 
+            # Missions: every shipped mission validates and every fixture batch loads; the checker judges an
+            # untouched mission without dbt (no artifacts yet) with messages, and never claims a pass.
+            from missionlab.model import load_missions
+            missions = load_missions()
+            assert len(missions) == 5, [m.id for m, _ in missions]
+            for mission, _pack in missions:
+                for batch in mission.batches:
+                    loaded = client.post("/api/local/missions/setup", json={"mission_id": mission.id, "batch_id": batch.id})
+                    assert loaded.status_code == 200 and loaded.json()["statements"] > 0, (mission.id, batch.id, loaded.text)
+                checked = client.post("/api/local/missions/check", json={"mission_id": mission.id})
+                assert checked.status_code == 200, (mission.id, checked.text)
+                verdict = checked.json()
+                assert verdict["status"] == "not-yet" and verdict["truth"].startswith("Checked for real"), verdict
+                assert any(not c["passed"] for c in verdict["criteria"]), verdict
+            raw_orders = client.post("/api/local/query", json={"query": "SELECT count(*) AS n FROM incr_raw.shop_orders"}).json()
+            assert raw_orders["result"]["rows"] == [{"n": 11}], raw_orders  # day-2 replaced the landing table
+            fresh = client.post("/api/local/query", json={"query": "SELECT count(*) AS n FROM fresh_raw.erp_products WHERE loaded_at < now() - INTERVAL 19 DAY"}).json()
+            assert fresh["result"]["rows"] == [{"n": 8}], fresh
+            incremental = client.post("/api/local/missions/check", json={"mission_id": "incremental-order-lines"}).json()
+            node = next(c for c in incremental["criteria"] if c["id"] == "incremental")
+            assert "No target/manifest.json yet" in node["checks"][0]["detail"], node
+            client.post("/api/local/missions/setup", json={"mission_id": "incremental-order-lines", "batch_id": "day-1"})
+            restarted = client.post("/api/local/missions/check", json={"mission_id": "incremental-order-lines"}).json()
+            assert restarted["requires"] and "Load next batch" in restarted["requires"][0], restarted
+            assert client.post("/api/local/missions/setup", json={"mission_id": "nope", "batch_id": "x"}).status_code == 404
+            assert client.post("/api/local/missions/setup", json={"mission_id": "../x", "batch_id": "x"}).status_code == 422
+            assert client.post("/api/local/missions/setup", json={"mission_id": "sales-board", "batch_id": "day-9"}).status_code == 400
+
             # Imports never overwrite, and only create bronze tables.
             again = client.post("/api/local/import-csv", json={"asset": "bronze.city_visits", "text": "city\nNice\n"})
             assert again.status_code == 400 and "already exists" in again.json()["detail"], again.text

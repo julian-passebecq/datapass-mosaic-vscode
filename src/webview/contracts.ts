@@ -2,6 +2,7 @@ import type { ModuleId, WorkbenchModule } from "../modules";
 import type { MosaicLayoutItem } from "../platform/mosaicLayout";
 import type { PythonTrustState } from "../platform/pythonTrust";
 import type { DbtCoreRunView } from "../platform/dbtArtifacts";
+import type { MissionProgressView, MissionView } from "../platform/missions";
 import type { DbtCommand, DctFormat, DctRenderView, DctValidationView } from "../platform/dbtTools";
 import type { ProjectsViewState } from "../platform/projects";
 import type { PracticeProgress } from "../platform/practiceProgress";
@@ -1090,6 +1091,8 @@ export interface DbtViewState {
   shellIntegration?: boolean;
   /** dbt Charts boards of the selected project (charts/*.yml) and what dct last rendered for them. */
   charts?: DbtChartsView;
+  /** Ticket-style missions of the dbt Lab and the learner's progress (.datapass/missions/progress.json). */
+  missions?: { missions: readonly MissionView[]; progress: Readonly<Record<string, MissionProgressView>> };
 }
 
 export interface DbtBoardView {
@@ -1210,6 +1213,12 @@ export type WebviewToHostMessage =
   | { type: "serveDct" }
   | { type: "stopDctServe" }
   | { type: "openDctHtml"; board: string }
+  | { type: "startMission"; missionId: string }
+  | { type: "restartMission"; missionId: string }
+  | { type: "openMission"; missionId: string }
+  | { type: "loadMissionBatch"; missionId: string }
+  | { type: "revealMissionHint"; missionId: string }
+  | { type: "checkMission"; missionId: string }
   | { type: "prepareProject"; projectId: string }
   | { type: "openProjectStep"; projectId: string; stepId: string }
   | { type: "verifyProjectSteps"; projectId: string; stepIds: string[] }

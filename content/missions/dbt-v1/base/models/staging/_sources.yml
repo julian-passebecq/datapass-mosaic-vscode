@@ -1,0 +1,17 @@
+version: 2
+
+# The landing tables: the ingestion replaces them with each export (they are not history tables).
+sources:
+  - name: shop
+    schema: "{{ var('raw_schema') }}"
+    tables:
+      - name: shop_orders
+        description: Orders as the web shop and the stores export them, with the time the export landed.
+      - name: shop_order_lines
+        description: Order lines of the latest export.
+  - name: erp
+    schema: "{{ var('raw_schema') }}"
+    tables:
+      - name: erp_products
+      - name: erp_subcategories
+      - name: erp_categories
