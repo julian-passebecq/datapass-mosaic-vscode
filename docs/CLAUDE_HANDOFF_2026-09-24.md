@@ -40,6 +40,11 @@ holds the code-debt audit of 2026-09-25). One PR per item, merged on green CI.
   failure falls back to `python -m venv` + pip. Real VS Code, fresh profile, this Windows machine: Setup runtime
   162 s with pip, 23 s with uv. Harness note: keep the Playwright profile path short; a deep scratch path pushed
   DuckDB's DLL past MAX_PATH ("DLL load failed ... filename or extension is too long").
+- **V1-2** (`feature/practice-progress`): Practice progress in the `practice` section of `.datapass/progress.json`
+  (Projects' parser now keeps it; `updateProgress()` serializes writes from both modules). Solved = a passed Submit;
+  attempted = opened or graded. Toolbar counts, filters by difficulty, topic, language and status (kept in the webview
+  state; a Projects focus clears them). Checked in a real VS Code window: submit → solved, starter run → "attempted ·
+  1 run", counts 1/1/270, status and language filters, progress.json content.
 
 ## 0. ZillaCode pack (`zilla-v1`) and the Snowflake SQL dialect — Claude, 2026-09-25 (newest)
 

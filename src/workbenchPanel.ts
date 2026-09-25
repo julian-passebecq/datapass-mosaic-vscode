@@ -30,7 +30,8 @@ import { retailDemoReadme, retailOrdersCsv, retailPythonStarter, retailSqlStarte
 import { airflowStarter, pipelineStarter, scratchSpec } from "./scaffold/starters";
 import { exerciseReadme } from "./scaffold/exerciseReadme";
 import { collectWorkbenchState } from "./workbenchState";
-import { copyProjectFiles, loadProjectContents, progressUri, readProgress, writeProgress } from "./projectState";
+import { copyProjectFiles, loadProjectContents, progressUri, readProgress, updateProgress, writeProgress } from "./projectState";
+import { recordGrade, recordOpened } from "./platform/practiceProgress";
 import {
   applyVerification,
   emptyProgress,
@@ -109,6 +110,8 @@ export class WorkbenchPanel {
   private lastAirflowFile?: vscode.Uri;
   /** The T-SQL script the SQL pool tab last ran, to reveal a statement's line in it. */
   private lastSqlPoolFile?: vscode.Uri;
+  /** A broken progress.json is reported once per panel, not on every grading. */
+  private practiceProgressWarned = false;
   /** The active .sql file the BI Lab last ran (not under bi/), to reveal a statement's line in it. */
   private lastBiActiveFile?: vscode.Uri;
   /** The lab tab (or Practice filter) a project step asked to show. */
@@ -704,6 +707,10 @@ export class WorkbenchPanel {
       );
     }
     await prepareExerciseWorkspace(this.context.extensionUri, root, exerciseRoot, directory, exercise, console.warn);
+    await this.savePracticeProgress(document => ({
+      ...document,
+      practice: recordOpened(document.practice, exercise.key, new Date().toISOString())
+    }));
 
     await this.openBeside(starterUri);
   }
@@ -769,12 +776,33 @@ export class WorkbenchPanel {
         cell_id: "solution",
         source_revision: openDocument?.version ?? 0
       });
+      const result = this.runtimeManager.snapshot().practiceResult;
+      if (result?.exerciseKey === exercise.key) {
+        await this.savePracticeProgress(document => ({
+          ...document,
+          practice: recordGrade(document.practice, exercise.key, exercise.version, mode, result.status, new Date().toISOString())
+        }));
+      }
     } catch (error) {
       void vscode.window.showErrorMessage(
         `Exercise grading failed: ${error instanceof Error ? error.message : String(error)}`
       );
     }
     await this.refresh();
+  }
+
+  /** Practice progress lives in .datapass/progress.json next to the Projects progress. Saving it never blocks Practice. */
+  private async savePracticeProgress(update: Parameters<typeof updateProgress>[0]): Promise<void> {
+    if (!vscode.workspace.workspaceFolders?.length) return;
+    try {
+      await updateProgress(update);
+    } catch (error) {
+      if (this.practiceProgressWarned) return;
+      this.practiceProgressWarned = true;
+      void vscode.window.showWarningMessage(
+        `Practice progress was not saved: ${error instanceof Error ? error.message : String(error)} Fix or delete .datapass/progress.json.`
+      );
+    }
   }
 
   private async runPipeline(): Promise<void> {

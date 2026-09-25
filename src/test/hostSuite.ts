@@ -28,7 +28,8 @@ import { decodeCsvBytes, suggestBronzeAsset, validateBronzeAsset } from "../plat
 import { readMosaicLayout, writeMosaicLayout } from "../mosaicLayoutStore";
 import { loadPipelineState } from "../pipelineState";
 import { applyVerification, setManual } from "../platform/projects";
-import { copyProjectFiles, loadProjectContents, loadProjectsState, readProgress, writeProgress } from "../projectState";
+import { copyProjectFiles, loadProjectContents, loadProjectsState, readProgress, updateProgress, writeProgress } from "../projectState";
+import { practiceStatus, recordGrade, recordOpened } from "../platform/practiceProgress";
 import {
   createDefaultProjectManifest,
   readProjectManifest,
@@ -216,6 +217,24 @@ export async function run(): Promise<void> {
       assert.equal(state.projects[0].progress.manual, 1);
       assert.equal(state.projects[0].nextStepId, "import-web-orders");
       await vscode.commands.executeCommand("datapass.openProjects");
+    }],
+    ["Practice progress shares progress.json with Projects; concurrent saves both land", async () => {
+      const catalog = await loadExerciseCatalog(extension.extensionUri);
+      const [first, second] = catalog.filter(item => item.packId === "sql-lab-v1");
+      const retail = (await loadProjectContents(extension.extensionUri)).projects[0];
+      const at = new Date().toISOString();
+      await Promise.all([
+        updateProgress(doc => ({ ...doc, practice: recordOpened(doc.practice, first.key, at) })),
+        updateProgress(doc => ({ ...doc, practice: recordGrade(doc.practice, second.key, second.version, "submit", "passed", at) })),
+        // Re-tick the step the previous test ticked (later steps rely on it); the new timestamp proves the write.
+        updateProgress(doc => setManual(doc, retail, "runbook", true, at))
+      ]);
+      const saved = await readProgress();
+      assert.equal(saved.error, undefined);
+      assert.equal(practiceStatus(saved.document.practice?.exercises[first.key]), "attempted");
+      assert.equal(practiceStatus(saved.document.practice?.exercises[second.key]), "solved");
+      assert.deepEqual(saved.document.projects["retail-fabric"].steps.runbook.manual, { checked: true, at }, "the Projects write landed too");
+      await vscode.commands.executeCommand("datapass.openPractice");
     }],
     ["runtime starts untrusted even with DATAPASS_TRUSTED_PYTHON=1 inherited", async () => {
       assert.equal(process.env.DATAPASS_TRUSTED_PYTHON, "1", "runner must inject the hostile variable");

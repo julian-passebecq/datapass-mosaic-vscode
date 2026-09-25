@@ -10,8 +10,9 @@ import { loadPipelineState } from "./pipelineState";
 import { readProjectManifest } from "./project/projectManifest";
 import type { PythonTrustController } from "./pythonTrustController";
 import type { RuntimeManager } from "./runtimeManager";
-import { loadProjectsState } from "./projectState";
-import type { DbtToolsView, ProjectsHostState, SparkLabProfileView, WorkbenchFocus, WorkbenchViewState } from "./webview/contracts";
+import { loadProjectsState, readProgress } from "./projectState";
+import { emptyPracticeProgress } from "./platform/practiceProgress";
+import type { DbtToolsView, PracticeViewState, ProjectsHostState, SparkLabProfileView, WorkbenchFocus, WorkbenchViewState } from "./webview/contracts";
 
 export async function collectWorkbenchState(
   selectedModule: ModuleId,
@@ -27,7 +28,7 @@ export async function collectWorkbenchState(
   const folder = vscode.workspace.workspaceFolders?.[0];
   const manifest = await readProjectManifest();
   const practice = selectedModule === "practice"
-    ? { exercises: await loadExerciseCatalog(extensionUri) }
+    ? await loadPracticeState(extensionUri)
     : undefined;
   const pipeline = selectedModule === "pipeline"
     ? await loadPipelineState(runtimeManager)
@@ -81,6 +82,16 @@ export async function collectWorkbenchState(
     dbt,
     projects,
     focus: extras.focus
+  };
+}
+
+async function loadPracticeState(extensionUri: vscode.Uri): Promise<PracticeViewState> {
+  const progress = await readProgress();
+  return {
+    exercises: await loadExerciseCatalog(extensionUri),
+    progress: progress.document.practice ?? emptyPracticeProgress(),
+    progressError: progress.error,
+    canSaveProgress: Boolean(vscode.workspace.workspaceFolders?.length)
   };
 }
 
