@@ -27,7 +27,7 @@ Workflow from here: branch from `main` for each tranche, keep CI green, merge th
 The Playwright pass that earlier sessions ran from a scratch file is now `scripts/vscode_ui_pass.mjs` (`npm run test:ui`, after `npm run package`) and the CI job `vscode-ui` (Linux, `xvfb-run` with a 1600×1000 screen, screenshots uploaded as `vscode-ui-pass`). See docs/LOCAL_TEST.md, "Packaged VSIX UI pass".
 
 - **Covers.** Fresh-profile VSIX install; Create .datapass project; Setup/Start runtime; raw 401/400 against the live port and no token in the log; Mosaic Run active SQL result; Practice Open solution + Submit graded; every module tab and lab sub-tab at a 520 px Workbench with an overflow probe; Stop runtime and a closed port; no uncaught webview errors.
-- **Overflow probe.** Flags any element whose right edge passes the webview unless an ancestor scrolls or clips it; it must first catch a planted 2000 px block, so it cannot pass blind. First run: all 16 tab/sub-tab layouts clean at 521 px.
+- **Overflow probe.** Flags any element whose right edge passes the webview unless an ancestor scrolls or clips it; it must first catch a planted 2000 px block, so it cannot pass blind. First run: all 17 tab/sub-tab layouts (9 module tabs, 8 more lab sub-tabs) clean at 521 px.
 - **Gotchas.** Typing into Monaco through Electron did not reach the editor; the script writes the scratch file on disk and waits for the editor to show it. The first Practice Submit on an exercise without a starter only creates the file, so the pass clicks Open solution first. `locator.evaluate(fn, arg)` passes the element first. The exercise editor tab is titled `<exercise> · <language>`, not `solution.*`.
 
 ## 0. Runtime loopback authentication (audit D-2, D-9) — Claude, 2026-09-25
