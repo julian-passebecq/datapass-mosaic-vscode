@@ -666,8 +666,8 @@ export async function run(): Promise<void> {
           status = (await missions.progress()).missions[id].lastCheck?.status;
         }
         const last = (await missions.progress()).missions[id].lastCheck;
-        assert.equal(status, "passed", `${JSON.stringify(last?.criteria)}
-Terminal (${shell}, shell integration: ${Boolean(integration)}): ${output.replace(/[[0-9;?]*[A-Za-z]/g, "").slice(-1500)}`);
+        const shown = output.replace(/\x1b\[[0-9;?]*[A-Za-z]/g, "").slice(-1500);
+        assert.equal(status, "passed", `${JSON.stringify(last?.criteria)}\nTerminal (${shell}, shell integration: ${Boolean(integration)}): ${shown}`);
         return folder;
       };
       try {
