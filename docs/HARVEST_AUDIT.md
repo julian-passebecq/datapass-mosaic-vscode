@@ -83,6 +83,19 @@ Use the **content**, not its web shell or Monaco editor. Practice in the extensi
 
 The historical app contains broad DE coverage including Python, SQL, PySpark, storage/formats, dbt, Airflow, troubleshooting, modeling and engine comparisons. Promote exercises progressively into versioned `content/exercise-packs/`.
 
+## ZillaCode problems (through CodeDELeet)
+
+Source: CodeDELeet's normalized import of the 52 ZillaCode problems (`public/packs/v3-zilla.json`, its provenance ledger `docs/v3/ZILLA_IMPORT_PROVENANCE.json` and `licenses/ZillaCode-Apache-2.0.txt`). ZillaCode is Apache-2.0 (https://github.com/davidzajac1/zillacode). The user's private ZillaCode archive was not used and the reference application was never run.
+
+**Promoted (2026-09-25)** as the Practice pack `zilla-v1` (52 scenarios, 278 variants), built our way:
+
+- one semantic scenario per problem, graded on our engines: DuckDB SQL, Snowflake SQL translated to DuckDB (`runtime/snowflakesql`), pandas and Polars (trusted Python), SparkLab where its subset covers the problem, and the Datapass dbt emulation;
+- snake_case tables and columns, explicit output order, NULL and tie rules, statement-vs-reference conflicts resolved and documented per exercise;
+- ZillaCode's two tests are the visible and hidden fixtures (inputs only: every expected row is recomputed from the Datapass SQL reference and reviewed), plus authored edge fixtures for ties, NULLs and empty groups;
+- CodeDELeet's SparkLite/dbtLite variants and its unverified SQL were not copied: the references were rewritten and are graded in CI.
+
+`scripts/authoring/gen_zilla.py` regenerates the pack from the CodeDELeet checkout.
+
 ## Fluent / visual learning donors
 
 Relevant repositories audited:

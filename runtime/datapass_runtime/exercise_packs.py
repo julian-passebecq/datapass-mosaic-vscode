@@ -159,7 +159,9 @@ class PackRegistry:
             for context in definition.data_context:
                 if any(not COLUMN_TYPE.fullmatch(t) for t in context.columns.values()):
                     raise ValueError('Unsupported fixture column type in '+definition.id)
-            multi = len(definition.data_context) > 1 or any(f.tables is not None for f in private.fixtures)
+            # Scenario fixtures seed their own tables (a dbt-sql variant of a semantic pack lists them as sources).
+            multi = definition.language not in SCENARIO_LANGUAGES and (
+                len(definition.data_context) > 1 or any(f.tables is not None for f in private.fixtures))
             if multi:
                 names = [c.name for c in definition.data_context]
                 if definition.language not in NAMED_TABLE_LANGUAGES:
