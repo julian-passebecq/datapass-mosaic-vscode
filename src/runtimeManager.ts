@@ -619,14 +619,36 @@ export class RuntimeManager implements vscode.Disposable {
     await this.refreshCatalog();
   }
 
-  /** Missions: the hidden checker. `dct` carries the real `dct validate --json` results for the mission's boards. */
-  async missionCheck(missionId: string, dct: Record<string, unknown>): Promise<unknown> {
-    const url = this.requireAttached("check a mission");
+  /**
+   * Terminal Lab missions: the runtime (re)builds `missions/<id>/` from the shipped pack (files and Git history). The
+   * catalog is not involved, so a lent catalog does not block it.
+   */
+  async terminalMissionSetup(missionId: string): Promise<{ folder: string; previous?: string | null }> {
+    const url = this.requireRunning("start a mission");
+    try {
+      return await this.postJson<{ folder: string; previous?: string | null }>(`${url}/api/local/missions/setup`, "POST", { mission_id: missionId }, 60000);
+    } catch (error) {
+      throw new Error(runtimeErrorDetail(error));
+    }
+  }
+
+  /**
+   * Missions: the hidden checker. `dct` carries the real `dct validate --json` results for the mission's boards. A
+   * Terminal Lab mission reads files and Git only (`catalog: false`), so a lent catalog does not block it.
+   */
+  async missionCheck(missionId: string, dct: Record<string, unknown>, catalog = true): Promise<unknown> {
+    const url = catalog ? this.requireAttached("check a mission") : this.requireRunning("check a mission");
     try {
       return await this.postJson<unknown>(`${url}/api/local/missions/check`, "POST", { mission_id: missionId, dct }, 60000);
     } catch (error) {
       throw new Error(runtimeErrorDetail(error));
     }
+  }
+
+  private requireRunning(action: string): string {
+    const url = this.state.status === "running" ? this.state.url : undefined;
+    if (!url) throw new Error(`Start the Datapass runtime to ${action}.`);
+    return url;
   }
 
   private requireAttached(action: string): string {

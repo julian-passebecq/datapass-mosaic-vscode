@@ -1,4 +1,4 @@
-export type ModuleId = "projects" | "mosaic" | "practice" | "fabric" | "bi" | "sparklab" | "dbt" | "airflow" | "pipeline";
+export type ModuleId = "projects" | "mosaic" | "practice" | "fabric" | "bi" | "sparklab" | "dbt" | "terminal" | "airflow" | "pipeline";
 export type ExecutionMode = "real" | "simulated" | "hybrid";
 
 export interface WorkbenchModule {
@@ -74,6 +74,15 @@ export const MODULES: readonly WorkbenchModule[] = [
     execution:"Real dbt Core in your terminal",
     mode:"real",
     highlights:["Managed dbt Core + dbt-duckdb, installed on request","Real commands typed in a VS Code terminal","DAG, statuses and failures from target/ artifacts"]
+  },
+  {
+    id:"terminal",
+    label:"Terminal Lab",
+    description:"Real bash, PowerShell and Git in a VS Code terminal: tickets done with your own commands, from moving files to rescuing commits with the reflog.",
+    command:"datapass.openTerminalLab",
+    execution:"Your own commands; the result is checked",
+    mode:"real",
+    highlights:["Git Bash or bash, pwsh or Windows PowerShell: your choice","Datapass runs none of your commands","A hidden checker reads the folder and its Git repository"]
   },
   {
     id:"airflow",
