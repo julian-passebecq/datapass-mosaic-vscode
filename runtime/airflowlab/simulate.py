@@ -26,8 +26,9 @@ from typing import Any, Literal
 
 from pydantic import BaseModel, ConfigDict, Field
 
+from .cron import utc
 from .model import AirflowLabError, DagSpec, TaskSpec
-from .schedule import RunPlan, plan_runs
+from .schedule import RunPlan, manual_run, plan_runs
 from .templates import context, render
 
 TERMINAL = {'success', 'failed', 'skipped', 'upstream_failed'}
@@ -51,6 +52,8 @@ class Scenario(BaseModel):
     tasks: dict[str, TaskBehavior] = Field(default_factory=dict)
     # ISO logical date -> task behavior overrides for that run only
     by_logical_date: dict[str, dict[str, TaskBehavior]] = Field(default_factory=dict)
+    # Manually triggered runs (logical date = trigger time), added to the scheduled ones.
+    manual_runs: list[datetime] = Field(default_factory=list, max_length=20)
     latest_run_only: bool = False
     outcome: Literal['runs', 'task_instances', 'rendered', 'edges', 'tasks'] = 'task_instances'
     columns: list[str] | None = None
@@ -153,7 +156,9 @@ class _RunSimulator:
         self.sequence = 0
 
     def _log(self, time_s: float, task_id: str, message: str) -> None:
-        self.events.append({'t': time_s, 'task_id': task_id, 'message': message})
+        ti = self.tis[task_id]
+        self.events.append({'t': time_s, 'task_id': task_id, 'state': ti.state, 'try_number': ti.try_number,
+                            'message': message})
 
     def _schedule(self, time_s: float, kind: str, task_id: str) -> None:
         self.sequence += 1
@@ -308,14 +313,21 @@ def _iso(value: datetime) -> str:
     return value.isoformat()
 
 
-def simulate(dag: DagSpec, scenario: Scenario) -> list[RunResult]:
+def planned_runs(dag: DagSpec, scenario: Scenario) -> list[RunPlan]:
+    """Scheduled runs up to `now`, plus manual runs triggered at or before `now`, by run_after."""
+    runs = plan_runs(dag, scenario.now, scenario.unpaused_at)
+    runs += [manual_run(dag, at) for at in scenario.manual_runs if utc(at) <= utc(scenario.now)]
+    runs.sort(key=lambda run: (run.run_after, run.run_type))
+    return runs[-1:] if scenario.latest_run_only else runs
+
+
+def simulate(dag: DagSpec, scenario: Scenario, runs: list[RunPlan] | None = None) -> list[RunResult]:
     unknown = set(scenario.tasks) | {t for overrides in scenario.by_logical_date.values() for t in overrides}
     unknown -= set(dag.tasks)
     if unknown:
         raise AirflowLabError(f"The DAG has no task(s) named {', '.join(sorted(unknown))}, which the scenario expects")
-    runs = plan_runs(dag, scenario.now, scenario.unpaused_at)
-    if scenario.latest_run_only:
-        runs = runs[-1:]
+    if runs is None:
+        runs = planned_runs(dag, scenario)
     results = []
     for plan in runs:
         behaviors = dict(scenario.tasks)
@@ -347,7 +359,8 @@ def outcome_rows(dag: DagSpec, scenario: Scenario) -> list[dict[str, Any]]:
         if scenario.outcome == 'runs':
             rows = [{'logical_date': _iso(r.plan.logical_date), 'run_after': _iso(r.plan.run_after),
                      'data_interval_start': _iso(r.plan.data_interval_start),
-                     'data_interval_end': _iso(r.plan.data_interval_end), 'run_id': r.plan.run_id, 'state': r.state}
+                     'data_interval_end': _iso(r.plan.data_interval_end), 'run_id': r.plan.run_id,
+                     'run_type': r.plan.run_type, 'state': r.state}
                     for r in results]
         elif scenario.outcome == 'task_instances':
             rows = [{'logical_date': _iso(r.plan.logical_date), 'task_id': ti.task_id, 'state': ti.state,

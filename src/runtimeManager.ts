@@ -3,7 +3,7 @@ import { existsSync } from "node:fs";
 import * as http from "node:http";
 import * as path from "node:path";
 import * as vscode from "vscode";
-import type { CsvImportView, RuntimeEnvironmentView, RuntimeViewState } from "./webview/contracts";
+import type { AirflowScenarioInput, CsvImportView, RuntimeEnvironmentView, RuntimeViewState } from "./webview/contracts";
 import { findFreePort, waitForDatapassHealth } from "./platform/runtimeEndpoint";
 import {
   describeSetupOutputLine,
@@ -13,6 +13,7 @@ import {
 } from "./platform/runtimeEnvironment";
 import { runtimeProcessEnv } from "./platform/pythonTrust";
 import { toSparkLabRunView } from "./platform/sparkLabRun";
+import { toAirflowLabView, toRuntimeScenario } from "./platform/airflowRun";
 
 const HOST = "127.0.0.1";
 // A cold start in a fresh managed venv (FastAPI, DuckDB, Polars, pandas; first
@@ -446,6 +447,26 @@ export class RuntimeManager implements vscode.Disposable {
         detail: `Catalog refresh failed: ${error instanceof Error ? error.message : String(error)}`
       });
     }
+  }
+
+  /** Airflow Lab: the DAG file's TEXT is parsed and simulated by the runtime, never executed. */
+  async simulateAirflow(source: string, fileName: string, scenario: AirflowScenarioInput): Promise<void> {
+    const url = this.state.status === "running" ? this.state.url : undefined;
+    if (!url) throw new Error("Start the Datapass runtime before simulating an Airflow DAG.");
+    const raw = await requestJson<unknown>(
+      `${url}/api/local/airflow/simulate`,
+      "POST",
+      { source, scenario: toRuntimeScenario(scenario) },
+      20000
+    );
+    const airflowRun = toAirflowLabView(raw, fileName, scenario);
+    this.setState({
+      ...this.state,
+      detail: airflowRun.status === "simulated"
+        ? `Airflow DAG ${airflowRun.dag?.dagId ?? ""} simulated: ${airflowRun.totalRuns} run(s); nothing was executed.`
+        : `Airflow DAG not simulated: ${airflowRun.error?.message ?? "unknown error"}`,
+      airflowRun
+    });
   }
 
   async runPipeline(source: string): Promise<void> {

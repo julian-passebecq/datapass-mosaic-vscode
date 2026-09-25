@@ -36,7 +36,7 @@ interface Props {
 
 function DatapassGraphNode({ data, selected }: NodeProps) {
   return (
-    <div className={`datapass-graph-node ${selected ? "is-selected" : ""}`}>
+    <div className={`datapass-graph-node ${selected ? "is-selected" : ""}${data.status ? ` state-${String(data.status)}` : ""}`}>
       <Handle type="target" position={Position.Left} />
       <Badge size="small" appearance="outline">{String(data.truth ?? "Design")}</Badge>
       <strong>{String(data.label ?? "")}</strong>
@@ -57,13 +57,11 @@ function InnerGraph({ graph, vscode, storageKey }: Props) {
   const graphKey = JSON.stringify(graph);
   const mapped = useMemo<Node[]>(() => {
     const positions = readGraphView(vscode, storageKey).positions;
-    return graph.nodes.map((node, index) => ({
+    const layered = layeredPositions(graph);
+    return graph.nodes.map(node => ({
       id: node.id,
       type: "datapass",
-      position: positions[node.id] ?? {
-        x: (index % 3) * 270,
-        y: Math.floor(index / 3) * 150
-      },
+      position: positions[node.id] ?? layered[node.id],
       data: { ...node }
     }));
   }, [graphKey, storageKey]);
@@ -145,6 +143,36 @@ export function SharedGraphCanvas(props: Props) {
       <InnerGraph {...props} />
     </ReactFlowProvider>
   );
+}
+
+/** Default layout: one column per dependency depth (longest path from a source), left to right. */
+function layeredPositions(graph: GraphView): Record<string, { x: number; y: number }> {
+  const ids = new Set(graph.nodes.map(node => node.id));
+  const parents = new Map<string, string[]>(graph.nodes.map(node => [node.id, []]));
+  for (const edge of graph.edges) {
+    if (ids.has(edge.source) && ids.has(edge.target)) parents.get(edge.target)!.push(edge.source);
+  }
+  const depth = new Map<string, number>();
+  const visiting = new Set<string>();
+  const depthOf = (id: string): number => {
+    const known = depth.get(id);
+    if (known !== undefined) return known;
+    if (visiting.has(id)) return 0; // a cycle never reaches here for valid graphs; stay finite anyway
+    visiting.add(id);
+    const value = Math.max(-1, ...parents.get(id)!.map(depthOf)) + 1;
+    visiting.delete(id);
+    depth.set(id, value);
+    return value;
+  };
+  const rows = new Map<number, number>();
+  const positions: Record<string, { x: number; y: number }> = {};
+  for (const node of graph.nodes) {
+    const column = depthOf(node.id);
+    const row = rows.get(column) ?? 0;
+    rows.set(column, row + 1);
+    positions[node.id] = { x: column * 260, y: row * 120 };
+  }
+  return positions;
 }
 
 function readState(vscode: VsCodeApi): PersistedWebviewState {

@@ -101,13 +101,15 @@ export async function run(): Promise<void> {
       await write(".datapass/mosaic.json", "{corrupt");
       assert.equal(await readMosaicLayout(), undefined, "corrupt file falls back to defaults");
     }],
-    ["Airflow starter loads as a valid simulated DAG", async () => {
-      await vscode.workspace.fs.createDirectory(vscode.Uri.joinPath(root, "airflow"));
-      await write("airflow/main.dag.json", airflowStarter());
+    ["Airflow starter is a Python DAG file under airflow/dags", async () => {
+      assert.equal((await loadAirflowState()).starterExists, false);
+      await vscode.workspace.fs.createDirectory(vscode.Uri.joinPath(root, "airflow", "dags"));
+      await write("airflow/dags/retail_daily.py", airflowStarter());
       const airflow = await loadAirflowState();
-      assert.equal(airflow.valid, true, airflow.errors.join("; "));
-      assert.equal(airflow.graph.nodes.length, 4);
-      assert.equal(airflow.graph.edges.length, 3);
+      assert.equal(airflow.dagsFolder, "airflow/dags");
+      assert.equal(airflow.starterPath, "airflow/dags/retail_daily.py");
+      assert.equal(airflow.starterExists, true);
+      assert.equal(airflow.legacySpecPath, undefined);
     }],
     ["dbt sample shows static lineage without claiming a run", async () => {
       await copyDirectory(
@@ -154,6 +156,37 @@ export async function run(): Promise<void> {
       const rejected = runtime!.snapshot().sparkRun;
       assert.equal(rejected?.status, "error");
       assert.equal(rejected?.error?.type, "SparkLabSyntaxError");
+    }],
+    ["Airflow Lab simulates the starter DAG without executing it", async () => {
+      const clock = { now: "2026-03-05T12:00", tasks: {} };
+      await runtime!.simulateAirflow(airflowStarter(), "airflow/dags/retail_daily.py", clock);
+      const lab = runtime!.snapshot().airflowRun!;
+      assert.equal(lab.status, "simulated", lab.error?.message);
+      assert.equal(lab.dag?.dagId, "retail_daily");
+      assert.equal(lab.dag?.schedule.kind, "cron_trigger");
+      assert.equal(lab.totalRuns, 1, "catchup=False: only the latest run");
+      const states = (run: typeof lab.runs[number]) =>
+        Object.fromEntries(run.instances.map(instance => [instance.taskId, instance.state]));
+      assert.deepEqual(states(lab.runs[0]), {
+        wait_for_orders: "success", choose_load: "success", full_load: "skipped",
+        incremental_load: "success", publish: "success", cleanup: "success"
+      });
+      assert.ok(lab.runs[0].events.length > 0 && lab.runs[0].rendered.some(row => row.value.includes("2026-03-05")));
+
+      await runtime!.simulateAirflow(airflowStarter(), "airflow/dags/retail_daily.py", {
+        ...clock, tasks: { incremental_load: { behavior: "fail_always" } }
+      });
+      const failed = runtime!.snapshot().airflowRun!;
+      const failedStates = states(failed.runs[0]);
+      assert.equal(failedStates.incremental_load, "failed");
+      assert.equal(failed.runs[0].instances.find(item => item.taskId === "incremental_load")?.tryNumber, 2, "default_args retries=1");
+      assert.equal(failedStates.publish, "upstream_failed");
+      assert.equal(failedStates.cleanup, "success", "all_done cleanup still runs");
+
+      await runtime!.simulateAirflow("from airflow.sdk import DAG\nimport os\n", "broken.py", clock);
+      const broken = runtime!.snapshot().airflowRun!;
+      assert.equal(broken.status, "invalid");
+      assert.equal(broken.error?.line, 2);
     }],
     ["Practice exercise: visible run and submission grade for real", async () => {
       const catalog = await loadExerciseCatalog(extension.extensionUri);

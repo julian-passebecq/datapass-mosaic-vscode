@@ -58,56 +58,49 @@ export function pipelineStarter(): string {
   ].join("\n");
 }
 
+/** Airflow Lab starter: a real Airflow 3 DAG file. Datapass parses and simulates it; it never runs it. */
 export function airflowStarter(): string {
-  return JSON.stringify({
-    schemaVersion: 1,
-    dagId: "retail_daily",
-    schedule: "@daily",
-    tasks: [
-      {
-        id: "wait_for_orders",
-        label: "Wait for orders",
-        type: "sensor",
-        dependsOn: [],
-        retries: 0,
-        retryDelaySeconds: 0,
-        durationSeconds: 2,
-        triggerRule: "all_success",
-        failureMode: "none"
-      },
-      {
-        id: "extract",
-        label: "Extract orders",
-        type: "task",
-        dependsOn: ["wait_for_orders"],
-        retries: 1,
-        retryDelaySeconds: 5,
-        durationSeconds: 4,
-        triggerRule: "all_success",
-        failureMode: "none"
-      },
-      {
-        id: "check_quality",
-        label: "Check data quality",
-        type: "quality",
-        dependsOn: ["extract"],
-        retries: 1,
-        retryDelaySeconds: 3,
-        durationSeconds: 2,
-        triggerRule: "all_success",
-        failureMode: "transient"
-      },
-      {
-        id: "publish",
-        label: "Publish gold",
-        type: "task",
-        dependsOn: ["check_quality"],
-        retries: 0,
-        retryDelaySeconds: 0,
-        durationSeconds: 3,
-        triggerRule: "all_success",
-        failureMode: "none"
-      }
-    ]
-  }, null, 2) + "\n";
+  return [
+    '"""Airflow Lab starter DAG (Airflow 3).',
+    "",
+    "Datapass parses this file and simulates it (Airflow Lab -> Simulate active DAG file).",
+    "Nothing in it is executed: task behavior comes from the Lab's scenario form.",
+    '"""',
+    "from datetime import datetime, timedelta",
+    "",
+    "from airflow.sdk import DAG",
+    "from airflow.providers.standard.operators.bash import BashOperator",
+    "from airflow.providers.standard.operators.empty import EmptyOperator",
+    "from airflow.providers.standard.operators.python import BranchPythonOperator",
+    "from airflow.providers.standard.sensors.filesystem import FileSensor",
+    "",
+    "",
+    "def choose_load(**context):",
+    '    return "incremental_load"',
+    "",
+    "",
+    "with DAG(",
+    '    dag_id="retail_daily",',
+    '    schedule="@daily",',
+    "    start_date=datetime(2026, 3, 1),",
+    "    catchup=False,",
+    '    default_args={"retries": 1, "retry_delay": timedelta(minutes=5)},',
+    ") as dag:",
+    "    wait_for_orders = FileSensor(",
+    '        task_id="wait_for_orders",',
+    '        filepath="/data/orders/{{ ds }}.csv",',
+    "        poke_interval=timedelta(minutes=5),",
+    "        timeout=timedelta(hours=1),",
+    '        mode="reschedule",',
+    "        soft_fail=True,",
+    "    )",
+    '    choose = BranchPythonOperator(task_id="choose_load", python_callable=choose_load)',
+    '    full_load = BashOperator(task_id="full_load", bash_command="load_orders --all")',
+    '    incremental_load = BashOperator(task_id="incremental_load", bash_command="load_orders --day {{ ds }}")',
+    '    publish = EmptyOperator(task_id="publish", trigger_rule="none_failed_min_one_success")',
+    '    cleanup = BashOperator(task_id="cleanup", bash_command="rm -rf /tmp/orders/{{ ds }}", trigger_rule="all_done")',
+    "",
+    "    wait_for_orders >> choose >> [full_load, incremental_load] >> publish >> cleanup",
+    ""
+  ].join("\n");
 }

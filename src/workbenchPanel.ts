@@ -1,4 +1,5 @@
 import * as vscode from "vscode";
+import { AIRFLOW_STARTER_FILE, airflowPaths } from "./airflowState";
 import { loadExerciseCatalog } from "./exerciseCatalog";
 import { decodeCsvBytes, suggestBronzeAsset, validateBronzeAsset } from "./platform/csvImport";
 import { probeDbtCli } from "./dbtState";
@@ -12,7 +13,7 @@ import { airflowStarter, pipelineStarter, scratchSpec } from "./scaffold/starter
 import { exerciseReadme } from "./scaffold/exerciseReadme";
 import { collectWorkbenchState } from "./workbenchState";
 import { contentSecurityPolicy, makeNonce } from "./webview/security";
-import type { ScratchKind, WebviewToHostMessage } from "./webview/contracts";
+import type { AirflowScenarioInput, ScratchKind, WebviewToHostMessage } from "./webview/contracts";
 
 export class WorkbenchPanel {
   private static current?: WorkbenchPanel;
@@ -54,6 +55,8 @@ export class WorkbenchPanel {
   private readonly disposables: vscode.Disposable[] = [];
   /** Last focused file per extension, so "Run active ..." works when the Workbench shares a tab group with it. */
   private readonly lastDocuments = new Map<string, vscode.Uri>();
+  /** The DAG file Airflow Lab last simulated, to reveal a parser error line in it. */
+  private lastAirflowFile?: vscode.Uri;
 
   private constructor(
     private readonly panel: vscode.WebviewPanel,
@@ -182,6 +185,12 @@ export class WorkbenchPanel {
         return;
       case "refreshAirflow":
         await this.refresh();
+        return;
+      case "simulateAirflow":
+        await this.simulateAirflow(message.scenario);
+        return;
+      case "revealAirflowLine":
+        await this.revealAirflowLine(message.line);
         return;
       case "openDbtProject":
         await this.openDbtProject();
@@ -359,7 +368,7 @@ export class WorkbenchPanel {
         sqlNotebook: sqlNotebookPath,
         pythonNotebook: pythonNotebookPath,
         pipeline: [...pipelineRoot, "main.pipeline.py"].join("/"),
-        airflow: [...airflowRoot, "main.dag.json"].join("/"),
+        airflow: [...airflowRoot, "dags", AIRFLOW_STARTER_FILE].join("/"),
         dbtProject: [...dbtRoot, "retail-dbt"].join("/")
       })
     );
@@ -651,27 +660,71 @@ export class WorkbenchPanel {
   }
 
   private async openAirflowSource(): Promise<void> {
-    const root = vscode.workspace.workspaceFolders?.[0]?.uri;
+    const { root, dagsParts } = await airflowPaths();
     if (!root) {
       void vscode.window.showWarningMessage("Open a workspace folder before creating an Airflow Lab DAG.");
       return;
     }
-
-    const manifest = await readProjectManifest();
-    const airflowRoot = safeRelativeParts(manifest.manifest?.assets?.airflow, "airflow");
-    const directory = vscode.Uri.joinPath(root, ...airflowRoot);
-    const uri = vscode.Uri.joinPath(directory, "main.dag.json");
-
+    const directory = vscode.Uri.joinPath(root, ...dagsParts);
+    const uri = vscode.Uri.joinPath(directory, AIRFLOW_STARTER_FILE);
     await vscode.workspace.fs.createDirectory(directory);
-    if (!(await exists(uri))) {
-      await vscode.workspace.fs.writeFile(
-        uri,
-        new TextEncoder().encode(airflowStarter())
-      );
-    }
-
+    await writeIfMissing(uri, airflowStarter());
     await this.openBeside(uri);
     await this.refresh();
+  }
+
+  /** Simulate the active Airflow DAG file (or the starter). The runtime parses it; nothing is executed. */
+  private async simulateAirflow(scenario: AirflowScenarioInput): Promise<void> {
+    const document = await this.activeAirflowDocument();
+    if (!document) return;
+    this.lastAirflowFile = document.uri;
+    try {
+      await this.runtimeManager.simulateAirflow(
+        document.getText(),
+        vscode.workspace.asRelativePath(document.uri),
+        scenario
+      );
+    } catch (error) {
+      void vscode.window.showErrorMessage(
+        `Airflow simulation failed: ${error instanceof Error ? error.message : String(error)}`
+      );
+    }
+    await this.refresh();
+  }
+
+  private async activeAirflowDocument(): Promise<vscode.TextDocument | undefined> {
+    const isDag = (document: vscode.TextDocument | undefined): document is vscode.TextDocument =>
+      document?.uri.scheme === "file" && document.fileName.toLowerCase().endsWith(".py") &&
+      /\bairflow\b/.test(document.getText());
+    const remembered = this.lastDocuments.get(".py")?.toString();
+    let document =
+      (isDag(vscode.window.activeTextEditor?.document) ? vscode.window.activeTextEditor!.document : undefined) ??
+      vscode.window.visibleTextEditors.map(editor => editor.document).find(isDag) ??
+      vscode.workspace.textDocuments.find(candidate => !candidate.isClosed && isDag(candidate) && candidate.uri.toString() === remembered);
+    if (!document) {
+      const { root, dagsParts } = await airflowPaths();
+      const starter = root ? vscode.Uri.joinPath(root, ...dagsParts, AIRFLOW_STARTER_FILE) : undefined;
+      if (!starter || !(await exists(starter))) {
+        void vscode.window.showWarningMessage("Open an Airflow DAG file (.py), or create the starter DAG first.");
+        return undefined;
+      }
+      document = await vscode.workspace.openTextDocument(starter);
+    }
+    if (document.isDirty && !(await document.save())) {
+      void vscode.window.showWarningMessage("Save the DAG file before simulating it.");
+      return undefined;
+    }
+    return document;
+  }
+
+  private async revealAirflowLine(line: number): Promise<void> {
+    if (!this.lastAirflowFile || !Number.isInteger(line) || line < 1) return;
+    const document = await vscode.workspace.openTextDocument(this.lastAirflowFile);
+    const column = this.panel.viewColumn === vscode.ViewColumn.Two ? vscode.ViewColumn.One : vscode.ViewColumn.Two;
+    const editor = await vscode.window.showTextDocument(document, { preview: false, viewColumn: column });
+    const position = new vscode.Position(Math.min(line, document.lineCount) - 1, 0);
+    editor.selection = new vscode.Selection(position, position);
+    editor.revealRange(new vscode.Range(position, position), vscode.TextEditorRevealType.InCenter);
   }
 
   private async openDbtProject(): Promise<void> {

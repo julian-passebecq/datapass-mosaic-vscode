@@ -29,10 +29,11 @@ class RunPlan:
     run_after: datetime
     data_interval_start: datetime
     data_interval_end: datetime
+    run_type: str = 'scheduled'
 
     @property
     def run_id(self) -> str:
-        return f"scheduled__{self.logical_date.isoformat()}"
+        return f"{self.run_type}__{self.logical_date.isoformat()}"
 
 
 def _skip_to_latest(cron: Cron, current: datetime) -> datetime:
@@ -40,6 +41,20 @@ def _skip_to_latest(cron: Cron, current: datetime) -> datetime:
     last_start = cron.prev_tick(current)
     next_start = cron.next_tick(last_start)
     return last_start if next_start == current else cron.prev_tick(last_start)
+
+
+def manual_run(dag: DagSpec, at: datetime) -> RunPlan:
+    """A run triggered at `at` with logical date `at`; its data interval is inferred as Airflow's timetables do.
+
+    CronDataIntervalTimetable infers the last complete interval before the trigger;
+    the other timetables use a zero-length interval at the trigger time.
+    """
+    at = utc(at)
+    if dag.schedule.kind == 'cron_interval':
+        cron = Cron(dag.schedule.cron or '')
+        end = cron.prev_tick(at, inclusive=True)
+        return RunPlan(at, at, cron.prev_tick(end), end, 'manual')
+    return RunPlan(at, at, at, at, 'manual')
 
 
 def plan_runs(dag: DagSpec, now: datetime, unpaused_at: datetime | None = None) -> list[RunPlan]:
