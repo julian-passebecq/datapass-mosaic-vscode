@@ -90,6 +90,10 @@ export function DbtSurface({
           blockedReason={runtime.status !== "running"
             ? "Start the runtime: a mission loads its data into the catalog and the checker queries it."
             : lease ? "The catalog is lent to a dbt command: wait for it to end." : undefined}
+          folderNote={(mission, progress) => <>
+            Project: <code>missions/{mission.id}</code> (selected in the dbt Lab; TICKET.md is in it). Data loaded:{" "}
+            {progress.batches.map(id => mission.batches.find(b => b.id === id)?.label ?? id).join(", ") || "none"}.
+          </>}
         />
       )}
 

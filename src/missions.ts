@@ -6,6 +6,7 @@ import {
   missionFolder,
   nextBatch,
   ticketMarkdown,
+  ticketPath,
   toMissionCheckView,
   toMissionView,
   toProgressFile,
@@ -18,9 +19,12 @@ import type { RuntimeManager } from "./runtimeManager";
 const PROGRESS = [".datapass", "missions", "progress.json"];
 
 /**
- * Missions on the host side: the shipped content (content/missions), the learner's project folder
- * (missions/<id>/, copied once from the pack's base project and the mission's overlay, never overwritten), the
+ * Missions on the host side: the shipped content (content/missions), the learner's folder (missions/<id>/), the
  * progress file (.datapass/missions/progress.json), and the runtime calls that load fixtures and run the checker.
+ *
+ * dbt Lab: the project is copied once from the pack's base project and the mission's overlay (never overwritten) and
+ * the fixture batches load into the catalog. Terminal Lab: the runtime builds the folder (files and Git history) from
+ * the pack; Start over moves the previous folder to .datapass/missions/attic/.
  */
 export class MissionsService {
   private cache?: MissionView[];
@@ -70,6 +74,14 @@ export class MissionsService {
     const root = requireRoot();
     const mission = await this.mission(id);
     const folder = vscode.Uri.joinPath(root, ...missionFolder(id).split("/"));
+    if (mission.lab === "terminal") {
+      await this.runtime.terminalMissionSetup(id);
+      const ticket = this.ticketUri(mission);
+      await vscode.workspace.fs.createDirectory(vscode.Uri.joinPath(ticket, ".."));
+      await vscode.workspace.fs.writeFile(ticket, new TextEncoder().encode(ticketMarkdown(mission)));
+      await this.update(id, () => ({ started: new Date().toISOString(), batches: [], hintsShown: 0 }));
+      return folder;
+    }
     const content = vscode.Uri.joinPath(this.extensionUri, "content", "missions", mission.packId);
     await copyWithoutOverwrite(vscode.Uri.joinPath(content, "base"), folder);
     await copyWithoutOverwrite(vscode.Uri.joinPath(content, id, "project"), folder);
@@ -109,7 +121,7 @@ export class MissionsService {
         for (const board of mission.dctBoards) dct[board] = await dctValidate(this.tools, folder, profilesDir, board);
       }
     }
-    const result = toMissionCheckView(await this.runtime.missionCheck(id, dct));
+    const result = toMissionCheckView(await this.runtime.missionCheck(id, dct, mission.lab !== "terminal"));
     await this.update(id, current => ({
       ...current,
       lastCheck: result,
@@ -117,11 +129,19 @@ export class MissionsService {
     }));
   }
 
-  private async mission(id: string): Promise<MissionView> {
-    const mission = (await this.list("dbt")).find(item => item.id === id)
-      ?? (this.cache ?? []).find(item => item.id === id);
+  async mission(id: string): Promise<MissionView> {
+    await this.list();
+    const mission = (this.cache ?? []).find(item => item.id === id);
     if (!mission) throw new Error(`Unknown mission ${id}.`);
     return mission;
+  }
+
+  folderUri(id: string): vscode.Uri {
+    return vscode.Uri.joinPath(requireRoot(), ...missionFolder(id).split("/"));
+  }
+
+  ticketUri(mission: MissionView): vscode.Uri {
+    return vscode.Uri.joinPath(requireRoot(), ...ticketPath(mission).split("/"));
   }
 
   private async update(id: string, change: (current: MissionProgressView) => MissionProgressView): Promise<void> {

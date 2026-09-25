@@ -507,6 +507,15 @@ h2 { margin-bottom: 8px; font-size: 28px; }
   gap: 16px;
   margin-bottom: 12px;
 }
+.terminal-surface {
+  min-width: 0;
+  border-top: 1px solid var(--vscode-panel-border);
+  padding-top: 14px;
+}
+.terminal-toolbar { flex-wrap: wrap; gap: 10px 16px; }
+.terminal-toolbar .button-row { flex-wrap: wrap; align-items: center; }
+.terminal-truth { margin: 0 0 12px; max-width: 860px; }
+.terminal-surface > .pipeline-notice { margin-bottom: 12px; }
 
 @media (max-width: 900px) {
   .content-grid { grid-template-columns: 1fr; }
