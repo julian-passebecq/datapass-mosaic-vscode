@@ -389,6 +389,66 @@ with TemporaryDirectory(prefix="datapass-sqlpool-smoke-") as temp:
     assert fabric.status == "ok" and "managed layout (Fabric), CLUSTER BY (order_id)" in fabric.message, fabric
     pool_catalog.close()
 
+# BI Lab: warehouse scripts run on DuckDB; lineage is a static analysis of their SQL; star model checks are queries.
+BI_SAMPLE = Path(__file__).resolve().parents[1] / "samples" / "bi-lab"
+
+
+def bi_scripts() -> list[dict]:
+    return [{"path": f"bi/warehouse/{f.name}", "text": f.read_text(encoding="utf-8")}
+            for f in sorted((BI_SAMPLE / "warehouse").glob("*.sql"))]
+
+
+with TemporaryDirectory(prefix="datapass-bi-smoke-") as temp:
+    from datapass_runtime.catalog import Catalog
+    from bilab.lab import lab_view
+    from bilab.lineage import Lineage
+    from bilab.model import StarModel, check_model
+    from bilab.script import run_script, split_script
+
+    assert resources.files("bilab").joinpath("README.md").is_file()
+    parts = split_script("-- header\nSELECT 1;\n\n/* note; */\nSELECT ';' AS x;\nSELECT 3")
+    assert [(s.index, s.line, s.kind) for s in parts] == [(1, 2, "SELECT"), (2, 5, "SELECT"), (3, 6, "SELECT")], parts
+    bi_catalog = Catalog(Path(temp), "duckdb")
+    stopped = run_script(bi_catalog, "CREATE TABLE silver.t AS SELECT 1 AS a;\nCOPY silver.t TO 'x.csv';\nSELECT 2;", "smoke")
+    assert [r.status for r in stopped] == ["success", "error"] and "outside the local SQL teaching contract" in stopped[1].message
+    view = lab_view(bi_catalog, bi_scripts(), json.loads((BI_SAMPLE / "model.json").read_text(encoding="utf-8")), True)
+    assert view["status"] == "ok" and all(s["status"] == "success" for s in view["statements"]), view["stopped"]
+    tables = {t["name"]: t for t in view["tables"]}
+    assert tables["gold.fct_sales"]["rows"] == 16 and tables["gold.dim_customer"]["rows"] == 9, tables["gold.fct_sales"]
+    columns = {(c["table"], c["column"]): c for c in view["lineage"]["columns"]}
+    net = columns[("gold.fct_sales", "net_amount")]
+    assert net["transform"] == "expression" and net["sources"] == [
+        "source.shop_order_lines.discount_amount", "source.shop_order_lines.quantity", "source.shop_order_lines.unit_price"], net
+    assert columns[("gold.dim_customer", "valid_from")]["transform"] == "rename"
+    assert columns[("gold.dim_customer", "valid_to")]["transform"] == "window"  # LEAD() OVER, not an aggregate
+    assert columns[("gold.dim_date", "fiscal_year")]["transform"] == "generated"
+    assert columns[("gold.fct_returns", "customer_key")]["origins"] == [
+        "source.crm_customer_history.customer_id", "source.crm_customer_history.effective_date"], columns[("gold.fct_returns", "customer_key")]
+    impact = {(i["table"], i["column"], i["effect"]) for i in view["lineage"]["impact"]["source.shop_orders.order_date"]}
+    assert ("gold.fct_sales", "*", "rows") in impact and ("gold.fct_returns", "*", "rows") in impact, impact  # point-in-time join
+    assert view["lineage"]["impact"]["source.crm_customers.email"] == [
+        {"table": "gold.dim_customer", "column": "email", "effect": "value"}], view["lineage"]["impact"]["source.crm_customers.email"]
+    checks = view["model"]["checks"]
+    assert checks and all(c["status"] == "pass" for c in checks), [c for c in checks if c["status"] != "pass"]
+    assert {c["check"] for c in checks} >= {"grain_unique", "scd2_no_overlap", "scd2_no_gap", "one_side_unique", "single_active_path"}
+    bad_model = json.loads((BI_SAMPLE / "model.json").read_text(encoding="utf-8"))
+    bad_model["relationships"][1]["active"] = True  # two active paths to dim_date
+    bad_model["relationships"][2] = {"from": "gold.fct_sales.order_id", "to": "gold.dim_customer.customer_id"}
+    failed = {(c["check"], c["status"]) for c in check_model(bi_catalog, StarModel.model_validate(bad_model))["checks"]}
+    assert ("single_active_path", "fail") in failed and ("one_side_unique", "fail") in failed, failed
+    assert lab_view(bi_catalog, [], {"tables": [{"name": "gold.x", "role": "dimension"}]}, False)["model"]["error"]
+    # DML lineage: UPDATE ... FROM and MERGE feed the target's columns; conditions only decide rows.
+    dml = Lineage({"gold.dim": ["id", "city", "valid_to"], "silver.chg": ["id", "city", "day"]})
+    dml.add_script("scd.sql", "UPDATE gold.dim AS d SET valid_to = c.day FROM silver.chg AS c WHERE d.id = c.id;\n"
+                              "MERGE INTO gold.dim AS d USING silver.chg AS s ON d.id = s.id\n"
+                              "WHEN MATCHED THEN UPDATE SET city = s.city WHEN NOT MATCHED THEN INSERT (id, city) VALUES (s.id, s.city);")
+    dml_view = dml.view()
+    dml_columns = {c["column"]: c for c in dml_view["columns"] if c["table"] == "gold.dim"}
+    assert dml_columns["valid_to"]["sources"] == ["silver.chg.day"] and dml_columns["city"]["transform"] == "copy", dml_columns
+    assert {(i["source"], i["role"]) for i in dml_view["influence"]} >= {("silver.chg.id", "filter"), ("silver.chg.id", "merge")}
+    assert not dml_view["issues"], dml_view["issues"]
+    bi_catalog.close()
+
 # Databricks Lab: jobs orchestrated on a logical clock; notebook and SQL tasks run on the catalog under Unity Catalog.
 from databrickslab.compute import load_compute
 from databrickslab.engine import JobScenario, simulate_job
@@ -811,6 +871,21 @@ with TemporaryDirectory(prefix="datapass-csv-import-smoke-") as temp:
                         {"script": "SELECT 1;", "path": "/etc/passwd"}):
                 assert client.post("/api/local/sqlpool/run", json=bad).status_code == 422, bad
             assert capabilities()["sqlpool_lab"]["cloud_connection"] is False
+            # BI Lab: the route runs the warehouse scripts on the workspace catalog, then reports lineage and checks.
+            bi = client.post("/api/local/bi/lab", json={"scripts": bi_scripts(), "run": True,
+                                                        "model": json.loads((BI_SAMPLE / "model.json").read_text(encoding="utf-8"))})
+            assert bi.status_code == 200, bi.text
+            bi = bi.json()
+            assert bi["status"] == "ok" and bi["ran"] and len(bi["statements"]) == 14, (bi["status"], len(bi["statements"]))
+            assert all(c["status"] == "pass" for c in bi["model"]["checks"]) and "sqlglot" in bi["lineage"]["truth"]
+            analyzed = client.post("/api/local/bi/lab", json={"scripts": bi_scripts()[-1:], "run": False}).json()
+            assert analyzed["statements"] == [] and analyzed["model"] is None and analyzed["lineage"]["columns"], analyzed["status"]
+            broken = client.post("/api/local/bi/lab", json={"scripts": [{"path": "bi/x.sql", "text": "SELECT * FROM gold.nope;"}]}).json()
+            assert broken["status"] == "error" and broken["stopped"]["line"] == 1, broken["stopped"]
+            for bad in ({"scripts": [{"path": "../evil.sql", "text": "SELECT 1;"}]}, {"scripts": [{"path": "a.sql", "text": "x" * 60001}]},
+                        {"scripts": [], "run": "yes"}, {"scripts": [], "extra": 1}):
+                assert client.post("/api/local/bi/lab", json=bad).status_code == 422, bad
+            assert capabilities()["bi_lab"]["power_bi"] is False
             # Databricks Lab: the route runs a job on the workspace catalog; the state route shows UC and MLflow.
             dbx = client.post("/api/local/databricks/run", json={"name": "retail_daily_dbx", "document": databricks_job("retail_daily_dbx"),
                                                                  "files": databricks_files(), "data_plane": "local"})

@@ -8,9 +8,81 @@ PR #1 merged the implementation branch into `main` with a merge commit (`f35dbe4
 
 Workflow from here: branch from `main` for each tranche, keep CI green, merge through a pull request. The dated sections below record how the project got here; branch names and tips in them are historical.
 
-## 0. Cloud Lab Databricks (jobs, compute, Unity Catalog, MLflow) — Claude, 2026-09-25 (newest)
+## 0. BI Lab: data warehousing, SQL lineage and star models — Claude, 2026-09-25 (newest)
 
-Branch `feature/databricks-lab`, stacked on `feature/sqlpool-lab` (§0a). A **Databricks** tab in Cloud Lab: a simulated
+Branch `feature/bi-lab`, stacked on `content/databricks-v1` (§0a). A new Workbench module **BI Lab** (id `bi`), the
+pipeline-free lab the user asked for, focused on data warehousing notions (the user asked explicitly for SQL
+lineage, star-schema modeling and slowly changing dimensions types 1, 2 and 3). Nothing connects to Power BI.
+
+- **Runtime** (`runtime/bilab`, README there; new dependency `sqlglot` in `runtime/pyproject.toml`):
+  - `script.py`: warehouse scripts split into statements with line numbers (comments skipped on the original text),
+    each run through the catalog's SQL contract on DuckDB; a script stops at its first error.
+  - `lineage.py`: static column lineage with sqlglot (DuckDB dialect), qualified against the catalog's columns.
+    CREATE TABLE/VIEW AS, INSERT ... SELECT (positional or BY NAME), UPDATE ... FROM and MERGE (via synthetic
+    queries) write columns; CTEs, derived tables, scalar subqueries, UNION branches (by position) and windows are
+    resolved by our own resolver over sqlglot scopes. Transform per column (copy, rename, expression, aggregate,
+    window, constant, generated); `origins` follow tables the scripts build back to unbuilt tables; WHERE/JOIN/GROUP
+    BY/HAVING/QUALIFY and MERGE conditions are row influence; `impact()` follows values and rows.
+  - `model.py`: the star model file (`bi/model.json`, Datapass's own format with Power BI's relationship vocabulary:
+    cardinality, cross-filter single/both, active) and its checks as real queries: keys, unknown member, grain, SCD2
+    validity (range, one current, current flag, no overlap, no gap), relationship columns, 'one' side unique, NULL
+    keys, orphans, fact-to-dimension, one active path, cross-filter (both only with a bridge), many-to-many.
+  - `lab.py` + route `POST /api/local/bi/lab` (kernel op `bi_lab`, capability `bi_lab`, DuckDB only): run or only
+    analyze the scripts, return statements, tables, lineage (with impact for every column), model and profiles.
+- **Practice pack `dwh-v1`** (20 exercises, 47 mutants; `scripts/authoring/gen_dwh.py`): languages `warehouse`
+  (solution.sql) and `bi-model` (solution.json), runtime `datapass-warehouse-v1`, truth `real`, graded in
+  `datapass_runtime/warehouse_grading.py` on an isolated catalog per check. Scenarios seed tables, run the script
+  1-3 times with per-run batches (incremental loads, rerun safety), and grade result, table, checks, relationships,
+  lineage (origins) or impact. Lessons: snowflake flattening, surrogate keys + unknown member, date dimension with a
+  July fiscal year, junk dimension, SCD 1, SCD 2 (NULL-safe change detection, rerun-safe), a type 1 attribute in a
+  type 2 dimension, SCD 3, point-in-time join (exclusive valid_to), late arriving dimension (inferred members),
+  allocating an order-level fee to the line grain, periodic snapshot (dense, semi-additive), accumulating snapshot
+  (MERGE with COALESCE), factless fact (anti-join on coverage), drill across conformed dimensions (fan trap), weighted
+  bridge, lineage of certified revenue (a COALESCE fallback to the header shows in lineage), lineage of personal
+  data, star models with a role-playing date and with a bridge. Every expected row was reviewed by hand.
+- **Extension**: module `bi` (`datapass.openBiLab`), `src/biState.ts` (bi/ files; open editors win),
+  `src/platform/biRun.ts` (pure mapping, star layout, lineage graphs; `scripts/bi_lab_smoke.mjs`),
+  `BiSurface.tsx` with tabs Warehouse (scripts, statements with Show-in-script, tables), Star model (star drawn fact
+  in the middle; edges leave by the side facing their dimension; dashed inactive, purple both; checks and relationship
+  profiles), Lineage (column table, multi-hop column graph, impact, row influence, table graph) and Concepts (SCD
+  types, fact types, keys, dimension patterns, additivity, lineage; each item opens its exercise). Samples in
+  `samples/bi-lab/` are copied to `bi/` by **Create lab files**. `SharedGraphCanvas` gained optional node positions
+  and four-side handles (`allSides`, `sourceSide`/`targetSide`); other graphs are unchanged.
+
+Checked:
+- `npm run compile`, `npm test` (new `bi_lab_smoke.mjs`; package boundary includes `runtime/bilab`, the pack and
+  the samples);
+- `pip install ./runtime` (bilab and its README packaged), compileall with `runtime/bilab`;
+- `runtime_smoke.py`: statement lines, contract refusal, the sample build through `lab_view` (16 sales rows, lineage
+  transforms, origins, impact through the point-in-time join, all 77 model checks pass, a broken model fails the
+  right checks), DML lineage, the API route and its validation;
+- `exercise_packs_smoke.py`: 247 references pass, 247 starters and 359 mutants rejected;
+- `npm run test:host` (23 steps): the sample warehouse built through the runtime, a broken model analyzed without
+  running, and dwh-v1 references, starters, a lineage-only failure and invalid JSON graded; workspace catalog unchanged;
+- the four tabs rendered in a browser harness with a real runtime response (star layout fixed after the first look).
+  Not checked in a real F5 session.
+
+Decided with the user in this session (2026-09-25), not built yet:
+- **dbt Charts** exists in the dbt sample (`dbt_charts.yml`, `charts/revenue.yml`) but nothing renders it. dbt Charts
+  is a real Apache-2.0 tool from dbt Labs (CLI `dct`, DuckDB built in, offline). Plan: same rule as dbt Core, real
+  `dct validate`/render when installed, otherwise a Datapass preview labelled "not the dbt Charts renderer"; no
+  vendor VS Code extension.
+- **Next BI tranches**: BI-2 dbt in the BI lab (snapshots = real SCD2, tests incl. relationships, incremental models,
+  lineage of dbt models with ref()/source() resolved, dbt Charts preview); BI-3 KPIs and a small DAX-like measure
+  layer translated to SQL on the star (SUM, DIVIDE, CALCULATE, ALL, YTD / previous year, USERELATIONSHIP for the
+  inactive ship date), with charts.
+- **dbt layer in the Cloud lab** must follow real practice: Databricks `dbt_task` in a job (dbt Core on small job
+  compute, SQL on a SQL warehouse, run_as needs CAN USE + Unity Catalog privileges, pinned dbt-databricks,
+  parameters and task values in commands; 2-3 exercises tied to the ML flow, a failing dbt test blocks training);
+  Fabric dbt job item + pipeline "dbt job" activity (preview; documented settings operation, select, exclude,
+  fullRefresh, failFast, threads, selectorName; the activity's JSON `type` string is NOT documented, so verify it
+  before writing any exercise; 3-4 exercises incl. the same load with and without dbt). ADF/Synapse have no dbt
+  activity: dbt runs from CI/CD or Airflow there. Execution stays real dbt Core + dbt-duckdb when installed (say the
+  adapter is dbt-duckdb), else the step fails explicitly.
+
+## 0a. Cloud Lab Databricks (jobs, compute, Unity Catalog, MLflow) — Claude, 2026-09-25
+
+Branch `feature/databricks-lab`, stacked on `feature/sqlpool-lab` (§0b). A **Databricks** tab in Cloud Lab: a simulated
 Azure Databricks workspace. Facts checked on Microsoft Learn (run_if options and outcomes, the leaf rule, If/else
 comparisons, task values, dynamic value references, job-parameter precedence, Unity Catalog privileges, models in UC).
 
@@ -54,9 +126,9 @@ Checked:
 - `npm run test:host` (22 steps): the sample jobs through the runtime, as their principals;
 - the tab rendered in a browser harness with a real runtime response. Not checked in a real F5 session.
 
-## 0a. Cloud Lab SQL pool (Synapse dedicated SQL pool, Fabric Warehouse) — Claude, 2026-09-25
+## 0b. Cloud Lab SQL pool (Synapse dedicated SQL pool, Fabric Warehouse) — Claude, 2026-09-25
 
-Branch `feature/sqlpool-lab`, stacked on `content/cloud-pipelines-v1` (§0b). A **SQL pool** tab in Cloud Lab and the `sqlpool-v1` Practice pack.
+Branch `feature/sqlpool-lab`, stacked on `content/cloud-pipelines-v1` (§0c). A **SQL pool** tab in Cloud Lab and the `sqlpool-v1` Practice pack.
 
 - **Runtime** (`runtime/sqlpoollab`, README there):
   - T-SQL scripts are split (`;`, `GO`) and translated to DuckDB for a documented subset: brackets, `N''`, variables, `dbo` → the `warehouse` layer, `ISNULL`, `LEN`, `COUNT_BIG`, `IIF`, `EOMONTH`, the `GETDATE` family (fixed lab clock), `CAST`/`CONVERT` types, `DATEADD`/`DATEDIFF`/`DATEPART` (string dates included), `CHARINDEX`, `TOP` (subqueries included). `+` string concatenation is not translated (use `CONCAT`).
@@ -79,9 +151,9 @@ Checked:
 - `npm run test:host` (18 steps): the four sample scripts on the runtime, the pack's reference and starters, and the workspace catalog unchanged by grading;
 - the tab rendered in a browser harness with a real runtime response. Not checked in a real F5 session.
 
-## 0b. Cloud Lab pipeline exercises — Claude, 2026-09-25
+## 0c. Cloud Lab pipeline exercises — Claude, 2026-09-25
 
-Branch `content/cloud-pipelines-v1`, stacked on `feature/factory-lab` (§0c). Guided Practice exercises on the Cloud Lab pipeline simulator.
+Branch `content/cloud-pipelines-v1`, stacked on `feature/factory-lab` (§0d). Guided Practice exercises on the Cloud Lab pipeline simulator.
 
 - **Grading** (`datapass_runtime/factory_grading.py`, scenario model `factorylab/exercise.py`):
   - New Practice languages: `factory` (the learner writes the pipeline JSON, `solution.json`) and `factory-notebook` (the learner writes the notebook a given pipeline runs, `solution.py`).
@@ -130,7 +202,7 @@ Checked:
 - `exercise_packs_smoke.py`: 202 references pass, 202 starters and 259 mutants rejected;
 - `npm run test:host`: the watermark reference passes, its starter fails, invalid JSON is rejected, the notebook reference passes and its starter fails, and the workspace catalog is unchanged.
 
-## 0c. Cloud Lab pipelines (Factory Lab) — Claude, 2026-09-25
+## 0d. Cloud Lab pipelines (Factory Lab) — Claude, 2026-09-25
 
 Branch `feature/factory-lab`, stacked on `feature/airflow-lab-surface`. "Fabric Lab" becomes **Cloud Lab** (module id `fabric` and command id unchanged). It is the first piece of the simulated cloud platform the user asked for. Nothing connects to Fabric, Azure or Databricks, and the real Fabric VS Code extension is not used.
 
@@ -183,7 +255,7 @@ Checked:
 
 Not re-checked in a real F5 session.
 
-## 0d. Airflow lab simulator and exercise pack — Claude, 2026-09-25
+## 0e. Airflow lab simulator and exercise pack — Claude, 2026-09-25
 
 Branch `content/airflow-lab-v1`. Airflow practice without Airflow, in the local runtime (no FastAPI Cloud, no separate service; `datapass-airflow-runner` stays empty).
 
@@ -196,13 +268,13 @@ Branch `content/airflow-lab-v1`. Airflow practice without Airflow, in the local 
 
 Checked: `npm run compile`; `npm test` (airflow brief, package boundary); `pip install ./runtime`; compileall; `runtime_smoke.py` (parser rejections, both timetables, catchup, a trigger-rule table, retries, sensor timeout, templates); `exercise_packs_smoke.py` → 186 references pass, 186 starters and 220 mutants rejected; `npm run test:host` (branch-join reference passes, starter fails, `import os` rejected). Not re-checked in a real F5 session.
 
-## 0e. Data-engineering patterns pack — Claude, 2026-09-25
+## 0f. Data-engineering patterns pack — Claude, 2026-09-25
 
 Merged as PR #6 (`63e5f0b`). Branch `content/more-exercises`. New pack `content/exercise-packs/de-patterns-v1` (16 authored DuckDB SQL exercises, 5 easy / 8 medium / 3 hard). It fills the gap between `sql-lab-v1` (joins/grouping/windows) and real pipeline work: typing text columns after Mosaic **Import CSV**, latest-per-key CDC dedup with a tie-breaker, the `NOT IN` NULL trap, gaps and islands, 30-minute sessionization, `ASOF LEFT JOIN`, SCD2 validity ranges with `LEAD`, full-row upsert results, a UNION ALL data-quality rule report, a `generate_series` calendar spine, a user-level funnel, `MEDIAN`, monthly cohorts, `string_split`/`UNNEST` tag normalisation, strict `>` watermarks, and `COUNT(*) FILTER` vs the `COUNT(boolean)` trap.
 
 Every exercise has a visible, a hidden and an edge fixture designed around its pitfall, a runnable starter that fails, and 1-3 mutants (34 in total). Expected rows were computed by running the reference over the grader's own typed fixture CTEs, then reviewed by hand. Gate: `exercise_packs_smoke.py` → 173 references pass, 173 starters and 188 mutants rejected; `de-patterns-v1` joined `RUNNABLE_STARTER_PACKS`. The host E2E grades `de-not-in-null-trap` from the extension catalog (the reference passes; `NOT IN` fails only on the guest-order fixture).
 
-## 0f. Mosaic CSV import — Claude, 2026-09-25
+## 0g. Mosaic CSV import — Claude, 2026-09-25
 
 Merged as PR #4 (`aeb7aef`).
 
@@ -214,7 +286,7 @@ Branch `feature/mosaic-import-csv`. Gives learners a way to load their own data 
 
 Checked: `npm run compile`; `npm test` (new `csv_import_smoke.mjs`); `runtime_smoke.py` (new TestClient block: import, catalog, duplicate/non-bronze/injection-name/malformed/over-limit/extra-`path` refusals, CAST query); compileall; pack smoke; `npm run test:host` (new step, 17/17); browser harness render of the preview and the button → `importCsv` message. Not re-checked in a real F5 session (the native file picker and input box are only exercised through the host classes).
 
-## 0g. Polish tranche — Claude, 2026-09-25
+## 0h. Polish tranche — Claude, 2026-09-25
 
 Merged as PR #3 (`603babd`). Branch `polish/setup-progress-and-lockfile`. Closes the three "known, not fixed" items from the F5 pass below and the lockfile decision.
 
@@ -225,7 +297,7 @@ Merged as PR #3 (`603babd`). Branch `polish/setup-progress-and-lockfile`. Closes
 
 Checked: `npm run compile`, `npm test` (new parser assertions in `runtime_environment_smoke.mjs`), the Python gates, and the built webview in a browser harness with a stubbed VS Code API (setup-progress card, pipeline header, minimap computed colors in a dark theme). Not re-checked in a real F5 session.
 
-## 0h. Manual F5 pass — Claude, 2026-09-25
+## 0i. Manual F5 pass — Claude, 2026-09-25
 
 A real VS Code 1.139 Extension Development Host (fresh profile, disposable workspace, managed runtime set up through the UI) was driven over the Chrome DevTools Protocol: real webview buttons, the real modal dialog, real mouse drags, screenshots. This replaced the "NOT exercised" item from the earlier tranche.
 
@@ -241,11 +313,11 @@ Bugs found and fixed:
 6. **Start runtime without an open folder** started anyway, then HTTP 500s. Now refused with a clear message.
 7. Badges wrapped out of their pills; Output panel popped open on every start; a broken dbt install dumped a 20-line traceback into the dbt card (now one line). QUICKSTART/README used stale button labels.
 
-Known, not fixed at the time (all three addressed in §0g): first **Setup runtime** took ~15 min on this Windows machine (pip unpacking under antivirus); only the output channel shows progress. React Flow minimap is light in dark theme. Pipeline header shows the compiler's `compiled_design_only` truth next to executable activities.
+Known, not fixed at the time (all three addressed in §0h): first **Setup runtime** took ~15 min on this Windows machine (pip unpacking under antivirus); only the output channel shows progress. React Flow minimap is light in dark theme. Pipeline header shows the compiler's `compiled_design_only` truth next to executable activities.
 
 The driver lives outside the repo (Playwright over CDP); if you repeat it, launch Code with `--folder-uri`, `--disable-features=CalculateNativeWinOcclusion --disable-backgrounding-occluded-windows`, and `window.dialogStyle: custom`, and use DOM clicks inside webviews.
 
-## 0i. Content tranche — Claude, 2026-09-24
+## 0j. Content tranche — Claude, 2026-09-24
 
 | Commit | Change |
 | --- | --- |
@@ -303,9 +375,9 @@ NOT exercised: a human F5 session clicking through the real webview inside VS Co
 
 1. Manual F5 pass over the new UI (see "NOT exercised" above), then decide on un-drafting PR #1. *(Done 2026-09-25; PR #1 merged.)*
 2. P2 content: promote exercises from `legacy-donors/leetcodedataeng`. The grader uses a single `input` fixture table per exercise (`content/exercise-packs/*/grading.server.json`); most donor SQL problems are multi-table, so either extend fixtures to named tables or re-author. Add each exercise to the runtime smoke with its reference solution.
-3. ~~A Mosaic "Import CSV into catalog" action~~ Done (§0f).
+3. ~~A Mosaic "Import CSV into catalog" action~~ Done (§0g).
 4. If wiring Pipeline dbt later: extend the trusted-local opt-in to dbt, validate the project path against the manifest `assets.dbt`, reuse `dbt_runner` artifact validation, never report success without a qualified manifest/run_results pair.
-5. ~~`package-lock.json` is not committed~~ Done: the lockfile is committed and CI uses `npm ci` (§0g).
+5. ~~`package-lock.json` is not committed~~ Done: the lockfile is committed and CI uses `npm ci` (§0h).
 
 ## 1. Start here
 
@@ -619,7 +691,7 @@ Proceed in this order unless a newly reproduced bug blocks the sequence.
 1. Branch from `main` for each tranche; merge back through a pull request.
 2. Keep CI green after every coherent tranche.
 3. Do not force-push or rewrite `main` history.
-4. For user-facing changes, repeat the manual F5 pass (see §0h) before merging.
+4. For user-facing changes, repeat the manual F5 pass (see §0i) before merging.
 
 Status after the 2026-09-24 Claude tranches: P1 trusted Python — done; P1 SparkLab — done; P1 E2E — done (`npm run test:host`); P2 pipeline dbt — decided: explicitly unsupported; P2 Mosaic durability — done; P2 content — donor Practice content promoted: `sql-lab-v1` (60), `engine-lab-v1` (68 variants), `python-lab-v1` (12); non-gradable donor tracks intentionally left to reference material. Manual F5 pass done on 2026-09-25 and PR #1 merged to `main`. Remaining: the known limitations listed in §0 and further content.
 

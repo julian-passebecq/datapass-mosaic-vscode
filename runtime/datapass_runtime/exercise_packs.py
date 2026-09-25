@@ -41,7 +41,8 @@ NAMED_TABLE_LANGUAGES = {'sql', 'python', 'polars', 'sparklab'}
 SCENARIO_LANGUAGES = {'airflow': 'datapass-airflow-sim-v1', 'factory': 'datapass-factory-sim-v1',
                       'factory-notebook': 'datapass-factory-sim-v1', 'sqlpool': 'datapass-sqlpool-sim-v1',
                       'databricks-job': 'datapass-databricks-sim-v1', 'databricks-notebook': 'datapass-databricks-sim-v1',
-                      'databricks-grants': 'datapass-databricks-sim-v1'}
+                      'databricks-grants': 'datapass-databricks-sim-v1',
+                      'warehouse': 'datapass-warehouse-v1', 'bi-model': 'datapass-warehouse-v1'}
 
 
 def _check_factory_scenario(definition, raw):
@@ -84,6 +85,25 @@ def _check_pool_scenario(definition, raw):
             raise ValueError('Fixture values must be finite JSON scalars: '+definition.id)
 
 
+def _check_warehouse_scenario(definition, raw):
+    from bilab.exercise import WarehouseScenario
+    scenario = WarehouseScenario.model_validate(raw)
+    if definition.language == 'bi-model':
+        if scenario.model is not None:
+            raise ValueError('A bi-model fixture takes the star model from the learner: ' + definition.id)
+        if scenario.outcome not in ('checks', 'relationships'):
+            raise ValueError('A bi-model fixture grades checks or relationships: ' + definition.id)
+    elif scenario.outcome == 'relationships' or (scenario.outcome == 'checks' and scenario.model is None):
+        raise ValueError('A warehouse fixture grading model checks gives the model: ' + definition.id)
+    tables = [*scenario.tables, *(t for step in scenario.runs for t in step.tables)]
+    for table in tables:
+        if any(not COLUMN_TYPE.fullmatch(t) for t in table.types.values()):
+            raise ValueError('Unsupported fixture column type in '+definition.id)
+        if any(not isinstance(v,(str,int,float,bool,type(None))) or isinstance(v,float) and not math.isfinite(v)
+               for row in table.rows for v in row.values()):
+            raise ValueError('Fixture values must be finite JSON scalars: '+definition.id)
+
+
 class GradingDefinition(Contract):
     solution: str
     fixtures: list[Fixture]
@@ -110,7 +130,8 @@ class PackRegistry:
             if definition.canonical_placement.topic not in definition.topics:
                 raise ValueError('Canonical topic must belong to exercise topics')
             if definition.language not in {'sql','python','polars','sparklab','dbt','airflow','factory','factory-notebook','sqlpool',
-                                           'databricks-job','databricks-notebook','databricks-grants'}:
+                                           'databricks-job','databricks-notebook','databricks-grants',
+                                           'warehouse','bi-model'}:
                 raise ValueError('No grading adapter for '+definition.language)
             private = GradingDefinition.model_validate(grading[definition.id])
             refs = {'visible': [c.id for c in definition.visible_checks], 'hidden': definition.hidden_check_refs, 'edge': definition.edge_check_refs}
@@ -153,6 +174,8 @@ class PackRegistry:
                         _check_pool_scenario(definition, fixture.scenario)
                     elif definition.language.startswith('databricks-'):
                         _check_databricks_scenario(definition, fixture.scenario)
+                    elif definition.language in ('warehouse', 'bi-model'):
+                        _check_warehouse_scenario(definition, fixture.scenario)
                     else:
                         _check_factory_scenario(definition, fixture.scenario)
             for fixture in private.fixtures:

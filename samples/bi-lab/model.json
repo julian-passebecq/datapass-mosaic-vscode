@@ -1,0 +1,59 @@
+{
+  "name": "retail_star",
+  "description": "Sales and returns of an outdoor retailer: two facts sharing conformed date, customer and product dimensions.",
+  "tables": [
+    {
+      "name": "gold.fct_sales",
+      "role": "fact",
+      "grain": ["order_id", "line_number"],
+      "description": "One row per order line. order_id is a degenerate dimension."
+    },
+    {
+      "name": "gold.fct_returns",
+      "role": "fact",
+      "grain": ["return_id"],
+      "description": "One row per return, keyed like the sale it reverses."
+    },
+    {
+      "name": "gold.dim_date",
+      "role": "dimension",
+      "key": "date_key",
+      "unknown_member": -1,
+      "description": "One row per day; plays two roles for sales (order date, ship date)."
+    },
+    {
+      "name": "gold.dim_customer",
+      "role": "dimension",
+      "key": "customer_key",
+      "business_key": ["customer_id"],
+      "unknown_member": -1,
+      "scd": {"type": 2, "valid_from": "valid_from", "valid_to": "valid_to", "current_flag": "is_current"},
+      "description": "Type 2 on city and segment, type 1 on name and email."
+    },
+    {
+      "name": "gold.dim_product",
+      "role": "dimension",
+      "key": "product_key",
+      "business_key": ["product_id"],
+      "unknown_member": -1,
+      "scd": {"type": 1},
+      "description": "The ERP's product hierarchy flattened (no snowflake)."
+    },
+    {
+      "name": "gold.dim_order_profile",
+      "role": "dimension",
+      "key": "order_profile_key",
+      "description": "Junk dimension: channel, payment type and gift flag."
+    }
+  ],
+  "relationships": [
+    {"from": "gold.fct_sales.order_date_key", "to": "gold.dim_date.date_key", "cardinality": "many-to-one", "cross_filter": "single", "active": true},
+    {"from": "gold.fct_sales.ship_date_key", "to": "gold.dim_date.date_key", "cardinality": "many-to-one", "cross_filter": "single", "active": false},
+    {"from": "gold.fct_sales.customer_key", "to": "gold.dim_customer.customer_key", "cardinality": "many-to-one", "cross_filter": "single", "active": true},
+    {"from": "gold.fct_sales.product_key", "to": "gold.dim_product.product_key", "cardinality": "many-to-one", "cross_filter": "single", "active": true},
+    {"from": "gold.fct_sales.order_profile_key", "to": "gold.dim_order_profile.order_profile_key", "cardinality": "many-to-one", "cross_filter": "single", "active": true},
+    {"from": "gold.fct_returns.return_date_key", "to": "gold.dim_date.date_key", "cardinality": "many-to-one", "cross_filter": "single", "active": true},
+    {"from": "gold.fct_returns.customer_key", "to": "gold.dim_customer.customer_key", "cardinality": "many-to-one", "cross_filter": "single", "active": true},
+    {"from": "gold.fct_returns.product_key", "to": "gold.dim_product.product_key", "cardinality": "many-to-one", "cross_filter": "single", "active": true}
+  ]
+}

@@ -1,5 +1,7 @@
 import * as vscode from "vscode";
 import { AIRFLOW_STARTER_FILE, airflowPaths } from "./airflowState";
+import { biFileUri, biRoot, collectBiScripts, copyBiSamples, readBiModel } from "./biState";
+import { BI_LIMITS, BI_MODEL_FILE } from "./platform/biRun";
 import { loadExerciseCatalog } from "./exerciseCatalog";
 import { decodeCsvBytes, suggestBronzeAsset, validateBronzeAsset } from "./platform/csvImport";
 import {
@@ -28,6 +30,7 @@ import { collectWorkbenchState } from "./workbenchState";
 import { contentSecurityPolicy, makeNonce } from "./webview/security";
 import type {
   AirflowScenarioInput,
+  BiRunMode,
   FactoryFlavor,
   FactoryScenarioInput,
   DatabricksScenarioInput,
@@ -80,6 +83,8 @@ export class WorkbenchPanel {
   private lastAirflowFile?: vscode.Uri;
   /** The T-SQL script the SQL pool tab last ran, to reveal a statement's line in it. */
   private lastSqlPoolFile?: vscode.Uri;
+  /** The active .sql file the BI Lab last ran (not under bi/), to reveal a statement's line in it. */
+  private lastBiActiveFile?: vscode.Uri;
 
   private constructor(
     private readonly panel: vscode.WebviewPanel,
@@ -118,6 +123,7 @@ export class WorkbenchPanel {
           this.selectedModule === "pipeline" ||
           this.selectedModule === "airflow" ||
           this.selectedModule === "fabric" ||
+          this.selectedModule === "bi" ||
           this.selectedModule === "dbt"
         ) {
           void this.refresh();
@@ -242,6 +248,21 @@ export class WorkbenchPanel {
         break;
       case "refreshDatabricksState":
         await this.refreshDatabricksState();
+        break;
+      case "createBiLab":
+        await this.createBiLab();
+        break;
+      case "refreshBi":
+        await this.refresh();
+        break;
+      case "openBiFile":
+        await this.openBiFile(message.path);
+        break;
+      case "runBiLab":
+        await this.runBiLab(message.mode);
+        break;
+      case "revealBiLine":
+        await this.revealBiLine(message.path, message.line);
         break;
       case "openDbtProject":
         await this.openDbtProject();
@@ -921,6 +942,88 @@ export class WorkbenchPanel {
     await this.refresh();
   }
 
+  /** Copy the BI Lab samples (warehouse scripts and the star model) into bi/, keeping existing files. */
+  private async createBiLab(): Promise<void> {
+    const root = await copyBiSamples(this.context.extensionUri);
+    if (!root) {
+      void vscode.window.showWarningMessage("Open a workspace folder before creating the BI Lab files.");
+      return;
+    }
+    const model = biFileUri(BI_MODEL_FILE);
+    if (model && (await exists(model))) await this.openBeside(model);
+    void vscode.window.showInformationMessage(
+      "BI Lab files are in bi/: warehouse scripts that build a star schema from CRM, ERP and shop sources (bi/warehouse, run in name order) and its star model (bi/model.json). Existing files were kept."
+    );
+    await this.refresh();
+  }
+
+  private async openBiFile(relative: string): Promise<void> {
+    const uri = biFileUri(relative);
+    if (!uri || !(await exists(uri))) {
+      void vscode.window.showWarningMessage(`BI Lab file not found: ${relative}`);
+      return;
+    }
+    await this.openBeside(uri);
+  }
+
+  /**
+   * BI Lab: build (run every script of bi/warehouse in name order), run the active .sql file, or only analyze
+   * (lineage and model checks on the tables as they are). The scripts run on the local catalog.
+   */
+  private async runBiLab(mode: BiRunMode): Promise<void> {
+    if (mode !== "build" && mode !== "analyze" && mode !== "active") return;
+    const root = biRoot();
+    if (root) {
+      for (const document of vscode.workspace.textDocuments) {
+        if (document.isDirty && document.uri.toString().startsWith(root.toString() + "/")) await document.save();
+      }
+    }
+    let scripts: { path: string; text: string }[];
+    let warnings: string[];
+    let source: string;
+    if (mode === "active") {
+      const document = await activeSavedDocument(".sql", "SQL", this.lastDocuments.get(".sql"));
+      if (!document) return;
+      const text = document.getText();
+      if (text.length > BI_LIMITS.scriptChars) {
+        void vscode.window.showWarningMessage(`The script is longer than ${BI_LIMITS.scriptChars} characters.`);
+        return;
+      }
+      source = vscode.workspace.asRelativePath(document.uri, false).replaceAll("\\", "/");
+      if (!/^[A-Za-z0-9_./ -]{1,200}$/.test(source) || source.split("/").includes("..")) source = "active.sql";
+      this.lastBiActiveFile = document.uri;
+      scripts = [{ path: source, text }];
+      warnings = [];
+    } else {
+      ({ scripts, warnings } = await collectBiScripts());
+      if (!scripts.length) {
+        void vscode.window.showWarningMessage("No warehouse scripts in bi/warehouse. Create the BI Lab files first.");
+        return;
+      }
+      source = mode === "build" ? "bi/warehouse" : "analysis only";
+    }
+    const model = await readBiModel();
+    try {
+      await this.runtimeManager.runBiLab({ mode, source, scripts, model: model.model, modelError: model.error, warnings });
+    } catch (error) {
+      void vscode.window.showErrorMessage(`BI Lab run failed: ${error instanceof Error ? error.message : String(error)}`);
+    }
+    await this.refresh();
+  }
+
+  private async revealBiLine(relative: string, line: number): Promise<void> {
+    if (!Number.isInteger(line) || line < 1) return;
+    const uri = biFileUri(relative) ?? (this.lastBiActiveFile && vscode.workspace.asRelativePath(this.lastBiActiveFile, false)
+      .replaceAll("\\", "/") === relative ? this.lastBiActiveFile : undefined);
+    if (!uri || !(await exists(uri))) return;
+    const document = await vscode.workspace.openTextDocument(uri);
+    const column = this.panel.viewColumn === vscode.ViewColumn.Two ? vscode.ViewColumn.One : vscode.ViewColumn.Two;
+    const editor = await vscode.window.showTextDocument(document, { preview: false, viewColumn: column });
+    const position = new vscode.Position(Math.min(line, document.lineCount) - 1, 0);
+    editor.selection = new vscode.Selection(position, position);
+    editor.revealRange(new vscode.Range(position, position), vscode.TextEditorRevealType.InCenter);
+  }
+
   private async revealSqlPoolLine(line: number): Promise<void> {
     if (!this.lastSqlPoolFile || !Number.isInteger(line) || line < 1) return;
     const document = await vscode.workspace.openTextDocument(this.lastSqlPoolFile);
@@ -1047,6 +1150,7 @@ function extensionFor(language: string): string {
     case "dbt":
     case "sqlpool":
     case "databricks-grants":
+    case "warehouse":
       return "sql";
     case "python":
     case "pandas":
@@ -1059,6 +1163,7 @@ function extensionFor(language: string): string {
       return "py";
     case "factory":
     case "databricks-job":
+    case "bi-model":
       return "json";
     case "powershell":
       return "ps1";

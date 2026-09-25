@@ -1,4 +1,4 @@
-export type ModuleId = "mosaic" | "practice" | "fabric" | "sparklab" | "dbt" | "airflow" | "pipeline";
+export type ModuleId = "mosaic" | "practice" | "fabric" | "bi" | "sparklab" | "dbt" | "airflow" | "pipeline";
 export type ExecutionMode = "real" | "simulated" | "hybrid";
 
 export interface WorkbenchModule {
@@ -38,6 +38,15 @@ export const MODULES: readonly WorkbenchModule[] = [
     execution:"Simulated orchestration + local DuckDB/SparkLab activities",
     mode:"hybrid",
     highlights:["Real pipeline JSON for Fabric, ADF and Synapse","Notebooks and stored procedures on the local lakehouse","Product differences made explicit"]
+  },
+  {
+    id:"bi",
+    label:"BI Lab",
+    description:"Data warehousing on the local DuckDB catalog: star schemas, slowly changing dimensions, SQL lineage and model checks.",
+    command:"datapass.openBiLab",
+    execution:"Real DuckDB + SQL lineage analysis",
+    mode:"real",
+    highlights:["Warehouse SQL runs on DuckDB","Column lineage and impact from the SQL text","Star model checks: keys, grain, SCD2, relationships"]
   },
   {
     id:"sparklab",

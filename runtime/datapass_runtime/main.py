@@ -154,6 +154,36 @@ class DatabricksStateRequest(BaseModel):
     files: DatabricksFiles = Field(default_factory=DatabricksFiles)
 
 
+class BiScript(BaseModel):
+    """A script's workspace-relative path is only a label for messages: the runtime never reads it."""
+    model_config = ConfigDict(extra="forbid", strict=True)
+    path: str = Field(pattern=r"^[A-Za-z0-9_./ -]{1,200}$")
+    text: str = Field(max_length=60000)
+
+    @model_validator(mode="after")
+    def relative(self) -> "BiScript":
+        if self.path.startswith("/") or ".." in self.path.split("/"):
+            raise ValueError("script paths are workspace-relative labels")
+        return self
+
+
+class BiLabRequest(BaseModel):
+    """BI Lab: warehouse SQL scripts (TEXT, in order) and the star model file; the scripts run on the local catalog."""
+    model_config = ConfigDict(extra="forbid", strict=True)
+    scripts: list[BiScript] = Field(default_factory=list, max_length=40)
+    model: dict[str, Any] | None = None
+    # False: only analyze (lineage, model checks on the tables as they are); True: run the scripts first.
+    run: bool = True
+
+    @model_validator(mode="after")
+    def bounded(self) -> "BiLabRequest":
+        if sum(len(s.text) for s in self.scripts) > 400_000:
+            raise ValueError("warehouse scripts exceed 400 KB")
+        if len(json.dumps(self.model)) > 100_000:
+            raise ValueError("the model file exceeds 100 KB")
+        return self
+
+
 class RetailDemoRequest(BaseModel):
     model_config = ConfigDict(extra="forbid", strict=True)
     dataset_path: str = Field(min_length=1, max_length=500)
@@ -169,7 +199,7 @@ class ExerciseGradeRequest(BaseModel):
     exercise_id: str = Field(pattern=r"^[A-Za-z0-9_-]{1,100}$")
     exercise_version: str = Field(min_length=1, max_length=40)
     language: Literal["sql", "sparklab", "python", "polars", "dbt", "airflow", "factory", "factory-notebook", "sqlpool",
-                      "databricks-job", "databricks-notebook", "databricks-grants"]
+                      "databricks-job", "databricks-notebook", "databricks-grants", "warehouse", "bi-model"]
     code: str = Field(min_length=1, max_length=40000)
     mode: Literal["run", "submit"]
     notebook_id: str = Field(pattern=r"^[A-Za-z0-9_-]{1,100}$")
@@ -250,6 +280,13 @@ def capabilities() -> dict[str, object]:
             "data": "T-SQL translated to DuckDB for a documented subset; data statements run on the local catalog",
             "physical_model": "60 distributions, partitions, columnstore rowgroups and data movement, modelled for teaching",
             "cloud_connection": False,
+        },
+        "bi_lab": {
+            "mode": "real",
+            "sql": "warehouse scripts run on the local DuckDB catalog",
+            "lineage": "column-level lineage and impact from the SQL text (sqlglot); nothing executed",
+            "model": "star model checks (keys, grain, SCD2 validity, relationships) are real queries",
+            "power_bi": False,
         },
         "pipeline_lab": {
             "mode": "hybrid",
@@ -368,6 +405,13 @@ def simulate_factory(body: FactorySimulateRequest) -> object:
 def run_sqlpool(body: SqlPoolRunRequest) -> object:
     """SQL pool Lab: run a script on the simulated dedicated SQL pool (or Fabric Warehouse) and describe its tables."""
     return native_command({"op": "sqlpool_run", "flavor": body.flavor, "script": body.script, "scale": body.scale})
+
+
+@app.post("/api/local/bi/lab")
+def bi_lab(body: BiLabRequest) -> object:
+    """BI Lab: run the warehouse scripts on the local catalog, then report tables, SQL lineage and model checks."""
+    return native_command({"op": "bi_lab", "scripts": [s.model_dump() for s in body.scripts],
+                           "model": body.model, "run": body.run})
 
 
 @app.post("/api/local/databricks/run")

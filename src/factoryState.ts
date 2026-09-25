@@ -198,7 +198,7 @@ export async function copyFactorySamples(extensionUri: vscode.Uri): Promise<vsco
   return root;
 }
 
-async function copyWithoutOverwrite(source: vscode.Uri, target: vscode.Uri): Promise<void> {
+export async function copyWithoutOverwrite(source: vscode.Uri, target: vscode.Uri): Promise<void> {
   await vscode.workspace.fs.createDirectory(target);
   for (const [name, type] of await vscode.workspace.fs.readDirectory(source)) {
     const from = vscode.Uri.joinPath(source, name);
@@ -235,13 +235,13 @@ async function listFiles(root: vscode.Uri, warnings: string[]): Promise<FactoryF
 }
 
 /** Open (possibly unsaved) editors win over the file on disk, like the other labs. */
-async function readText(uri: vscode.Uri): Promise<string> {
+export async function readText(uri: vscode.Uri): Promise<string> {
   const open = vscode.workspace.textDocuments.find(document => document.uri.toString() === uri.toString());
   if (open) return open.getText();
   return new TextDecoder().decode(await vscode.workspace.fs.readFile(uri));
 }
 
-async function exists(uri: vscode.Uri): Promise<boolean> {
+export async function exists(uri: vscode.Uri): Promise<boolean> {
   try {
     await vscode.workspace.fs.stat(uri);
     return true;

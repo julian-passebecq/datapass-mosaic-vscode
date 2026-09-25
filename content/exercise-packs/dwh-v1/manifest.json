@@ -1,0 +1,10 @@
+{
+  "schema_version": 1,
+  "id": "dwh-v1",
+  "version": "1",
+  "title": "BI Lab: data warehousing (dimensional modeling, SCD, lineage, star models)",
+  "enabled": true,
+  "provenance": {
+    "source": "Authored for Datapass Workbench"
+  }
+}

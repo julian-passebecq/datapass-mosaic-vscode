@@ -36,6 +36,8 @@ interface Props {
   onNodeClick?: (id: string) => void;
 }
 
+const SIDES = [["top", Position.Top], ["right", Position.Right], ["bottom", Position.Bottom], ["left", Position.Left]] as const;
+
 function DatapassGraphNode({ data, selected }: NodeProps) {
   return (
     <div className={`datapass-graph-node ${selected ? "is-selected" : ""}${data.status ? ` state-${String(data.status)}` : ""}`}>
@@ -44,6 +46,10 @@ function DatapassGraphNode({ data, selected }: NodeProps) {
       <strong>{String(data.label ?? "")}</strong>
       <small>{String(data.detail ?? "")}</small>
       <Handle type="source" position={Position.Right} />
+      {data.allSides ? SIDES.map(([side, position]) => [
+        <Handle key={`s-${side}`} id={`s-${side}`} type="source" position={position} className="datapass-side-handle" />,
+        <Handle key={`t-${side}`} id={`t-${side}`} type="target" position={position} className="datapass-side-handle" />
+      ]) : null}
     </div>
   );
 }
@@ -63,7 +69,7 @@ function InnerGraph({ graph, vscode, storageKey, onNodeClick }: Props) {
     return graph.nodes.map(node => ({
       id: node.id,
       type: "datapass",
-      position: positions[node.id] ?? layered[node.id],
+      position: positions[node.id] ?? node.position ?? layered[node.id],
       data: { ...node }
     }));
   }, [graphKey, storageKey]);
@@ -72,9 +78,11 @@ function InnerGraph({ graph, vscode, storageKey, onNodeClick }: Props) {
   useEffect(() => setNodes(mapped), [mapped]);
 
   const edges = useMemo(
-    () => graph.edges.map(edge => ({
+    () => graph.edges.map(({ sourceSide, targetSide, ...edge }) => ({
       ...edge,
-      type: "smoothstep",
+      sourceHandle: sourceSide ? `s-${sourceSide}` : undefined,
+      targetHandle: targetSide ? `t-${targetSide}` : undefined,
+      type: sourceSide || targetSide ? "straight" : "smoothstep",
       markerEnd: { type: MarkerType.ArrowClosed }
     })),
     [graphKey]

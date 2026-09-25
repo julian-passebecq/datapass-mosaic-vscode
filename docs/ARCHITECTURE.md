@@ -86,6 +86,23 @@ The **Databricks** tab is the Databricks Lab (`runtime/databrickslab`, README th
 - The host sends the job and the files it needs (`POST /api/local/databricks/run`, kernel op `databricks_run`;
   `/api/local/databricks/state` for the explorer).
 
+The **BI Lab** module (`bi`, `runtime/bilab`, README there) teaches data warehousing without pipelines:
+
+- `script.py` splits warehouse scripts into statements with their line numbers and runs each one through the catalog's
+  SQL contract on DuckDB; a script stops at its first error.
+- `lineage.py` parses the same SQL with sqlglot (DuckDB dialect), qualifies it against the catalog's columns and
+  resolves every written column through CTEs, subqueries, UNION branches and window functions to its source columns;
+  WHERE/JOIN/GROUP BY/HAVING/QUALIFY and MERGE conditions are row influence. `impact()` follows both to answer "what
+  does a change to this column reach". Nothing is executed for lineage.
+- `model.py` validates the star model file (`bi/model.json`: roles, keys, grain, SCD settings, relationships with
+  cardinality, cross-filter direction and active flag) and runs its checks as real queries (key uniqueness, grain,
+  SCD2 validity, orphans, 'one' side uniqueness, one active path, bridges and cross-filtering).
+- The host sends the scripts of `bi/warehouse/` (name order; open editors win) and the model (`POST /api/local/bi/lab`,
+  kernel op `bi_lab`); the webview (`BiSurface.tsx`) shows statements, tables, the star, the checks, column lineage,
+  impact analysis and a concepts sheet linked to the exercises.
+- Practice languages `warehouse` (a SQL script) and `bi-model` (a model file) grade on an isolated temporary catalog
+  (`datapass_runtime/warehouse_grading.py`), with outcomes result, table, checks, relationships, lineage and impact.
+
 The **Lakehouse and notebooks** tab keeps the original workflow of lakehouse + notebook + pipeline, reproduced locally:
 
 - Fabric-inspired notebook surface.

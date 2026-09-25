@@ -15,6 +15,7 @@ import { tmpdir } from "node:os";
 import * as path from "node:path";
 import * as vscode from "vscode";
 import { loadAirflowState } from "../airflowState";
+import { biFileUri, collectBiScripts, copyBiSamples, loadBiState, readBiModel } from "../biState";
 import { loadDbtState } from "../dbtState";
 import { loadExerciseCatalog } from "../exerciseCatalog";
 import { collectDatabricksFiles, collectFactoryFiles, copyFactorySamples, loadFactoryState, readPoolScript } from "../factoryState";
@@ -315,6 +316,40 @@ export async function run(): Promise<void> {
       await runtime!.exploreDatabricks(files);
       assert.equal(runtime!.snapshot().databricksState?.unity.catalog, "main");
     }],
+    ["BI Lab builds the sample warehouse, traces its lineage and checks its star model", async () => {
+      await copyBiSamples(extension.extensionUri);
+      const state = await loadBiState();
+      assert.deepEqual(state.scripts.map(script => script.name), [
+        "00_sources.sql", "01_dim_date.sql", "02_dim_customer.sql", "03_dim_product.sql", "04_dim_order_profile.sql",
+        "05_fct_sales.sql", "06_fct_returns.sql"]);
+      assert.ok(state.modelExists && !state.modelError);
+      assert.equal(biFileUri("bi/../factory/x.sql"), undefined);
+      const { scripts, warnings } = await collectBiScripts();
+      assert.deepEqual(warnings, []);
+      const model = await readBiModel();
+      await runtime!.runBiLab({ mode: "build", source: "bi/warehouse", scripts, model: model.model, warnings });
+      const built = runtime!.snapshot().biRun!;
+      assert.equal(built.status, "ok", JSON.stringify(built.stopped));
+      assert.equal(built.statements.length, 14);
+      assert.equal(built.tables.find(table => table.name === "gold.fct_sales")?.rows, 16);
+      assert.ok(built.model && built.model.checks.every(check => check.status === "pass"),
+        JSON.stringify(built.model?.checks.filter(check => check.status !== "pass")));
+      assert.equal(built.model?.relationships.find(r => r.from === "gold.fct_sales.ship_date_key")?.active, false);
+      const net = built.lineage.columns.find(c => c.table === "gold.fct_sales" && c.column === "net_amount");
+      assert.deepEqual(net?.sources, ["source.shop_order_lines.discount_amount", "source.shop_order_lines.quantity",
+        "source.shop_order_lines.unit_price"]);
+      assert.ok(built.lineage.impact["source.erp_products.unit_cost"]?.some(i => i.table === "gold.fct_sales" && i.column === "cost_amount"));
+      assert.ok(runtime!.snapshot().catalog?.some(item => item.name === "gold.dim_customer" && item.row_count === 9));
+
+      // A broken model is reported, not run: the scripts are only analyzed this time.
+      const broken = JSON.parse(JSON.stringify(model.model)) as { relationships: { active: boolean }[] };
+      broken.relationships[1].active = true;
+      await runtime!.runBiLab({ mode: "analyze", source: "analysis only", scripts, model: broken, warnings: [] });
+      const analyzed = runtime!.snapshot().biRun!;
+      assert.equal(analyzed.ran, false);
+      assert.deepEqual(analyzed.statements, []);
+      assert.ok(analyzed.model?.checks.some(c => c.check === "single_active_path" && c.status === "fail"));
+    }],
     ["Practice exercise: visible run and submission grade for real", async () => {
       const catalog = await loadExerciseCatalog(extension.extensionUri);
       const exercise = catalog.find(item => item.id === "demo-sum");
@@ -483,6 +518,33 @@ export async function run(): Promise<void> {
       const taskValue = databricks.find(item => item.id === "dbx-task-value-notebook")!;
       assert.equal((await submit(taskValue, dbxGrading[taskValue.id].solution)).status, "passed");
       assert.equal((await submit(taskValue, taskValue.starterSource)).status, "failed", "an exit value is not a task value");
+      // BI Lab: warehouse SQL and star models graded on real DuckDB, each check on an isolated catalog.
+      const dwh = catalog.filter(item => item.packId === "dwh-v1");
+      assert.equal(dwh.length, 20);
+      assert.deepEqual([...new Set(dwh.map(item => item.language))].sort(), ["bi-model", "warehouse"]);
+      assert.ok(dwh.every(item => item.truth === "real"));
+      const dwhGrading = JSON.parse(new TextDecoder().decode(await vscode.workspace.fs.readFile(
+        vscode.Uri.joinPath(extension.extensionUri, "content", "exercise-packs", "dwh-v1", "grading.server.json")
+      ))) as Record<string, { solution: string }>;
+      const scd2 = dwh.find(item => item.id === "dwh-scd2-apply")!;
+      const versioned = await submit(scd2, dwhGrading[scd2.id].solution);
+      assert.equal(versioned.status, "passed", JSON.stringify(versioned.checks));
+      assert.equal(versioned.truth, "real");
+      assert.equal((await submit(scd2, scd2.starterSource)).status, "failed", "a type 1 overwrite loses the history");
+      const governed = dwh.find(item => item.id === "dwh-lineage-governed-revenue")!;
+      assert.equal((await submit(governed, dwhGrading[governed.id].solution)).status, "passed");
+      const fallback = await submit(governed, "CREATE OR REPLACE TABLE gold.fct_order_revenue AS\nWITH lines AS (SELECT order_id, " +
+        "SUM(quantity * unit_price - discount_amount) AS net FROM source.shop_order_lines GROUP BY order_id)\nSELECT o.order_id, " +
+        "o.order_date, COALESCE(l.net, o.order_total - o.shipping_fee) AS net_revenue FROM source.shop_orders AS o " +
+        "LEFT JOIN lines AS l ON l.order_id = o.order_id;\n");
+      assert.equal(fallback.status, "failed", "a fallback to the header total shows in the lineage");
+      assert.equal(fallback.checks.find(check => check.visibility === "visible")?.passed, true, "its visible rows are right");
+      const starModel = dwh.find(item => item.id === "bi-model-relationships")!;
+      assert.equal(starModel.language, "bi-model");
+      assert.equal((await submit(starModel, dwhGrading[starModel.id].solution)).status, "passed");
+      const notJson = await submit(starModel, "{ \"tables\": [");
+      assert.equal(notJson.status, "failed");
+      assert.match(notJson.checks[0].message, /Model rejected: not valid JSON/);
       await runtime!.refreshCatalog();
       assert.equal(JSON.stringify(runtime!.snapshot().catalog?.map(item => [item.name, item.row_count])), catalogBefore,
         "exercise grading must not touch the workspace catalog");

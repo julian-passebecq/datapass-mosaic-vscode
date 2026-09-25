@@ -5,6 +5,7 @@ import * as path from "node:path";
 import * as vscode from "vscode";
 import type {
   AirflowScenarioInput,
+  BiRunMode,
   CsvImportView,
   FactoryFlavor,
   FactoryScenarioInput,
@@ -28,6 +29,7 @@ import type { FactoryFilesPayload } from "./factoryState";
 import { toSqlPoolView } from "./platform/sqlpoolRun";
 import { toDatabricksLabView, toDatabricksScenario, toDatabricksStateView } from "./platform/databricksRun";
 import type { DatabricksFilesPayload } from "./factoryState";
+import { toBiLabView } from "./platform/biRun";
 
 const HOST = "127.0.0.1";
 // A cold start in a fresh managed venv (FastAPI, DuckDB, Polars, pandas; first
@@ -558,6 +560,40 @@ export class RuntimeManager implements vscode.Disposable {
       sqlpoolRun
     });
     if (request.script.trim()) await this.refreshCatalog();
+  }
+
+  /**
+   * BI Lab: the warehouse scripts run on the local catalog (real DuckDB), then the runtime reports the tables,
+   * the SQL lineage of the scripts (static analysis) and the star model checks (real queries).
+   */
+  async runBiLab(request: {
+    mode: BiRunMode;
+    source: string;
+    scripts: { path: string; text: string }[];
+    model: unknown;
+    modelError?: string;
+    warnings: string[];
+  }): Promise<void> {
+    const url = this.state.status === "running" ? this.state.url : undefined;
+    if (!url) throw new Error("Start the Datapass runtime before running the BI Lab.");
+    const raw = await requestJson<unknown>(
+      `${url}/api/local/bi/lab`,
+      "POST",
+      { scripts: request.scripts, model: request.model ?? null, run: request.mode !== "analyze" },
+      120000
+    );
+    const biRun = toBiLabView(raw, request);
+    const failed = biRun.statements.find(statement => statement.status === "error");
+    this.setState({
+      ...this.state,
+      detail: failed
+        ? `BI Lab stopped at ${failed.path}, line ${failed.line}: ${failed.message}`
+        : biRun.ran
+          ? `BI Lab: ${biRun.statements.length} statement(s) ran on the local catalog (${request.source}).`
+          : `BI Lab: lineage and model checks refreshed (${request.source}).`,
+      biRun
+    });
+    if (biRun.ran) await this.refreshCatalog();
   }
 
   /**

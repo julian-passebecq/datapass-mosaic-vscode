@@ -90,6 +90,9 @@ def grade(engine, request):
     if spec.runtime == 'datapass-databricks-sim-v1':
         from .databricks_grading import grade_databricks
         return grade_databricks(engine, request, spec, private)
+    if spec.runtime == 'datapass-warehouse-v1':
+        from .warehouse_grading import grade_warehouse
+        return grade_warehouse(engine, request, spec, private)
     fixtures = [f for f in private.fixtures if request['mode'] == 'submit' or f.visibility == 'visible']
     evidence, runs = [], []
     available = next(k['available'] for k in engine.capabilities()['kernels'] if k['id'] == spec.language)

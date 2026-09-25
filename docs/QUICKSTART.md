@@ -155,6 +155,20 @@ The source is compiled through a bounded AST into the shared graph view. Source 
 
 Start the Datapass runtime from the Workbench header before compiling the pipeline.
 
+### BI Lab
+
+Open **BI Lab** and choose **Create lab files**: `bi/warehouse/` gets scripts that build a small star schema from CRM,
+ERP and shop sources (a date dimension, a type 2 customer dimension, a flattened product hierarchy, a junk dimension,
+sales and returns facts) and `bi/model.json` describes the star. **Build warehouse** runs the scripts on the local
+DuckDB catalog, then:
+
+- **Star model** draws the star and checks it on the data: keys, grain, SCD2 validity, orphans, relationship
+  cardinality, one active path between two tables (the ship date is an inactive, role-playing relationship);
+- **Lineage** traces every column back to its source columns, shows which columns decide the rows, and answers
+  "what does a change to this column reach?";
+- **Concepts** is a data warehousing sheet (SCD types, fact table types, keys, dimension patterns, additivity), each
+  item linked to a Practice exercise of the `dwh-v1` pack.
+
 ### Airflow Lab
 
 Choose **Create starter DAG** (writes `airflow/dags/retail_daily.py`, a real Airflow 3 DAG file), start the runtime, then **Simulate active DAG file**. Datapass parses the file without executing it and shows:
@@ -204,6 +218,7 @@ The runtime is a local IPC/control plane, not a separate Datapass web applicatio
 | Practice | VS Code files, local tests/runners | exercise scenarios where explicitly marked |
 | Cloud Lab | local files, DuckDB/DuckLake; pipeline Copy, Lookup, Script, stored procedures and SparkLab notebooks on the local catalog; SQL pool data statements (T-SQL translated to DuckDB); Databricks notebook and SQL tasks, Spark ML fits, Unity Catalog checks | Fabric UI, pipeline orchestration (Data Factory semantics), every other activity (Web, Teams, Outlook, dataflows...); SQL pool distributions, partitions, rowgroups and data movement; Databricks job orchestration, compute, start times and cost; MLflow as local data |
 | SparkLab | whitelist parser, compiled SQL and result rows computed locally | stages, shuffle, duration, credits, cluster behavior |
+| BI Lab | warehouse SQL scripts and model checks on DuckDB | column lineage is a static analysis of the SQL text; no Power BI |
 | dbt Lab | dbt Core + DuckDB when installed | static lineage fallback is not execution |
 | Airflow Lab | DAG files (Lab and Practice) are parsed, never executed | scheduler/executor/task runtime, runs, task states, logs, rendered templates |
 | Pipeline Lab | source files, bounded compiler, SQL/quality execution; Python/Polars after trusted-Python opt-in | scheduler/service semantics; dbt activity declared only, never executed or reported as success |
