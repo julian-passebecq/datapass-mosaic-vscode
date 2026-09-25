@@ -3,37 +3,37 @@
   "id": "synapse-to-fabric",
   "version": "1",
   "order": 3,
-  "title": "Entrepôt Synapse vers Fabric Warehouse",
-  "summary": "Concevoir un pool SQL dédié (distributions, partitions, CTAS), le charger par un pipeline et des procédures stockées, tracer le lignage, vérifier l'étoile, puis porter le tout sur Fabric Warehouse.",
+  "title": "Synapse warehouse to Fabric Warehouse",
+  "summary": "Design a dedicated SQL pool (distributions, partitions, CTAS), load it with a pipeline and stored procedures, trace the lineage, check the star, then port it to Fabric Warehouse.",
   "level": "intermediate",
   "duration_minutes": 200,
   "story": [
-    "L'entrepôt de Contoso tourne sur un **pool SQL dédié Azure Synapse**. La direction veut passer sur **Microsoft Fabric Warehouse** l'an prochain ; en attendant, les rapports doivent rester justes et rapides.",
+    "Contoso's warehouse runs on an **Azure Synapse dedicated SQL pool**. Management wants to move to **Microsoft Fabric Warehouse** next year; until then, the reports must stay right and fast.",
     "",
-    "Vous reprenez la conception physique du pool (distributions, tables répliquées, partitions, CTAS), le chargement quotidien par un pipeline Synapse qui appelle une procédure stockée, la documentation (lignage des colonnes, contrôles du modèle en étoile), puis vous portez une table sur Fabric Warehouse en notant ce qui change.",
+    "You take over the pool's physical design (distributions, replicated tables, partitions, CTAS), the daily load by a Synapse pipeline that calls a stored procedure, the documentation (column lineage, star model checks), then you port a table to Fabric Warehouse and note what changes.",
     "",
-    "Le T-SQL est traduit pour un sous-ensemble documenté et les instructions de données tournent vraiment sur DuckDB ; les distributions, partitions et mouvements de données sont un modèle pédagogique, pas la télémétrie de Synapse ou de Fabric. Rien ne se connecte à Azure."
+    "T-SQL is translated for a documented subset and the data statements really run on DuckDB; distributions, partitions and data movement are a teaching model, not Synapse or Fabric telemetry. Nothing connects to Azure."
   ],
   "goals": [
-    "Choisir une distribution (REPLICATE, HASH, ROUND_ROBIN) et lire les mouvements de données d'un plan",
-    "Partitionner une table de faits pour que le pool saute des partitions",
-    "Charger un entrepôt par un pipeline Synapse qui appelle une procédure stockée avec des paramètres typés",
-    "Tracer le lignage d'une colonne et vérifier un modèle en étoile",
-    "Porter une table du pool dédié vers Fabric Warehouse"
+    "Choose a distribution (REPLICATE, HASH, ROUND_ROBIN) and read the data movement of a plan",
+    "Partition a fact table so that the pool skips partitions",
+    "Load a warehouse with a Synapse pipeline that calls a stored procedure with typed parameters",
+    "Trace a column's lineage and check a star model",
+    "Port a table from the dedicated pool to Fabric Warehouse"
   ],
   "steps": [
     {
       "id": "load-bronze",
-      "title": "Charger le bronze",
+      "title": "Load bronze",
       "module": "mosaic",
       "instructions": [
-        "Le pipeline Synapse de l'étape 5 part de `bronze.orders`. Ouvrez `projects/synapse-to-fabric/load_bronze.sql` et lancez **Run active SQL** dans Mosaic : il recopie les 12 commandes brutes de `source.orders`."
+        "The Synapse pipeline of step 6 starts from `bronze.orders`. Open `projects/synapse-to-fabric/load_bronze.sql` and click **Run active SQL** in Mosaic: it copies the 12 raw orders of `source.orders`."
       ],
       "open": { "module": "mosaic", "file": "projects/synapse-to-fabric/load_bronze.sql", "scaffold": ["project"] },
       "checks": [
         {
           "kind": "table",
-          "label": "bronze.orders contient les 12 commandes brutes",
+          "label": "bronze.orders holds the 12 raw orders",
           "table": "bronze.orders",
           "columns": ["order_id", "customer_id", "segment_id", "net_amount", "loaded_at"],
           "min_rows": 12
@@ -42,31 +42,31 @@
     },
     {
       "id": "pool-star",
-      "title": "Distribuer l'étoile dans le pool dédié",
+      "title": "Distribute the star in the dedicated pool",
       "module": "fabric",
       "instructions": [
-        "Ouvrez `factory/sql/pool/01_star_schema.sql` (créé par **Create lab files**). Dans **Cloud Lab › SQL pool**, gardez Synapse, choisissez ce script puis **Run script**.",
+        "Open `factory/sql/pool/01_star_schema.sql` (created by **Create lab files**). In **Cloud Lab › SQL pool**, keep Synapse, choose this script, then **Run script**.",
         "",
-        "Lisez le panneau des tables : `dim_segment` est répliquée sur chaque nœud, `fact_orders` est distribuée par hachage sur `order_id`, et `fact_orders_by_customer` montre une distribution déséquilibrée (un compte entreprise domine). Regardez aussi les mouvements de données (shuffle, broadcast) des requêtes."
+        "Read the tables panel: `dim_segment` is replicated on every node, `fact_orders` is hash-distributed on `order_id`, and `fact_orders_by_customer` shows a skewed distribution (one corporate account dominates). Also look at the data movement (shuffle, broadcast) of the queries."
       ],
       "open": { "module": "fabric", "tab": "sqlpool", "file": "factory/sql/pool/01_star_schema.sql", "scaffold": ["factory"] },
       "checks": [
         {
           "kind": "sqlpool_run",
-          "label": "01_star_schema.sql a tourné sans erreur sur le pool Synapse",
+          "label": "01_star_schema.sql ran without error on the Synapse pool",
           "flavor": "synapse",
           "script": "factory/sql/pool/01_star_schema.sql",
           "tables": ["dbo.dim_segment", "dbo.fact_orders"]
         },
         {
           "kind": "sqlpool_table",
-          "label": "dbo.dim_segment est répliquée (modèle simulé)",
+          "label": "dbo.dim_segment is replicated (simulated model)",
           "table": "dbo.dim_segment",
           "distribution": "REPLICATE"
         },
         {
           "kind": "sqlpool_table",
-          "label": "dbo.fact_orders est distribuée par hachage sur order_id (modèle simulé)",
+          "label": "dbo.fact_orders is hash-distributed on order_id (simulated model)",
           "table": "dbo.fact_orders",
           "distribution": "HASH",
           "hash_columns": ["order_id"]
@@ -75,37 +75,37 @@
     },
     {
       "id": "skew-exercise",
-      "title": "S'entraîner : une clé de distribution sans déséquilibre",
+      "title": "Practice: a distribution key without skew",
       "module": "practice",
       "instructions": [
-        "Faites l'exercice **Choose a distribution column without skew** : la colonne de hachage doit avoir beaucoup de valeurs distinctes, peu de NULL et servir aux jointures."
+        "Do the exercise **Choose a distribution column without skew**: the hash column must have many distinct values, few NULLs, and serve the joins."
       ],
       "open": { "module": "practice", "exercise": "sqlpool-v1/sp-skew-free-key/sqlpool" },
       "checks": [
-        { "kind": "exercise", "label": "Exercice réussi à la soumission", "exercise": "sqlpool-v1/sp-skew-free-key/sqlpool" }
+        { "kind": "exercise", "label": "Exercise passed on Submit", "exercise": "sqlpool-v1/sp-skew-free-key/sqlpool" }
       ]
     },
     {
       "id": "partitions",
-      "title": "Partitionner les ventes par mois",
+      "title": "Partition the sales by month",
       "module": "fabric",
       "instructions": [
-        "Ouvrez `factory/sql/pool/02_partitions.sql` puis **Run script** (Synapse). La table `fact_sales_2026` a une partition par mois (RANGE RIGHT).",
+        "Open `factory/sql/pool/02_partitions.sql`, then **Run script** (Synapse). The `fact_sales_2026` table has one partition per month (RANGE RIGHT).",
         "",
-        "Comparez les deux requêtes : filtrer avec `YEAR(order_date)` lit toutes les partitions, filtrer directement sur `order_date` n'en lit qu'une. Le script charge ensuite un mois par échange de partition (SWITCH)."
+        "Compare the two queries: filtering with `YEAR(order_date)` reads every partition, filtering on `order_date` itself reads only one. The script then loads a month with a partition switch (SWITCH)."
       ],
       "open": { "module": "fabric", "tab": "sqlpool", "file": "factory/sql/pool/02_partitions.sql", "scaffold": ["factory"] },
       "checks": [
         {
           "kind": "sqlpool_run",
-          "label": "02_partitions.sql a tourné sans erreur sur le pool Synapse",
+          "label": "02_partitions.sql ran without error on the Synapse pool",
           "flavor": "synapse",
           "script": "factory/sql/pool/02_partitions.sql",
           "tables": ["dbo.fact_sales_2026"]
         },
         {
           "kind": "sqlpool_table",
-          "label": "dbo.fact_sales_2026 est partitionnée (modèle simulé)",
+          "label": "dbo.fact_sales_2026 is partitioned (simulated model)",
           "table": "dbo.fact_sales_2026",
           "partitioned": true
         }
@@ -113,23 +113,23 @@
     },
     {
       "id": "procedures",
-      "title": "Une procédure stockée rejouable",
+      "title": "A stored procedure you can run again",
       "module": "fabric",
       "instructions": [
-        "Ouvrez `factory/sql/pool/03_procedures.sql` puis **Run script** (Synapse). La procédure `dbo.usp_segment_revenue` reconstruit sa table avec un CTAS à côté de l'ancienne, puis l'échange avec `RENAME OBJECT` : les lecteurs ne voient jamais une table vide, et la relancer est sans risque."
+        "Open `factory/sql/pool/03_procedures.sql`, then **Run script** (Synapse). The `dbo.usp_segment_revenue` procedure rebuilds its table with a CTAS next to the old one, then swaps it in with `RENAME OBJECT`: readers never see an empty table, and running it again is safe."
       ],
       "open": { "module": "fabric", "tab": "sqlpool", "file": "factory/sql/pool/03_procedures.sql", "scaffold": ["factory"] },
       "checks": [
         {
           "kind": "sqlpool_run",
-          "label": "03_procedures.sql a tourné sans erreur sur le pool Synapse",
+          "label": "03_procedures.sql ran without error on the Synapse pool",
           "flavor": "synapse",
           "script": "factory/sql/pool/03_procedures.sql",
           "tables": ["dbo.segment_revenue"]
         },
         {
           "kind": "table",
-          "label": "La procédure a produit dbo.segment_revenue (warehouse.segment_revenue dans le catalogue)",
+          "label": "The procedure produced dbo.segment_revenue (warehouse.segment_revenue in the catalog)",
           "table": "warehouse.segment_revenue",
           "columns": ["segment_id", "segment_name", "orders", "revenue"],
           "min_rows": 1
@@ -138,28 +138,28 @@
     },
     {
       "id": "synapse-pipeline",
-      "title": "Charger le gold par un pipeline Synapse",
+      "title": "Load gold with a Synapse pipeline",
       "module": "fabric",
       "instructions": [
-        "Le pipeline `pl_sqlpool_daily` (Synapse) prépare les commandes avec un CTAS, reconstruit le silver, puis appelle la procédure stockée `warehouse.usp_load_gold_revenue` avec des paramètres typés.",
+        "The `pl_sqlpool_daily` pipeline (Synapse) stages the orders with a CTAS, rebuilds silver, then calls the stored procedure `warehouse.usp_load_gold_revenue` with typed parameters.",
         "",
-        "1. Dans **Cloud Lab › Pipelines**, choisissez Synapse et `pl_sqlpool_daily`, puis **Run on local lakehouse**. Regardez la sortie de `Check gold` : le segment **Public Sector** manque.",
-        "2. Trouvez pourquoi dans `factory/synapse/pipeline/pl_sqlpool_daily.json` : la procédure garde les segments ayant au moins `min_orders` commandes, et le pipeline passe `\"2\"` (Int32). Passez-le à `\"1\"`, puis relancez.",
+        "1. In **Cloud Lab › Pipelines**, choose Synapse and `pl_sqlpool_daily`, then **Run on local lakehouse**. Look at the output of `Check gold`: the **Public Sector** segment is missing.",
+        "2. Find out why in `factory/synapse/pipeline/pl_sqlpool_daily.json`: the procedure keeps the segments with at least `min_orders` orders, and the pipeline passes `\"2\"` (Int32). Change it to `\"1\"`, then run again.",
         "",
-        "L'orchestration est simulée ; le CTAS, les scripts et la procédure tournent vraiment sur le catalogue local."
+        "The orchestration is simulated; the CTAS, the scripts and the procedure really run on the local catalog."
       ],
       "open": { "module": "fabric", "tab": "pipelines", "file": "factory/synapse/pipeline/pl_sqlpool_daily.json", "scaffold": ["factory"] },
       "checks": [
         {
           "kind": "cloud_pipeline",
-          "label": "Un run local de pl_sqlpool_daily (Synapse) a réussi jusqu'à Check gold",
+          "label": "A local run of pl_sqlpool_daily (Synapse) succeeded up to Check gold",
           "flavor": "synapse",
           "pipeline": "pl_sqlpool_daily",
           "activities": ["Stage orders (CTAS)", "Rebuild silver from stage", "Gold revenue", "Check gold"]
         },
         {
           "kind": "sql",
-          "label": "gold.revenue_by_segment contient les 4 segments, dont Public Sector",
+          "label": "gold.revenue_by_segment holds the 4 segments, Public Sector included",
           "sql": "SELECT COUNT(*) AS segments, COUNT(*) FILTER (WHERE segment_name = 'Public Sector') AS public_sector FROM gold.revenue_by_segment",
           "expected": [{ "segments": 4, "public_sector": 1 }]
         }
@@ -167,36 +167,36 @@
     },
     {
       "id": "proc-params-exercise",
-      "title": "S'entraîner : appeler une procédure avec des paramètres typés",
+      "title": "Practice: call a procedure with typed parameters",
       "module": "practice",
       "instructions": [
-        "Faites l'exercice **Call a SQL pool procedure with typed parameters** : l'activité de procédure stockée d'un pipeline Synapse, ses paramètres et leurs types."
+        "Do the exercise **Call a SQL pool procedure with typed parameters**: the stored procedure activity of a Synapse pipeline, its parameters and their types."
       ],
       "open": { "module": "practice", "exercise": "cloud-pipelines-v1/cp-sqlpool-proc-params/factory" },
       "checks": [
-        { "kind": "exercise", "label": "Exercice réussi à la soumission", "exercise": "cloud-pipelines-v1/cp-sqlpool-proc-params/factory" }
+        { "kind": "exercise", "label": "Exercise passed on Submit", "exercise": "cloud-pipelines-v1/cp-sqlpool-proc-params/factory" }
       ]
     },
     {
       "id": "lineage",
-      "title": "Ajouter la marge et tracer son lignage",
+      "title": "Add the margin and trace its lineage",
       "module": "bi",
       "instructions": [
-        "La finance veut la marge sur chaque ligne de vente. Dans **BI Lab** (**Create lab files** si besoin), ouvrez `bi/warehouse/05_fct_sales.sql` et ajoutez à `gold.fct_sales` la colonne :",
+        "Finance wants the margin on each sales line. In **BI Lab** (**Create lab files** if needed), open `bi/warehouse/05_fct_sales.sql` and add this column to `gold.fct_sales`:",
         "",
         "```",
         "l.quantity * l.unit_price - l.discount_amount - l.quantity * dp.unit_cost AS margin_amount",
         "```",
         "",
-        "Cliquez **Build warehouse**, puis ouvrez l'onglet **Lineage** et choisissez `gold.fct_sales` › `margin_amount` : elle remonte aux lignes de commande de la boutique **et** au coût unitaire de l'ERP, à travers `dim_product`.",
+        "Click **Build warehouse**, then open the **Lineage** tab and choose `gold.fct_sales` › `margin_amount`: it goes back to the shop's order lines **and** to the ERP's unit cost, through `dim_product`.",
         "",
-        "Le lignage est une analyse statique du SQL (sqlglot) : il ne s'exécute pas, il lit le texte des scripts."
+        "Lineage is a static analysis of the SQL (sqlglot): it runs nothing, it reads the text of the scripts."
       ],
       "open": { "module": "bi", "tab": "lineage", "file": "bi/warehouse/05_fct_sales.sql", "scaffold": ["bi"] },
       "checks": [
         {
           "kind": "bi_lineage",
-          "label": "Le lignage de gold.fct_sales.margin_amount remonte aux lignes de commande et au coût de l'ERP",
+          "label": "The lineage of gold.fct_sales.margin_amount goes back to the order lines and the ERP cost",
           "column": "gold.fct_sales.margin_amount",
           "origins": [
             "source.shop_order_lines.quantity",
@@ -209,49 +209,49 @@
     },
     {
       "id": "star-checks",
-      "title": "Vérifier le modèle en étoile",
+      "title": "Check the star model",
       "module": "bi",
       "instructions": [
-        "Ouvrez l'onglet **Star model** du BI Lab (après **Build warehouse** ou **Analyze only**). Le fichier `bi/model.json` déclare les faits, les dimensions, leurs clés, leur grain et leurs relations (cardinalité, filtrage, relation active).",
+        "Open the **Star model** tab of the BI Lab (after **Build warehouse** or **Analyze only**). The `bi/model.json` file declares the facts, the dimensions, their keys, their grain and their relationships (cardinality, cross-filter, active relationship).",
         "",
-        "Tous les contrôles doivent être verts : clés uniques, membre inconnu, grain, validité SCD2, relations, une seule relation active par chemin. Lisez pourquoi la date d'expédition est une relation **inactive**."
+        "Every check must be green: unique keys, unknown member, grain, SCD2 validity, relationships, a single active relationship per path. Read why the ship date is an **inactive** relationship."
       ],
       "open": { "module": "bi", "tab": "model", "file": "bi/model.json", "scaffold": ["bi"] },
       "checks": [
         {
           "kind": "bi_model",
-          "label": "Les contrôles du modèle en étoile sont tous verts, avec les deux faits",
+          "label": "Every star model check is green, with both facts",
           "facts": ["gold.fct_sales", "gold.fct_returns"]
         }
       ]
     },
     {
       "id": "fabric-port",
-      "title": "Porter une table vers Fabric Warehouse",
+      "title": "Port a table to Fabric Warehouse",
       "module": "fabric",
       "instructions": [
-        "Ouvrez `projects/synapse-to-fabric/port_to_fabric.sql`. Dans **Cloud Lab › SQL pool**, choisissez **Fabric Warehouse** puis **Run active .sql** : Fabric refuse `DISTRIBUTION` et les index, qu'il gère lui-même.",
+        "Open `projects/synapse-to-fabric/port_to_fabric.sql`. In **Cloud Lab › SQL pool**, choose **Fabric Warehouse**, then **Run active .sql**: Fabric refuses `DISTRIBUTION` and indexes, which it manages itself.",
         "",
-        "Portez le script : remplacez les options par `WITH ( CLUSTER BY (order_date) )`, `NVARCHAR` par `VARCHAR` (les chaînes de Fabric sont en UTF-8) et `MONEY` par `DECIMAL(19, 4)`. Relancez : la table doit donner le même chiffre d'affaires (4 985 €) sur les 4 segments."
+        "Port the script: replace the options with `WITH ( CLUSTER BY (order_date) )`, `NVARCHAR` with `VARCHAR` (Fabric strings are UTF-8) and `MONEY` with `DECIMAL(19, 4)`. Run it again: the table must give the same revenue (4,985) over the 4 segments."
       ],
       "open": { "module": "fabric", "tab": "sqlpool", "file": "projects/synapse-to-fabric/port_to_fabric.sql", "scaffold": ["project"] },
       "checks": [
         {
           "kind": "sqlpool_run",
-          "label": "port_to_fabric.sql a tourné sans erreur sur Fabric Warehouse",
+          "label": "port_to_fabric.sql ran without error on Fabric Warehouse",
           "flavor": "fabric",
           "script": "projects/synapse-to-fabric/port_to_fabric.sql",
           "tables": ["dbo.fact_daily_revenue_fw"]
         },
         {
           "kind": "sqlpool_table",
-          "label": "dbo.fact_daily_revenue_fw est gérée par Fabric (distribution AUTO, modèle simulé)",
+          "label": "dbo.fact_daily_revenue_fw is managed by Fabric (AUTO distribution, simulated model)",
           "table": "dbo.fact_daily_revenue_fw",
           "distribution": "AUTO"
         },
         {
           "kind": "sql",
-          "label": "Même résultat qu'avant le portage : 4 segments, 4 985 €",
+          "label": "Same result as before the port: 4 segments, 4,985",
           "sql": "SELECT COUNT(DISTINCT segment_id) AS segments, ROUND(SUM(revenue), 2) AS revenue FROM warehouse.fact_daily_revenue_fw",
           "expected": [{ "segments": 4, "revenue": 4985.0 }]
         }
@@ -259,24 +259,24 @@
     },
     {
       "id": "fabric-port-exercise",
-      "title": "S'entraîner : porter une table du pool vers Fabric",
+      "title": "Practice: port a pool table to Fabric",
       "module": "practice",
       "instructions": [
-        "Faites l'exercice **Port a dedicated pool table to Fabric Warehouse**. Son script de départ est refusé par Fabric, c'est voulu : corrigez-le."
+        "Do the exercise **Port a dedicated pool table to Fabric Warehouse**. Its starter script is refused by Fabric on purpose: fix it."
       ],
       "open": { "module": "practice", "exercise": "sqlpool-v1/sp-fabric-port/sqlpool" },
       "checks": [
-        { "kind": "exercise", "label": "Exercice réussi à la soumission", "exercise": "sqlpool-v1/sp-fabric-port/sqlpool" }
+        { "kind": "exercise", "label": "Exercise passed on Submit", "exercise": "sqlpool-v1/sp-fabric-port/sqlpool" }
       ]
     },
     {
       "id": "migration-notes",
-      "title": "Écrire la check-list de migration",
+      "title": "Write the migration checklist",
       "module": "fabric",
       "instructions": [
-        "Complétez `projects/synapse-to-fabric/MIGRATION.md` : conception physique, types et contraintes, chargement, gouvernance.",
+        "Complete `projects/synapse-to-fabric/MIGRATION.md`: physical design, types and constraints, loading, governance.",
         "",
-        "Cette étape n'est pas vérifiable automatiquement : cochez-la vous-même quand la check-list est écrite."
+        "This step cannot be checked automatically: tick it yourself when the checklist is written."
       ],
       "open": { "module": "fabric", "tab": "sqlpool", "file": "projects/synapse-to-fabric/MIGRATION.md", "scaffold": ["project"] },
       "checks": []

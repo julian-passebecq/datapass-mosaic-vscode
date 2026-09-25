@@ -10,8 +10,7 @@ how to open it, and how Datapass verifies it:
 
 A step without checks is manual: the learner ticks it and the extension labels it as a declaration. The
 runtime never marks a manual step as verified, and every check result carries the truth of what it saw
-(real, simulated, emulation, hybrid, or static for the SQL lineage). Check labels and messages are French,
-like the Projects UI.
+(real, simulated, emulation, hybrid, or static for the SQL lineage).
 """
 from __future__ import annotations
 
@@ -273,14 +272,14 @@ STATE_TRUTH = {'table': 'real', 'sql': 'real', 'sqlpool_table': 'simulated', 'ml
 FIXED_RUN_TRUTH = {'bi_lineage': 'static'}
 # Journal facts as the learner reads them in a check message.
 FACT_LABELS = {
-    'data_plane': 'plan de données', 'succeeded': 'étapes réussies', 'max_attempts': 'nombre de tentatives',
-    'model_failed': 'contrôles du modèle en échec', 'model_checks': 'contrôles du modèle',
-    'model_error': 'erreur dans le fichier du modèle', 'facts': 'tables de faits du modèle', 'lineage_origins': 'lignage',
-    'schedule': 'planification', 'catchup': 'rattrapage (catchup)', 'simulated_runs': 'runs simulés',
-    'failed_runs': 'runs en échec', 'max_try_number': 'numéro de tentative maximum', 'quality_tasks': 'contrôles qualité réussis',
-    'tasks': 'tâches', 'columns': 'colonnes', 'exchanges': 'échanges (plan simulé)',
-    'broadcast_joins': 'jointures broadcast (plan simulé)', 'mode': 'mode', 'language': 'langage',
-    'principal': "principal d'exécution", 'flavor': 'produit', 'tables': 'tables', 'command': 'commande',
+    'data_plane': 'data plane', 'succeeded': 'succeeded steps', 'max_attempts': 'attempts',
+    'model_failed': 'failed model checks', 'model_checks': 'model checks',
+    'model_error': 'model file error', 'facts': 'fact tables of the model', 'lineage_origins': 'lineage',
+    'schedule': 'schedule', 'catchup': 'catchup', 'simulated_runs': 'simulated runs',
+    'failed_runs': 'failed runs', 'max_try_number': 'highest try number', 'quality_tasks': 'passed quality checks',
+    'tasks': 'tasks', 'columns': 'columns', 'exchanges': 'exchanges (simulated plan)',
+    'broadcast_joins': 'broadcast joins (simulated plan)', 'mode': 'mode', 'language': 'language',
+    'principal': 'run-as principal', 'flavor': 'product', 'tables': 'tables', 'command': 'command',
 }
 
 
@@ -385,19 +384,19 @@ def _type_matches(actual: str, wanted: str) -> bool:
 def _table(catalog, spec: dict) -> tuple[bool, str]:
     name = spec['table']
     if not catalog.exists(name):
-        return False, f'La table {name} n\'existe pas encore.'
+        return False, f'{name} does not exist yet.'
     described = {str(r[0]).lower(): str(r[1]) for r in catalog.db.execute(f'DESCRIBE {name}').fetchall()}
     missing = [c for c in spec['columns'] if c.lower() not in described]
     if missing:
-        return False, f'{name} n\'a pas la colonne {", ".join(missing)}.'
+        return False, f'{name} has no column {", ".join(missing)}.'
     for column, wanted in spec['types'].items():
         actual = described.get(column.lower())
         if actual is None or not _type_matches(actual, wanted):
-            return False, f'{name}.{column} est de type {actual}, {wanted} attendu.'
+            return False, f'{name}.{column} is {actual}, {wanted} expected.'
     rows = int(catalog.db.execute(f'SELECT COUNT(*) FROM {name}').fetchone()[0])
     if rows < spec['min_rows']:
-        return False, f'{name} a {rows} ligne(s), au moins {spec["min_rows"]} attendue(s).'
-    return True, f'{name} existe : {rows} ligne(s).'
+        return False, f'{name} has {rows} row(s), at least {spec["min_rows"]} expected.'
+    return True, f'{name} exists: {rows} row(s).'
 
 
 def _sql(catalog, spec: dict) -> tuple[bool, str]:
@@ -405,13 +404,13 @@ def _sql(catalog, spec: dict) -> tuple[bool, str]:
     try:
         result = catalog.query(spec['sql'])
     except Exception as error:  # a missing table is a failed check, not an outage
-        return False, f'La requête de vérification échoue : {error}'
+        return False, f'The check query fails: {error}'
     if result['truncated']:
-        return False, 'Le résultat de la vérification est tronqué.'
+        return False, 'The check result is truncated.'
     if compare_rows(result['rows'], spec['expected']):
-        return True, 'Le résultat attendu est obtenu.'
+        return True, 'The expected result is returned.'
     shown = json.dumps(result['rows'][:5], ensure_ascii=False, default=str)
-    return False, f'Résultat obtenu : {shown}; attendu : {json.dumps(spec["expected"][:5], ensure_ascii=False)}.'
+    return False, f'Got {shown}; expected {json.dumps(spec["expected"][:5], ensure_ascii=False)}.'
 
 
 def _pool_table(catalog, spec: dict) -> tuple[bool, str]:
@@ -422,31 +421,31 @@ def _pool_table(catalog, spec: dict) -> tuple[bool, str]:
                                           [f'dbo.{table}'] if schema == 'warehouse' else [])
     design = next((metadata.tables[k] for k in candidates if k in metadata.tables), None)
     if design is None:
-        return False, f'Le pool SQL n\'a pas de table {spec["table"]}.'
+        return False, f'The SQL pool has no table {spec["table"]}.'
     if spec.get('distribution') and design.distribution != spec['distribution']:
-        return False, f'{spec["table"]} est distribuée en {design.label()}, {spec["distribution"]} attendu.'
+        return False, f'{spec["table"]} is {design.label()}, {spec["distribution"]} expected.'
     if spec.get('hash_columns') is not None and [c.lower() for c in design.hash_columns] != \
             [c.lower() for c in spec['hash_columns']]:
-        return False, f'{spec["table"]} est distribuée en {design.label()}.'
+        return False, f'{spec["table"]} is {design.label()}.'
     if spec.get('partitioned') is not None and (design.partition is not None) != spec['partitioned']:
-        state = "n'est pas" if spec['partitioned'] else 'est'
-        return False, f'{spec["table"]} {state} partitionnée.'
-    return True, f'{spec["table"]} : {design.label()}.'
+        state = 'is not' if spec['partitioned'] else 'is'
+        return False, f'{spec["table"]} {state} partitioned.'
+    return True, f'{spec["table"]}: {design.label()}.'
 
 
 def _mlflow_model(catalog, spec: dict) -> tuple[bool, str]:
     from .databricks_workspace import load_state
     model = (load_state(catalog).get('mlflow') or {}).get('models', {}).get(spec['model'])
     if not model:
-        return False, f'Le modèle {spec["model"]} n\'est pas enregistré.'
+        return False, f'The model {spec["model"]} is not registered.'
     versions = len(model.get('versions') or [])
     if versions < spec['min_versions']:
-        return False, f'{spec["model"]} a {versions} version(s), au moins {spec["min_versions"]} attendue(s).'
+        return False, f'{spec["model"]} has {versions} version(s), at least {spec["min_versions"]} expected.'
     aliases = model.get('aliases') or {}
     if spec.get('alias') and spec['alias'] not in aliases:
-        return False, f'{spec["model"]} n\'a pas d\'alias {spec["alias"]}.'
+        return False, f'{spec["model"]} has no alias {spec["alias"]}.'
     detail = f', alias {spec["alias"]} → version {aliases[spec["alias"]]}' if spec.get('alias') else ''
-    return True, f'{spec["model"]} : {versions} version(s){detail}.'
+    return True, f'{spec["model"]}: {versions} version(s){detail}.'
 
 
 STATE_CHECKS: dict[str, Callable[[Any, dict], tuple[bool, str]]] = {
@@ -459,12 +458,12 @@ def evaluate_state_checks(catalog, specs: list[dict]) -> list[dict]:
     results = []
     for spec in specs:
         if catalog.kind == 'sqlite':
-            results.append({'passed': False, 'message': 'Les projets ont besoin du catalogue DuckDB.'})
+            results.append({'passed': False, 'message': 'Projects need the DuckDB catalog.'})
             continue
         try:
             passed, message = STATE_CHECKS[spec['kind']](catalog, spec)
         except Exception as error:
-            passed, message = False, f'Vérification impossible : {error}'
+            passed, message = False, f'The check could not run: {error}'
         results.append({'passed': passed, 'message': message})
     return results
 
@@ -476,24 +475,24 @@ def _fact_problem(entry: dict, spec: RunSpec) -> str | None:
     facts = entry.get('facts') or {}
 
     def name(key: str) -> str:
-        return f'« {FACT_LABELS.get(key, key)} »'
+        return f'"{FACT_LABELS.get(key, key)}"'
 
     for key, wanted in spec.expect.items():
         if facts.get(key) != wanted:
-            return f'{name(key)} vaut {json.dumps(facts.get(key), ensure_ascii=False)}, {json.dumps(wanted, ensure_ascii=False)} attendu'
+            return f'{name(key)} is {json.dumps(facts.get(key), ensure_ascii=False)}, {json.dumps(wanted, ensure_ascii=False)} expected'
     for key, minimum in spec.at_least.items():
         value = facts.get(key)
         if not isinstance(value, (int, float)) or isinstance(value, bool) or value < minimum:
-            return f'{name(key)} vaut {value}, au moins {_number(minimum)} attendu'
+            return f'{name(key)} is {value}, at least {_number(minimum)} expected'
     for key, maximum in spec.at_most.items():
         value = facts.get(key)
         if not isinstance(value, (int, float)) or isinstance(value, bool) or value > maximum:
-            return f'{name(key)} vaut {value}, au plus {_number(maximum)} attendu'
+            return f'{name(key)} is {value}, at most {_number(maximum)} expected'
     for key, wanted in spec.includes.items():
         have = {str(v).lower() for v in facts.get(key) or []}
         missing = [w for w in wanted if w.lower() not in have]
         if missing:
-            return f'{name(key)} ne contient pas {", ".join(missing)}'
+            return f'{name(key)} does not include {", ".join(missing)}'
     return None
 
 
@@ -504,7 +503,7 @@ def _number(value: float) -> str:
 def match_run(journal: RunJournal, spec: RunSpec) -> dict:
     entries = journal.entries(spec.lab, spec.subject)
     if not entries:
-        return {'passed': False, 'truth': None, 'message': 'Aucune exécution enregistrée pour l\'instant.'}
+        return {'passed': False, 'truth': None, 'message': 'No run recorded yet.'}
     problems = []
     for entry in entries:
         if not entry.get('ok'):
@@ -512,14 +511,14 @@ def match_run(journal: RunJournal, spec: RunSpec) -> dict:
         problem = _fact_problem(entry, spec)
         if problem is None:
             return {'passed': True, 'truth': entry.get('truth'), 'at': entry.get('at'),
-                    'message': f'Exécution du {_when(entry.get("at"))} : {entry.get("status")}.'}
+                    'message': f'Run of {_when(entry.get("at"))}: {entry.get("status")}.'}
         problems.append(problem)
     latest = entries[0]
     if problems:
         return {'passed': False, 'truth': latest.get('truth'), 'at': latest.get('at'),
-                'message': f'Une exécution a réussi, mais {problems[0]}.'}
+                'message': f'A run succeeded, but {problems[0]}.'}
     return {'passed': False, 'truth': latest.get('truth'), 'at': latest.get('at'),
-            'message': f'Dernière exécution du {_when(latest.get("at"))} : {latest.get("status")}.'}
+            'message': f'Latest run, {_when(latest.get("at"))}: {latest.get("status")}.'}
 
 
 def _when(value: Any) -> str:

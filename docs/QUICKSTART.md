@@ -48,25 +48,25 @@ your-workspace/
 Start here to see how the labs fit together. **Projects** holds three end-to-end stories, each with 10 to 12 steps
 done in the existing labs:
 
-- **Retail de bout en bout sur Fabric / Azure Data Factory**: a web-shop CSV imported and typed in Mosaic, a SparkLab
+- **Retail end to end on Fabric / Azure Data Factory**: a web-shop CSV imported and typed in Mosaic, a SparkLab
   prototype, a second Copy activity in the Fabric pipeline, an SCD2 star in the BI Lab, dbt, a daily Airflow schedule
   and a Pipeline Lab quality gate;
-- **Lakehouse Databricks et machine learning**: the lakehouse demo, SparkLab exploration, a Databricks job under
+- **Databricks lakehouse and machine learning**: the lakehouse demo, SparkLab exploration, a Databricks job under
   least-privilege Unity Catalog grants, MLflow training and promotion, retries, and an optional trusted-Python check;
-- **Entrepôt Synapse vers Fabric Warehouse**: SQL pool distributions, partitions and procedures, a Synapse pipeline,
+- **Synapse warehouse to Fabric Warehouse**: SQL pool distributions, partitions and procedures, a Synapse pipeline,
   SQL lineage and star model checks, and a port to Fabric Warehouse.
 
-Open a project, then for each step: **Ouvrir dans <lab>** creates the files the step needs (never overwriting yours),
+Open a project, then for each step: **Open in <lab>** creates the files the step needs (never overwriting yours),
 opens the file or exercise beside the Workbench and shows the right lab tab. Do the step there, come back to
-**Projects** and click **Vérifier** (the runtime must be running). **Vérifier les étapes restantes** checks every
+**Projects** and click **Verify** (the runtime must be running). **Verify remaining steps** checks every
 step not verified yet; the next suggested step is shown above the list.
 
-- **vérifié**: Datapass checked the step on your workspace (catalog tables, read-only SQL, or what the lab really ran,
-  recorded by the runtime). Each check shows its truth: réel, simulé, émulé, hybride or analyse statique.
-- **coché à la main**: you ticked the step yourself. It counts in your progress, drawn apart, and is never shown as
+- **verified**: Datapass checked the step on your workspace (catalog tables, read-only SQL, or what the lab really ran,
+  recorded by the runtime). Each check shows its truth: real, simulated, emulated, hybrid or static analysis.
+- **ticked by hand**: you ticked the step yourself. It counts in your progress, drawn apart, and is never shown as
   verified. Steps without an automatic check (runbooks, notes) are ticked this way.
 
-Progress is a normal workspace file, `.datapass/progress.json` (**Ouvrir progress.json**). A verified step stays
+Progress is a normal workspace file, `.datapass/progress.json` (**Open progress.json**). A verified step stays
 verified if a later project changes the same tables; the latest verification is shown next to it.
 
 ### Cloud Lab

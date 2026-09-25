@@ -50,7 +50,7 @@ story, goals and 8 to 12 steps. Each step names its lab, an open action (lab tab
 the scaffolds that create the files it needs) and its checks.
 
 ```text
-Projects UI ── "Vérifier" ──► POST /api/local/projects/check {project_id, steps}
+Projects UI ── "Verify" ────► POST /api/local/projects/check {project_id, steps}
                                    │  checks come from shipped content only
                                    ├─ kernel op project_state_checks: tables, read-only SQL, SQL pool designs, MLflow models
                                    └─ run journal (.datapass/data/run_journal.json)
