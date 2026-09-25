@@ -48,7 +48,12 @@ const required = [
   "content/projects/databricks-ml/project.json",
   "content/projects/synapse-to-fabric/project.json",
   "content/pylance-stubs/pyspark/sql/functions.py",
-  "content/pylance-stubs/airflow/sdk.py"
+  "content/pylance-stubs/airflow/sdk.py",
+  "runtime/missionlab/check.py",
+  "runtime/missionlab/terminal.py",
+  "content/missions/dbt-v1/pack.json",
+  "content/missions/terminal-v1/pack.json",
+  "content/missions/terminal-v1/guard-empty-files/project/incoming/refunds.csv"
 ];
 
 for (const path of required) {
@@ -64,6 +69,8 @@ for (const forbidden of [
   "runtime/**/*.egg-info/**",
   "**/*.map",
   "content/projects/*/reference/**",
+  "content/missions/*/*/solution/**",
+  "content/missions/*/*/mutants/**",
   ".claude/**",
   ".venv/**"
 ]) {

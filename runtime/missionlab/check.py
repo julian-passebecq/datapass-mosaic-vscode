@@ -3,7 +3,9 @@
 Everything the checker looks at is real: read-only SQL on the workspace catalog (in the kernel), the dbt Core
 artifacts the learner's own runs wrote (target/manifest.json, run_results.json, sources.json), files in the mission
 folder, the result of the real `dct validate` (run by the host, passed in), and an Airflow DAG file parsed by the
-Airflow Lab's whitelisted reader and simulated (never executed). Nothing is re-run or approximated here.
+Airflow Lab's whitelisted reader and simulated (never executed). Terminal Lab missions are checked on the files and
+the Git repository the learner's own commands left behind (missionlab/terminal.py). Nothing is re-run or approximated
+here.
 """
 from __future__ import annotations
 
@@ -15,8 +17,9 @@ from typing import Any, Callable
 
 import yaml
 
+from . import terminal
 from .model import (AirflowCheck, BoardCheck, DctValidateCheck, FileCheck, FreshnessConfigCheck,
-                    FreshnessResultCheck, Mission, NodeCheck, RenderCheck, RunCheck, SqlCheck, TestCheck)
+                    FreshnessResultCheck, Mission, NodeCheck, RenderCheck, RunCheck, SqlCheck, TestCheck, all_checks)
 
 MAX_ARTIFACT_BYTES = 40_000_000
 MAX_FILE_BYTES = 400_000
@@ -34,7 +37,7 @@ def fixture_statements(mission: Mission, pack_dir: Path, batch_id: str) -> list[
     """The SQL of one batch. The first batch starts over: it drops the mission's raw and dev schemas first."""
     from datapass_runtime.catalog import statements
     batch = next((b for b in mission.batches if b.id == batch_id), None)
-    if batch is None:
+    if batch is None or mission.workspace is None:
         raise ValueError(f'Mission {mission.id} has no batch {batch_id!r}.')
     raw, dev = mission.workspace.raw_schema, mission.workspace.dev_schema
     out: list[str] = []
@@ -367,15 +370,14 @@ def _sql(check: SqlCheck, _files: Files, ctx: dict) -> Outcome:
 CHECKS: dict[str, Callable[[Any, Files, dict], Outcome]] = {
     'sql': _sql, 'node': _node, 'test': _test, 'run': _run, 'freshness_config': _freshness_config,
     'freshness_result': _freshness_result, 'dct_validate': _dct_validate, 'board': _board, 'render': _render,
-    'file': _file, 'airflow': _airflow,
+    'file': _file, 'airflow': _airflow, **terminal.CHECKS,
 }
 
 
 def sql_queries(mission: Mission) -> list[str]:
     """Every query the checker needs from the kernel, deduplicated."""
     queries: list[str] = []
-    checks = [c for criterion in mission.acceptance for c in criterion.checks] + [r.check for r in mission.requires]
-    for check in checks:
+    for check in all_checks(mission):
         text = check.sql if isinstance(check, SqlCheck) else check.total_sql if isinstance(check, RenderCheck) else None
         if text and text not in queries:
             queries.append(text)
@@ -385,14 +387,20 @@ def sql_queries(mission: Mission) -> list[str]:
 def evaluate(mission: Mission, folder: Path, sql_results: dict[str, dict], dct: dict[str, Any] | None = None) -> dict:
     """Run every check. `sql_results` maps each query of sql_queries() to {rows, truncated} or {error}."""
     files = Files(folder)
-    ctx = {'sql': sql_results, 'dct': dct or {}}
+    ctx: dict[str, Any] = {'sql': sql_results, 'dct': dct or {}}
 
-    def run(check) -> dict:
+    def outcome(check) -> tuple[bool, str]:
         try:
             passed, detail = CHECKS[check.kind](check, files, ctx)
         except Exception as error:  # a broken artifact is a failed check, not an outage
             passed, detail = False, f'Could not check: {error}'
-        return {'kind': check.kind, 'passed': passed, 'detail': detail if passed or not check.fail else f'{check.fail} {detail}'}
+        return passed, detail if passed or not check.fail else f'{check.fail} {detail}'
+
+    ctx['run'] = outcome  # any_of runs its own checks
+
+    def run(check) -> dict:
+        passed, detail = outcome(check)
+        return {'kind': check.kind, 'passed': passed, 'detail': detail}
 
     unmet = []
     for requirement in mission.requires:
@@ -407,5 +415,5 @@ def evaluate(mission: Mission, folder: Path, sql_results: dict[str, dict], dct: 
     return {
         'mission_id': mission.id, 'version': mission.version, 'status': 'passed' if passed else 'not-yet',
         'requires': unmet, 'criteria': criteria, 'checked_at': datetime.now().astimezone().isoformat(timespec='seconds'),
-        'truth': TRUTH,
+        'truth': terminal.TRUTH if mission.lab == 'terminal' else TRUTH,
     }

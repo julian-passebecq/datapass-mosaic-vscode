@@ -1,0 +1,63 @@
+{
+  "id": "server-inventory-report",
+  "version": "1",
+  "lab": "terminal",
+  "title": "Three reports from the server inventory",
+  "level": "intermediate",
+  "estimate": "30-40 min",
+  "skills": ["PowerShell objects", "Import-Csv / Export-Csv", "Where-Object, Sort-Object, Group-Object", "calculated properties", "numbers read as text"],
+  "ticket": {
+    "from": "Priya Nair, data operations",
+    "subject": "Ops review: down servers and the busiest ones",
+    "body": [
+      "This morning's inventory export is in `inventory/servers.csv` (Name, Region, Status, CpuPct). For the ops",
+      "review I need three files in `reports/`:",
+      "",
+      "1. `reports/down.csv`: the servers whose Status is `down`, with the columns `Name,Region` only, sorted by Name.",
+      "2. `reports/down-by-region.csv`: one row per region that has down servers, with the columns `Region,Down`",
+      "   (Down = how many), in any order.",
+      "3. `reports/busiest.txt`: the names of the three servers with the highest CpuPct, highest first, one per line.",
+      "",
+      "Plain CSV: a header line and the rows, no `#TYPE` line. PowerShell is the natural tool here (objects in, objects",
+      "out); bash with awk and sort works too."
+    ]
+  },
+  "acceptance": [
+    {
+      "id": "down",
+      "text": "reports/down.csv lists the down servers (Name, Region), sorted by Name.",
+      "checks": [
+        {"kind": "csv", "path": "reports/down.csv", "header": ["Name", "Region"], "rows": [
+          ["api-02", "eu-west"], ["cache-01", "us-east"], ["db-02", "us-east"], ["etl-02", "ap-south"], ["web-03", "ap-south"]
+        ]}
+      ]
+    },
+    {
+      "id": "by-region",
+      "text": "reports/down-by-region.csv counts the down servers per region (Region, Down).",
+      "checks": [
+        {"kind": "csv", "path": "reports/down-by-region.csv", "header": ["Region", "Down"], "ordered": false, "rows": [
+          ["eu-west", "1"], ["us-east", "2"], ["ap-south", "2"]
+        ]}
+      ]
+    },
+    {
+      "id": "busiest",
+      "text": "reports/busiest.txt names the three busiest servers, highest CpuPct first.",
+      "checks": [
+        {"kind": "text", "path": "reports/busiest.txt", "equals": ["db-01", "api-01", "db-03"]}
+      ]
+    }
+  ],
+  "hints": [
+    "`Import-Csv inventory/servers.csv` gives objects with properties. Pipe them: `Where-Object Status -eq 'down' | Sort-Object Name | Select-Object Name, Region | Export-Csv reports/down.csv -NoTypeInformation`.",
+    "`Group-Object Region` counts for you, in properties called Name and Count. A calculated property renames them: `Select-Object @{n='Region'; e={$_.Name}}, @{n='Down'; e={$_.Count}}`.",
+    "Import-Csv reads every value as text, so `Sort-Object CpuPct` puts \"9\" above \"85\". Sort on the number: `Sort-Object { [int]$_.CpuPct } -Descending`, then `Select-Object -First 3 -ExpandProperty Name`.",
+    "Windows PowerShell 5.1's `Export-Csv` adds a `#TYPE` line unless you pass `-NoTypeInformation`; its `>` writes UTF-16 (the checker reads it, other tools may not)."
+  ],
+  "fixture": {},
+  "reference": [
+    {"powershell": "solution/solve.ps1"},
+    {"bash": "solution/solve.sh"}
+  ]
+}

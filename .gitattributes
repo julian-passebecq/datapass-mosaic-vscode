@@ -1,0 +1,3 @@
+# Terminal Lab missions: fixtures, reference scripts and mutants stay LF on every checkout (bash rejects CR in
+# scripts; a fixture that needs CRLF declares it in its mission.json).
+content/missions/terminal-v1/** text eol=lf

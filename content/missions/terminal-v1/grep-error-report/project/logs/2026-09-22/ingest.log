@@ -1,0 +1,4 @@
+2026-09-22T01:00:01Z INFO  ingest start batch 311
+2026-09-22T01:03:17Z ERROR ingest E1042 batch 311 rejected: schema drift on column amount
+2026-09-22T01:12:48Z ERROR ingest E1007 batch 312 duplicate key order_id=88121
+2026-09-22T01:20:00Z INFO  ingest done

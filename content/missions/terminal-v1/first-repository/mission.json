@@ -1,0 +1,91 @@
+{
+  "id": "first-repository",
+  "version": "1",
+  "lab": "terminal",
+  "title": "Put the loader under Git, properly",
+  "level": "intro",
+  "estimate": "30-40 min",
+  "skills": ["git init", ".gitignore", "git add / commit", "Conventional Commits", "annotated tags", "line endings", "the executable bit"],
+  "ticket": {
+    "from": "Sam Rivera, data platform lead",
+    "subject": "The nightly loader lives in a folder on my laptop: let's version it",
+    "body": [
+      "This loader has lived in a plain folder for months. Before Tomás starts working on it, put it under Git:",
+      "",
+      "- a repository in the mission folder itself (not in a folder above it), on a branch called `main`;",
+      "- nothing secret or generated goes in: `.env`, the `logs/` output and Python's `__pycache__/` stay out, through",
+      "  a committed `.gitignore`. `.env.example` is the documented template: it goes in;",
+      "- `scripts/run.sh` runs on the Linux scheduler: commit it **executable**, with Unix (LF) line endings. It was",
+      "  last saved on Windows;",
+      "- commit messages in Conventional Commits style (`chore: …`, `feat: …`, `docs: …`);",
+      "- an annotated tag `v0.1.0` on the last commit, saying what it is;",
+      "- a clean working tree at the end."
+    ]
+  },
+  "acceptance": [
+    {
+      "id": "repository",
+      "text": "The mission folder is a Git repository of its own, on main.",
+      "checks": [{"kind": "git_repo", "branch": "main"}]
+    },
+    {
+      "id": "ignored",
+      "text": "A committed .gitignore keeps .env, logs and __pycache__ out; .env.example and the code are tracked.",
+      "checks": [
+        {"kind": "git_ignore",
+         "ignored": [".env", "logs/run-2026-09-24.log", "logs/run-2026-09-25.log", "src/__pycache__/load.cpython-312.pyc"],
+         "not_ignored": [".env.example", "src/load.py", "scripts/run.sh"],
+         "tracked": [".gitignore", ".env.example", "README.md", "config/settings.yml", "src/load.py", "scripts/run.sh"],
+         "untracked": [".env", "logs/run-2026-09-24.log", "src/__pycache__/load.cpython-312.pyc"]}
+      ]
+    },
+    {
+      "id": "run-script",
+      "text": "scripts/run.sh is committed executable, with LF line endings.",
+      "checks": [
+        {"kind": "git_file", "path": "scripts/run.sh", "mode": "100755", "line_endings": "lf", "contains": ["python src/load.py"]}
+      ]
+    },
+    {
+      "id": "messages",
+      "text": "Every commit message follows Conventional Commits.",
+      "checks": [
+        {"kind": "git_log", "min_count": 1, "subject_regex": "^(feat|fix|chore|docs|refactor|test|build|ci|style|perf)(\\([a-z0-9._-]+\\))?!?: \\S"}
+      ]
+    },
+    {
+      "id": "tag",
+      "text": "An annotated tag v0.1.0 points at the last commit.",
+      "checks": [{"kind": "git_tag", "name": "v0.1.0", "annotated": true, "target": "HEAD"}]
+    },
+    {
+      "id": "clean",
+      "text": "The working tree is clean.",
+      "checks": [{"kind": "git_repo", "clean": true, "in_progress": false}]
+    }
+  ],
+  "hints": [
+    "`git init -b main` (Git 2.28 or later) creates the repository on main. `git status` then shows what Git sees, and `git status --ignored` what it leaves out.",
+    "A `.gitignore` has one pattern per line: `.env`, `logs/`, `__pycache__/`. `git check-ignore -v <path>` tells which rule ignores a path. Mind a pattern like `.env*`: it would also hide the template.",
+    "Committed a file by mistake? `git rm --cached <file>` takes it out of the index and keeps it on disk; commit that.",
+    "Line endings: `sed -i 's/\\r$//' scripts/run.sh` turns CRLF into LF (PowerShell: `(Get-Content -Raw scripts/run.sh) -replace \"`r`n\", \"`n\" | Set-Content -NoNewline scripts/run.sh`). A `.gitattributes` line `*.sh text eol=lf` makes Git do it for everyone.",
+    "The executable bit: `chmod +x scripts/run.sh` on Linux and macOS. Windows has no such bit, so tell Git: `git add --chmod=+x scripts/run.sh`. `git ls-files -s scripts/run.sh` shows 100755 when it worked.",
+    "`git tag -a v0.1.0 -m \"…\"` makes an annotated tag; `git tag v0.1.0` alone makes a lightweight one. `git cat-file -t v0.1.0` says `tag` for an annotated tag."
+  ],
+  "fixture": {
+    "files": {
+      "README.md": ["# Nightly sales loader", "", "Loads the store exports into the warehouse every night at 02:00.", "", "Run: `scripts/run.sh`. Settings: `config/settings.yml`; secrets in `.env` (see `.env.example`)."],
+      "config/settings.yml": ["source: landing/", "target: warehouse.sales", "batch_size: 5000"],
+      "src/load.py": ["\"\"\"Loads the landing exports into the warehouse.\"\"\"", "", "", "def main() -> None:", "    print(\"loading...\")", "", "", "if __name__ == \"__main__\":", "    main()"],
+      "src/__pycache__/load.cpython-312.pyc": "compiled bytecode placeholder\n",
+      "scripts/run.sh": {"text": ["#!/usr/bin/env bash", "set -euo pipefail", "cd \"$(dirname \"$0\")/..\"", "python src/load.py"], "eol": "crlf"},
+      ".env": ["DB_PASSWORD=change-me-in-prod", "API_TOKEN=local-dev-only"],
+      ".env.example": ["DB_PASSWORD=", "API_TOKEN="],
+      "logs/run-2026-09-24.log": ["2026-09-24T02:00:01Z INFO  loading...", "2026-09-24T02:03:12Z INFO  done"]
+    }
+  },
+  "reference": [
+    {"bash": "solution/solve.sh"},
+    {"powershell": "solution/solve.ps1"}
+  ]
+}

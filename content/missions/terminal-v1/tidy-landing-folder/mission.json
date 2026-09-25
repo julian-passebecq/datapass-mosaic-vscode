@@ -1,0 +1,79 @@
+{
+  "id": "tidy-landing-folder",
+  "version": "1",
+  "lab": "terminal",
+  "title": "Tidy the landing folder",
+  "level": "intro",
+  "estimate": "15-20 min",
+  "skills": ["cd and ls", "mkdir -p", "globs", "mv and rm", "quoting file names"],
+  "ticket": {
+    "from": "Priya Nair, data operations",
+    "subject": "The landing folder is a mess and the loader keeps picking up the wrong files",
+    "body": [
+      "The store exports land in `landing/`, and over the weeks it became a dumping ground: exports, photos from the",
+      "warehouse, half-finished uploads, a duplicate. Last night the loader read a partial file. Could you tidy it,",
+      "from the terminal (no file explorer), like this:",
+      "",
+      "- the daily sales exports (`sales_<day>.csv`) go to `archive/sales/`, the stock exports (`stock_<day>.csv`) to",
+      "  `archive/stock/`, untouched;",
+      "- the rack photos (`*.jpg`) go to `photos/`;",
+      "- `sales_2026-09-02 (copy).csv` is a truncated duplicate of the real export: delete it (keep the real one);",
+      "- every unfinished upload (`*.part`, wherever it is) is deleted, and so is the `landing/tmp` folder;",
+      "- `landing/` ends up holding `notes.txt` only.",
+      "",
+      "bash or PowerShell, as you like."
+    ]
+  },
+  "acceptance": [
+    {
+      "id": "sales",
+      "text": "The three daily sales exports are in archive/sales/, unchanged.",
+      "checks": [
+        {"kind": "listing", "dir": "archive/sales", "equals": ["sales_2026-09-01.csv", "sales_2026-09-02.csv", "sales_2026-09-03.csv"]},
+        {"kind": "text", "path": "archive/sales/sales_2026-09-02.csv", "fail": "The export of 2 September is not the complete one.",
+         "equals": ["order_id,day,store,amount", "5101,2026-09-02,paris-01,89.50", "5102,2026-09-02,lyon-02,240.00", "5103,2026-09-02,lille-01,15.75", "5104,2026-09-02,paris-01,310.20"]}
+      ]
+    },
+    {
+      "id": "stock",
+      "text": "The two stock exports are in archive/stock/.",
+      "checks": [
+        {"kind": "listing", "dir": "archive/stock", "equals": ["stock_2026-09-01.csv", "stock_2026-09-02.csv"]}
+      ]
+    },
+    {
+      "id": "photos",
+      "text": "The rack photos are in photos/.",
+      "checks": [
+        {"kind": "listing", "dir": "photos", "equals": ["rack_A.jpg", "rack_B.jpg"]}
+      ]
+    },
+    {
+      "id": "junk",
+      "text": "The duplicate, every unfinished upload (*.part) and the landing/tmp folder are deleted.",
+      "checks": [
+        {"kind": "listing", "recursive": true, "pattern": "*.part", "count": 0},
+        {"kind": "listing", "recursive": true, "pattern": "*(copy)*", "count": 0},
+        {"kind": "path", "path": "landing/tmp", "type": "absent"}
+      ]
+    },
+    {
+      "id": "landing",
+      "text": "landing/ holds notes.txt only.",
+      "checks": [
+        {"kind": "listing", "dir": "landing", "equals": ["notes.txt"]}
+      ]
+    }
+  ],
+  "hints": [
+    "`mkdir -p archive/sales archive/stock photos` creates the folders in one go (PowerShell: `New-Item -ItemType Directory -Force archive/sales, archive/stock, photos`).",
+    "A glob picks the files: see what `ls landing/sales_*.csv` matches before you `mv landing/sales_*.csv archive/sales/` (PowerShell: `Move-Item`). Does it match the duplicate too?",
+    "A name with spaces and parentheses needs quotes: `rm \"landing/sales_2026-09-02 (copy).csv\"` (PowerShell: `Remove-Item -LiteralPath`). `rm -r` (PowerShell: `Remove-Item -Recurse`) deletes a folder and its content.",
+    "`find . -name '*.part'` (PowerShell: `Get-ChildItem -Recurse -Filter *.part`) finds the stragglers; is there one outside landing/tmp?"
+  ],
+  "fixture": {},
+  "reference": [
+    {"bash": "solution/solve.sh"},
+    {"powershell": "solution/solve.ps1"}
+  ]
+}

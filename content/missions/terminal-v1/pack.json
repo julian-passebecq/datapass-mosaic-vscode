@@ -1,0 +1,17 @@
+{
+  "id": "terminal-v1",
+  "title": "Terminal missions",
+  "lab": "terminal",
+  "version": "1",
+  "description": "Tickets from the data platform team, done with your own bash, PowerShell and Git commands in a real terminal. Datapass checks the resulting folder and repository; it runs none of your commands.",
+  "missions": [
+    "tidy-landing-folder",
+    "grep-error-report",
+    "guard-empty-files",
+    "server-inventory-report",
+    "first-repository",
+    "merge-conflict",
+    "rebase-and-cherry-pick",
+    "reflog-rescue"
+  ]
+}
