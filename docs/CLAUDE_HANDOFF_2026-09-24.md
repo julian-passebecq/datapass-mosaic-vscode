@@ -30,6 +30,57 @@ The Playwright pass that earlier sessions ran from a scratch file is now `script
 - **Overflow probe.** Flags any element whose right edge passes the webview unless an ancestor scrolls or clips it; it must first catch a planted 2000 px block, so it cannot pass blind. First run: all 17 tab/sub-tab layouts (9 module tabs, 8 more lab sub-tabs) clean at 521 px.
 - **Gotchas.** Typing into Monaco through Electron did not reach the editor; the script writes the scratch file on disk and waits for the editor to show it. The first Practice Submit on an exercise without a starter only creates the file, so the pass clicks Open solution first. `locator.evaluate(fn, arg)` passes the element first. The exercise editor tab is titled `<exercise> · <language>`, not `solution.*`.
 
+## 0. Terminal Lab: real bash, PowerShell and Git — Claude, 2026-09-25
+
+Third lab of the map approved on 2026-09-25 (BI Lab, dbt Lab, **Terminal Lab**, then Infra Lab). The learner types
+their own commands in a real VS Code terminal; Datapass runs none of them and checks the resulting folder and Git
+repository. Built on `runtime/missionlab` (README there has the full contract).
+
+- **#35 Runtime and pack.** `lab: "terminal"` missions: a `fixture` (the pack's `project/` overlay, inline files with
+  CRLF or the executable bit, a Git history of fixed git commands with a fixed author and dates, so the hashes are
+  reproducible; the learner's global/system Git config is not read) built by `POST /api/local/missions/setup
+  {mission_id}`. Start over moves the old folder to `.datapass/missions/attic/<id>-<time>/`. Thirteen check kinds in
+  `missionlab/terminal.py`: path, text (UTF-8, or UTF-16 with a BOM as Windows PowerShell 5.1's `>` writes), listing,
+  csv (a `#TYPE` line fails), script (text without comments, never executed), git_repo, git_branch, git_log, git_file,
+  git_tag, git_ignore (the repository's own rules, not the learner's global excludes), git_stash, any_of. Git is read
+  with read-only commands, `core.fsmonitor` off, hooks pointed at nothing, `GIT_CEILING_DIRECTORIES`.
+  `content/missions/terminal-v1`: 8 missions (tidy a landing folder; grep an error report; a guard script with exit
+  codes; PowerShell objects; first repository with .gitignore, executable bit, LF and an annotated tag; a merge
+  conflict; interactive rebase + cherry-pick -x; reflog rescue of a deleted branch, a reset commit and a stash).
+  `scripts/terminal_missions_smoke.py` plays every reference with real bash, pwsh and (on Windows) Windows PowerShell
+  5.1: 18 reference plays pass, 8 untouched fixtures and 35 mutants fail; in CI (runtime job, pwsh required).
+- **This PR: the Workbench module** (`terminal`, `datapass.openTerminalLab`). `src/terminalLab.ts` finds the shells
+  (Git Bash next to git.exe or in the Git for Windows folders, never WSL's System32 bash; pwsh, then Windows
+  PowerShell 5.1; `datapass.terminalLab.bashPath` overrides) and Git (version and the global identity, so the lab can
+  warn before `git commit` fails). The learner picks the shell (remembered in global state); the terminal opens in
+  `missions/<id>/` (Git Bash as a login shell with `CHERE_INVOKING=1` so it stays there) and nothing is typed in it.
+  The ticket goes to `.datapass/missions/tickets/<id>.md`, outside the folder the checks read. `MissionsPanel` is
+  lab-neutral (open label, folder note). A terminal mission's setup and check do not need the catalog, so a lent
+  catalog does not block them. Start over first releases the folder (`TerminalLabSession.release`): the lab's
+  terminals close and the VS Code Git extension's repository is closed, then reopened on the rebuilt folder. On
+  Windows, its `.git` watch made the move fail in a real window (found by the Playwright drive); the runtime also
+  builds fixtures outside the workspace now, so Source Control never opens a half-built repository.
+  CLAUDE.md: truth model, product boundary, security, gates.
+
+Checked:
+- `npm run compile`, `npm test` (new `terminal_lab_smoke`), runtime gates as in #35;
+- `npm run test:host`: a Terminal Lab step starts merge-conflict, opens the real bash terminal in the folder, types
+  the reference there (as a learner would), and polls the checker until it passes; Start over puts the folder in the
+  attic; with a PowerShell present, server-inventory-report is played the same way;
+- the packaged VSIX installed in a fresh profile and driven with Playwright `_electron.launch`: Setup and Start
+  runtime, Start mission (tidy-landing-folder) typed in Git Bash, a partial answer checked "not yet", then passed;
+  merge-conflict resolved in the terminal and passed; Start over through the modal. Screenshots looked at.
+
+Open points:
+- Datapass cannot tell *how* a result was produced (a learner could edit files in the editor instead of the
+  terminal); the checks read state, as the lab's truth model says. Scripts are read as text; their behaviour is
+  checked through the evidence the learner's own run leaves (for example `logs/check.status`).
+- The dbt Lab › Missions overlap reported after the dbt Lab rebuild (runtime card over a ticket when scrolled) did not
+  reproduce in the Playwright drive, wide or narrow: nothing in workbench.css is sticky or fixed, and the side column
+  scrolls with the page. Left as is; a screenshot of it happening would help.
+- Next: **Infra Lab** (simulated Terraform, Docker, VM + monitoring, Kubernetes), reusing missionlab with its own
+  check kinds.
+
 ## V2-2 + D-5: one SQL dialect translator for the whole Workbench — Claude, 2026-09-25
 
 The user asked for a "dialect button like a kernel". Before this, three SQL translation paths coexisted: the SQL pool's

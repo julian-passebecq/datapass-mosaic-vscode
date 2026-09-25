@@ -32,7 +32,9 @@ import { SQLPOOL_FLAVORS, SQLPOOL_LIMITS, isValidScale } from "./platform/sqlpoo
 import { findDbtProjects, projectFolder } from "./dbtState";
 import { dctValidate, writeDbtProfiles, type DbtTerminalSession, type DbtToolsManager } from "./dbtLab";
 import type { MissionsService } from "./missions";
-import { missionFolder } from "./platform/missions";
+import { missionFolder, type MissionView } from "./platform/missions";
+import { preferredShell, type ShellId } from "./platform/terminalShells";
+import type { TerminalLabSession } from "./terminalLab";
 import {
   buildDbtCommand,
   buildDctCommand,
@@ -80,15 +82,20 @@ import type {
   ProjectsHostState,
   ScratchKind,
   SqlPoolFlavor,
+  TerminalViewState,
   WebviewToHostMessage,
   WorkbenchFocus
 } from "./webview/contracts";
 
-/** The dbt Lab's host services: the managed dbt tools and the terminal that runs real dbt Core commands. */
+/**
+ * The labs' host services: the dbt Lab's managed dbt tools and the terminal that runs real dbt Core commands, the
+ * missions (shared by the dbt Lab and the Terminal Lab), and the Terminal Lab's shells and terminals.
+ */
 export interface DbtLabServices {
   tools: DbtToolsManager;
   terminal: DbtTerminalSession;
   missions: MissionsService;
+  terminalLab: TerminalLabSession;
 }
 
 const DBT_SELECTED_KEY = "datapass.dbt.selectedProject";
@@ -422,6 +429,17 @@ export class WorkbenchPanel {
         return;
       case "openDctHtml":
         await this.openDctHtml(message.board);
+        return;
+      case "selectTerminalShell":
+        await this.dbtLab.terminalLab.choose(message.shell);
+        await this.refresh();
+        return;
+      case "openLabTerminal":
+        await this.openLabTerminal(message.missionId);
+        return;
+      case "refreshTerminalLab":
+        await this.dbtLab.terminalLab.detect(true);
+        await this.refresh();
         return;
       case "startMission":
       case "restartMission":
@@ -1537,17 +1555,26 @@ export class WorkbenchPanel {
   private async missionAction(action: string, missionId: string): Promise<void> {
     const missions = this.dbtLab.missions;
     try {
+      const mission = await missions.mission(missionId);
+      const terminal = mission.lab === "terminal";
       if (action === "restartMission") {
         const choice = await vscode.window.showWarningMessage(
-          "Start the mission over? Its data in the catalog is reloaded from the first batch and the tables dbt built for it are dropped. Your files in the mission folder stay as they are.",
+          terminal
+            ? `Start the mission over? missions/${missionId} is moved to .datapass/missions/attic/ (nothing is deleted) and rebuilt as the ticket found it. Its terminals are closed.`
+            : "Start the mission over? Its data in the catalog is reloaded from the first batch and the tables dbt built for it are dropped. Your files in the mission folder stay as they are.",
           { modal: true }, "Start over");
         if (choice !== "Start over") return;
       }
       if (action === "startMission" || action === "restartMission") {
-        await missions.start(missionId);
-        await this.openMission(missionId);
+        const restore = terminal ? await this.dbtLab.terminalLab.release(missions.folderUri(missionId)) : undefined;
+        try {
+          await missions.start(missionId);
+        } finally {
+          await restore?.();
+        }
+        await (terminal ? this.openTerminalMission(mission) : this.openMission(missionId));
       } else if (action === "openMission") {
-        await this.openMission(missionId);
+        await (terminal ? this.openTerminalMission(mission) : this.openMission(missionId));
       } else if (action === "loadMissionBatch") {
         const label = await missions.loadNextBatch(missionId);
         if (label) void vscode.window.showInformationMessage(`Loaded: ${label}. Run dbt again, as the nightly job would.`);
@@ -1561,6 +1588,38 @@ export class WorkbenchPanel {
       void vscode.window.showErrorMessage(`Mission: ${error instanceof Error ? error.message : String(error)}`);
     }
     await this.refresh();
+  }
+
+  /** Terminal Lab: the ticket beside the Workbench and a terminal in the mission folder, with the learner's shell. */
+  private async openTerminalMission(mission: MissionView): Promise<void> {
+    const ticket = this.dbtLab.missions.ticketUri(mission);
+    if (await exists(ticket)) await this.openBeside(ticket);
+    await this.openLabTerminal(mission.id);
+  }
+
+  /** A terminal in the mission folder (or the workspace folder), with the chosen shell. Nothing is typed in it. */
+  private async openLabTerminal(missionId?: string): Promise<void> {
+    const root = vscode.workspace.workspaceFolders?.[0]?.uri;
+    if (!root) {
+      void vscode.window.showWarningMessage("Open a workspace folder first.");
+      return;
+    }
+    const lab = this.dbtLab.terminalLab;
+    const shell: ShellId | undefined = preferredShell((await lab.detect()).shells, lab.chosen);
+    if (!shell) {
+      void vscode.window.showWarningMessage("No bash or PowerShell was found. Install Git for Windows (Git Bash) or PowerShell 7, then Refresh.");
+      return;
+    }
+    const folder = missionId ? this.dbtLab.missions.folderUri(missionId) : root;
+    if (missionId && !(await exists(folder))) {
+      void vscode.window.showWarningMessage(`missions/${missionId} does not exist yet: start the mission first.`);
+      return;
+    }
+    try {
+      await lab.open(folder, shell, missionId ?? "Terminal Lab");
+    } catch (error) {
+      void vscode.window.showErrorMessage(error instanceof Error ? error.message : String(error));
+    }
   }
 
   /** Select the mission's project in the dbt Lab and open its TICKET.md. */
@@ -1834,11 +1893,23 @@ export class WorkbenchPanel {
             : undefined
         },
         practiceSolutions: Object.fromEntries(this.revealedSolutions),
-        queryHistory: this.selectedModule === "mosaic" ? this.queryHistory() : undefined
+        queryHistory: this.selectedModule === "mosaic" ? this.queryHistory() : undefined,
+        terminal: this.selectedModule === "terminal" ? await this.terminalState() : undefined
       }
     );
     if (seq !== this.refreshSeq) return;
     await this.panel.webview.postMessage({ type: "state", state });
+  }
+
+  private async terminalState(): Promise<TerminalViewState> {
+    const lab = this.dbtLab.terminalLab;
+    const { shells, git } = await lab.detect();
+    return {
+      shells,
+      shell: preferredShell(shells, lab.chosen),
+      git,
+      missions: { missions: await this.dbtLab.missions.list("terminal"), progress: (await this.dbtLab.missions.progress()).missions }
+    };
   }
 
   private html(webview: vscode.Webview): string {
