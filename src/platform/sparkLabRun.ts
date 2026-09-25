@@ -53,6 +53,7 @@ function toSimulation(sim: Raw): SparkLabSimulationView {
     shuffleGb: num(metrics.shuffle_gb),
     spillGb: num(metrics.spill_gb),
     clusterUtilizationPct: num(metrics.cluster_utilization_pct),
+    exchanges: list(asRecord(metrics.plan_facts).exchange_details).map(toExchange),
     credits: {
       total: num(credits.total),
       unit: str(credits.unit, "Datapass Credits"),
@@ -90,6 +91,12 @@ function toStage(item: unknown): SparkLabStageView {
     dependencies: list(stage.dependencies).map(num),
     notes: list(stage.notes).filter((note): note is string => typeof note === "string")
   };
+}
+
+function toExchange(item: unknown): string {
+  const exchange = asRecord(item);
+  const keys = list(exchange.keys).filter((key): key is string => typeof key === "string");
+  return `${str(exchange.partitioning, "exchange")}${keys.length ? `(${keys.join(", ")})` : ""} for ${str(exchange.reason, "operator")}`;
 }
 
 function toPlanNode(item: unknown): SparkLabPlanNodeView {

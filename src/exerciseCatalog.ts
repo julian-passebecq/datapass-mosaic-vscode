@@ -1,5 +1,5 @@
 import * as vscode from "vscode";
-import type { ExerciseSectionView, ExerciseSummary, ExerciseTableView } from "./webview/contracts";
+import type { ExerciseSectionView, ExerciseSummary, ExerciseTableView, SparkPlanView } from "./webview/contracts";
 
 /** Runtimes whose grading needs something Datapass does not provide locally. */
 const NOT_LOCALLY_GRADED: Record<string, string> = {
@@ -85,7 +85,39 @@ function normalizeExercise(
     truth: stringValue(value.truth),
     topics: stringArray(value.topics),
     ...teachingDetails(value),
+    sparkPlan: sparkPlan(value.spark_plan),
     gradingNote: NOT_LOCALLY_GRADED[stringValue(value.runtime) ?? ""]
+  };
+}
+
+function sparkPlan(raw: unknown): SparkPlanView | undefined {
+  const plan = objectValue(raw);
+  if (!plan) return undefined;
+  const checks = (Array.isArray(plan.checks) ? plan.checks : []).flatMap(item => {
+    const check = objectValue(item);
+    const id = stringValue(check?.id);
+    const description = stringValue(check?.description);
+    return id && description ? [{ id, description }] : [];
+  });
+  if (!checks.length) return undefined;
+  const scale = Object.entries(objectValue(plan.scale) ?? {}).flatMap(([table, item]) => {
+    const size = objectValue(item);
+    if (!size || typeof size.rows !== "number" || typeof size.bytes !== "number" || typeof size.partitions !== "number") {
+      return [];
+    }
+    return [{
+      table,
+      rows: size.rows,
+      bytes: size.bytes,
+      partitions: size.partitions,
+      catalogStatistics: size.catalog_statistics_available !== false
+    }];
+  });
+  return {
+    profile: stringValue(plan.profile) ?? "generic_8x8",
+    aqe: plan.aqe !== false,
+    scale,
+    checks
   };
 }
 
