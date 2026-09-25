@@ -1,0 +1,13 @@
+Name,Region,Status,CpuPct
+api-01,eu-west,up,91
+api-02,eu-west,down,0
+api-03,us-east,up,9
+db-01,eu-west,up,100
+db-02,us-east,down,0
+db-03,ap-south,up,85
+etl-01,us-east,up,12
+etl-02,ap-south,down,0
+web-01,eu-west,up,35
+web-02,us-east,up,7
+web-03,ap-south,down,0
+cache-01,us-east,down,0

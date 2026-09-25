@@ -47,7 +47,8 @@ import * as http from "node:http";
 import * as path from "node:path";
 import { MODULES, type ModuleId } from "./modules";
 import { writeMosaicLayout } from "./mosaicLayoutStore";
-import { openQueryPlan } from "./queryPlanDocuments";
+import { openQueryPlan, openTranslatedSql } from "./queryPlanDocuments";
+import { runDialect, TranslatedDialectId } from "./platform/sqlDialect";
 import { createDefaultProjectManifest, readProjectManifest, writeProjectManifest } from "./project/projectManifest";
 import type { PythonTrustController } from "./pythonTrustController";
 import type { RuntimeManager } from "./runtimeManager";
@@ -134,6 +135,8 @@ export class WorkbenchPanel {
   private readonly disposables: vscode.Disposable[] = [];
   /** Last focused file per extension, so "Run active ..." works when the Workbench shares a tab group with it. */
   private readonly lastDocuments = new Map<string, vscode.Uri>();
+  /** The SQL file of the last Run active SQL: names its translated SQL tab. */
+  private lastSqlFile: string | undefined;
   /** The DAG file Airflow Lab last simulated, to reveal a parser error line in it. */
   private lastAirflowFile?: vscode.Uri;
   /** The T-SQL script the SQL pool tab last ran, to reveal a statement's line in it. */
@@ -272,6 +275,11 @@ export class WorkbenchPanel {
       case "openQueryPlan": {
         const plan = this.runtimeManager.snapshot().queryPlan;
         if (plan) await openQueryPlan(plan);
+        return;
+      }
+      case "openTranslatedSql": {
+        const translation = this.runtimeManager.snapshot().lastRun?.dialect;
+        if (translation) await openTranslatedSql(translation, this.lastSqlFile);
         return;
       }
       case "rerunQuery":
@@ -587,10 +595,16 @@ export class WorkbenchPanel {
     const selected = editor && !editor.selection.isEmpty ? document.getText(editor.selection) : undefined;
     const sql = selected?.trim() ? selected : document.getText();
     const file = vscode.workspace.asRelativePath(document.uri, false);
+    // The dialect is the file's (its first line), also when only a selection is explained.
+    const { dialect, error } = runDialect(document.getText());
+    if (error) {
+      void vscode.window.showErrorMessage(error);
+      return;
+    }
     await this.recordQuery("explain", sql, file, async () => {
-      const plan = await this.runtimeManager.explainQuery(sql, selected ? `${file} (selection)` : file);
+      const plan = await this.runtimeManager.explainQuery(sql, selected ? `${file} (selection)` : file, dialect);
       return { status: "success", elapsedMs: plan.elapsed_ms };
-    });
+    }, dialect);
     await this.refresh();
   }
 
@@ -599,12 +613,12 @@ export class WorkbenchPanel {
     if (!entry) return;
     await this.recordQuery(entry.kind, entry.sql, entry.file, async () => {
       if (entry.kind === "explain") {
-        const plan = await this.runtimeManager.explainQuery(entry.sql, entry.file);
+        const plan = await this.runtimeManager.explainQuery(entry.sql, entry.file, entry.dialect);
         return { status: "success", elapsedMs: plan.elapsed_ms };
       }
-      const run = await this.runtimeManager.runSql(entry.sql);
+      const run = await this.runtimeManager.runSql(entry.sql, entry.dialect);
       return { status: run.status, elapsedMs: run.elapsed_ms, rows: run.result?.rows.length, error: run.error?.message };
-    });
+    }, entry.dialect);
     await this.refresh();
   }
 
@@ -626,7 +640,8 @@ export class WorkbenchPanel {
     kind: QueryHistoryEntry["kind"],
     sql: string,
     file: string | undefined,
-    action: () => Promise<{ status: "success" | "error"; elapsedMs: number; rows?: number; error?: string }>
+    action: () => Promise<{ status: "success" | "error"; elapsedMs: number; rows?: number; error?: string }>,
+    dialect?: TranslatedDialectId
   ): Promise<void> {
     let outcome: { status: "success" | "error"; elapsedMs: number; rows?: number; error?: string };
     try {
@@ -642,6 +657,7 @@ export class WorkbenchPanel {
       kind,
       file,
       sql,
+      ...(dialect ? { dialect } : {}),
       ...outcome
     };
     await this.context.workspaceState.update(QUERY_HISTORY_KEY, addQueryHistory(this.queryHistory(), entry));
@@ -748,15 +764,22 @@ export class WorkbenchPanel {
   private async runActiveSql(): Promise<void> {
     const document = await activeSavedDocument(".sql", "SQL", this.lastDocuments.get(".sql"));
     if (!document) return;
+    // `-- dialect: <name>` on the first line: the runtime translates the file to DuckDB (the SQL: status bar item).
+    const { dialect, error } = runDialect(document.getText());
+    if (error) {
+      void vscode.window.showErrorMessage(error);
+      return;
+    }
+    this.lastSqlFile = vscode.workspace.asRelativePath(document.uri, false);
 
     await this.recordQuery("run", document.getText(), vscode.workspace.asRelativePath(document.uri, false), async () => {
       try {
-        const run = await this.runtimeManager.runSql(document.getText());
+        const run = await this.runtimeManager.runSql(document.getText(), dialect);
         return { status: run.status, elapsedMs: run.elapsed_ms, rows: run.result?.rows.length, error: run.error?.message };
       } catch (error) {
         throw new Error(`SQL execution failed: ${error instanceof Error ? error.message : String(error)}`);
       }
-    });
+    }, dialect);
     await this.refresh();
   }
 

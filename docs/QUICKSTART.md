@@ -180,6 +180,18 @@ Three tools help you explore and tune, all real DuckDB on your local catalog:
 - **Explain active SQL** runs `EXPLAIN ANALYZE` on the active SQL file, or only on its selection. The query runs once, and the plan shows each operator with its rows and time. Read it from the scans at the bottom up to the result; **Open in editor** shows it full width in a read-only tab.
 - **Query history** in the SQL block keeps your last 30 runs and plans in this workspace (VS Code workspace state, not a project file), with **Run again** and **Open file**.
 
+### SQL dialects: write T-SQL, Snowflake, BigQuery, Spark SQL or PostgreSQL
+
+A `.sql` file can be written in another dialect, like choosing a notebook's kernel. The status bar shows
+**SQL: DuckDB ▾** on SQL files: pick T-SQL, Snowflake, BigQuery, Spark SQL (ANSI) or PostgreSQL and it writes the first
+line `-- dialect: tsql` (DuckDB removes the line). **Run active SQL** and **Explain active SQL** then translate the file
+to DuckDB and run the translation on the local catalog. Mosaic shows the translated SQL next to the result, the rules
+that kept the dialect's result (for example "Integer / integer is an integer division that truncates, as in T-SQL"),
+and the label **"T-SQL dialect translated to DuckDB, not SQL Server"**: it is not the real engine and nothing connects
+to one. Each dialect accepts a documented subset (`runtime/sqldialects/README.md`); anything outside it is refused by
+name, for example `PATINDEX is not in the supported T-SQL subset`. **Open translated SQL** shows the DuckDB SQL in a
+read-only tab.
+
 Open the SQL and Python scratch files and compare:
 
 - DuckDB SQL transformations;

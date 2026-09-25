@@ -1,0 +1,88 @@
+{
+  "id": "merge-conflict",
+  "version": "1",
+  "lab": "terminal",
+  "title": "Merge the EUR branch through its conflict",
+  "level": "intermediate",
+  "estimate": "25-35 min",
+  "skills": ["git switch", "git merge --no-ff", "resolving a conflict", "git log --graph", "deleting a merged branch"],
+  "ticket": {
+    "from": "Sam Rivera, data platform lead",
+    "subject": "Please merge feature/eur-reporting into main",
+    "body": [
+      "Priya's `feature/eur-reporting` switches the reports to EUR and is approved. Meanwhile main moved on: the",
+      "pipeline now runs in Paris time. Git will stop on a conflict in `config/settings.yml`.",
+      "",
+      "- Merge `feature/eur-reporting` into `main` **with a merge commit** (we keep the feature's history visible:",
+      "  no squash, no rebase);",
+      "- resolve the conflict keeping both changes: Paris time from main, EUR from the feature. Nothing else in the",
+      "  file changes, and no conflict marker is left behind;",
+      "- delete the branch once it is merged;",
+      "- finish on main with a clean tree."
+    ]
+  },
+  "acceptance": [
+    {
+      "id": "merged",
+      "text": "main has a merge commit that brings in the feature's commit.",
+      "checks": [
+        {"kind": "git_log", "ref": "main", "min_merges": 1,
+         "includes_subjects": ["feat: report amounts in EUR", "fix: run the pipeline in Paris time", "docs: explain the schedule"]}
+      ]
+    },
+    {
+      "id": "resolved",
+      "text": "config/settings.yml on main keeps Paris time and EUR, with no conflict marker; the feature's code is in.",
+      "checks": [
+        {"kind": "git_file", "ref": "main", "path": "config/settings.yml", "no_conflict_markers": true,
+         "contains": ["pipeline: nightly-sales", "timezone: Europe/Paris", "currency: EUR", "retries: 3"],
+         "not_contains": ["timezone: UTC", "currency: USD"]},
+        {"kind": "git_file", "ref": "main", "path": "src/report.py", "contains": ["def format_amount", "def format_eur"]}
+      ]
+    },
+    {
+      "id": "branch-deleted",
+      "text": "feature/eur-reporting is deleted.",
+      "checks": [{"kind": "git_branch", "name": "feature/eur-reporting", "exists": false}]
+    },
+    {
+      "id": "clean",
+      "text": "You are on main, nothing in progress, the tree is clean.",
+      "checks": [{"kind": "git_repo", "branch": "main", "clean": true, "in_progress": false}]
+    }
+  ],
+  "hints": [
+    "`git log --oneline --graph --all` shows both branches and where they split. `git merge --no-ff feature/eur-reporting` from main always makes a merge commit.",
+    "On a conflict, `git status` lists the files to fix. Edit `config/settings.yml`: keep the lines you want and remove the `<<<<<<<`, `=======` and `>>>>>>>` markers.",
+    "Then `git add config/settings.yml` and `git commit` (Git has prepared the merge message). `git merge --abort` starts the merge over if you are lost.",
+    "`git branch -d feature/eur-reporting` deletes a branch that is merged (`-d` refuses otherwise, which is a useful safety)."
+  ],
+  "fixture": {
+    "git": {
+      "author": "Priya Nair <priya.nair@example.com>",
+      "steps": [
+        {"commit": {"message": "chore: nightly sales pipeline config", "files": {
+          "config/settings.yml": ["pipeline: nightly-sales", "schedule: \"0 2 * * *\"", "timezone: UTC", "currency: USD", "retries: 3"],
+          "src/report.py": ["def format_amount(value: float) -> str:", "    return f\"{value:,.2f}\""],
+          "README.md": ["# Nightly sales pipeline", "", "Builds the sales report every night."]
+        }}},
+        {"branch": "feature/eur-reporting"},
+        {"switch": "feature/eur-reporting"},
+        {"commit": {"message": "feat: report amounts in EUR", "files": {
+          "config/settings.yml": ["pipeline: nightly-sales", "schedule: \"0 2 * * *\"", "timezone: UTC", "currency: EUR", "retries: 3"],
+          "src/report.py": ["def format_amount(value: float) -> str:", "    return f\"{value:,.2f}\"", "", "", "def format_eur(value: float) -> str:", "    return f\"{format_amount(value)} EUR\""]
+        }}},
+        {"switch": "main"},
+        {"commit": {"message": "fix: run the pipeline in Paris time", "files": {
+          "config/settings.yml": ["pipeline: nightly-sales", "schedule: \"0 2 * * *\"", "timezone: Europe/Paris", "currency: USD", "retries: 3"]
+        }}},
+        {"commit": {"message": "docs: explain the schedule", "files": {
+          "README.md": ["# Nightly sales pipeline", "", "Builds the sales report every night at 02:00, Paris time."]
+        }}}
+      ]
+    }
+  },
+  "reference": [
+    {"bash": "solution/solve.sh"}
+  ]
+}

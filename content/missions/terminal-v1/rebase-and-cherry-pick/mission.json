@@ -1,0 +1,108 @@
+{
+  "id": "rebase-and-cherry-pick",
+  "version": "1",
+  "lab": "terminal",
+  "title": "Rebase the batch API branch, and ship its fix in 1.2",
+  "level": "advanced",
+  "estimate": "40-50 min",
+  "skills": ["git rebase", "interactive rebase: drop", "linear history", "git cherry-pick -x", "reading git log --graph"],
+  "ticket": {
+    "from": "Sam Rivera, data platform lead",
+    "subject": "Before review: rebase feature/batch-api, and backport its fix",
+    "body": [
+      "Tomás's `feature/batch-api` branched from an old main and carries a debugging commit that must not reach review.",
+      "",
+      "- Rebase `feature/batch-api` onto the current `main`, **dropping** the commit `WIP debug prints`, so the branch",
+      "  is `main` plus the two real commits, in their order, with a linear history (no merge commit).",
+      "- The fix `fix: reject empty batches` must also ship in release 1.2: cherry-pick it onto `release/1.2`,",
+      "  recording where it came from (`-x`). Nothing else from the feature goes into the release.",
+      "- `main` itself does not change.",
+      "- Leave nothing in progress and a clean tree (any branch)."
+    ]
+  },
+  "acceptance": [
+    {
+      "id": "rebased",
+      "text": "feature/batch-api is main plus its two real commits, in order, with no merge commit.",
+      "checks": [
+        {"kind": "git_log", "ref": "feature/batch-api", "since": "main", "ancestors": ["main"], "linear": true,
+         "subjects": ["fix: reject empty batches", "feat: accept batch payloads"]}
+      ]
+    },
+    {
+      "id": "no-wip",
+      "text": "The debugging commit is gone from the branch.",
+      "checks": [
+        {"kind": "git_file", "ref": "feature/batch-api", "path": "src/debug_dump.py", "exists": false},
+        {"kind": "git_log", "ref": "feature/batch-api", "excludes_subjects": ["WIP debug prints"]}
+      ]
+    },
+    {
+      "id": "backported",
+      "text": "release/1.2 has the fix, cherry-picked with -x, and nothing else from the feature or main.",
+      "checks": [
+        {"kind": "git_log", "ref": "release/1.2", "includes_subjects": ["fix: reject empty batches", "chore: prepare release 1.2"],
+         "excludes_subjects": ["feat: accept batch payloads", "WIP debug prints", "feat: add a retry policy", "docs: document the retry policy"],
+         "bodies": {"fix: reject empty batches": ["(cherry picked from commit "]}},
+        {"kind": "git_file", "ref": "release/1.2", "path": "src/validate.py", "contains": ["def reject_empty"]}
+      ]
+    },
+    {
+      "id": "main-untouched",
+      "text": "main is as it was.",
+      "checks": [
+        {"kind": "git_log", "ref": "main", "subjects": ["docs: document the retry policy", "feat: add a retry policy", "chore: scaffold the ingest service"]}
+      ]
+    },
+    {
+      "id": "clean",
+      "text": "Nothing is in progress and the tree is clean.",
+      "checks": [{"kind": "git_repo", "clean": true, "in_progress": false}]
+    }
+  ],
+  "hints": [
+    "`git log --oneline --graph --all` first: see where feature/batch-api starts and what main gained since.",
+    "`git rebase -i main` (from the feature branch) opens the list of the branch's commits: change `pick` to `drop` on the WIP line, save and close. Git replays the others on top of main.",
+    "Lost in a rebase? `git rebase --abort` goes back to where you started. `git status` always tells you what is in progress.",
+    "`git cherry-pick -x <commit>` from release/1.2 copies one commit and writes \"(cherry picked from commit …)\" in its message. The rebased fix is the tip of feature/batch-api, so `git cherry-pick -x feature/batch-api` picks exactly it."
+  ],
+  "fixture": {
+    "git": {
+      "author": "Tomás Ortega <tomas.ortega@example.com>",
+      "steps": [
+        {"commit": {"message": "chore: scaffold the ingest service", "files": {
+          "src/ingest.py": ["def ingest(payload: dict) -> dict:", "    return {\"rows\": 1, \"payload\": payload}"],
+          "CHANGELOG.md": ["# Changelog"],
+          "README.md": ["# Ingest service", "", "Receives the partner payloads."]
+        }}},
+        {"branch": "release/1.2"},
+        {"branch": "feature/batch-api"},
+        {"commit": {"message": "feat: add a retry policy", "files": {
+          "src/retry.py": ["RETRIES = 3", "BACKOFF_SECONDS = 10"]
+        }}},
+        {"switch": "release/1.2"},
+        {"commit": {"message": "chore: prepare release 1.2", "files": {
+          "CHANGELOG.md": ["# Changelog", "", "## 1.2", "", "- First release candidate."]
+        }}},
+        {"switch": "feature/batch-api"},
+        {"commit": {"message": "feat: accept batch payloads", "files": {
+          "src/ingest.py": ["def ingest(payload: dict) -> dict:", "    return {\"rows\": 1, \"payload\": payload}", "", "", "def ingest_batch(payloads: list[dict]) -> list[dict]:", "    return [ingest(p) for p in payloads]"]
+        }}},
+        {"commit": {"message": "WIP debug prints", "files": {
+          "src/debug_dump.py": ["import json", "", "", "def dump(payload):", "    print(\"DEBUG\", json.dumps(payload))"]
+        }}},
+        {"commit": {"message": "fix: reject empty batches", "files": {
+          "src/validate.py": ["def reject_empty(payloads: list[dict]) -> None:", "    if not payloads:", "        raise ValueError(\"empty batch\")"]
+        }}},
+        {"switch": "main"},
+        {"commit": {"message": "docs: document the retry policy", "files": {
+          "README.md": ["# Ingest service", "", "Receives the partner payloads. Failed calls are retried 3 times, 10 s apart."]
+        }}},
+        {"switch": "feature/batch-api"}
+      ]
+    }
+  },
+  "reference": [
+    {"bash": "solution/solve.sh"}
+  ]
+}

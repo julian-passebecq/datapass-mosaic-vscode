@@ -1,0 +1,247 @@
+{
+  "id": "reflog-rescue",
+  "version": "1",
+  "lab": "terminal",
+  "title": "Rescue a deleted branch, a reset commit and a stash",
+  "level": "advanced",
+  "estimate": "40-50 min",
+  "skills": [
+    "git reflog",
+    "recreating a branch",
+    "undoing reset --hard",
+    "git stash list / pop",
+    "reading history"
+  ],
+  "ticket": {
+    "from": "Priya Nair, data operations",
+    "subject": "I think I destroyed two days of work, please help",
+    "body": [
+      "I was cleaning up the repository last night and I went too far:",
+      "",
+      "1. I deleted `feature/quarterly-report` with `git branch -D`. It had two commits that were never pushed.",
+      "2. Then I ran `git reset --hard HEAD~1` on main to undo something, and the runbook commit",
+      "   (`docs: add the on-call runbook`) disappeared with it.",
+      "3. Before all that I had stashed a change to `config.yml` (retries from 3 to 5).",
+      "",
+      "Please:",
+      "",
+      "- bring back `feature/quarterly-report` exactly as it was (its two commits, same content);",
+      "- put the runbook commit back on main;",
+      "- apply my stashed change and commit it on main as `chore: raise retries to 5`, and leave the stash empty;",
+      "- nothing else: main is the four commits (the initial import, the nightly job, the runbook, the retries), linear.",
+      "",
+      "Git keeps a journal of where HEAD has been. I hope it is in there."
+    ]
+  },
+  "acceptance": [
+    {
+      "id": "branch-back",
+      "text": "feature/quarterly-report is back with its two commits.",
+      "checks": [
+        {
+          "kind": "git_log",
+          "ref": "feature/quarterly-report",
+          "subjects": [
+            "test: quarterly totals",
+            "feat: quarterly revenue query",
+            "feat: add the nightly job",
+            "chore: initial import"
+          ]
+        },
+        {
+          "kind": "git_file",
+          "ref": "feature/quarterly-report",
+          "path": "sql/quarterly.sql",
+          "contains": [
+            "date_trunc('quarter'"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "runbook-back",
+      "text": "The runbook commit is back on main.",
+      "checks": [
+        {
+          "kind": "git_log",
+          "ref": "main",
+          "includes_subjects": [
+            "docs: add the on-call runbook"
+          ]
+        },
+        {
+          "kind": "git_file",
+          "ref": "main",
+          "path": "docs/runbook.md",
+          "contains": [
+            "Who to call"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "stash-applied",
+      "text": "The stashed change is committed on main as \"chore: raise retries to 5\", and the stash is empty.",
+      "checks": [
+        {
+          "kind": "git_log",
+          "ref": "main",
+          "includes_subjects": [
+            "chore: raise retries to 5"
+          ]
+        },
+        {
+          "kind": "git_file",
+          "ref": "main",
+          "path": "config.yml",
+          "contains": [
+            "retries: 5",
+            "timeout_s: 60"
+          ]
+        },
+        {
+          "kind": "git_stash",
+          "count": 0
+        }
+      ]
+    },
+    {
+      "id": "main-history",
+      "text": "main is exactly the four commits, linear; the report branch is not merged into it.",
+      "checks": [
+        {
+          "kind": "git_log",
+          "ref": "main",
+          "min_count": 4,
+          "max_count": 4,
+          "linear": true,
+          "excludes_subjects": [
+            "feat: quarterly revenue query",
+            "test: quarterly totals"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "clean",
+      "text": "Nothing is in progress and the tree is clean.",
+      "checks": [
+        {
+          "kind": "git_repo",
+          "clean": true,
+          "in_progress": false
+        }
+      ]
+    }
+  ],
+  "hints": [
+    "`git reflog` lists every position HEAD had, newest first: commits, checkouts, the reset. The commits of a deleted branch are still there as long as the reflog points at them.",
+    "`git branch <name> <commit>` creates a branch at any commit, including one only the reflog still knows (`HEAD@{5}` or its hash).",
+    "`git reset --hard <commit>` moves main back to a commit the reflog shows, which undoes a reset. `HEAD@{n}` names the n-th entry, but read the list first: the stash left an entry of its own. Check with `git log --oneline`.",
+    "`git stash list` shows the stash; `git stash pop` applies the newest entry and drops it, `git stash apply` keeps it. Then commit the change."
+  ],
+  "fixture": {
+    "git": {
+      "author": "Priya Nair <priya.nair@example.com>",
+      "steps": [
+        {
+          "commit": {
+            "message": "chore: initial import",
+            "files": {
+              "README.md": [
+                "# Sales jobs",
+                "",
+                "Nightly jobs of the sales warehouse."
+              ],
+              "config.yml": [
+                "retries: 3",
+                "timeout_s: 60"
+              ]
+            }
+          }
+        },
+        {
+          "commit": {
+            "message": "feat: add the nightly job",
+            "files": {
+              "jobs/nightly.sh": [
+                "#!/usr/bin/env bash",
+                "set -euo pipefail",
+                "echo \"nightly load\""
+              ]
+            }
+          }
+        },
+        {
+          "branch": "feature/quarterly-report"
+        },
+        {
+          "switch": "feature/quarterly-report"
+        },
+        {
+          "commit": {
+            "message": "feat: quarterly revenue query",
+            "files": {
+              "sql/quarterly.sql": [
+                "select date_trunc('quarter', order_day) as quarter, sum(amount) as revenue",
+                "from sales",
+                "group by 1",
+                "order by 1"
+              ]
+            }
+          }
+        },
+        {
+          "commit": {
+            "message": "test: quarterly totals",
+            "files": {
+              "tests/quarterly_totals.sql": [
+                "-- The quarters add up to the year.",
+                "select 1 where false"
+              ]
+            }
+          }
+        },
+        {
+          "switch": "main"
+        },
+        {
+          "commit": {
+            "message": "docs: add the on-call runbook",
+            "files": {
+              "docs/runbook.md": [
+                "# On-call runbook",
+                "",
+                "## Who to call",
+                "",
+                "Data platform on-call, then Sam Rivera."
+              ]
+            }
+          }
+        },
+        {
+          "delete_branch": "feature/quarterly-report"
+        },
+        {
+          "reset_hard": "HEAD~1"
+        },
+        {
+          "stash": {
+            "message": "tune retries before the weekend",
+            "files": {
+              "config.yml": [
+                "retries: 5",
+                "timeout_s: 60"
+              ]
+            }
+          }
+        }
+      ]
+    }
+  },
+  "reference": [
+    {
+      "bash": "solution/solve.sh"
+    }
+  ]
+}

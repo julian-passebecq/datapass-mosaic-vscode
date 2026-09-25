@@ -1,0 +1,2 @@
+2026-09-22T01:12:48Z ERROR ingest E1007 batch 312 duplicate key order_id=88121
+2026-09-22T06:30:00Z INFO  ingest rerun of batch 312 ok

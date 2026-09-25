@@ -1,19 +1,23 @@
-"""Bounded T-SQL reader: split scripts, read the statements the lab supports, translate a subset to DuckDB SQL.
+"""Bounded T-SQL reader for the SQL pool: split scripts, read the Synapse-specific statements, translate the rest.
 
-Nothing here executes SQL. Scripts are split on `;` and on `GO` lines (a stored
-procedure takes its whole batch). Expressions are translated token by token:
-[brackets] and "quotes" become DuckDB identifiers, N'...' strings become plain
-strings, dbo maps to the lab's warehouse schema, and a documented set of
-functions and types is rewritten (ISNULL, LEN, GETDATE, CONVERT, DATEADD,
-DATEDIFF, DATEPART, CHARINDEX, IIF, EOMONTH, COUNT_BIG, TOP, OPTION hints).
-String concatenation with + is not translated: use CONCAT.
+Nothing here executes SQL. Scripts are split on `;` and on `GO` lines (a stored procedure takes its whole batch).
+What only a dedicated SQL pool or a Fabric Warehouse has stays here: table options (DISTRIBUTION, CLUSTERED
+COLUMNSTORE INDEX, HEAP, PARTITION, CLUSTER BY), column types of CREATE TABLE, names in the lab's schemas (dbo is the
+warehouse layer), literals of partition boundaries. Every query, DML statement and expression is translated by the
+shared T-SQL dialect (runtime/sqldialects), with this module's hooks for DECLARE/SET variables, the lab's fixed clock
+and dbo.
 """
 from __future__ import annotations
 
 import re
 from dataclasses import dataclass, field
-from datetime import datetime
+from datetime import date, datetime
+from decimal import Decimal
 from typing import Any
+
+from sqlglot import exp
+from sqldialects import DialectError, translate, translate_expression
+from sqldialects.tsql import duckdb_type
 
 from .model import Partitioning, PoolError
 
@@ -245,13 +249,6 @@ def lab_name(parts: list[str], what: str = 'table', line: int | None = None) -> 
 
 
 # -- types -------------------------------------------------------------------------------------------
-_TYPES = {
-    'bigint': 'BIGINT', 'int': 'INTEGER', 'integer': 'INTEGER', 'smallint': 'SMALLINT', 'tinyint': 'UTINYINT',
-    'bit': 'BOOLEAN', 'money': 'DECIMAL(19,4)', 'smallmoney': 'DECIMAL(10,4)', 'real': 'FLOAT', 'date': 'DATE',
-    'time': 'TIME', 'datetime': 'TIMESTAMP', 'datetime2': 'TIMESTAMP', 'smalldatetime': 'TIMESTAMP',
-    'datetimeoffset': 'TIMESTAMPTZ', 'char': 'VARCHAR', 'varchar': 'VARCHAR', 'nchar': 'VARCHAR',
-    'nvarchar': 'VARCHAR', 'uniqueidentifier': 'UUID', 'binary': 'BLOB', 'varbinary': 'BLOB',
-}
 # Data types a Fabric warehouse table can't use, with the type the Synapse migration maps them to.
 FABRIC_TYPE_MAP = {'money': 'decimal(19,4)', 'smallmoney': 'decimal(10,4)', 'smalldatetime': 'datetime2',
                    'datetime': 'datetime2', 'nchar': 'char', 'nvarchar': 'varchar', 'tinyint': 'smallint',
@@ -275,16 +272,10 @@ def read_type(tokens: list[Token], position: int) -> tuple[str, str, int]:
             position += 1
         args = [a.upper for a in tokens[start + 1:position] if a.text != ',']
         position += 1
-    if name in ('decimal', 'numeric'):
-        precision = int(args[0]) if args and args[0].isdigit() else 18
-        scale = int(args[1]) if len(args) > 1 and args[1].isdigit() else 0
-        duck = f"DECIMAL({min(precision, 38)},{scale})"
-    elif name == 'float':
-        duck = 'FLOAT' if args and args[0].isdigit() and int(args[0]) <= 24 else 'DOUBLE'
-    elif name in _TYPES:
-        duck = _TYPES[name]
-    else:
-        raise PoolError(f"Data type '{name}' is not simulated in the lab pool", line=tokens[position - 1].line)
+    try:
+        duck = duckdb_type(name, args)  # the shared T-SQL type table (runtime/sqldialects/tsql.py)
+    except ValueError:
+        raise PoolError(f"Data type '{name}' is not simulated in the lab pool", line=tokens[position - 1].line) from None
     shown = name + (f"({', '.join(args)})" if args else '')
     return shown, duck, position
 
@@ -389,13 +380,10 @@ def _sort_key(value: Any) -> tuple[int, Any]:
     return (0, value) if isinstance(value, (int, float)) else (1, str(value))
 
 
-# -- expression translation ----------------------------------------------------------------------------
-_DATE_PARTS = {'year': 'YEAR', 'yy': 'YEAR', 'yyyy': 'YEAR', 'quarter': 'QUARTER', 'qq': 'QUARTER', 'q': 'QUARTER',
-               'month': 'MONTH', 'mm': 'MONTH', 'm': 'MONTH', 'week': 'WEEK', 'wk': 'WEEK', 'ww': 'WEEK',
-               'day': 'DAY', 'dd': 'DAY', 'd': 'DAY', 'dayofyear': 'DOY', 'dy': 'DOY', 'y': 'DOY',
-               'hour': 'HOUR', 'hh': 'HOUR', 'minute': 'MINUTE', 'mi': 'MINUTE', 'n': 'MINUTE',
-               'second': 'SECOND', 'ss': 'SECOND', 's': 'SECOND', 'weekday': 'DOW', 'dw': 'DOW'}
-_NOW_FUNCTIONS = {'GETDATE', 'SYSDATETIME', 'GETUTCDATE', 'SYSUTCDATETIME'}
+# -- queries, statements and expressions: the shared T-SQL dialect -------------------------------------------------
+# Notes of the shared translator that the pool does not repeat on every statement.
+QUIET_NOTES = {'OPTION (...) query hints are ignored: they do not change the result'}
+STATEMENT_WORDS = {'SELECT', 'WITH', 'INSERT', 'UPDATE', 'DELETE', 'MERGE'}
 
 
 @dataclass
@@ -405,229 +393,82 @@ class Translation:
 
 
 class Translator:
-    """T-SQL expression and query text -> DuckDB SQL, for the lab's subset."""
+    """T-SQL text of a pool statement or expression -> DuckDB SQL, through the shared T-SQL dialect.
 
-    def __init__(self, variables: dict[str, Any] | None = None, now: datetime | None = None):
+    Hooks: DECLARE/SET variables become literals, GETDATE() and CURRENT_TIMESTAMP read the lab's fixed clock, dbo is
+    the warehouse schema, and unqualified names are typed as warehouse tables (the pool's search path)."""
+
+    default_schema = 'warehouse'
+
+    def __init__(self, variables: dict[str, Any] | None = None, now: datetime | None = None,
+                 schema: dict[str, Any] | None = None):
         self.variables = {k.lower(): v for k, v in (variables or {}).items()}
-        self.now = now or datetime(2026, 3, 5, 12, 0, 0)
-        self.notes: list[str] = []
+        self.clock = now or datetime(2026, 3, 5, 12, 0, 0)
+        self.schema = schema
+        self.line: int | None = None
 
     def translate(self, tokens: list[Token]) -> Translation:
         tokens = [t for t in tokens if t.kind != 'comment']
-        tokens = self._strip_option_clause(tokens)
-        tokens, limit = self._rewrite_tops(tokens)
-        out: list[str] = []
-        i = 0
-        while i < len(tokens):
-            token = tokens[i]
-            i, text = self._token(tokens, i)
-            out.append(text)
-        sql = ''.join(out).strip()
-        if limit is not None:
-            sql += f" LIMIT {limit}"
-        return Translation(sql, list(self.notes))
-
-    # -- one token (or a rewritten call) -> text; returns the next position
-    def _token(self, tokens: list[Token], i: int) -> tuple[int, str]:
-        token = tokens[i]
-        if token.kind == 'bracket' or token.kind == 'quoted':
-            name = identifier(token)
-            if self._is_schema_position(tokens, i) and name.lower() == 'dbo':
-                return i + 1, 'warehouse'
-            return i + 1, '"' + name.replace('"', '""') + '"'
-        if token.kind == 'string':
-            return i + 1, token.text[1:] if token.text[0] in 'Nn' else token.text
-        if token.kind == 'var':
-            key = token.text.lower().lstrip('@')
-            if token.text.startswith('@@'):
-                raise PoolError(f"System variable {token.text} is not simulated", line=token.line)
-            if key not in self.variables:
-                raise PoolError(f'Must declare the scalar variable "{token.text}".', line=token.line)
-            return i + 1, sql_literal(self.variables[key])
-        if token.kind != 'word':
-            return i + 1, token.text
-        upper = token.upper
-        following = _next_significant(tokens, i)
-        if upper == 'DBO' and following is not None and tokens[following].text == '.':
-            return i + 1, 'warehouse'
-        if following is not None and tokens[following].text == '(':
-            if upper == 'ISNULL':
-                return i + 1, 'COALESCE'
-            if upper == 'LEN':
-                return i + 1, 'length'
-            if upper == 'COUNT_BIG':
-                return i + 1, 'COUNT'
-            if upper == 'IIF':
-                return i + 1, 'if'
-            if upper in _NOW_FUNCTIONS:
-                end = _matching(tokens, following)
-                return end + 1, f"TIMESTAMP '{self.now.strftime('%Y-%m-%d %H:%M:%S')}'"
-            if upper in ('CONVERT', 'DATEADD', 'DATEDIFF', 'DATEPART', 'CHARINDEX', 'CAST', 'TRY_CAST', 'EOMONTH'):
-                return self._call(tokens, i, following, upper)
-        if upper == 'CURRENT_TIMESTAMP':
-            return i + 1, f"TIMESTAMP '{self.now.strftime('%Y-%m-%d %H:%M:%S')}'"
-        if upper == 'INTO' and self._select_into(tokens, i):
+        significant = [t for t in tokens if t.significant]
+        self.line = significant[0].line if significant else None
+        into = self._select_into(tokens)
+        if into is not None:
             raise PoolError("SELECT ... INTO isn't supported in a dedicated SQL pool: use CREATE TABLE AS SELECT (CTAS)",
-                            line=token.line)
-        return i + 1, token.text
+                            line=into.line)
+        text = ''.join(t.text for t in tokens).strip()
+        try:
+            if significant and significant[0].upper in STATEMENT_WORDS:
+                result = translate(text, 'tsql', mode='statement', schema=self.schema, hooks=self)
+            else:
+                result = translate_expression(text, 'tsql', schema=self.schema, hooks=self)
+        except DialectError as error:
+            raise PoolError(str(error), line=self.line) from error
+        return Translation(result.sql, [note for note in result.rewrites if note not in QUIET_NOTES])
 
-    def _call(self, tokens: list[Token], i: int, open_at: int, name: str) -> tuple[int, str]:
-        end = _matching(tokens, open_at)
-        args = split_commas([t for t in tokens[open_at + 1:end]])
-        sub = lambda part: Translator(self.variables, self.now).translate(part).sql
+    # -- hooks of the shared translator ----------------------------------------------------------------------------
+    def parameter(self, node: exp.Parameter) -> exp.Expression:
+        key = node.name.lower()
+        if key not in self.variables:
+            raise PoolError(f'Must declare the scalar variable "@{node.name}".', line=self.line)
+        value = self.variables[key]
+        if value is None:
+            return exp.Null()
+        if isinstance(value, bool):
+            return exp.Boolean(this=value)
+        if isinstance(value, (int, float, Decimal)):
+            literal = exp.Literal.number(str(abs(value)))
+            return exp.Neg(this=literal) if value < 0 else literal
+        if isinstance(value, datetime):
+            return exp.Cast(this=exp.Literal.string(value.isoformat(sep=' ')), to=exp.DataType.build('TIMESTAMP'))
+        if isinstance(value, date):
+            return exp.Cast(this=exp.Literal.string(value.isoformat()), to=exp.DataType.build('DATE'))
+        return exp.Literal.string(str(value))
 
-        def date(part: list[Token]) -> str:
-            # T-SQL converts a string literal to datetime here; DuckDB needs the cast.
-            significant = [t for t in part if t.significant]
-            if len(significant) == 1 and significant[0].kind == 'string':
-                return f"CAST({sub(part)} AS TIMESTAMP)"
-            return sub(part)
+    def now(self) -> exp.Expression:
+        return exp.Cast(this=exp.Literal.string(self.clock.strftime('%Y-%m-%d %H:%M:%S')),
+                        to=exp.DataType.build('TIMESTAMP'))
 
-        line = tokens[i].line
-        if name in ('CAST', 'TRY_CAST'):
-            inner = tokens[open_at + 1:end]
-            as_at = _last_top_level(inner, 'AS')
-            if as_at is None:
-                raise PoolError(f"{name} needs 'AS type'", line=line)
-            significant = [t for t in inner[as_at + 1:] if t.significant]
-            _, duck, _ = read_type(significant, 0)
-            return end + 1, f"{name}({sub(inner[:as_at])} AS {duck})"
-        if name == 'CONVERT':
-            if len(args) < 2:
-                raise PoolError('CONVERT(type, expression[, style]) needs a type and an expression', line=line)
-            type_tokens = [t for t in args[0] if t.significant]
-            _, duck, _ = read_type(type_tokens, 0)
-            if len(args) == 3:
-                self.notes.append('CONVERT style argument ignored: the lab converts with CAST')
-            return end + 1, f"CAST({sub(args[1])} AS {duck})"
-        if name in ('DATEADD', 'DATEDIFF', 'DATEPART'):
-            part_tokens = [t for t in args[0] if t.significant] if args else []
-            part = _DATE_PARTS.get(part_tokens[0].text.lower().strip("'")) if len(part_tokens) == 1 else None
-            if part is None:
-                raise PoolError(f"{name} needs a date part such as day, month or year", line=line)
-            if name == 'DATEADD':
-                if len(args) != 3 or part in ('DOY', 'DOW'):
-                    raise PoolError('DATEADD(part, number, date) is translated for year, quarter, month, week, day, '
-                                    'hour, minute and second', line=line)
-                amount = sub(args[1])
-                if part == 'QUARTER':
-                    return end + 1, f"({date(args[2])} + INTERVAL (3 * ({amount})) MONTH)"
-                return end + 1, f"({date(args[2])} + INTERVAL ({amount}) {part})"
-            if name == 'DATEDIFF':
-                if len(args) != 3:
-                    raise PoolError('DATEDIFF(part, start, end) takes three arguments', line=line)
-                return end + 1, f"date_diff('{part.lower()}', {date(args[1])}, {date(args[2])})"
-            if len(args) != 2:
-                raise PoolError('DATEPART(part, date) takes two arguments', line=line)
-            return end + 1, f"date_part('{part.lower()}', {date(args[1])})"
-        if name == 'EOMONTH':
-            if len(args) not in (1, 2):
-                raise PoolError('EOMONTH(date[, months]) takes one or two arguments', line=line)
-            day = f"CAST({date(args[0])} AS DATE)"
-            if len(args) == 2:
-                day = f"({day} + INTERVAL ({sub(args[1])}) MONTH)"
-            return end + 1, f"last_day({day})"
-        # CHARINDEX(substring, string) -> instr(string, substring)
-        if len(args) != 2:
-            raise PoolError('CHARINDEX(substring, string) is translated without a start position', line=line)
-        return end + 1, f"instr({sub(args[1])}, {sub(args[0])})"
+    def table(self, node: exp.Table) -> None:
+        if node.db and node.db.lower() == 'dbo':
+            node.set('db', exp.to_identifier('warehouse'))
 
     @staticmethod
-    def _is_schema_position(tokens: list[Token], i: int) -> bool:
-        following = _next_significant(tokens, i)
-        return following is not None and tokens[following].text == '.'
-
-    @staticmethod
-    def _select_into(tokens: list[Token], i: int) -> bool:
-        previous = [t for t in tokens[:i] if t.significant]
-        return any(t.upper == 'SELECT' for t in previous) and not any(t.upper in ('INSERT', 'MERGE') for t in previous)
-
-    @staticmethod
-    def _strip_option_clause(tokens: list[Token]) -> list[Token]:
-        significant = [(n, t) for n, t in enumerate(tokens) if t.significant]
-        depth = 0
-        for n, token in significant:
+    def _select_into(tokens: list[Token]) -> Token | None:
+        """The INTO of a SELECT ... INTO (not INSERT INTO or MERGE INTO), outside parentheses."""
+        seen_select, depth = False, 0
+        for token in tokens:
             if token.text == '(':
                 depth += 1
             elif token.text == ')':
                 depth -= 1
-            elif depth == 0 and token.upper == 'OPTION':
-                following = _next_significant(tokens, n)
-                if following is not None and tokens[following].text == '(':
-                    return tokens[:n]
-        return tokens
-
-    def _rewrite_tops(self, tokens: list[Token]) -> tuple[list[Token], str | None]:
-        """SELECT [DISTINCT] TOP n ... becomes ... LIMIT n: at the end of the statement for a top-level
-        SELECT, before the closing parenthesis for a subquery or a CTE. Returns the top-level limit."""
-        tokens = list(tokens)
-        limit: str | None = None
-        inserts: list[tuple[int, str]] = []
-        opened: list[int] = []
-        for n, token in enumerate(tokens):
-            if not token.significant:
-                continue
-            if token.text == '(':
-                opened.append(n)
-            elif token.text == ')':
-                if opened:
-                    opened.pop()
-            elif token.upper == 'SELECT':
-                top = self._top_clause(tokens, n)
-                if top is None:
-                    continue
-                value, first, last = top
-                for k in range(first, last + 1):
-                    tokens[k] = Token('ws', ' ', tokens[k].line)
-                if opened:
-                    inserts.append((_matching(tokens, opened[-1]), value))
-                elif limit is None:
-                    limit = value
-                else:
-                    raise PoolError('Only one top-level SELECT TOP is translated per statement', line=token.line)
-        for close, value in sorted(inserts, reverse=True):
-            tokens.insert(close, Token('word', f' LIMIT {value} ', tokens[close].line))
-        return tokens, limit
-
-    def _top_clause(self, tokens: list[Token], select_at: int) -> tuple[str, int, int] | None:
-        """The TOP n after a SELECT [DISTINCT | ALL]: (n, first token, last token), or None."""
-        top_at = _next_significant(tokens, select_at)
-        if top_at is not None and tokens[top_at].upper in ('DISTINCT', 'ALL'):
-            top_at = _next_significant(tokens, top_at)
-        if top_at is None or tokens[top_at].upper != 'TOP':
-            return None
-        value_at = _next_significant(tokens, top_at)
-        if value_at is None:
-            raise PoolError('TOP needs a number', line=tokens[top_at].line)
-        if tokens[value_at].text == '(':
-            last = _matching(tokens, value_at)
-            inner = [t for t in tokens[value_at + 1:last] if t.significant]
-        else:
-            last, inner = value_at, [tokens[value_at]]
-        if len(inner) == 1 and inner[0].kind == 'var' and not inner[0].text.startswith('@@'):
-            key = inner[0].text[1:].lower()
-            if key not in self.variables:
-                raise PoolError(f'Must declare the scalar variable "{inner[0].text}".', line=inner[0].line)
-            value = str(self.variables[key])
-        else:
-            value = ''.join(t.text for t in inner)
-        if not re.fullmatch(r'\d+', value):
-            raise PoolError('TOP needs a whole number (or a variable holding one)', line=tokens[top_at].line)
-        after = _next_significant(tokens, last)
-        if after is not None and tokens[after].upper == 'PERCENT':
-            raise PoolError('TOP ... PERCENT is not translated', line=tokens[top_at].line)
-        if after is not None and tokens[after].upper == 'WITH':
-            tie = _next_significant(tokens, after)
-            if tie is not None and tokens[tie].upper == 'TIES':
-                raise PoolError('TOP ... WITH TIES is not translated', line=tokens[top_at].line)
-        return value, top_at, last
-
-
-def _next_significant(tokens: list[Token], i: int) -> int | None:
-    for k in range(i + 1, len(tokens)):
-        if tokens[k].significant:
-            return k
-    return None
+            elif token.kind == 'word' and depth == 0:
+                if token.upper in ('INSERT', 'MERGE'):
+                    return None
+                if token.upper == 'SELECT':
+                    seen_select = True
+                elif token.upper == 'INTO' and seen_select:
+                    return token
+        return None
 
 
 def _matching(tokens: list[Token], open_at: int) -> int:
@@ -640,18 +481,6 @@ def _matching(tokens: list[Token], open_at: int) -> int:
             if depth == 0:
                 return k
     raise PoolError("Missing ')'", line=tokens[open_at].line)
-
-
-def _last_top_level(tokens: list[Token], word: str) -> int | None:
-    depth, found = 0, None
-    for k, token in enumerate(tokens):
-        if token.text == '(':
-            depth += 1
-        elif token.text == ')':
-            depth -= 1
-        elif depth == 0 and token.upper == word:
-            found = k
-    return found
 
 
 def sql_literal(value: Any) -> str:

@@ -42,6 +42,10 @@ class CatalogDatabase:
             'SELECT column_name, data_type FROM information_schema.columns WHERE table_catalog = current_database() '
             'AND table_schema = ? AND lower(table_name) = ? ORDER BY ordinal_position', [schema, table]).fetchall()]
 
+    def schema_types(self) -> dict[str, dict[str, dict[str, str]]]:
+        from .sql_dialects import catalog_types
+        return catalog_types(self.catalog)
+
     def count(self, name: str) -> int:
         if not ASSET.fullmatch(name):
             raise ValueError(f"Not a lab table: {name}")

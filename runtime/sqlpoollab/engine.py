@@ -48,6 +48,7 @@ class Database(Protocol):
     def serialize(self, select_sql: str) -> dict[str, Any]: ...
     def rename(self, old: str, new: str) -> None: ...
     def session(self) -> ContextManager[None]: ...  # unqualified names resolve to the warehouse schema
+    def schema_types(self) -> dict[str, dict[str, dict[str, str]]]: ...  # {schema: {table: {column: type}}}
 
 
 @dataclass
@@ -178,7 +179,8 @@ class SqlPool:
 
     # -- helpers ------------------------------------------------------------------------------------
     def _translator(self) -> Translator:
-        return Translator(self.variables, self.now)
+        # The tables' types as they are now: the script may have created some since the last statement.
+        return Translator(self.variables, self.now, self.db.schema_types())
 
     def _design(self, name: str) -> TableDesign:
         if not self.db.exists(name):

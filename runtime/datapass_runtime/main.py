@@ -11,8 +11,10 @@ from fastapi.responses import JSONResponse
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
 from airflowlab.lab import lab_view
+from sqldialects import dialects as sql_dialect_list
 from missionlab.check import evaluate as evaluate_mission, fixture_statements, sql_queries as mission_queries
 from missionlab.model import find_mission
+from missionlab.terminal import FixtureError, build_fixture
 
 from .auth import RuntimeAuthMiddleware
 from .catalog_lease import CatalogLease, CatalogLocked, CatalogReleased, is_lock_error
@@ -265,10 +267,11 @@ class CatalogReleaseRequest(BaseModel):
 
 
 class MissionSetupRequest(BaseModel):
-    """Missions: load one fixture batch of a shipped mission (the SQL comes from the content, not the request)."""
+    """Missions: load one fixture batch of a dbt Lab mission, or (re)build a Terminal Lab mission's folder. The SQL,
+    files and Git history come from the shipped content, never from the request."""
     model_config = ConfigDict(extra="forbid", strict=True)
     mission_id: str = Field(pattern=r"^[a-z0-9][a-z0-9-]{0,47}$")
-    batch_id: str = Field(pattern=r"^[a-z0-9-]{1,40}$")
+    batch_id: str | None = Field(default=None, pattern=r"^[a-z0-9-]{1,40}$")
 
 
 class MissionCheckRequest(BaseModel):
@@ -332,9 +335,13 @@ class TableProfileRequest(BaseModel):
     asset: str = Field(pattern=r"^(source|bronze|silver|gold|warehouse|features|metrics)\.[A-Za-z][A-Za-z0-9_]{0,62}$")
 
 
+SqlDialect = Literal["tsql", "snowflake", "bigquery", "spark", "postgres"]
+
+
 class ExplainRequest(BaseModel):
     model_config = ConfigDict(extra="forbid", strict=True)
     query: str = Field(min_length=1, max_length=40000)
+    dialect: SqlDialect | None = None
 
 
 class ProjectCheckRequest(BaseModel):
@@ -354,6 +361,14 @@ class LocalExecuteRequest(BaseModel):
     output_asset: str | None = Field(default=None, max_length=100)
     profile: str = Field(default="generic_8x8", max_length=80)
     aqe: bool = True
+    # SQL written in another dialect, translated to DuckDB (runtime/sqldialects): Mosaic's `-- dialect:` header.
+    dialect: SqlDialect | None = None
+
+    @model_validator(mode="after")
+    def dialect_is_sql(self) -> "LocalExecuteRequest":
+        if self.dialect is not None and (self.language != "sql" or self.output_asset is not None):
+            raise ValueError("A SQL dialect applies to SQL runs without an output asset.")
+        return self
 
 
 @app.get("/api/health")
@@ -378,6 +393,7 @@ def capabilities() -> dict[str, object]:
             "file_import": "new bronze tables only; Parquet (types from the file) or JSON (read_json_auto types) up to 10 MB / 100,000 rows; never overwrites",
             "profile": "DuckDB SUMMARIZE of a catalog table",
             "explain": "DuckDB EXPLAIN ANALYZE of one read-only query (it runs once)",
+            "sql_dialects": sql_dialect_list(),
         },
         "practice": {"mode": "local-tests", "editors": "vscode-native"},
         "fabric_lab": {"mode": "simulation", "notebook": "fabric-inspired", "lakehouse": "duckdb-ducklake", "kernel": "sparklab", "cloud_connection": False},
@@ -426,9 +442,12 @@ def capabilities() -> dict[str, object]:
             "manual_steps": "declared by the learner, never marked verified",
         },
         "missions": {
-            "labs": ["dbt"],
-            "work": "real tools on a real project folder (missions/<id>/): dbt Core, dbt Charts, an Airflow DAG file",
-            "checker": "read-only SQL on the catalog, the learner's dbt artifacts and files, dct validate, the Airflow simulator",
+            "labs": ["dbt", "terminal"],
+            "work": "real tools on a real project folder (missions/<id>/): dbt Core, dbt Charts, an Airflow DAG file; "
+                    "the learner's own bash, PowerShell and Git commands in a VS Code terminal",
+            "checker": "read-only SQL on the catalog, the learner's dbt artifacts and files, dct validate, the Airflow "
+                       "simulator; for the Terminal Lab the resulting files and Git repository (read-only git), never "
+                       "the learner's commands or scripts",
         },
         "pipeline_lab": {
             "mode": "hybrid",
@@ -506,8 +525,17 @@ def _mission(mission_id: str):
 
 @app.post("/api/local/missions/setup")
 def mission_setup(body: MissionSetupRequest) -> dict[str, object]:
-    """Load a mission's fixture batch into the catalog. The first batch starts the mission over."""
+    """Load a mission's fixture batch into the catalog (the first batch starts the mission over), or build a Terminal
+    Lab mission's folder from the pack (an existing folder is moved to .datapass/missions/attic/, never deleted)."""
     mission, pack_dir = _mission(body.mission_id)
+    if mission.lab == "terminal":
+        try:
+            built = build_fixture(mission, pack_dir, workspace_root())
+        except FixtureError as error:
+            raise HTTPException(status_code=409, detail=str(error)) from error
+        return {"mission_id": mission.id, "batch_id": None, **built}
+    if body.batch_id is None:
+        raise HTTPException(status_code=400, detail=f"Mission {mission.id} needs a batch id.")
     try:
         statements = fixture_statements(mission, pack_dir, body.batch_id)
     except ValueError as error:
@@ -518,7 +546,8 @@ def mission_setup(body: MissionSetupRequest) -> dict[str, object]:
 
 @app.post("/api/local/missions/check")
 def mission_check(body: MissionCheckRequest) -> dict[str, object]:
-    """The hidden checker: read-only SQL on the catalog, the learner's dbt artifacts and files, dct, Airflow."""
+    """The hidden checker: read-only SQL on the catalog, the learner's dbt artifacts and files, dct, Airflow; for the
+    Terminal Lab, the mission folder's files and Git repository (no catalog query)."""
     mission, _pack_dir = _mission(body.mission_id)
     queries = mission_queries(mission)
     results = native_command({"op": "mission_sql", "queries": queries}) if queries else []
@@ -562,7 +591,7 @@ def local_profile(body: TableProfileRequest) -> object:
 def local_explain(body: ExplainRequest) -> object:
     """EXPLAIN ANALYZE of one read-only query: it runs once on the local catalog."""
     try:
-        return native_command({"op": "explain_query", "query": body.query})
+        return native_command({"op": "explain_query", "query": body.query, "dialect": body.dialect})
     except ValueError as error:
         raise HTTPException(status_code=400, detail=str(error)) from error
 
@@ -590,7 +619,7 @@ def local_exercise(body: ExerciseGradeRequest) -> object:
 
 @app.post("/api/local/execute")
 def local_execute(body: LocalExecuteRequest) -> object:
-    return record_run("execute", body.model_dump(include={"language", "profile", "aqe"}), native_command({
+    return record_run("execute", body.model_dump(include={"language", "profile", "aqe", "dialect"}), native_command({
         "op": "execute",
         "language": body.language,
         "code": body.code,
@@ -599,6 +628,7 @@ def local_execute(body: LocalExecuteRequest) -> object:
         "output_asset": body.output_asset,
         "profile": body.profile,
         "aqe": body.aqe,
+        "dialect": body.dialect,
     }))
 
 

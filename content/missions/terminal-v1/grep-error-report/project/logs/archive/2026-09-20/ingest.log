@@ -1,0 +1,2 @@
+2026-09-20T01:01:00Z ERROR ingest E1042 batch 305 rejected: schema drift on column amount
+2026-09-20T01:30:00Z INFO  ingest done

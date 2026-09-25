@@ -123,7 +123,8 @@ def describe(result: dict) -> str:
 
 
 def main() -> None:
-    missions = load_missions()
+    # The dbt Lab's pack; the Terminal Lab's missions have their own smoke (scripts/terminal_missions_smoke.py).
+    missions = [(mission, pack_dir) for mission, pack_dir in load_missions() if mission.lab == "dbt"]
     ids = [mission.id for mission, _ in missions]
     assert len(ids) == len(set(ids)) >= 5, ids
     pack = json.loads((CONTENT / "missions" / "dbt-v1" / "pack.json").read_text(encoding="utf-8"))
