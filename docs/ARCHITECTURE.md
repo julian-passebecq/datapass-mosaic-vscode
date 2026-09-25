@@ -35,7 +35,7 @@ React / Fluent / React Flow views
        ├─ SparkLab
        ├─ workflow engine
        ├─ Airflow simulator
-       ├─ dbt emulation (BI Lab) and missions checker
+       ├─ dbt emulation (BI Lab) and missions checker (dbt Lab, Terminal Lab)
        └─ catalog handoff to the learner's real dbt Core / dct
 ```
 
@@ -263,7 +263,7 @@ dbt in the runtime and never approximates it (the emulation lives in the BI Lab)
   Missions build with the dbt Lab's profile into `dbt_dev_<custom>` schemas, so they never collide with each other or
   with the catalog layers. Reference solutions and mutants (plausible wrong answers) are excluded from the VSIX and
   played by `scripts/missions_smoke.py` with real dbt Core and dct (CI installs them). The panel is lab-agnostic so
-  the Terminal and Infra labs can reuse it with their own check kinds.
+  the Terminal Lab reuses it with its own check kinds (see below), and the future Infra Lab can do the same.
 - **Artifacts** (`src/platform/dbtArtifacts.ts`): `target/manifest.json` + `target/run_results.json` of the selected
   project → command (from `args`), counts, DAG, problems, node details; a manifest newer than the results (after
   `dbt parse` or `docs generate`) is flagged. Labelled "dbt Core (real)".
@@ -271,6 +271,49 @@ dbt in the runtime and never approximates it (the emulation lives in the BI Lab)
 Retired with this rebuild: the regex-based static lineage of the old dbt Lab (use `dbt parse` for a real manifest,
 or the BI Lab's emulation), the `dbt --version` probe of a dbt on the user's `PATH` (`src/platform/dbtVersion.ts`), and
 the single hard-coded `dbt/retail-dbt` project (the sample remains, as one project among others).
+
+## Terminal Lab
+
+The Terminal Lab (module id `terminal`, `datapass.openTerminalLab`) is the learner's own bash, PowerShell and Git
+commands, typed in a real VS Code terminal. Datapass runs none of them; it builds the starting folder, then reads
+what the commands left behind. No kernel worker and no catalog are involved.
+
+- **Host** (`src/terminalLab.ts`, `TerminalLabSession`): `detect()` finds bash and PowerShell on this machine
+  (`src/platform/terminalShells.ts`, pure functions so `scripts/terminal_lab_smoke.mjs` can test them without
+  `vscode`) — Git Bash next to `git.exe` or in the usual Git for Windows folders on Windows (never
+  `C:\Windows\System32\bash.exe`, which starts WSL; `datapass.terminalLab.bashPath` overrides), pwsh then Windows
+  PowerShell 5.1 — and reads the learner's Git version and global `user.name`/`user.email` (read-only, so the lab
+  can warn before `git commit` refuses to run). The learner's shell choice is remembered in global state
+  (`datapass.terminalLab.shell`). `open()` creates or shows a VS Code terminal in the mission folder with that shell
+  (Git Bash as a login shell with `CHERE_INVOKING=1` so it stays in the folder) and types nothing in it.
+- **Start over** (`release()`): before the runtime moves the mission folder aside, the session closes its own
+  terminals open in that folder (`closeIn`) and the VS Code Git extension's repository on it (`git.close`), because
+  on Windows a terminal or Source Control's `.git` watch keeps the folder from being moved (found by the Playwright
+  drive of the packaged extension). The runtime itself builds the new fixture outside the workspace and renames it
+  into place, so Source Control never opens a half-built repository; the caller reopens the Git repository
+  (`git.openRepository`) once the rebuilt folder is in place.
+- **Runtime** (`runtime/missionlab`, README there): `terminal.py`'s `build_fixture` builds the mission folder from
+  the pack only — the mission's `project/` overlay, inline `fixture.files` (with CRLF or the executable bit when a
+  mission needs it), then a Git history made of fixed git commands (`init -b`, `commit`, `branch`, `switch`,
+  `merge --no-ff`, `tag`, `branch -D`, `reset --hard`, `stash push`) with a fixed author and dates, so hashes are
+  reproducible and the learner's global/system Git config is never read. `POST /api/local/missions/setup
+  {mission_id}` (re)builds it; no `batch_id` and no kernel op, unlike the dbt Lab's missions. `POST
+  /api/local/missions/check {mission_id}` runs the checks entirely in the API process: files as text (UTF-8, or
+  UTF-16 with a BOM as Windows PowerShell 5.1's `>` writes), CSV, scripts as text (comments stripped, never
+  executed), and the repository through read-only git commands with `core.fsmonitor` off, hooks pointed at nothing
+  and `GIT_CEILING_DIRECTORIES` set, so a repository around the workspace is never mistaken for the mission's own.
+  Thirteen check kinds: `path`, `text`, `listing`, `csv`, `script`, `git_repo`, `git_branch`, `git_log`, `git_file`,
+  `git_tag`, `git_ignore`, `git_stash`, `any_of`. Check kinds that need the catalog or dbt (`sql`, `node`, `run`, …)
+  are refused in this lab.
+- **Content** (`content/missions/terminal-v1`): 8 missions, `mission.json` with a `fixture` instead of a `workspace`
+  and `batches`, and `reference`/`mutants` as whole solution scripts (`solution/solve.sh`,
+  `solution/solve.ps1`, `mutants/<name>/solve.sh` or `solve.ps1`).
+- **Webview** (`src/webview/TerminalSurface.tsx`): shell picker, a Git badge, **Open a terminal** and **Refresh**,
+  then the shared `MissionsPanel` (the same component the dbt Lab uses) with a Terminal Lab-specific folder note and
+  open label.
+- `scripts/terminal_missions_smoke.py` plays every reference with real shells (bash; pwsh, and Windows PowerShell
+  5.1 on Windows) through the API: references pass, the untouched fixture and every mutant fail, the fixture's
+  hashes are reproducible, and Start over keeps the previous folder in the attic.
 
 ## Airflow Lab
 

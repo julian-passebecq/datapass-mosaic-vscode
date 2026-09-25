@@ -4,7 +4,7 @@ Local-first VS Code data-engineering practice environment.
 
 ## Product split
 
-- **Datapass Workbench (this repository):** Mosaic, LeetCode-style practice, local Fabric-style notebooks/pipelines, SparkLab/ZilaCode, a real-life dbt Lab (real dbt Core and dbt Charts in a VS Code terminal, with missions), Airflow simulation and pipeline orchestration.
+- **Datapass Workbench (this repository):** Mosaic, LeetCode-style practice, local Fabric-style notebooks/pipelines, SparkLab/ZilaCode, a real-life dbt Lab (real dbt Core and dbt Charts in a VS Code terminal, with missions), a Terminal Lab (real bash, PowerShell and Git, with missions), Airflow simulation and pipeline orchestration.
 - **Datapass WorkNotebook (standalone web):** cheatsheets, references, lightweight playgrounds and public/free learning areas.
 - **Contoso Data Studio:** separate C# application and optional dataset/case-study source.
 
@@ -21,6 +21,7 @@ VS Code
 │  ├─ Fabric Lab
 │  ├─ SparkLab / ZilaCode
 │  ├─ dbt Lab (real dbt Core + dbt Charts, missions)
+│  ├─ Terminal Lab (real bash, PowerShell, Git, missions)
 │  ├─ Airflow Lab
 │  └─ Pipeline Lab
 └─ Datapass local runtime
@@ -28,7 +29,7 @@ VS Code
    ├─ DuckDB / DuckLake
    ├─ Polars
    ├─ catalog handoff to the learner's dbt Core / dct runs
-   ├─ missions checker
+   ├─ missions checker (dbt Lab and Terminal Lab)
    ├─ SparkLab simulation
    └─ workflow/scheduler simulation
 ```
@@ -53,6 +54,28 @@ See `docs/ARCHITECTURE.md` for the target architecture and `docs/HARVEST_AUDIT.m
 ## Practice packs
 
 Practice grades native solution files on the local runtime (see `docs/EXERCISE_AUTHORING.md` for every pack). `zilla-v1` brings the 52 ZillaCode problems (Apache-2.0) with one result contract per problem in DuckDB SQL, Snowflake SQL, pandas, Polars, SparkLab and dbt. The Snowflake variant is labelled "Snowflake SQL dialect translated to DuckDB, not Snowflake": the query is translated with sqlglot for a documented subset (`runtime/sqldialects/README.md`) and runs on local DuckDB; nothing connects to Snowflake.
+
+## Terminal Lab
+
+The Terminal Lab is a real bash, PowerShell and Git terminal, opened by VS Code in a mission folder. The learner types
+every command; Datapass runs none of them and checks only the resulting files and Git repository afterward.
+
+`terminal-v1` has 8 missions:
+
+| Mission | Level | Skills |
+| --- | --- | --- |
+| Tidy the landing folder | intro | cd and ls, mkdir -p, globs, mv and rm, quoting file names |
+| Pull the errors out of three nights of logs | intro | grep / Select-String, find / Get-ChildItem -Recurse, pipes, sort -u, redirection |
+| Stop the load when a partner file is empty | intermediate | shell scripts, arguments, stderr, exit codes, set -euo pipefail |
+| Three reports from the server inventory | intermediate | PowerShell objects, Import-Csv / Export-Csv, Where-Object/Sort-Object/Group-Object, calculated properties, numbers read as text |
+| Put the loader under Git, properly | intro | git init, .gitignore, git add / commit, Conventional Commits, annotated tags, line endings, the executable bit |
+| Merge the EUR branch through its conflict | intermediate | git switch, git merge --no-ff, resolving a conflict, git log --graph, deleting a merged branch |
+| Rebase the batch API branch, and ship its fix in 1.2 | advanced | git rebase, interactive rebase (drop), linear history, git cherry-pick -x, reading git log --graph |
+| Rescue a deleted branch, a reset commit and a stash | advanced | git reflog, recreating a branch, undoing reset --hard, git stash list / pop, reading history |
+
+Requires Git, and one shell: Git Bash (installed with Git for Windows) on Windows, or PowerShell 7 (`pwsh`) or Windows
+PowerShell 5.1. The Git missions also need a Git identity (`git config --global user.name` / `user.email`); the lab
+warns when one is missing.
 
 ## Try the connected demo
 
