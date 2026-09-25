@@ -55,6 +55,12 @@ export function WorkbenchApp({ vscode }: { vscode: VsCodeApi }) {
     };
   }, [vscode]);
 
+  // A project step opened a lab: show it from the top, not at the Projects page's scroll position.
+  const focusSeq = state?.focus?.seq;
+  useEffect(() => {
+    if (focusSeq !== undefined) window.scrollTo({ top: 0 });
+  }, [focusSeq]);
+
   const selected = useMemo(
     () => state?.modules.find(module => module.id === state.selectedModule),
     [state]

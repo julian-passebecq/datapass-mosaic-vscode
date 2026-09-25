@@ -103,6 +103,8 @@ export class WorkbenchPanel {
   private focusSeq = 0;
   /** A project verification in flight, or the last one's error. */
   private projectsHost: ProjectsHostState = {};
+  /** Only the newest refresh posts its state (see refresh). */
+  private refreshSeq = 0;
 
   private constructor(
     private readonly panel: vscode.WebviewPanel,
@@ -1314,6 +1316,8 @@ export class WorkbenchPanel {
   }
 
   private async refresh(): Promise<void> {
+    // A slow refresh (the Practice catalog) must not land after a newer one and switch the module back.
+    const seq = ++this.refreshSeq;
     const state = await collectWorkbenchState(
       this.selectedModule,
       this.runtimeManager,
@@ -1321,6 +1325,7 @@ export class WorkbenchPanel {
       this.pythonTrust,
       { focus: this.focus, projects: this.projectsHost }
     );
+    if (seq !== this.refreshSeq) return;
     await this.panel.webview.postMessage({ type: "state", state });
   }
 
