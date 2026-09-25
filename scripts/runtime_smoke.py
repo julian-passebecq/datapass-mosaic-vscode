@@ -20,6 +20,9 @@ from sparklab.physical import simulate_plan
 from sparklab.runtime import load_cluster_profiles
 from sparklab.safe_parser import SafeSparkParser
 from sparklab.sparklab import SparkSession
+from airflowlab.model import AirflowLabError
+from airflowlab.parser import parse_dag
+from airflowlab.simulate import Scenario, outcome_rows
 
 
 assert app.title == "Datapass Runtime"
@@ -71,6 +74,82 @@ facts, detail = modeled_exchanges('spark.table("orders").withColumn("n", F.row_n
 assert (facts["global_windows"], facts["output_partitions"]) == (1, 1), detail
 facts, detail = modeled_exchanges('a = spark.table("orders").groupBy("customer_id").agg(F.count("*").alias("n"))\na.withColumnRenamed("customer_id", "c").groupBy("c").agg(F.sum("n").alias("t"))')
 assert facts["exchanges"] == 2, "renaming the partitioning key loses the partitioning"
+
+# Airflow Lab: DAG files are parsed, never executed; semantics follow Airflow 3.
+AIRFLOW_HEAD = (
+    "from datetime import datetime, timedelta\n"
+    "from airflow.sdk import DAG\n"
+    "from airflow.providers.standard.operators.empty import EmptyOperator\n"
+    "from airflow.providers.standard.sensors.filesystem import FileSensor\n"
+    "from airflow.timetables.interval import CronDataIntervalTimetable\n"
+)
+
+
+def airflow_rows(body: str, **scenario) -> list[dict]:
+    return outcome_rows(parse_dag(AIRFLOW_HEAD + body), Scenario.model_validate(scenario))
+
+
+for rejected, reason in [
+    ("import os\n", "Unsupported import"),
+    ("with DAG('d', schedule_interval='@daily', start_date=datetime(2026, 1, 1)):\n    EmptyOperator(task_id='a')\n",
+     "removed in Airflow 3"),
+    ("with DAG('d', schedule='@daily', start_date=datetime.now()):\n    EmptyOperator(task_id='a')\n",
+     "dynamic start_date"),
+    ("with DAG('d'):\n    a = EmptyOperator(task_id='a')\n    b = EmptyOperator(task_id='b')\n    [a] >> [b]\n",
+     "list cannot be linked"),
+    ("with DAG('d'):\n    EmptyOperator(task_id='a', depends_on_past=True)\n", "depends_on_past"),
+]:
+    try:
+        parse_dag(AIRFLOW_HEAD + rejected)
+        raise AssertionError(f"accepted: {rejected!r}")
+    except AirflowLabError as error:
+        assert reason in str(error), (reason, str(error))
+
+ONE_RUN = "with DAG('d', schedule='@daily', start_date=datetime(2026, 3, 5)):\n"  # one run at the `now` used below
+DAILY = "with DAG('d', schedule={schedule}, start_date=datetime(2026, 3, 1){extra}):\n    EmptyOperator(task_id='a')\n"
+# CronTriggerTimetable (Airflow 3 default for presets): logical date = tick; catchup defaults to False.
+runs = airflow_rows(DAILY.format(schedule="'@daily'", extra=""), now="2026-03-05T12:00:00Z", outcome="runs")
+assert [r["logical_date"] for r in runs] == ["2026-03-05T00:00:00+00:00"], runs
+runs = airflow_rows(DAILY.format(schedule="'@daily'", extra=", catchup=True"), now="2026-03-05T12:00:00Z", outcome="runs")
+assert len(runs) == 5, runs
+# CronDataIntervalTimetable: the latest complete interval; the run starts at its end.
+runs = airflow_rows(DAILY.format(schedule="CronDataIntervalTimetable('0 0 * * *', timezone='UTC')", extra=""),
+                    now="2026-03-05T12:00:00Z", outcome="runs")
+assert [(r["logical_date"][:10], r["run_after"][:10]) for r in runs] == [("2026-03-04", "2026-03-05")], runs
+
+# Trigger rules as in Airflow's TriggerRuleDep: one upstream fails, the other succeeds.
+RULES = ["all_success", "all_failed", "all_done", "one_success", "one_failed", "none_failed",
+         "none_failed_min_one_success", "none_skipped", "always"]
+body = ONE_RUN + "    ok = EmptyOperator(task_id='ok')\n    bad = EmptyOperator(task_id='bad')\n" + "".join(
+    f"    [ok, bad] >> EmptyOperator(task_id='{rule}', trigger_rule='{rule}')\n" for rule in RULES)
+states = {row["task_id"]: row["state"] for row in airflow_rows(
+    body, now="2026-03-05T12:00:00Z", outcome="task_instances", tasks={"bad": {"fail_attempts": "all"}})}
+assert states == {"ok": "success", "bad": "failed", "all_success": "upstream_failed", "all_failed": "skipped",
+                  "all_done": "success", "one_success": "success", "one_failed": "success",
+                  "none_failed": "upstream_failed", "none_failed_min_one_success": "upstream_failed",
+                  "none_skipped": "success", "always": "success"}, states
+
+# Retries run while try_number <= retries; a sensor times out at the first false poke past its timeout.
+retry = airflow_rows(ONE_RUN + "    EmptyOperator(task_id='a', retries=2, retry_delay=timedelta(minutes=1))\n",
+                     now="2026-03-05T12:00:00Z", outcome="task_instances", tasks={"a": {"fail_attempts": "all"}})
+assert (retry[0]["state"], retry[0]["try_number"], retry[0]["end_s"]) == ("failed", 3, 300.0), retry
+sensor = airflow_rows(ONE_RUN + "    FileSensor(task_id='s', filepath='x', poke_interval=600, timeout=7200, soft_fail=True)\n",
+                      now="2026-03-05T12:00:00Z", outcome="task_instances")
+assert (sensor[0]["state"], sensor[0]["end_s"]) == ("skipped", 7800.0), sensor
+
+# Templates render without Jinja or eval; variables removed in Airflow 3 are reported.
+rendered = airflow_rows(
+    "with DAG('d', schedule='@daily', start_date=datetime(2026, 3, 1)):\n"
+    "    FileSensor(task_id='f', filepath='{{ ds }}/{{ macros.ds_add(ds, -1) }}/{{ data_interval_start | ds_nodash }}')\n",
+    now="2026-03-02T01:00:00Z", outcome="rendered")
+assert [r["value"] for r in rendered] == ["2026-03-02/2026-03-01/20260302"], rendered
+try:
+    airflow_rows("with DAG('d', schedule='@daily', start_date=datetime(2026, 3, 1)):\n"
+                 "    FileSensor(task_id='f', filepath='{{ prev_ds }}')\n",
+                 now="2026-03-02T01:00:00Z", outcome="rendered")
+    raise AssertionError("prev_ds must be reported as removed")
+except AirflowLabError as error:
+    assert "removed" in str(error), error
 
 source = """pipeline("ci")
 a = sql("a", "SELECT 1")

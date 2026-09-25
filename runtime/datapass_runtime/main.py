@@ -69,7 +69,7 @@ class ExerciseGradeRequest(BaseModel):
     model_config = ConfigDict(extra="forbid", strict=True)
     exercise_id: str = Field(pattern=r"^[A-Za-z0-9_-]{1,100}$")
     exercise_version: str = Field(min_length=1, max_length=40)
-    language: Literal["sql", "sparklab", "python", "polars", "dbt"]
+    language: Literal["sql", "sparklab", "python", "polars", "dbt", "airflow"]
     code: str = Field(min_length=1, max_length=40000)
     mode: Literal["run", "submit"]
     notebook_id: str = Field(pattern=r"^[A-Za-z0-9_-]{1,100}$")
@@ -122,7 +122,12 @@ def capabilities() -> dict[str, object]:
         "fabric_lab": {"mode": "simulation", "notebook": "fabric-inspired", "lakehouse": "duckdb-ducklake", "kernel": "sparklab", "cloud_connection": False},
         "sparklab": {"mode": "simulation", "goal": "pyspark-dataframe-concepts"},
         "dbt_lab": {"mode": "hybrid", "runner": "dbt-core", "lineage": "manifest"},
-        "airflow_lab": {"mode": "simulation", "scheduler": "deterministic-local"},
+        "airflow_lab": {
+            "mode": "simulation",
+            "scheduler": "deterministic-local",
+            "dag_source": "Airflow DAG files parsed by a whitelisted AST reader; never executed",
+            "semantics": "Airflow 3 timetables, catchup, trigger rules, retries, sensors, branching and templates for the supported subset",
+        },
         "pipeline_lab": {
             "mode": "hybrid",
             "compiler": "bounded-ast-design",

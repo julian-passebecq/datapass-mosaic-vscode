@@ -12,6 +12,8 @@ const required = [
   "runtime/datapass_runtime/main.py",
   "runtime/datapass_runtime/execution.py",
   "runtime/sparklab/profiles.json",
+  "runtime/airflowlab/parser.py",
+  "content/exercise-packs/airflow-lab-v1/grading.server.json",
   "samples/dbt/retail-dbt/dbt_project.yml"
 ];
 

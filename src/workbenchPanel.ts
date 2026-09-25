@@ -794,6 +794,7 @@ function extensionFor(language: string): string {
     case "polars":
     case "sparklab":
     case "pyspark":
+    case "airflow":
       return "py";
     case "powershell":
       return "ps1";

@@ -45,7 +45,7 @@ export function PracticeSurface({
           </Badge>
           <Input
             aria-label="Filter exercises"
-            placeholder="Filter SQL, Spark, dbt…"
+            placeholder="Filter SQL, Spark, Airflow, dbt…"
             value={query}
             onChange={(_, data) => setQuery(data.value)}
           />

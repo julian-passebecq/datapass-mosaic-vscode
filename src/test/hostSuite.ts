@@ -271,6 +271,23 @@ export async function run(): Promise<void> {
       const visiblePlan = await submit(broadcast, sparkGrading[broadcast.id].solution, "run");
       assert.deepEqual(visiblePlan.checks.map(check => check.kind), ["result", "plan", "plan"],
         "Run visible also grades the public plan checks");
+
+      // Airflow lab: the DAG file is parsed, never executed; scenarios are simulated.
+      const airflowLab = catalog.filter(item => item.packId === "airflow-lab-v1");
+      assert.equal(airflowLab.length, 13);
+      assert.ok(airflowLab.every(item => item.language === "airflow" && item.truth === "simulated"));
+      const airflowGrading = JSON.parse(new TextDecoder().decode(await vscode.workspace.fs.readFile(
+        vscode.Uri.joinPath(extension.extensionUri, "content", "exercise-packs", "airflow-lab-v1", "grading.server.json")
+      ))) as Record<string, { solution: string }>;
+      const branchJoin = airflowLab.find(item => item.id === "af-branch-join")!;
+      const joined = await submit(branchJoin, airflowGrading[branchJoin.id].solution);
+      assert.equal(joined.status, "passed", JSON.stringify(joined.checks));
+      assert.equal(joined.truth, "simulated");
+      const skippedJoin = await submit(branchJoin, branchJoin.starterSource);
+      assert.equal(skippedJoin.status, "failed", "a default all_success join after a branch must fail");
+      const rejected = await submit(branchJoin, "import os\n");
+      assert.equal(rejected.status, "failed");
+      assert.match(rejected.checks[0].message, /Unsupported import/);
     }],
     ["Pipeline starter compiles into a graph and runs its activities", async () => {
       await vscode.workspace.fs.createDirectory(vscode.Uri.joinPath(root, "pipelines"));

@@ -47,6 +47,23 @@ A SparkLab exercise may add `spark_plan` to its public definition. Grading then 
 - Plan checks are public and run on **Run visible** and **Submit**. They are graded once, on the first successful run; a submission that does not run fails them.
 - Only build a plan lesson on behavior real Spark shares. The model counts one exchange per unsatisfied clustering requirement (hash, range, round-robin or single partition), reuses an existing hash partitioning on a subset of the required keys, keeps the streamed side's partitioning through a broadcast join, refuses a broadcast above 8 GB, and applies EliminateSorts under joins and MIN/MAX/COUNT aggregates. It does not model filter selectivity, AQE join conversion or column pruning, so do not grade on those.
 
+## Airflow Lab exercises
+
+Language `airflow`, runtime `datapass-airflow-sim-v1`, truth `simulated`. The learner's solution is an Airflow DAG file; `runtime/airflowlab` parses it (never executes it) and simulates it. There is no `data_context`. Each private fixture has `"input_rows": []`, a `scenario` and `expected` rows:
+
+```json
+{"id": "full-load-fails", "visibility": "hidden", "input_rows": [],
+ "scenario": {"now": "2026-03-05T12:00:00Z", "outcome": "task_instances", "columns": ["task_id", "state"],
+              "tasks": {"choose": {"branch": ["full_load"]}, "full_load": {"fail_attempts": "all"}}},
+ "expected": [{"task_id": "choose", "state": "success"}, "..."]}
+```
+
+- `now` is the scheduler clock; `unpaused_at` (default `now`) matters with `catchup=False`.
+- Task behavior: `duration_seconds` (default 60), `fail_attempts` (try numbers or `"all"`), `sensor_true_after_seconds` (default: never), `branch` (chosen task ids), `condition` (short-circuit result); `by_logical_date` overrides them per run; `latest_run_only` keeps the last run.
+- `outcome` selects the graded table: `runs` (logical_date, run_after, data_interval_start/end, run_id, state), `task_instances` (logical_date, task_id, state, try_number, start_s, end_s, in seconds after the run starts), `rendered` (logical_date, task_id, field, value), `edges` (upstream, downstream) or `tasks`. `columns` projects it; keep one projection per exercise when you set `exact_schema`.
+- The registry validates every scenario and rejects scenarios on other languages. A scenario naming a task the DAG does not have is a simulation error, so starters must keep those tasks.
+- Only grade what the simulator models with Airflow 3 semantics (see `runtime/airflowlab/README.md`); describe the scenario kinds in the public sections, since hidden scenarios are not shown.
+
 ## Quality gate
 
 `python scripts/exercise_packs_smoke.py` (CI runtime job) grades every installed exercise through the real worker:
@@ -68,9 +85,10 @@ For a SparkLab plan lesson whose starter already returns the right rows, add the
 | `python-lab-v1` | Python | 12 | Donor curriculum lessons that transform data |
 | `de-patterns-v1` | SQL | 16 | Authored data-engineering patterns: typing imported CSV text, CDC dedup, NULL-safe anti-join, gaps and islands, sessionization, ASOF joins, SCD2 ranges, upsert results, data-quality rules, calendar spines, funnels, medians, cohorts, delimited lists, watermarks, COUNT FILTER |
 | `spark-lab-v1` | SparkLab | 12 | Authored Spark lessons. Result pitfalls: left-join filter placement, semi joins, `count(col)` vs `count("*")`, `eqNullSafe` change detection, full outer reconciliation, join fan-out, RANGE vs ROWS running totals. Plan lessons (graded on `spark_plan`): `coalesce` vs `repartition`, one-pass aggregation, broadcasting a dimension above the threshold, removing a random repartition before a window, a window instead of an aggregate self-join |
+| `airflow-lab-v1` | Airflow (simulated) | 13 | Authored Airflow 3 lessons graded on simulated outcomes: fan-in/fan-out, TaskFlow data dependencies, catchup on and off, weekday cron, CronDataIntervalTimetable data intervals, `ds_add` under the Airflow 3 `@daily` default, retries, an all_done cleanup, a one_failed watcher that fails the run, a branch join, a soft-fail sensor, `default_args` overrides |
 | `unified-retail-v1`, `internal-demo`, `sparklab-runtime`, `guided-spark-v1`, `pipeline-design-v1` | mixed | earlier packs | |
 
-Donor content deliberately **not** promoted (grading compares result rows, so these cannot be graded honestly here): syntax-only Python drills (variables, printing, file/JSON I/O, pathlib, type hints), DDL/UPDATE SQL (PK/FK, SCD2), Spark I/O (`SparkSession`, `read.parquet`, `write.partitionBy`), donor `repartition` drills (partitioning is now taught through `spark-lab-v1` plan checks instead), Airflow DAG code (Airflow Lab is a simulator), pandas `validate=` errors, BigQuery `SAFE_DIVIDE` (DuckDB already returns NULL on division by zero), and the DAX, C#, bash, PowerShell, git, cron, Docker, Kubernetes, cloud and gateway tracks. Those belong to reference/cheat-sheet material (the standalone WorkNotebook), not graded Practice.
+Donor content deliberately **not** promoted (grading compares result rows, so these cannot be graded honestly here): syntax-only Python drills (variables, printing, file/JSON I/O, pathlib, type hints), DDL/UPDATE SQL (PK/FK, SCD2), Spark I/O (`SparkSession`, `read.parquet`, `write.partitionBy`), donor `repartition` drills (partitioning is now taught through `spark-lab-v1` plan checks instead), donor Airflow DAG code (Airflow is now taught through the authored `airflow-lab-v1` simulator pack), pandas `validate=` errors, BigQuery `SAFE_DIVIDE` (DuckDB already returns NULL on division by zero), and the DAX, C#, bash, PowerShell, git, cron, Docker, Kubernetes, cloud and gateway tracks. Those belong to reference/cheat-sheet material (the standalone WorkNotebook), not graded Practice.
 
 ## Provenance
 

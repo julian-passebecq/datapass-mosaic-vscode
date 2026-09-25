@@ -78,6 +78,9 @@ def grade(engine, request):
     if spec.runtime == 'datapass-dag-design-v1':
         from .pipeline_grading import grade_design
         return grade_design(engine, request, spec, private)
+    if spec.runtime == 'datapass-airflow-sim-v1':
+        from .airflow_grading import grade_airflow
+        return grade_airflow(engine, request, spec, private)
     fixtures = [f for f in private.fixtures if request['mode'] == 'submit' or f.visibility == 'visible']
     evidence, runs = [], []
     plan = spec.spark_plan if spec.language == 'sparklab' else None

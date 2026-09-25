@@ -18,7 +18,8 @@ dependencies = [
 
 [tool.setuptools.packages.find]
 where = ["."]
-include = ["datapass_runtime*", "sparklab*"]
+include = ["datapass_runtime*", "sparklab*", "airflowlab*"]
 
 [tool.setuptools.package-data]
 sparklab = ["*.json", "README.md"]
+airflowlab = ["README.md"]
