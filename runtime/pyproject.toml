@@ -14,12 +14,14 @@ dependencies = [
   "pandas>=2.2",
   "pydantic>=2.9",
   "httpx>=0.27",
-  "sqlglot>=26"
+  "sqlglot>=26",
+  "jinja2>=3.1",
+  "pyyaml>=6"
 ]
 
 [tool.setuptools.packages.find]
 where = ["."]
-include = ["datapass_runtime*", "sparklab*", "airflowlab*", "factorylab*", "sqlpoollab*", "databrickslab*", "bilab*"]
+include = ["datapass_runtime*", "sparklab*", "airflowlab*", "factorylab*", "sqlpoollab*", "databrickslab*", "bilab*", "dbtlab*"]
 
 [tool.setuptools.package-data]
 sparklab = ["*.json", "README.md"]
@@ -28,3 +30,4 @@ factorylab = ["README.md"]
 sqlpoollab = ["README.md"]
 databrickslab = ["README.md"]
 bilab = ["README.md"]
+dbtlab = ["README.md"]

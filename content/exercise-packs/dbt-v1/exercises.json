@@ -1,0 +1,1253 @@
+[
+  {
+    "schema_version": 1,
+    "id": "dbt-ref-builds-the-dag",
+    "version": "1",
+    "title": "ref() and source() build the DAG",
+    "difficulty": "easy",
+    "topics": [
+      "ref",
+      "dag",
+      "selection"
+    ],
+    "tags": [
+      "bi-lab",
+      "dbt",
+      "semantic-emulation"
+    ],
+    "origin": "authored",
+    "language": "dbt-sql",
+    "runtime": "datapass-dbt-emulation-v1",
+    "prompt": "models/marts/fct_daily_orders.sql (gold) sums orders and revenue per order_date from the staging model stg_orders (silver). It reads silver.stg_orders by its table name, so dbt does not know it depends on stg_orders. Rewrite it so that `dbt build --select +fct_daily_orders` (the model and everything upstream) works on a fresh warehouse. Output columns: order_date, orders, revenue.",
+    "sections": [
+      {
+        "title": "dbt project",
+        "body": "Your file joins a small dbt project that the Datapass dbt emulation runs on an isolated DuckDB catalog built for each check: Jinja is rendered in a sandbox and the SQL really runs. It follows dbt Core and dbt-duckdb for a documented subset (checked against dbt Core); it is not dbt Core. The target schema is silver and dbt_project.yml puts staging in silver and marts in gold. Your file is models/marts/fct_daily_orders.sql."
+      },
+      {
+        "title": "ref and source",
+        "body": "{{ ref('model') }} and {{ source('src', 'table') }} are how dbt learns the dependencies: they build the DAG that orders the run, powers selection (+model, model+), lineage and docs, and resolve to the right schema in each environment. A hard-coded table name works only if someone built that table before, in the right order."
+      },
+      {
+        "title": "Graded",
+        "body": "dbt build --select +fct_daily_orders on a warehouse where nothing is built yet: the nodes that run and their status, then the rows of gold.fct_daily_orders."
+      }
+    ],
+    "starter_source": "select order_date, count(*) as orders, sum(amount) as revenue\nfrom silver.stg_orders\ngroup by order_date\n",
+    "fixtures": [
+      {
+        "id": "dbt-ref-builds-the-dag-fixtures",
+        "version": "1"
+      }
+    ],
+    "visible_checks": [
+      {
+        "id": "select-upstream",
+        "description": "Outcome of the public dbt run on an isolated DuckDB catalog."
+      }
+    ],
+    "hidden_check_refs": [
+      "daily-rows"
+    ],
+    "edge_check_refs": [
+      "select-downstream"
+    ],
+    "hints": [
+      "{{ ref('stg_orders') }} resolves to silver.stg_orders and records the dependency.",
+      "+model selects the model and everything it depends on; model+ the model and everything that depends on it."
+    ],
+    "solution": {
+      "available": true,
+      "reveal": "explicit"
+    },
+    "explanation": "With ref(), dbt knows fct_daily_orders depends on stg_orders: +fct_daily_orders selects both and builds them in order, and stg_orders+ also rebuilds the mart. With a hard-coded name the DAG has no edge: the selection runs the mart alone, before its input exists, and it fails. Reading the source directly would skip the staging logic (test orders, cents to amounts).",
+    "follow_ups": [
+      "What does `dbt build --select stg_orders+ --exclude fct_daily_orders` run?"
+    ],
+    "canonical_placement": {
+      "domain": "bi-dbt",
+      "topic": "ref"
+    },
+    "related_associations": [
+      "bi-lab/dbt"
+    ],
+    "recommendation": {
+      "rank": 1,
+      "reason": "BI Lab dbt progression"
+    },
+    "validator_version": "rows-v2",
+    "validation": {
+      "kind": "rows",
+      "ordered": false,
+      "duplicate_sensitive": true,
+      "relative_tolerance": 1e-09,
+      "absolute_tolerance": 1e-06,
+      "required_columns": [],
+      "exact_schema": null,
+      "forbidden_extra_columns": true,
+      "null_semantics": "equal"
+    },
+    "runtime_requirements": [
+      "duckdb",
+      "jinja2"
+    ],
+    "provenance": {
+      "source": "Authored for Datapass Workbench: dbt practices on the Datapass dbt emulation",
+      "fixtures": "Authored scenarios; expected rows computed by running the reference, checked against dbt Core, reviewed"
+    },
+    "constraints": {
+      "truth": "Datapass dbt emulation on an isolated local DuckDB catalog: sandboxed Jinja, real SQL, dbt Core semantics for a documented subset; not dbt Core."
+    },
+    "truth": "semantic-emulation"
+  },
+  {
+    "schema_version": 1,
+    "id": "dbt-staging-model",
+    "version": "1",
+    "title": "A staging model: rename, type, clean",
+    "difficulty": "easy",
+    "topics": [
+      "staging",
+      "source",
+      "modeling-layers"
+    ],
+    "tags": [
+      "bi-lab",
+      "dbt",
+      "semantic-emulation"
+    ],
+    "origin": "authored",
+    "language": "dbt-sql",
+    "runtime": "datapass-dbt-emulation-v1",
+    "prompt": "Write models/staging/stg_orders.sql (materialized as a view in silver by dbt_project.yml) over {{ source('shop', 'orders') }} (order_id, customer_id, status, amount_cents, ordered_at, is_test). One row per real order (test orders out), with: order_id, customer_id, status in lower case, amount in currency units (amount_cents / 100.0) and order_date (the date part of ordered_at).",
+    "sections": [
+      {
+        "title": "dbt project",
+        "body": "Your file joins a small dbt project that the Datapass dbt emulation runs on an isolated DuckDB catalog built for each check: Jinja is rendered in a sandbox and the SQL really runs. It follows dbt Core and dbt-duckdb for a documented subset (checked against dbt Core); it is not dbt Core. The target schema is silver and dbt_project.yml puts staging in silver and marts in gold. Your file is models/staging/stg_orders.sql."
+      },
+      {
+        "title": "Staging",
+        "body": "The staging layer has one model per source table: rename, cast, clean and filter, nothing joined or aggregated. Every later model reads the staging model, never the raw source, so a source change is fixed in one place."
+      },
+      {
+        "title": "Graded",
+        "body": "The rows of silver.stg_orders, with orders in mixed-case statuses and a test order."
+      }
+    ],
+    "starter_source": "select order_id, customer_id, status, amount_cents, ordered_at\nfrom {{ source('shop', 'orders') }}\n",
+    "fixtures": [
+      {
+        "id": "dbt-staging-model-fixtures",
+        "version": "1"
+      }
+    ],
+    "visible_checks": [
+      {
+        "id": "staged",
+        "description": "Outcome of the public dbt run on an isolated DuckDB catalog."
+      }
+    ],
+    "hidden_check_refs": [
+      "more-orders"
+    ],
+    "edge_check_refs": [],
+    "hints": [
+      "cast(ordered_at as date) keeps the date part.",
+      "where not is_test removes the test orders."
+    ],
+    "solution": {
+      "available": true,
+      "reveal": "explicit"
+    },
+    "explanation": "A staging model is a thin, typed, cleaned view of one source table. Lower-casing statuses and converting cents here means every downstream model agrees on the values; filtering test orders here means no report ever sees them.",
+    "follow_ups": [
+      "Why is staging usually a view, and when would you make it a table?"
+    ],
+    "canonical_placement": {
+      "domain": "bi-dbt",
+      "topic": "staging"
+    },
+    "related_associations": [
+      "bi-lab/dbt"
+    ],
+    "recommendation": {
+      "rank": 2,
+      "reason": "BI Lab dbt progression"
+    },
+    "validator_version": "rows-v2",
+    "validation": {
+      "kind": "rows",
+      "ordered": false,
+      "duplicate_sensitive": true,
+      "relative_tolerance": 1e-09,
+      "absolute_tolerance": 1e-06,
+      "required_columns": [],
+      "exact_schema": null,
+      "forbidden_extra_columns": true,
+      "null_semantics": "equal"
+    },
+    "runtime_requirements": [
+      "duckdb",
+      "jinja2"
+    ],
+    "provenance": {
+      "source": "Authored for Datapass Workbench: dbt practices on the Datapass dbt emulation",
+      "fixtures": "Authored scenarios; expected rows computed by running the reference, checked against dbt Core, reviewed"
+    },
+    "constraints": {
+      "truth": "Datapass dbt emulation on an isolated local DuckDB catalog: sandboxed Jinja, real SQL, dbt Core semantics for a documented subset; not dbt Core."
+    },
+    "truth": "semantic-emulation"
+  },
+  {
+    "schema_version": 1,
+    "id": "dbt-generic-tests",
+    "version": "1",
+    "title": "Generic tests: unique, not_null, relationships, accepted_values",
+    "difficulty": "easy",
+    "topics": [
+      "tests",
+      "data-quality",
+      "relationships"
+    ],
+    "tags": [
+      "bi-lab",
+      "dbt",
+      "semantic-emulation"
+    ],
+    "origin": "authored",
+    "language": "dbt-yml",
+    "runtime": "datapass-dbt-emulation-v1",
+    "prompt": "Write models/marts/_marts.yml with the data tests of fct_orders (order_id, customer_id, status, amount): order_id is unique and never null; customer_id is never null and exists in dim_customers.customer_id; status is one of 'placed', 'shipped', 'returned' (in that order). Use dbt's built-in generic tests.",
+    "sections": [
+      {
+        "title": "dbt project",
+        "body": "Your file joins a small dbt project that the Datapass dbt emulation runs on an isolated DuckDB catalog built for each check: Jinja is rendered in a sandbox and the SQL really runs. It follows dbt Core and dbt-duckdb for a documented subset (checked against dbt Core); it is not dbt Core. The target schema is silver and dbt_project.yml puts staging in silver and marts in gold. Your file is models/marts/_marts.yml."
+      },
+      {
+        "title": "Data tests",
+        "body": "A generic test is a query that returns the failing rows: unique, not_null, accepted_values and relationships (referential integrity, the foreign key a warehouse does not enforce). dbt build runs them right after the model, and a failing test skips what depends on it."
+      },
+      {
+        "title": "Graded",
+        "body": "dbt build on clean data (every test passes), then on data with a duplicate order, an order of an unknown customer and an unexpected status: which tests pass and which fail."
+      }
+    ],
+    "starter_source": "version: 2\nmodels:\n  - name: fct_orders\n    columns:\n      - name: order_id\n        data_tests: [not_null]\n",
+    "fixtures": [
+      {
+        "id": "dbt-generic-tests-fixtures",
+        "version": "1"
+      }
+    ],
+    "visible_checks": [
+      {
+        "id": "clean",
+        "description": "Outcome of the public dbt run on an isolated DuckDB catalog."
+      }
+    ],
+    "hidden_check_refs": [
+      "unknown-customer"
+    ],
+    "edge_check_refs": [
+      "duplicate-and-status"
+    ],
+    "hints": [
+      "Each test sits under the column it tests, in data_tests.",
+      "relationships takes to: ref('dim_customers') and field: customer_id."
+    ],
+    "solution": {
+      "available": true,
+      "reveal": "explicit"
+    },
+    "explanation": "unique + not_null declare the grain; relationships is the referential integrity a warehouse does not enforce; accepted_values catches new statuses before a report silently drops them. dbt names each test after its model, column and arguments, and runs it right after the model.",
+    "follow_ups": [
+      "Which of these tests would you put on the source instead of the mart, and why?"
+    ],
+    "canonical_placement": {
+      "domain": "bi-dbt",
+      "topic": "tests"
+    },
+    "related_associations": [
+      "bi-lab/dbt"
+    ],
+    "recommendation": {
+      "rank": 3,
+      "reason": "BI Lab dbt progression"
+    },
+    "validator_version": "rows-v2",
+    "validation": {
+      "kind": "rows",
+      "ordered": false,
+      "duplicate_sensitive": true,
+      "relative_tolerance": 1e-09,
+      "absolute_tolerance": 1e-06,
+      "required_columns": [
+        "name",
+        "resource_type",
+        "status"
+      ],
+      "exact_schema": [
+        "name",
+        "resource_type",
+        "status"
+      ],
+      "forbidden_extra_columns": true,
+      "null_semantics": "equal"
+    },
+    "runtime_requirements": [
+      "duckdb",
+      "jinja2"
+    ],
+    "provenance": {
+      "source": "Authored for Datapass Workbench: dbt practices on the Datapass dbt emulation",
+      "fixtures": "Authored scenarios; expected rows computed by running the reference, checked against dbt Core, reviewed"
+    },
+    "constraints": {
+      "truth": "Datapass dbt emulation on an isolated local DuckDB catalog: sandboxed Jinja, real SQL, dbt Core semantics for a documented subset; not dbt Core."
+    },
+    "truth": "semantic-emulation"
+  },
+  {
+    "schema_version": 1,
+    "id": "dbt-singular-test",
+    "version": "1",
+    "title": "A singular test: totals must match their lines",
+    "difficulty": "medium",
+    "topics": [
+      "tests",
+      "data-quality"
+    ],
+    "tags": [
+      "bi-lab",
+      "dbt",
+      "semantic-emulation"
+    ],
+    "origin": "authored",
+    "language": "dbt-sql",
+    "runtime": "datapass-dbt-emulation-v1",
+    "prompt": "Write the singular test tests/assert_order_total_matches_lines.sql: it returns every real order (not a test order) whose amount_cents differs from the sum of its lines in source order_lines (order_id, line_number, amount_cents). An order without lines counts as 0. Return order_id, amount_cents and lines_cents.",
+    "sections": [
+      {
+        "title": "dbt project",
+        "body": "Your file joins a small dbt project that the Datapass dbt emulation runs on an isolated DuckDB catalog built for each check: Jinja is rendered in a sandbox and the SQL really runs. It follows dbt Core and dbt-duckdb for a documented subset (checked against dbt Core); it is not dbt Core. The target schema is silver and dbt_project.yml puts staging in silver and marts in gold. Your file is tests/assert_order_total_matches_lines.sql."
+      },
+      {
+        "title": "Singular tests",
+        "body": "A singular test is a SQL file in tests/: any row it returns is a failure. It covers the rules generic tests cannot express, such as a header that must match its detail lines."
+      },
+      {
+        "title": "Graded",
+        "body": "dbt test: the test's status and number of failures on consistent data, on an order whose lines do not add up, and on an order without lines."
+      }
+    ],
+    "starter_source": "select o.order_id, o.amount_cents, sum(l.amount_cents) as lines_cents\nfrom {{ source('shop', 'orders') }} as o\njoin {{ source('shop', 'order_lines') }} as l on l.order_id = o.order_id\ngroup by o.order_id, o.amount_cents\nhaving o.amount_cents = sum(l.amount_cents)\n",
+    "fixtures": [
+      {
+        "id": "dbt-singular-test-fixtures",
+        "version": "1"
+      }
+    ],
+    "visible_checks": [
+      {
+        "id": "consistent",
+        "description": "Outcome of the public dbt run on an isolated DuckDB catalog."
+      }
+    ],
+    "hidden_check_refs": [
+      "wrong-total"
+    ],
+    "edge_check_refs": [
+      "order-without-lines"
+    ],
+    "hints": [
+      "A LEFT JOIN keeps the orders without lines; coalesce their sum to 0.",
+      "The test fails when it returns rows: select the orders that break the rule."
+    ],
+    "solution": {
+      "available": true,
+      "reveal": "explicit"
+    },
+    "explanation": "The test returns the orders that break the rule, so an empty result is a pass. The LEFT JOIN is what catches an order with no lines at all (an inner join would hide exactly the worst case), and test orders stay out like everywhere else.",
+    "follow_ups": [
+      "Turn this into a generic test (a {% test %} block) that takes the two relations as arguments."
+    ],
+    "canonical_placement": {
+      "domain": "bi-dbt",
+      "topic": "tests"
+    },
+    "related_associations": [
+      "bi-lab/dbt"
+    ],
+    "recommendation": {
+      "rank": 4,
+      "reason": "BI Lab dbt progression"
+    },
+    "validator_version": "rows-v2",
+    "validation": {
+      "kind": "rows",
+      "ordered": false,
+      "duplicate_sensitive": true,
+      "relative_tolerance": 1e-09,
+      "absolute_tolerance": 1e-06,
+      "required_columns": [
+        "name",
+        "status",
+        "failures"
+      ],
+      "exact_schema": [
+        "name",
+        "status",
+        "failures"
+      ],
+      "forbidden_extra_columns": true,
+      "null_semantics": "equal"
+    },
+    "runtime_requirements": [
+      "duckdb",
+      "jinja2"
+    ],
+    "provenance": {
+      "source": "Authored for Datapass Workbench: dbt practices on the Datapass dbt emulation",
+      "fixtures": "Authored scenarios; expected rows computed by running the reference, checked against dbt Core, reviewed"
+    },
+    "constraints": {
+      "truth": "Datapass dbt emulation on an isolated local DuckDB catalog: sandboxed Jinja, real SQL, dbt Core semantics for a documented subset; not dbt Core."
+    },
+    "truth": "semantic-emulation"
+  },
+  {
+    "schema_version": 1,
+    "id": "dbt-test-severity-where",
+    "version": "1",
+    "title": "Test severity and where: warn, do not block",
+    "difficulty": "medium",
+    "topics": [
+      "tests",
+      "build",
+      "severity"
+    ],
+    "tags": [
+      "bi-lab",
+      "dbt",
+      "semantic-emulation"
+    ],
+    "origin": "authored",
+    "language": "dbt-yml",
+    "runtime": "datapass-dbt-emulation-v1",
+    "prompt": "Write models/staging/_staging.yml with three tests on stg_orders, knowing that dbt build skips everything downstream of a failing test: order_id is never null (an error); status is one of 'placed', 'shipped', 'returned' (in that order), but a new status must only warn and never stop fct_revenue; amount is never null, except that orders before 2026-01-01 (a legacy import) are not checked: use the test's where config with order_date >= '2026-01-01'.",
+    "sections": [
+      {
+        "title": "dbt project",
+        "body": "Your file joins a small dbt project that the Datapass dbt emulation runs on an isolated DuckDB catalog built for each check: Jinja is rendered in a sandbox and the SQL really runs. It follows dbt Core and dbt-duckdb for a documented subset (checked against dbt Core); it is not dbt Core. The target schema is silver and dbt_project.yml puts staging in silver and marts in gold. Your file is models/staging/_staging.yml."
+      },
+      {
+        "title": "dbt build and tests",
+        "body": "dbt build runs each model's tests right after it; a test with severity error that fails skips every model downstream, so bad data never reaches a report. severity: warn reports the problem without stopping the run, and where limits a test to the rows it is meant for."
+      },
+      {
+        "title": "Graded",
+        "body": "dbt build with a legacy order without amount, with a new status, and with a recent order without amount: the status of every node, including whether fct_revenue ran."
+      }
+    ],
+    "starter_source": "version: 2\nmodels:\n  - name: stg_orders\n    columns:\n      - name: order_id\n        data_tests: [not_null]\n      - name: status\n        data_tests:\n          - accepted_values:\n              arguments:\n                values: ['placed', 'shipped', 'returned']\n      - name: amount\n        data_tests: [not_null]\n",
+    "fixtures": [
+      {
+        "id": "dbt-test-severity-where-fixtures",
+        "version": "1"
+      }
+    ],
+    "visible_checks": [
+      {
+        "id": "legacy-order",
+        "description": "Outcome of the public dbt run on an isolated DuckDB catalog."
+      }
+    ],
+    "hidden_check_refs": [
+      "new-status"
+    ],
+    "edge_check_refs": [
+      "recent-missing-amount"
+    ],
+    "hints": [
+      "Test configs go under config: in the test's entry (dbt 1.10 puts arguments under arguments:).",
+      "severity: warn makes a failing test a warning; where: filters the rows the test checks."
+    ],
+    "solution": {
+      "available": true,
+      "reveal": "explicit"
+    },
+    "explanation": "The accepted_values test warns, so a new status is reported but fct_revenue still builds; the amount test ignores the legacy rows through where, so only recent missing amounts fail and skip the mart. That is the difference between a known, tolerated issue and one that must stop the pipeline.",
+    "follow_ups": [
+      "Look at warn_if and error_if: how would you fail only above 10 bad rows?"
+    ],
+    "canonical_placement": {
+      "domain": "bi-dbt",
+      "topic": "tests"
+    },
+    "related_associations": [
+      "bi-lab/dbt"
+    ],
+    "recommendation": {
+      "rank": 5,
+      "reason": "BI Lab dbt progression"
+    },
+    "validator_version": "rows-v2",
+    "validation": {
+      "kind": "rows",
+      "ordered": false,
+      "duplicate_sensitive": true,
+      "relative_tolerance": 1e-09,
+      "absolute_tolerance": 1e-06,
+      "required_columns": [
+        "name",
+        "resource_type",
+        "status"
+      ],
+      "exact_schema": [
+        "name",
+        "resource_type",
+        "status"
+      ],
+      "forbidden_extra_columns": true,
+      "null_semantics": "equal"
+    },
+    "runtime_requirements": [
+      "duckdb",
+      "jinja2"
+    ],
+    "provenance": {
+      "source": "Authored for Datapass Workbench: dbt practices on the Datapass dbt emulation",
+      "fixtures": "Authored scenarios; expected rows computed by running the reference, checked against dbt Core, reviewed"
+    },
+    "constraints": {
+      "truth": "Datapass dbt emulation on an isolated local DuckDB catalog: sandboxed Jinja, real SQL, dbt Core semantics for a documented subset; not dbt Core."
+    },
+    "truth": "semantic-emulation"
+  },
+  {
+    "schema_version": 1,
+    "id": "dbt-incremental-append",
+    "version": "1",
+    "title": "An incremental model: process only the new events",
+    "difficulty": "medium",
+    "topics": [
+      "incremental",
+      "materializations",
+      "is_incremental"
+    ],
+    "tags": [
+      "bi-lab",
+      "dbt",
+      "semantic-emulation"
+    ],
+    "origin": "authored",
+    "language": "dbt-sql",
+    "runtime": "datapass-dbt-emulation-v1",
+    "prompt": "source events (event_id, customer_id, event_type, occurred_at) only grows, and event_id increases. Write models/marts/fct_events.sql as an incremental model (gold) that copies the four columns: the first run loads every event, and each later run inserts only the events with an event_id above the highest one already loaded. It runs every day on the whole source table.",
+    "sections": [
+      {
+        "title": "dbt project",
+        "body": "Your file joins a small dbt project that the Datapass dbt emulation runs on an isolated DuckDB catalog built for each check: Jinja is rendered in a sandbox and the SQL really runs. It follows dbt Core and dbt-duckdb for a documented subset (checked against dbt Core); it is not dbt Core. The target schema is silver and dbt_project.yml puts staging in silver and marts in gold. Your file is models/marts/fct_events.sql."
+      },
+      {
+        "title": "Incremental models",
+        "body": "materialized='incremental' builds the table the first time, then only adds (or replaces) rows: {% if is_incremental() %} holds the filter that selects the new rows, and {{ this }} is the table itself. Without the filter every run re-inserts everything; with a filter that is too wide, the last row comes back each day."
+      },
+      {
+        "title": "Graded",
+        "body": "gold.fct_events after one day, two days, and the same day run twice."
+      }
+    ],
+    "starter_source": "{{ config(materialized='incremental') }}\nselect event_id, customer_id, event_type, occurred_at\nfrom {{ source('shop', 'events') }}\n",
+    "fixtures": [
+      {
+        "id": "dbt-incremental-append-fixtures",
+        "version": "1"
+      }
+    ],
+    "visible_checks": [
+      {
+        "id": "two-days",
+        "description": "Outcome of the public dbt run on an isolated DuckDB catalog."
+      }
+    ],
+    "hidden_check_refs": [
+      "same-day-twice"
+    ],
+    "edge_check_refs": [
+      "three-days"
+    ],
+    "hints": [
+      "{% if is_incremental() %} ... {% endif %} is false on the first run and true afterwards.",
+      "Compare with the highest event_id of {{ this }}, strictly."
+    ],
+    "solution": {
+      "available": true,
+      "reveal": "explicit"
+    },
+    "explanation": "The filter reads the table being built ({{ this }}) to find where the last run stopped; strictly greater means the last loaded event is not inserted again. A table materialization would be correct too but reprocesses the whole history every day, which is what incremental models avoid.",
+    "follow_ups": [
+      "What happens if an old event is corrected in the source? See the unique_key exercise."
+    ],
+    "canonical_placement": {
+      "domain": "bi-dbt",
+      "topic": "incremental"
+    },
+    "related_associations": [
+      "bi-lab/dbt"
+    ],
+    "recommendation": {
+      "rank": 6,
+      "reason": "BI Lab dbt progression"
+    },
+    "validator_version": "rows-v2",
+    "validation": {
+      "kind": "rows",
+      "ordered": false,
+      "duplicate_sensitive": true,
+      "relative_tolerance": 1e-09,
+      "absolute_tolerance": 1e-06,
+      "required_columns": [],
+      "exact_schema": null,
+      "forbidden_extra_columns": true,
+      "null_semantics": "equal"
+    },
+    "runtime_requirements": [
+      "duckdb",
+      "jinja2"
+    ],
+    "provenance": {
+      "source": "Authored for Datapass Workbench: dbt practices on the Datapass dbt emulation",
+      "fixtures": "Authored scenarios; expected rows computed by running the reference, checked against dbt Core, reviewed"
+    },
+    "constraints": {
+      "truth": "Datapass dbt emulation on an isolated local DuckDB catalog: sandboxed Jinja, real SQL, dbt Core semantics for a documented subset; not dbt Core."
+    },
+    "truth": "semantic-emulation"
+  },
+  {
+    "schema_version": 1,
+    "id": "dbt-incremental-unique-key",
+    "version": "1",
+    "title": "Incremental with unique_key: updates replace rows",
+    "difficulty": "medium",
+    "topics": [
+      "incremental",
+      "unique-key",
+      "upsert"
+    ],
+    "tags": [
+      "bi-lab",
+      "dbt",
+      "semantic-emulation"
+    ],
+    "origin": "authored",
+    "language": "dbt-sql",
+    "runtime": "datapass-dbt-emulation-v1",
+    "prompt": "source orders now holds each order's latest status (order_id, status, updated_at), and statuses change. Write models/marts/fct_order_status.sql as an incremental model (gold, columns order_id, status, updated_at) that keeps one row per order with its latest status: later runs only process rows updated after the latest updated_at already loaded, and replace the existing row of an order instead of adding one.",
+    "sections": [
+      {
+        "title": "dbt project",
+        "body": "Your file joins a small dbt project that the Datapass dbt emulation runs on an isolated DuckDB catalog built for each check: Jinja is rendered in a sandbox and the SQL really runs. It follows dbt Core and dbt-duckdb for a documented subset (checked against dbt Core); it is not dbt Core. The target schema is silver and dbt_project.yml puts staging in silver and marts in gold. Your file is models/marts/fct_order_status.sql."
+      },
+      {
+        "title": "unique_key",
+        "body": "With unique_key, an incremental run replaces the rows whose key comes back: dbt-duckdb's default strategy is delete+insert (merge is also available). Without it, dbt only appends, and an updated order gets a second row."
+      },
+      {
+        "title": "Graded",
+        "body": "gold.fct_order_status after two days of updates, after three days, and with a day run twice."
+      }
+    ],
+    "starter_source": "{{ config(materialized='incremental') }}\nselect order_id, status, updated_at\nfrom {{ source('shop', 'orders') }}\n{% if is_incremental() %}\nwhere updated_at > (select max(updated_at) from {{ this }})\n{% endif %}\n",
+    "fixtures": [
+      {
+        "id": "dbt-incremental-unique-key-fixtures",
+        "version": "1"
+      }
+    ],
+    "visible_checks": [
+      {
+        "id": "two-days",
+        "description": "Outcome of the public dbt run on an isolated DuckDB catalog."
+      }
+    ],
+    "hidden_check_refs": [
+      "three-days"
+    ],
+    "edge_check_refs": [
+      "day-run-twice"
+    ],
+    "hints": [
+      "config(unique_key='order_id') makes the incremental run replace an order's row.",
+      "Keep the is_incremental() filter on updated_at so old rows are not reprocessed."
+    ],
+    "solution": {
+      "available": true,
+      "reveal": "explicit"
+    },
+    "explanation": "The filter picks the rows changed since the last run, and unique_key makes dbt delete the old row of each of those orders before inserting the new one (delete+insert, dbt-duckdb's default). The table keeps one row per order; append would stack every status change.",
+    "follow_ups": [
+      "Rows can arrive late with an older updated_at. How does a lookback window (updated_at > max - 2 days) help, and why does unique_key make it safe?"
+    ],
+    "canonical_placement": {
+      "domain": "bi-dbt",
+      "topic": "incremental"
+    },
+    "related_associations": [
+      "bi-lab/dbt"
+    ],
+    "recommendation": {
+      "rank": 7,
+      "reason": "BI Lab dbt progression"
+    },
+    "validator_version": "rows-v2",
+    "validation": {
+      "kind": "rows",
+      "ordered": false,
+      "duplicate_sensitive": true,
+      "relative_tolerance": 1e-09,
+      "absolute_tolerance": 1e-06,
+      "required_columns": [],
+      "exact_schema": null,
+      "forbidden_extra_columns": true,
+      "null_semantics": "equal"
+    },
+    "runtime_requirements": [
+      "duckdb",
+      "jinja2"
+    ],
+    "provenance": {
+      "source": "Authored for Datapass Workbench: dbt practices on the Datapass dbt emulation",
+      "fixtures": "Authored scenarios; expected rows computed by running the reference, checked against dbt Core, reviewed"
+    },
+    "constraints": {
+      "truth": "Datapass dbt emulation on an isolated local DuckDB catalog: sandboxed Jinja, real SQL, dbt Core semantics for a documented subset; not dbt Core."
+    },
+    "truth": "semantic-emulation"
+  },
+  {
+    "schema_version": 1,
+    "id": "dbt-snapshot-timestamp",
+    "version": "1",
+    "title": "A dbt snapshot: SCD type 2 with the timestamp strategy",
+    "difficulty": "medium",
+    "topics": [
+      "snapshots",
+      "scd-type-2",
+      "timestamp-strategy"
+    ],
+    "tags": [
+      "bi-lab",
+      "dbt",
+      "semantic-emulation"
+    ],
+    "origin": "authored",
+    "language": "dbt-sql",
+    "runtime": "datapass-dbt-emulation-v1",
+    "prompt": "The CRM table (source crm.customers: customer_id, city, segment, updated_at) only holds today's values, and updated_at changes whenever a customer changes. Write snapshots/customers_snapshot.sql: a snapshot named customers_snapshot in the silver schema, keyed on customer_id, that keeps every version with the timestamp strategy. It runs once a day (dbt snapshot).",
+    "sections": [
+      {
+        "title": "dbt project",
+        "body": "Your file joins a small dbt project that the Datapass dbt emulation runs on an isolated DuckDB catalog built for each check: Jinja is rendered in a sandbox and the SQL really runs. It follows dbt Core and dbt-duckdb for a documented subset (checked against dbt Core); it is not dbt Core. The target schema is silver and dbt_project.yml puts staging in silver and marts in gold. Your file is snapshots/customers_snapshot.sql."
+      },
+      {
+        "title": "Snapshots",
+        "body": "A snapshot is dbt's type 2 dimension: each run compares the source with the current versions and closes a changed one (dbt_valid_to) before inserting the new version. dbt adds dbt_scd_id, dbt_updated_at, dbt_valid_from and dbt_valid_to (NULL while current). The timestamp strategy trusts updated_at: a version is valid from the updated_at of the change."
+      },
+      {
+        "title": "Graded",
+        "body": "The snapshot (customer_id, city, segment, dbt_valid_from, dbt_valid_to) after one, two and three daily runs, including a run with no change."
+      }
+    ],
+    "starter_source": "{% snapshot customers_snapshot %}\n{{ config(target_schema='silver', unique_key='customer_id', strategy='check', check_cols=['city']) }}\nselect customer_id, city, segment, updated_at from {{ source('crm', 'customers') }}\n{% endsnapshot %}\n",
+    "fixtures": [
+      {
+        "id": "dbt-snapshot-timestamp-fixtures",
+        "version": "1"
+      }
+    ],
+    "visible_checks": [
+      {
+        "id": "two-days",
+        "description": "Outcome of the public dbt run on an isolated DuckDB catalog."
+      }
+    ],
+    "hidden_check_refs": [
+      "three-days"
+    ],
+    "edge_check_refs": [
+      "unchanged-day"
+    ],
+    "hints": [
+      "{% snapshot name %} ... {% endsnapshot %} around a config() and a select.",
+      "strategy='timestamp' needs updated_at='updated_at'."
+    ],
+    "solution": {
+      "available": true,
+      "reveal": "explicit"
+    },
+    "explanation": "With the timestamp strategy dbt opens a version when updated_at moves past the current version's, and dates it with that updated_at, so the history says when the change happened in the CRM. The check strategy would compare columns instead and date versions with the snapshot run, which is the fallback when a source has no reliable updated_at.",
+    "follow_ups": [
+      "Build a dimension from the snapshot: see the dim-from-snapshot exercise."
+    ],
+    "canonical_placement": {
+      "domain": "bi-dbt",
+      "topic": "snapshots"
+    },
+    "related_associations": [
+      "bi-lab/dbt"
+    ],
+    "recommendation": {
+      "rank": 8,
+      "reason": "BI Lab dbt progression"
+    },
+    "validator_version": "rows-v2",
+    "validation": {
+      "kind": "rows",
+      "ordered": false,
+      "duplicate_sensitive": true,
+      "relative_tolerance": 1e-09,
+      "absolute_tolerance": 1e-06,
+      "required_columns": [
+        "customer_id",
+        "city",
+        "segment",
+        "dbt_valid_from",
+        "dbt_valid_to"
+      ],
+      "exact_schema": [
+        "customer_id",
+        "city",
+        "segment",
+        "dbt_valid_from",
+        "dbt_valid_to"
+      ],
+      "forbidden_extra_columns": true,
+      "null_semantics": "equal"
+    },
+    "runtime_requirements": [
+      "duckdb",
+      "jinja2"
+    ],
+    "provenance": {
+      "source": "Authored for Datapass Workbench: dbt practices on the Datapass dbt emulation",
+      "fixtures": "Authored scenarios; expected rows computed by running the reference, checked against dbt Core, reviewed"
+    },
+    "constraints": {
+      "truth": "Datapass dbt emulation on an isolated local DuckDB catalog: sandboxed Jinja, real SQL, dbt Core semantics for a documented subset; not dbt Core."
+    },
+    "truth": "semantic-emulation"
+  },
+  {
+    "schema_version": 1,
+    "id": "dbt-snapshot-check-deletes",
+    "version": "1",
+    "title": "Snapshot without updated_at: check strategy and deletions",
+    "difficulty": "hard",
+    "topics": [
+      "snapshots",
+      "check-strategy",
+      "hard-deletes"
+    ],
+    "tags": [
+      "bi-lab",
+      "dbt",
+      "semantic-emulation"
+    ],
+    "origin": "authored",
+    "language": "dbt-sql",
+    "runtime": "datapass-dbt-emulation-v1",
+    "prompt": "source crm.customers (customer_id, segment) has no updated_at, and customers can be deleted. Write snapshots/segments_snapshot.sql: a snapshot named segments_snapshot (silver, key customer_id) that opens a version when segment changes (NULL counts as a value) and closes the current version of a customer who disappears from the source. It runs daily at 06:00.",
+    "sections": [
+      {
+        "title": "dbt project",
+        "body": "Your file joins a small dbt project that the Datapass dbt emulation runs on an isolated DuckDB catalog built for each check: Jinja is rendered in a sandbox and the SQL really runs. It follows dbt Core and dbt-duckdb for a documented subset (checked against dbt Core); it is not dbt Core. The target schema is silver and dbt_project.yml puts staging in silver and marts in gold. Your file is snapshots/segments_snapshot.sql."
+      },
+      {
+        "title": "Check strategy",
+        "body": "Without a trustworthy updated_at, the check strategy compares check_cols with the current version; versions are dated with the snapshot run (here 06:00 each day). Deleted rows are ignored by default: hard_deletes='invalidate' closes them (dbt 1.9; the older flag is invalidate_hard_deletes: true)."
+      },
+      {
+        "title": "Graded",
+        "body": "The snapshot (customer_id, segment, dbt_valid_from, dbt_valid_to) after a segment change, a NULL segment filled in and a deletion, then after the deleted customer comes back."
+      }
+    ],
+    "starter_source": "{% snapshot segments_snapshot %}\n{{ config(target_schema='silver', unique_key='customer_id', strategy='check', check_cols=['segment']) }}\nselect customer_id, segment from {{ source('crm', 'customers') }}\n{% endsnapshot %}\n",
+    "fixtures": [
+      {
+        "id": "dbt-snapshot-check-deletes-fixtures",
+        "version": "1"
+      }
+    ],
+    "visible_checks": [
+      {
+        "id": "change-and-delete",
+        "description": "Outcome of the public dbt run on an isolated DuckDB catalog."
+      }
+    ],
+    "hidden_check_refs": [
+      "comes-back"
+    ],
+    "edge_check_refs": [
+      "no-change"
+    ],
+    "hints": [
+      "strategy='check' with check_cols=['segment'].",
+      "hard_deletes='invalidate' closes the versions of deleted rows."
+    ],
+    "solution": {
+      "available": true,
+      "reveal": "explicit"
+    },
+    "explanation": "The check strategy compares segment with the current version (a NULL becoming a value is a change) and dates each version with the run; hard_deletes='invalidate' closes the version of a customer who vanished, and when the customer returns a new version opens. Without it, a deleted customer stays current forever.",
+    "follow_ups": [
+      "hard_deletes='new_record' adds a deleted version instead of closing one. When is that better?"
+    ],
+    "canonical_placement": {
+      "domain": "bi-dbt",
+      "topic": "snapshots"
+    },
+    "related_associations": [
+      "bi-lab/dbt"
+    ],
+    "recommendation": {
+      "rank": 9,
+      "reason": "BI Lab dbt progression"
+    },
+    "validator_version": "rows-v2",
+    "validation": {
+      "kind": "rows",
+      "ordered": false,
+      "duplicate_sensitive": true,
+      "relative_tolerance": 1e-09,
+      "absolute_tolerance": 1e-06,
+      "required_columns": [
+        "customer_id",
+        "segment",
+        "dbt_valid_from",
+        "dbt_valid_to"
+      ],
+      "exact_schema": [
+        "customer_id",
+        "segment",
+        "dbt_valid_from",
+        "dbt_valid_to"
+      ],
+      "forbidden_extra_columns": true,
+      "null_semantics": "equal"
+    },
+    "runtime_requirements": [
+      "duckdb",
+      "jinja2"
+    ],
+    "provenance": {
+      "source": "Authored for Datapass Workbench: dbt practices on the Datapass dbt emulation",
+      "fixtures": "Authored scenarios; expected rows computed by running the reference, checked against dbt Core, reviewed"
+    },
+    "constraints": {
+      "truth": "Datapass dbt emulation on an isolated local DuckDB catalog: sandboxed Jinja, real SQL, dbt Core semantics for a documented subset; not dbt Core."
+    },
+    "truth": "semantic-emulation"
+  },
+  {
+    "schema_version": 1,
+    "id": "dbt-dim-from-snapshot",
+    "version": "1",
+    "title": "A type 2 dimension from a snapshot",
+    "difficulty": "hard",
+    "topics": [
+      "snapshots",
+      "scd-type-2",
+      "dimensions"
+    ],
+    "tags": [
+      "bi-lab",
+      "dbt",
+      "semantic-emulation"
+    ],
+    "origin": "authored",
+    "language": "dbt-sql",
+    "runtime": "datapass-dbt-emulation-v1",
+    "prompt": "The project has the snapshot customers_snapshot of the previous exercise. Write models/marts/dim_customer.sql (gold) for reports: customer_key = md5(customer_id || '|' || cast(dbt_valid_from as varchar)), customer_id, city, segment, valid_from and valid_to as dates, valid_to 9999-12-31 while current, and is_current. It is rebuilt by dbt build after each snapshot.",
+    "sections": [
+      {
+        "title": "dbt project",
+        "body": "Your file joins a small dbt project that the Datapass dbt emulation runs on an isolated DuckDB catalog built for each check: Jinja is rendered in a sandbox and the SQL really runs. It follows dbt Core and dbt-duckdb for a documented subset (checked against dbt Core); it is not dbt Core. The target schema is silver and dbt_project.yml puts staging in silver and marts in gold. Your file is models/marts/dim_customer.sql."
+      },
+      {
+        "title": "From snapshot to dimension",
+        "body": "Snapshots keep dbt's technical columns; the dimension reports use renames them, gives each version a stable surrogate key (a hash of the key and the start date survives rebuilds), and replaces the open NULL end with a far-future date so point-in-time joins can use between-style conditions."
+      },
+      {
+        "title": "Graded",
+        "body": "gold.dim_customer after two and three daily builds (the key's hash is checked too)."
+      }
+    ],
+    "starter_source": "select customer_id, city, segment, dbt_valid_from as valid_from, dbt_valid_to as valid_to\nfrom {{ ref('customers_snapshot') }}\nwhere dbt_valid_to is null\n",
+    "fixtures": [
+      {
+        "id": "dbt-dim-from-snapshot-fixtures",
+        "version": "1"
+      }
+    ],
+    "visible_checks": [
+      {
+        "id": "two-days",
+        "description": "Outcome of the public dbt run on an isolated DuckDB catalog."
+      }
+    ],
+    "hidden_check_refs": [
+      "three-days"
+    ],
+    "edge_check_refs": [
+      "keys"
+    ],
+    "hints": [
+      "ref('customers_snapshot') reads the snapshot like any model.",
+      "coalesce the open dbt_valid_to with date '9999-12-31'."
+    ],
+    "solution": {
+      "available": true,
+      "reveal": "explicit"
+    },
+    "explanation": "The dimension keeps every version of the snapshot, with a surrogate key that changes per version (customer_id alone would repeat), business-friendly validity dates and an explicit current flag. Filtering to current rows would make it a type 1 dimension again.",
+    "follow_ups": [
+      "Use dbt_valid_to_current=\"'9999-12-31'\" in the snapshot config instead of the coalesce: what changes for other consumers of the snapshot?"
+    ],
+    "canonical_placement": {
+      "domain": "bi-dbt",
+      "topic": "snapshots"
+    },
+    "related_associations": [
+      "bi-lab/dbt"
+    ],
+    "recommendation": {
+      "rank": 10,
+      "reason": "BI Lab dbt progression"
+    },
+    "validator_version": "rows-v2",
+    "validation": {
+      "kind": "rows",
+      "ordered": false,
+      "duplicate_sensitive": true,
+      "relative_tolerance": 1e-09,
+      "absolute_tolerance": 1e-06,
+      "required_columns": [],
+      "exact_schema": null,
+      "forbidden_extra_columns": true,
+      "null_semantics": "equal"
+    },
+    "runtime_requirements": [
+      "duckdb",
+      "jinja2"
+    ],
+    "provenance": {
+      "source": "Authored for Datapass Workbench: dbt practices on the Datapass dbt emulation",
+      "fixtures": "Authored scenarios; expected rows computed by running the reference, checked against dbt Core, reviewed"
+    },
+    "constraints": {
+      "truth": "Datapass dbt emulation on an isolated local DuckDB catalog: sandboxed Jinja, real SQL, dbt Core semantics for a documented subset; not dbt Core."
+    },
+    "truth": "semantic-emulation"
+  },
+  {
+    "schema_version": 1,
+    "id": "dbt-generate-schema-name",
+    "version": "1",
+    "title": "Custom schemas: override generate_schema_name",
+    "difficulty": "medium",
+    "topics": [
+      "macros",
+      "schemas",
+      "environments"
+    ],
+    "tags": [
+      "bi-lab",
+      "dbt",
+      "semantic-emulation"
+    ],
+    "origin": "authored",
+    "language": "dbt-sql",
+    "runtime": "datapass-dbt-emulation-v1",
+    "prompt": "dbt_project.yml gives staging +schema: silver and marts +schema: gold, and the target schema is silver. By default dbt builds in \"<target schema>_<custom schema>\" (silver_gold), which is not a layer of the catalog. Write macros/generate_schema_name.sql so a model with a custom schema is built in that schema as is, and a model without one in the target schema.",
+    "sections": [
+      {
+        "title": "dbt project",
+        "body": "Your file joins a small dbt project that the Datapass dbt emulation runs on an isolated DuckDB catalog built for each check: Jinja is rendered in a sandbox and the SQL really runs. It follows dbt Core and dbt-duckdb for a documented subset (checked against dbt Core); it is not dbt Core. The target schema is silver and dbt_project.yml puts staging in silver and marts in gold. Your file is macros/generate_schema_name.sql."
+      },
+      {
+        "title": "Schemas per environment",
+        "body": "generate_schema_name decides where each model lands. The default concatenation keeps developers' schemas apart (dbt_alice_gold); many teams override it so production uses the custom schema as is, often only for the prod target."
+      },
+      {
+        "title": "Graded",
+        "body": "dbt build: where each model lands (relation) and its status."
+      }
+    ],
+    "starter_source": "{% macro generate_schema_name(custom_schema_name, node) -%}\n    {%- if custom_schema_name is none -%}\n        {{ target.schema }}\n    {%- else -%}\n        {{ target.schema }}_{{ custom_schema_name | trim }}\n    {%- endif -%}\n{%- endmacro %}\n",
+    "fixtures": [
+      {
+        "id": "dbt-generate-schema-name-fixtures",
+        "version": "1"
+      }
+    ],
+    "visible_checks": [
+      {
+        "id": "layers",
+        "description": "Outcome of the public dbt run on an isolated DuckDB catalog."
+      }
+    ],
+    "hidden_check_refs": [
+      "rows"
+    ],
+    "edge_check_refs": [],
+    "hints": [
+      "The macro returns text: the schema name.",
+      "Use custom_schema_name as is when it is not none."
+    ],
+    "solution": {
+      "available": true,
+      "reveal": "explicit"
+    },
+    "explanation": "The override returns the custom schema itself, so staging lands in silver and marts in gold, the catalog's layers. Keeping target.schema everywhere would put the marts in silver; the default concatenation invents schemas that do not exist in this warehouse.",
+    "follow_ups": [
+      "Make the override apply only when target.name == 'prod', and keep the default for dev."
+    ],
+    "canonical_placement": {
+      "domain": "bi-dbt",
+      "topic": "macros"
+    },
+    "related_associations": [
+      "bi-lab/dbt"
+    ],
+    "recommendation": {
+      "rank": 11,
+      "reason": "BI Lab dbt progression"
+    },
+    "validator_version": "rows-v2",
+    "validation": {
+      "kind": "rows",
+      "ordered": false,
+      "duplicate_sensitive": true,
+      "relative_tolerance": 1e-09,
+      "absolute_tolerance": 1e-06,
+      "required_columns": [],
+      "exact_schema": null,
+      "forbidden_extra_columns": true,
+      "null_semantics": "equal"
+    },
+    "runtime_requirements": [
+      "duckdb",
+      "jinja2"
+    ],
+    "provenance": {
+      "source": "Authored for Datapass Workbench: dbt practices on the Datapass dbt emulation",
+      "fixtures": "Authored scenarios; expected rows computed by running the reference, checked against dbt Core, reviewed"
+    },
+    "constraints": {
+      "truth": "Datapass dbt emulation on an isolated local DuckDB catalog: sandboxed Jinja, real SQL, dbt Core semantics for a documented subset; not dbt Core."
+    },
+    "truth": "semantic-emulation"
+  },
+  {
+    "schema_version": 1,
+    "id": "dbt-conditional-ref",
+    "version": "1",
+    "title": "A ref inside is_incremental(): declare the dependency",
+    "difficulty": "medium",
+    "topics": [
+      "incremental",
+      "dag",
+      "parsing"
+    ],
+    "tags": [
+      "bi-lab",
+      "dbt",
+      "semantic-emulation"
+    ],
+    "origin": "authored",
+    "language": "dbt-sql",
+    "runtime": "datapass-dbt-emulation-v1",
+    "prompt": "models/marts/fct_recent_orders.sql is incremental on order_id and, in incremental runs, only reprocesses orders from the day before the latest order date given by the model order_cutoff. The first build works, but the second fails with a compilation error. Keep the logic and fix the model so every build works. Columns: order_id, status, amount, order_date.",
+    "sections": [
+      {
+        "title": "dbt project",
+        "body": "Your file joins a small dbt project that the Datapass dbt emulation runs on an isolated DuckDB catalog built for each check: Jinja is rendered in a sandbox and the SQL really runs. It follows dbt Core and dbt-duckdb for a documented subset (checked against dbt Core); it is not dbt Core. The target schema is silver and dbt_project.yml puts staging in silver and marts in gold. Your file is models/marts/fct_recent_orders.sql."
+      },
+      {
+        "title": "Parsing and conditional refs",
+        "body": "dbt parses every model once with is_incremental() false to build the DAG. A ref() that only runs inside {% if is_incremental() %} is invisible then, so on the next run dbt refuses it: it cannot order what it does not know. The fix is a `-- depends_on: {{ ref(...) }}` comment at the top of the model (Jinja still renders it), or a ref outside the if block."
+      },
+      {
+        "title": "Graded",
+        "body": "The nodes of two daily builds (status of fct_recent_orders), and its rows after the second."
+      }
+    ],
+    "starter_source": "{{ config(materialized='incremental', unique_key='order_id') }}\nselect order_id, status, amount, order_date\nfrom {{ ref('stg_orders') }}\n{% if is_incremental() %}\nwhere order_date >= (select last_order_date - 1 from {{ ref('order_cutoff') }})\n{% endif %}\n",
+    "fixtures": [
+      {
+        "id": "dbt-conditional-ref-fixtures",
+        "version": "1"
+      }
+    ],
+    "visible_checks": [
+      {
+        "id": "second-build",
+        "description": "Outcome of the public dbt run on an isolated DuckDB catalog."
+      }
+    ],
+    "hidden_check_refs": [
+      "rows"
+    ],
+    "edge_check_refs": [],
+    "hints": [
+      "Jinja renders comments' {{ }} too: a SQL comment can carry a ref.",
+      "dbt's own error message tells you the hint to add."
+    ],
+    "solution": {
+      "available": true,
+      "reveal": "explicit"
+    },
+    "explanation": "The `-- depends_on:` comment is rendered at parse time, so dbt records the dependency on order_cutoff even though the real use is inside the incremental branch. dbt then builds order_cutoff first and the incremental run compiles; a plain comment without {{ ref() }} declares nothing.",
+    "follow_ups": [
+      "Why does dbt not simply render both branches at parse time?"
+    ],
+    "canonical_placement": {
+      "domain": "bi-dbt",
+      "topic": "incremental"
+    },
+    "related_associations": [
+      "bi-lab/dbt"
+    ],
+    "recommendation": {
+      "rank": 12,
+      "reason": "BI Lab dbt progression"
+    },
+    "validator_version": "rows-v2",
+    "validation": {
+      "kind": "rows",
+      "ordered": false,
+      "duplicate_sensitive": true,
+      "relative_tolerance": 1e-09,
+      "absolute_tolerance": 1e-06,
+      "required_columns": [],
+      "exact_schema": null,
+      "forbidden_extra_columns": true,
+      "null_semantics": "equal"
+    },
+    "runtime_requirements": [
+      "duckdb",
+      "jinja2"
+    ],
+    "provenance": {
+      "source": "Authored for Datapass Workbench: dbt practices on the Datapass dbt emulation",
+      "fixtures": "Authored scenarios; expected rows computed by running the reference, checked against dbt Core, reviewed"
+    },
+    "constraints": {
+      "truth": "Datapass dbt emulation on an isolated local DuckDB catalog: sandboxed Jinja, real SQL, dbt Core semantics for a documented subset; not dbt Core."
+    },
+    "truth": "semantic-emulation"
+  }
+]

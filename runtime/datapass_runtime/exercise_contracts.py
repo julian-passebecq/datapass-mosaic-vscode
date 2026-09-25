@@ -81,7 +81,7 @@ class ExerciseDefinition(Contract):
     tags: list[str]
     origin: Literal['internal-demo','authored','migrated']
     language: Literal['sql','sparklab','python','polars','dbt','airflow','factory','factory-notebook','sqlpool',
-                      'databricks-job','databricks-notebook','databricks-grants','warehouse','bi-model']
+                      'databricks-job','databricks-notebook','databricks-grants','warehouse','bi-model','dbt-sql','dbt-yml']
     runtime: str
     semantic: SemanticExercise | None = None
     prompt: str
@@ -150,7 +150,7 @@ class ExerciseAttempt(Contract):
     validator_version: str
     fixtures: list[VersionRef]
     language: Literal['sql','sparklab','python','polars','dbt','airflow','factory','factory-notebook','sqlpool',
-                      'databricks-job','databricks-notebook','databricks-grants','warehouse','bi-model']
+                      'databricks-job','databricks-notebook','databricks-grants','warehouse','bi-model','dbt-sql','dbt-yml']
     status: Literal['passed','failed','error']
     checks: list[ExerciseCheck]
     truth: Literal['real','semantic-emulation','simulated','unsupported','design-only']

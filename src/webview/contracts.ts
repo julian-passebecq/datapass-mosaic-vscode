@@ -176,6 +176,7 @@ export interface RuntimeViewState {
   /** Unity Catalog, MLflow and compute of the Databricks tab, refreshed after each job run. */
   databricksState?: DatabricksStateView;
   biRun?: BiLabView;
+  biDbtRun?: BiDbtView;
   retailDemo?: RetailDemoRunView;
   catalog?: readonly LocalCatalogAssetView[];
   lastRun?: LocalCellRunView;
@@ -454,9 +455,61 @@ export interface BiViewState {
   /** The model file is not valid JSON (the runtime validates the rest). */
   modelError?: string;
   warnings: readonly string[];
+  /** The dbt project of the BI Lab (bi/dbt), run with the Datapass dbt emulation. */
+  dbtExists: boolean;
+  dbtFiles: number;
 }
 
 export type BiRunMode = "build" | "analyze" | "active";
+
+export type BiDbtCommand = "build" | "run" | "test" | "seed" | "snapshot" | "compile" | "parse";
+
+export interface BiDbtNodeView {
+  uniqueId: string;
+  name: string;
+  resourceType: "model" | "seed" | "snapshot" | "test";
+  materialized: string;
+  relation?: string;
+  path: string;
+  dependsOn: readonly string[];
+  sources: readonly string[];
+  tags: readonly string[];
+  description: string;
+  problem?: string;
+}
+
+export interface BiDbtResultView {
+  uniqueId: string;
+  name: string;
+  resourceType: string;
+  status: "success" | "error" | "skipped" | "pass" | "fail" | "warn";
+  message: string;
+  materialized: string;
+  relation?: string;
+  rowsAffected?: number;
+  failures?: number;
+  compiled: string;
+  failingRows: readonly Record<string, string | number | boolean | null>[];
+  path: string;
+}
+
+export interface BiDbtView {
+  command: BiDbtCommand;
+  select: string;
+  status: "success" | "error" | "parsed" | "invalid";
+  error?: string;
+  projectName?: string;
+  issues: readonly { path: string; message: string }[];
+  nodes: readonly BiDbtNodeView[];
+  sources: readonly { name: string; relation: string; description: string }[];
+  results: readonly BiDbtResultView[];
+  counts?: Readonly<Record<string, number>>;
+  now?: string;
+  lineage?: BiLineageView;
+  truth: string;
+  warnings: readonly string[];
+}
+
 
 export interface BiStatementView {
   path: string;
@@ -1041,6 +1094,7 @@ export type WebviewToHostMessage =
   | { type: "openBiFile"; path: string }
   | { type: "runBiLab"; mode: BiRunMode }
   | { type: "revealBiLine"; path: string; line: number }
+  | { type: "runBiDbt"; command: BiDbtCommand; select: string; fullRefresh: boolean }
   | { type: "openDbtProject" }
   | { type: "refreshDbt" }
   | { type: "runDbtBuild" };

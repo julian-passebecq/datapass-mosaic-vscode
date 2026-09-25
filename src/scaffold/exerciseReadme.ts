@@ -59,6 +59,11 @@ export function exerciseReadme(exercise: ExerciseSummary): string {
           ? "**Run visible** runs the job in the public scenario. **Submit** also runs hidden and edge-case scenarios " +
             "that are not shown here. The job is simulated; notebooks run on SparkLab and are never executed as Python; " +
             "each check uses an isolated catalog and Unity Catalog, never your workspace lakehouse."
+        : exercise.language === "dbt-sql" || exercise.language === "dbt-yml"
+          ? "**Run visible** runs the public check. **Submit** also runs hidden and edge-case checks that are not " +
+            "shown here. Your file joins a small dbt project that the Datapass dbt emulation runs on an isolated " +
+            "DuckDB catalog, never your workspace: Jinja is rendered in a sandbox and the SQL really runs. It follows " +
+            "dbt Core and dbt-duckdb for a documented subset; it is not dbt Core."
         : exercise.language === "warehouse" || exercise.language === "bi-model"
           ? "**Run visible** runs the public check. **Submit** also runs hidden and edge-case checks that are not " +
             "shown here. Each check builds an isolated DuckDB catalog from the tables the exercise describes, never " +

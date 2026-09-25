@@ -1,0 +1,32 @@
+version: 2
+
+# The raw tables loaded by bi/warehouse/00_sources.sql (on a real platform: by the ingestion pipelines).
+sources:
+  - name: crm
+    schema: source
+    tables:
+      - name: crm_customers
+        description: Customers as the CRM sees them today.
+        columns:
+          - name: customer_id
+            data_tests: [unique, not_null]
+      - name: crm_customer_history
+        description: One row per change of city or segment, with the date it took effect.
+  - name: erp
+    schema: source
+    tables:
+      - name: erp_products
+        columns:
+          - name: product_id
+            data_tests: [unique, not_null]
+      - name: erp_subcategories
+      - name: erp_categories
+  - name: shop
+    schema: source
+    tables:
+      - name: shop_orders
+        columns:
+          - name: order_id
+            data_tests: [unique, not_null]
+      - name: shop_order_lines
+      - name: shop_returns

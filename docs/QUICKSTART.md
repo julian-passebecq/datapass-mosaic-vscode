@@ -166,6 +166,12 @@ DuckDB catalog, then:
   cardinality, one active path between two tables (the ship date is an inactive, role-playing relationship);
 - **Lineage** traces every column back to its source columns, shows which columns decide the rows, and answers
   "what does a change to this column reach?";
+- **dbt** runs `bi/dbt/`, the same warehouse built the dbt way (staging views, an ephemeral intermediate
+  model, marts with an incremental fact, a snapshot, tests and macros), with the Datapass dbt emulation: pick
+  build, run, test, seed or snapshot, a selection (`+fct_sales`, `tag:daily`) and `--full-refresh`, then read the
+  DAG, each node's status, failing test rows, compiled SQL and column lineage. No dbt install is needed; it
+  follows dbt Core and dbt-duckdb for a documented subset but is not dbt Core (the README in `bi/dbt` shows how to
+  run the same project with dbt Core);
 - **Concepts** is a data warehousing sheet (SCD types, fact table types, keys, dimension patterns, additivity), each
   item linked to a Practice exercise of the `dwh-v1` pack.
 
@@ -218,7 +224,7 @@ The runtime is a local IPC/control plane, not a separate Datapass web applicatio
 | Practice | VS Code files, local tests/runners | exercise scenarios where explicitly marked |
 | Cloud Lab | local files, DuckDB/DuckLake; pipeline Copy, Lookup, Script, stored procedures and SparkLab notebooks on the local catalog; SQL pool data statements (T-SQL translated to DuckDB); Databricks notebook and SQL tasks, Spark ML fits, Unity Catalog checks | Fabric UI, pipeline orchestration (Data Factory semantics), every other activity (Web, Teams, Outlook, dataflows...); SQL pool distributions, partitions, rowgroups and data movement; Databricks job orchestration, compute, start times and cost; MLflow as local data |
 | SparkLab | whitelist parser, compiled SQL and result rows computed locally | stages, shuffle, duration, credits, cluster behavior |
-| BI Lab | warehouse SQL scripts and model checks on DuckDB | column lineage is a static analysis of the SQL text; no Power BI |
+| BI Lab | warehouse SQL scripts and model checks on DuckDB; the SQL of dbt models | column lineage is a static analysis of the SQL text; dbt's behaviour is emulated (not dbt Core); no Power BI |
 | dbt Lab | dbt Core + DuckDB when installed | static lineage fallback is not execution |
 | Airflow Lab | DAG files (Lab and Practice) are parsed, never executed | scheduler/executor/task runtime, runs, task states, logs, rendered templates |
 | Pipeline Lab | source files, bounded compiler, SQL/quality execution; Python/Polars after trusted-Python opt-in | scheduler/service semantics; dbt activity declared only, never executed or reported as success |

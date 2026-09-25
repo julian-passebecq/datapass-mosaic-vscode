@@ -1,0 +1,48 @@
+version: 2
+
+models:
+  - name: dim_customer
+    description: Customers, type 2 on city and segment (one row per version); -1 is the unknown member.
+    columns:
+      - name: customer_key
+        description: Surrogate key, one per version.
+        data_tests: [unique, not_null]
+      - name: segment
+        data_tests:
+          - accepted_values:
+              arguments:
+                values: ['Consumer', 'Small Business', 'Corporate', 'Unknown']
+  - name: dim_product
+    columns:
+      - name: product_key
+        data_tests: [unique, not_null]
+  - name: dim_date
+    columns:
+      - name: date_key
+        data_tests: [unique, not_null]
+  - name: fct_sales
+    description: Sales at the order-line grain.
+    columns:
+      - name: customer_key
+        data_tests:
+          - not_null
+          - relationships:
+              arguments:
+                to: ref('dim_customer')
+                field: customer_key
+      - name: product_key
+        data_tests:
+          - relationships:
+              arguments:
+                to: ref('dim_product')
+                field: product_key
+      - name: order_date_key
+        data_tests:
+          - relationships:
+              arguments:
+                to: ref('dim_date')
+                field: date_key
+  - name: fct_returns
+    columns:
+      - name: return_id
+        data_tests: [unique]

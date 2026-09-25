@@ -15,7 +15,7 @@ import { tmpdir } from "node:os";
 import * as path from "node:path";
 import * as vscode from "vscode";
 import { loadAirflowState } from "../airflowState";
-import { biFileUri, collectBiScripts, copyBiSamples, loadBiState, readBiModel } from "../biState";
+import { biFileUri, collectBiDbtFiles, collectBiScripts, copyBiSamples, loadBiState, readBiModel } from "../biState";
 import { loadDbtState } from "../dbtState";
 import { loadExerciseCatalog } from "../exerciseCatalog";
 import { collectDatabricksFiles, collectFactoryFiles, copyFactorySamples, loadFactoryState, readPoolScript } from "../factoryState";
@@ -350,6 +350,28 @@ export async function run(): Promise<void> {
       assert.deepEqual(analyzed.statements, []);
       assert.ok(analyzed.model?.checks.some(c => c.check === "single_active_path" && c.status === "fail"));
     }],
+    ["BI Lab dbt tab runs the sample project with the Datapass dbt emulation", async () => {
+      const { files, warnings } = await collectBiDbtFiles();
+      assert.deepEqual(warnings, []);
+      assert.ok("dbt_project.yml" in files && "models/marts/fct_sales.sql" in files && !("README.md" in files));
+      assert.equal((await loadBiState()).dbtExists, true);
+      await runtime!.runBiDbt({ command: "build", select: [], selectText: "", fullRefresh: false, files, warnings });
+      const built = runtime!.snapshot().biDbtRun!;
+      assert.equal(built.status, "success", JSON.stringify(built.results.filter(r => r.status === "error")));
+      assert.equal(built.counts?.success, 12);
+      assert.equal(built.counts?.pass, 19);
+      assert.match(built.truth, /not dbt Core/);
+      assert.ok(runtime!.snapshot().catalog?.some(item => item.name === "warehouse.fct_sales" && item.row_count === 16));
+      const lineage = built.lineage?.columns.find(c => c.table === "warehouse.fct_sales" && c.column === "cost_amount");
+      assert.deepEqual(lineage?.origins, ["source.erp_products.unit_cost", "source.shop_order_lines.quantity"]);
+      await runtime!.runBiDbt({ command: "build", select: ["+fct_returns"], selectText: "+fct_returns", fullRefresh: false, files, warnings });
+      assert.ok(runtime!.snapshot().biDbtRun!.results.every(r => r.name !== "dim_date" || r.status === "success"));
+      const broken = { ...files, "models/marts/fct_sales.sql": files["models/marts/fct_sales.sql"].replace("-- depends_on: {{ ref('dim_date') }}", "") };
+      await runtime!.runBiDbt({ command: "run", select: ["fct_sales"], selectText: "fct_sales", fullRefresh: false, files: broken, warnings });
+      const refused = runtime!.snapshot().biDbtRun!.results[0];
+      assert.equal(refused.status, "error");
+      assert.match(refused.message, /depends_on/);
+    }],
     ["Practice exercise: visible run and submission grade for real", async () => {
       const catalog = await loadExerciseCatalog(extension.extensionUri);
       const exercise = catalog.find(item => item.id === "demo-sum");
@@ -545,6 +567,24 @@ export async function run(): Promise<void> {
       const notJson = await submit(starModel, "{ \"tables\": [");
       assert.equal(notJson.status, "failed");
       assert.match(notJson.checks[0].message, /Model rejected: not valid JSON/);
+      // BI Lab dbt: one file of a dbt project, graded on the emulation with an isolated catalog.
+      const dbtPack = catalog.filter(item => item.packId === "dbt-v1");
+      assert.equal(dbtPack.length, 12);
+      assert.deepEqual([...new Set(dbtPack.map(item => item.language))].sort(), ["dbt-sql", "dbt-yml"]);
+      assert.ok(dbtPack.every(item => item.truth === "semantic-emulation"));
+      const dbtGrading = JSON.parse(new TextDecoder().decode(await vscode.workspace.fs.readFile(
+        vscode.Uri.joinPath(extension.extensionUri, "content", "exercise-packs", "dbt-v1", "grading.server.json")
+      ))) as Record<string, { solution: string }>;
+      const snapshot = dbtPack.find(item => item.id === "dbt-snapshot-timestamp")!;
+      const snapped = await submit(snapshot, dbtGrading[snapshot.id].solution);
+      assert.equal(snapped.status, "passed", JSON.stringify(snapped.checks));
+      assert.equal(snapped.truth, "semantic-emulation");
+      assert.equal((await submit(snapshot, snapshot.starterSource)).status, "failed", "the check strategy dates versions with the run");
+      const tests = dbtPack.find(item => item.id === "dbt-generic-tests")!;
+      assert.equal(tests.language, "dbt-yml");
+      assert.equal((await submit(tests, dbtGrading[tests.id].solution)).status, "passed");
+      const sandboxed = await submit(dbtPack.find(item => item.id === "dbt-staging-model")!, "select '{{ ''.__class__ }}' as x\n");
+      assert.equal(sandboxed.status, "failed");
       await runtime!.refreshCatalog();
       assert.equal(JSON.stringify(runtime!.snapshot().catalog?.map(item => [item.name, item.row_count])), catalogBefore,
         "exercise grading must not touch the workspace catalog");

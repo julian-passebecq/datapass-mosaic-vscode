@@ -1,0 +1,3825 @@
+{
+  "dbt-ref-builds-the-dag": {
+    "solution": "select order_date, count(*) as orders, sum(amount) as revenue\nfrom {{ ref('stg_orders') }}\ngroup by order_date\n",
+    "fixtures": [
+      {
+        "id": "select-upstream",
+        "visibility": "visible",
+        "input_rows": [],
+        "scenario": {
+          "outcome": "nodes",
+          "file": "models/marts/fct_daily_orders.sql",
+          "files": {
+            "dbt_project.yml": "name: shop\nversion: '1.0.0'\nconfig-version: 2\nprofile: datapass\n\nmodels:\n  shop:\n    staging:\n      +materialized: view\n      +schema: silver\n    marts:\n      +materialized: table\n      +schema: gold\n",
+            "models/staging/_sources.yml": "version: 2\nsources:\n  - name: shop\n    schema: source\n    tables:\n      - name: orders\n      - name: order_lines\n      - name: events\n  - name: crm\n    schema: source\n    tables:\n      - name: customers\n",
+            "macros/generate_schema_name.sql": "{% macro generate_schema_name(custom_schema_name, node) -%}\n    {%- if custom_schema_name is none -%}{{ target.schema }}{%- else -%}{{ custom_schema_name | trim }}{%- endif -%}\n{%- endmacro %}\n",
+            "models/staging/stg_orders.sql": "select\n    order_id,\n    customer_id,\n    lower(status) as status,\n    amount_cents / 100.0 as amount,\n    cast(ordered_at as date) as order_date\nfrom {{ source('shop', 'orders') }}\nwhere not is_test\n"
+          },
+          "runs": [
+            {
+              "command": "build",
+              "now": "2026-03-01 06:00:00",
+              "select": [
+                "+fct_daily_orders"
+              ]
+            }
+          ],
+          "tables": [
+            {
+              "name": "source.orders",
+              "rows": [
+                {
+                  "order_id": "O1",
+                  "customer_id": "C1",
+                  "status": "PLACED",
+                  "amount_cents": 1250,
+                  "ordered_at": "2026-02-01 09:00:00",
+                  "is_test": false
+                },
+                {
+                  "order_id": "O2",
+                  "customer_id": "C2",
+                  "status": "shipped",
+                  "amount_cents": 4000,
+                  "ordered_at": "2026-02-02 10:30:00",
+                  "is_test": false
+                },
+                {
+                  "order_id": "O3",
+                  "customer_id": "C1",
+                  "status": "Returned",
+                  "amount_cents": 999,
+                  "ordered_at": "2026-02-03 11:00:00",
+                  "is_test": false
+                },
+                {
+                  "order_id": "T9",
+                  "customer_id": "C9",
+                  "status": "placed",
+                  "amount_cents": 1,
+                  "ordered_at": "2026-02-03 12:00:00",
+                  "is_test": true
+                }
+              ],
+              "types": {
+                "amount_cents": "INTEGER",
+                "ordered_at": "TIMESTAMP"
+              }
+            }
+          ]
+        },
+        "expected": [
+          {
+            "name": "stg_orders",
+            "resource_type": "model",
+            "status": "success"
+          },
+          {
+            "name": "fct_daily_orders",
+            "resource_type": "model",
+            "status": "success"
+          }
+        ]
+      },
+      {
+        "id": "daily-rows",
+        "visibility": "hidden",
+        "input_rows": [],
+        "scenario": {
+          "outcome": "table",
+          "file": "models/marts/fct_daily_orders.sql",
+          "files": {
+            "dbt_project.yml": "name: shop\nversion: '1.0.0'\nconfig-version: 2\nprofile: datapass\n\nmodels:\n  shop:\n    staging:\n      +materialized: view\n      +schema: silver\n    marts:\n      +materialized: table\n      +schema: gold\n",
+            "models/staging/_sources.yml": "version: 2\nsources:\n  - name: shop\n    schema: source\n    tables:\n      - name: orders\n      - name: order_lines\n      - name: events\n  - name: crm\n    schema: source\n    tables:\n      - name: customers\n",
+            "macros/generate_schema_name.sql": "{% macro generate_schema_name(custom_schema_name, node) -%}\n    {%- if custom_schema_name is none -%}{{ target.schema }}{%- else -%}{{ custom_schema_name | trim }}{%- endif -%}\n{%- endmacro %}\n",
+            "models/staging/stg_orders.sql": "select\n    order_id,\n    customer_id,\n    lower(status) as status,\n    amount_cents / 100.0 as amount,\n    cast(ordered_at as date) as order_date\nfrom {{ source('shop', 'orders') }}\nwhere not is_test\n"
+          },
+          "runs": [
+            {
+              "command": "build",
+              "now": "2026-03-01 06:00:00",
+              "select": [
+                "+fct_daily_orders"
+              ]
+            }
+          ],
+          "tables": [
+            {
+              "name": "source.orders",
+              "rows": [
+                {
+                  "order_id": "O1",
+                  "customer_id": "C1",
+                  "status": "PLACED",
+                  "amount_cents": 1250,
+                  "ordered_at": "2026-02-01 09:00:00",
+                  "is_test": false
+                },
+                {
+                  "order_id": "O2",
+                  "customer_id": "C2",
+                  "status": "shipped",
+                  "amount_cents": 4000,
+                  "ordered_at": "2026-02-02 10:30:00",
+                  "is_test": false
+                },
+                {
+                  "order_id": "O3",
+                  "customer_id": "C1",
+                  "status": "Returned",
+                  "amount_cents": 999,
+                  "ordered_at": "2026-02-03 11:00:00",
+                  "is_test": false
+                },
+                {
+                  "order_id": "T9",
+                  "customer_id": "C9",
+                  "status": "placed",
+                  "amount_cents": 1,
+                  "ordered_at": "2026-02-03 12:00:00",
+                  "is_test": true
+                }
+              ],
+              "types": {
+                "amount_cents": "INTEGER",
+                "ordered_at": "TIMESTAMP"
+              }
+            }
+          ],
+          "table": "gold.fct_daily_orders"
+        },
+        "expected": [
+          {
+            "order_date": "2026-02-01",
+            "orders": 1,
+            "revenue": 12.5
+          },
+          {
+            "order_date": "2026-02-02",
+            "orders": 1,
+            "revenue": 40.0
+          },
+          {
+            "order_date": "2026-02-03",
+            "orders": 1,
+            "revenue": 9.99
+          }
+        ]
+      },
+      {
+        "id": "select-downstream",
+        "visibility": "edge",
+        "input_rows": [],
+        "scenario": {
+          "outcome": "nodes",
+          "file": "models/marts/fct_daily_orders.sql",
+          "files": {
+            "dbt_project.yml": "name: shop\nversion: '1.0.0'\nconfig-version: 2\nprofile: datapass\n\nmodels:\n  shop:\n    staging:\n      +materialized: view\n      +schema: silver\n    marts:\n      +materialized: table\n      +schema: gold\n",
+            "models/staging/_sources.yml": "version: 2\nsources:\n  - name: shop\n    schema: source\n    tables:\n      - name: orders\n      - name: order_lines\n      - name: events\n  - name: crm\n    schema: source\n    tables:\n      - name: customers\n",
+            "macros/generate_schema_name.sql": "{% macro generate_schema_name(custom_schema_name, node) -%}\n    {%- if custom_schema_name is none -%}{{ target.schema }}{%- else -%}{{ custom_schema_name | trim }}{%- endif -%}\n{%- endmacro %}\n",
+            "models/staging/stg_orders.sql": "select\n    order_id,\n    customer_id,\n    lower(status) as status,\n    amount_cents / 100.0 as amount,\n    cast(ordered_at as date) as order_date\nfrom {{ source('shop', 'orders') }}\nwhere not is_test\n"
+          },
+          "runs": [
+            {
+              "command": "build",
+              "now": "2026-03-01 06:00:00",
+              "select": [
+                "stg_orders+"
+              ]
+            }
+          ],
+          "tables": [
+            {
+              "name": "source.orders",
+              "rows": [
+                {
+                  "order_id": "O1",
+                  "customer_id": "C1",
+                  "status": "PLACED",
+                  "amount_cents": 1250,
+                  "ordered_at": "2026-02-01 09:00:00",
+                  "is_test": false
+                },
+                {
+                  "order_id": "O2",
+                  "customer_id": "C2",
+                  "status": "shipped",
+                  "amount_cents": 4000,
+                  "ordered_at": "2026-02-02 10:30:00",
+                  "is_test": false
+                },
+                {
+                  "order_id": "O3",
+                  "customer_id": "C1",
+                  "status": "Returned",
+                  "amount_cents": 999,
+                  "ordered_at": "2026-02-03 11:00:00",
+                  "is_test": false
+                },
+                {
+                  "order_id": "T9",
+                  "customer_id": "C9",
+                  "status": "placed",
+                  "amount_cents": 1,
+                  "ordered_at": "2026-02-03 12:00:00",
+                  "is_test": true
+                }
+              ],
+              "types": {
+                "amount_cents": "INTEGER",
+                "ordered_at": "TIMESTAMP"
+              }
+            }
+          ]
+        },
+        "expected": [
+          {
+            "name": "stg_orders",
+            "resource_type": "model",
+            "status": "success"
+          },
+          {
+            "name": "fct_daily_orders",
+            "resource_type": "model",
+            "status": "success"
+          }
+        ]
+      }
+    ]
+  },
+  "dbt-staging-model": {
+    "solution": "select\n    order_id,\n    customer_id,\n    lower(status) as status,\n    amount_cents / 100.0 as amount,\n    cast(ordered_at as date) as order_date\nfrom {{ source('shop', 'orders') }}\nwhere not is_test\n",
+    "fixtures": [
+      {
+        "id": "staged",
+        "visibility": "visible",
+        "input_rows": [],
+        "scenario": {
+          "outcome": "table",
+          "file": "models/staging/stg_orders.sql",
+          "files": {
+            "dbt_project.yml": "name: shop\nversion: '1.0.0'\nconfig-version: 2\nprofile: datapass\n\nmodels:\n  shop:\n    staging:\n      +materialized: view\n      +schema: silver\n    marts:\n      +materialized: table\n      +schema: gold\n",
+            "models/staging/_sources.yml": "version: 2\nsources:\n  - name: shop\n    schema: source\n    tables:\n      - name: orders\n      - name: order_lines\n      - name: events\n  - name: crm\n    schema: source\n    tables:\n      - name: customers\n",
+            "macros/generate_schema_name.sql": "{% macro generate_schema_name(custom_schema_name, node) -%}\n    {%- if custom_schema_name is none -%}{{ target.schema }}{%- else -%}{{ custom_schema_name | trim }}{%- endif -%}\n{%- endmacro %}\n"
+          },
+          "runs": [
+            {
+              "command": "build",
+              "now": "2026-03-01 06:00:00",
+              "select": [
+                "stg_orders"
+              ]
+            }
+          ],
+          "tables": [
+            {
+              "name": "source.orders",
+              "rows": [
+                {
+                  "order_id": "O1",
+                  "customer_id": "C1",
+                  "status": "PLACED",
+                  "amount_cents": 1250,
+                  "ordered_at": "2026-02-01 09:00:00",
+                  "is_test": false
+                },
+                {
+                  "order_id": "O2",
+                  "customer_id": "C2",
+                  "status": "shipped",
+                  "amount_cents": 4000,
+                  "ordered_at": "2026-02-02 10:30:00",
+                  "is_test": false
+                },
+                {
+                  "order_id": "O3",
+                  "customer_id": "C1",
+                  "status": "Returned",
+                  "amount_cents": 999,
+                  "ordered_at": "2026-02-03 11:00:00",
+                  "is_test": false
+                },
+                {
+                  "order_id": "T9",
+                  "customer_id": "C9",
+                  "status": "placed",
+                  "amount_cents": 1,
+                  "ordered_at": "2026-02-03 12:00:00",
+                  "is_test": true
+                }
+              ],
+              "types": {
+                "amount_cents": "INTEGER",
+                "ordered_at": "TIMESTAMP"
+              }
+            }
+          ],
+          "table": "silver.stg_orders"
+        },
+        "expected": [
+          {
+            "order_id": "O1",
+            "customer_id": "C1",
+            "status": "placed",
+            "amount": 12.5,
+            "order_date": "2026-02-01"
+          },
+          {
+            "order_id": "O2",
+            "customer_id": "C2",
+            "status": "shipped",
+            "amount": 40.0,
+            "order_date": "2026-02-02"
+          },
+          {
+            "order_id": "O3",
+            "customer_id": "C1",
+            "status": "returned",
+            "amount": 9.99,
+            "order_date": "2026-02-03"
+          }
+        ]
+      },
+      {
+        "id": "more-orders",
+        "visibility": "hidden",
+        "input_rows": [],
+        "scenario": {
+          "outcome": "table",
+          "file": "models/staging/stg_orders.sql",
+          "files": {
+            "dbt_project.yml": "name: shop\nversion: '1.0.0'\nconfig-version: 2\nprofile: datapass\n\nmodels:\n  shop:\n    staging:\n      +materialized: view\n      +schema: silver\n    marts:\n      +materialized: table\n      +schema: gold\n",
+            "models/staging/_sources.yml": "version: 2\nsources:\n  - name: shop\n    schema: source\n    tables:\n      - name: orders\n      - name: order_lines\n      - name: events\n  - name: crm\n    schema: source\n    tables:\n      - name: customers\n",
+            "macros/generate_schema_name.sql": "{% macro generate_schema_name(custom_schema_name, node) -%}\n    {%- if custom_schema_name is none -%}{{ target.schema }}{%- else -%}{{ custom_schema_name | trim }}{%- endif -%}\n{%- endmacro %}\n"
+          },
+          "runs": [
+            {
+              "command": "build",
+              "now": "2026-03-01 06:00:00",
+              "select": [
+                "stg_orders"
+              ]
+            }
+          ],
+          "tables": [
+            {
+              "name": "source.orders",
+              "rows": [
+                {
+                  "order_id": "O1",
+                  "customer_id": "C1",
+                  "status": "PLACED",
+                  "amount_cents": 1250,
+                  "ordered_at": "2026-02-01 09:00:00",
+                  "is_test": false
+                },
+                {
+                  "order_id": "O2",
+                  "customer_id": "C2",
+                  "status": "shipped",
+                  "amount_cents": 4000,
+                  "ordered_at": "2026-02-02 10:30:00",
+                  "is_test": false
+                },
+                {
+                  "order_id": "O3",
+                  "customer_id": "C1",
+                  "status": "Returned",
+                  "amount_cents": 999,
+                  "ordered_at": "2026-02-03 11:00:00",
+                  "is_test": false
+                },
+                {
+                  "order_id": "T9",
+                  "customer_id": "C9",
+                  "status": "placed",
+                  "amount_cents": 1,
+                  "ordered_at": "2026-02-03 12:00:00",
+                  "is_test": true
+                },
+                {
+                  "order_id": "O4",
+                  "customer_id": "C3",
+                  "status": "Shipped",
+                  "amount_cents": 5,
+                  "ordered_at": "2026-02-04 23:59:00",
+                  "is_test": false
+                }
+              ],
+              "types": {
+                "amount_cents": "INTEGER",
+                "ordered_at": "TIMESTAMP"
+              }
+            }
+          ],
+          "table": "silver.stg_orders"
+        },
+        "expected": [
+          {
+            "order_id": "O1",
+            "customer_id": "C1",
+            "status": "placed",
+            "amount": 12.5,
+            "order_date": "2026-02-01"
+          },
+          {
+            "order_id": "O2",
+            "customer_id": "C2",
+            "status": "shipped",
+            "amount": 40.0,
+            "order_date": "2026-02-02"
+          },
+          {
+            "order_id": "O3",
+            "customer_id": "C1",
+            "status": "returned",
+            "amount": 9.99,
+            "order_date": "2026-02-03"
+          },
+          {
+            "order_id": "O4",
+            "customer_id": "C3",
+            "status": "shipped",
+            "amount": 0.05,
+            "order_date": "2026-02-04"
+          }
+        ]
+      }
+    ]
+  },
+  "dbt-generic-tests": {
+    "solution": "version: 2\nmodels:\n  - name: fct_orders\n    columns:\n      - name: order_id\n        data_tests: [unique, not_null]\n      - name: customer_id\n        data_tests:\n          - not_null\n          - relationships:\n              arguments:\n                to: ref('dim_customers')\n                field: customer_id\n      - name: status\n        data_tests:\n          - accepted_values:\n              arguments:\n                values: ['placed', 'shipped', 'returned']\n",
+    "fixtures": [
+      {
+        "id": "clean",
+        "visibility": "visible",
+        "input_rows": [],
+        "scenario": {
+          "outcome": "nodes",
+          "file": "models/marts/_marts.yml",
+          "files": {
+            "dbt_project.yml": "name: shop\nversion: '1.0.0'\nconfig-version: 2\nprofile: datapass\n\nmodels:\n  shop:\n    staging:\n      +materialized: view\n      +schema: silver\n    marts:\n      +materialized: table\n      +schema: gold\n",
+            "models/staging/_sources.yml": "version: 2\nsources:\n  - name: shop\n    schema: source\n    tables:\n      - name: orders\n      - name: order_lines\n      - name: events\n  - name: crm\n    schema: source\n    tables:\n      - name: customers\n",
+            "macros/generate_schema_name.sql": "{% macro generate_schema_name(custom_schema_name, node) -%}\n    {%- if custom_schema_name is none -%}{{ target.schema }}{%- else -%}{{ custom_schema_name | trim }}{%- endif -%}\n{%- endmacro %}\n",
+            "models/staging/stg_orders.sql": "select\n    order_id,\n    customer_id,\n    lower(status) as status,\n    amount_cents / 100.0 as amount,\n    cast(ordered_at as date) as order_date\nfrom {{ source('shop', 'orders') }}\nwhere not is_test\n",
+            "models/marts/dim_customers.sql": "select customer_id, name from {{ source('crm', 'customers') }}\n",
+            "models/marts/fct_orders.sql": "select order_id, customer_id, status, amount from {{ ref('stg_orders') }}\n"
+          },
+          "runs": [
+            {
+              "command": "build",
+              "now": "2026-03-01 06:00:00"
+            }
+          ],
+          "tables": [
+            {
+              "name": "source.orders",
+              "rows": [
+                {
+                  "order_id": "O1",
+                  "customer_id": "C1",
+                  "status": "PLACED",
+                  "amount_cents": 1250,
+                  "ordered_at": "2026-02-01 09:00:00",
+                  "is_test": false
+                },
+                {
+                  "order_id": "O2",
+                  "customer_id": "C2",
+                  "status": "shipped",
+                  "amount_cents": 4000,
+                  "ordered_at": "2026-02-02 10:30:00",
+                  "is_test": false
+                },
+                {
+                  "order_id": "O3",
+                  "customer_id": "C1",
+                  "status": "Returned",
+                  "amount_cents": 999,
+                  "ordered_at": "2026-02-03 11:00:00",
+                  "is_test": false
+                },
+                {
+                  "order_id": "T9",
+                  "customer_id": "C9",
+                  "status": "placed",
+                  "amount_cents": 1,
+                  "ordered_at": "2026-02-03 12:00:00",
+                  "is_test": true
+                }
+              ],
+              "types": {
+                "amount_cents": "INTEGER",
+                "ordered_at": "TIMESTAMP"
+              }
+            },
+            {
+              "name": "source.customers",
+              "rows": [
+                {
+                  "customer_id": "C1",
+                  "name": "Alice"
+                },
+                {
+                  "customer_id": "C2",
+                  "name": "Bruno"
+                },
+                {
+                  "customer_id": "C3",
+                  "name": "Chloe"
+                }
+              ]
+            }
+          ]
+        },
+        "expected": [
+          {
+            "name": "dim_customers",
+            "resource_type": "model",
+            "status": "success"
+          },
+          {
+            "name": "stg_orders",
+            "resource_type": "model",
+            "status": "success"
+          },
+          {
+            "name": "fct_orders",
+            "resource_type": "model",
+            "status": "success"
+          },
+          {
+            "name": "accepted_values_fct_orders_status__placed__shipped__returned",
+            "resource_type": "test",
+            "status": "pass"
+          },
+          {
+            "name": "not_null_fct_orders_customer_id",
+            "resource_type": "test",
+            "status": "pass"
+          },
+          {
+            "name": "not_null_fct_orders_order_id",
+            "resource_type": "test",
+            "status": "pass"
+          },
+          {
+            "name": "relationships_fct_orders_customer_id__customer_id__ref_dim_customers_",
+            "resource_type": "test",
+            "status": "pass"
+          },
+          {
+            "name": "unique_fct_orders_order_id",
+            "resource_type": "test",
+            "status": "pass"
+          }
+        ]
+      },
+      {
+        "id": "unknown-customer",
+        "visibility": "hidden",
+        "input_rows": [],
+        "scenario": {
+          "outcome": "nodes",
+          "file": "models/marts/_marts.yml",
+          "files": {
+            "dbt_project.yml": "name: shop\nversion: '1.0.0'\nconfig-version: 2\nprofile: datapass\n\nmodels:\n  shop:\n    staging:\n      +materialized: view\n      +schema: silver\n    marts:\n      +materialized: table\n      +schema: gold\n",
+            "models/staging/_sources.yml": "version: 2\nsources:\n  - name: shop\n    schema: source\n    tables:\n      - name: orders\n      - name: order_lines\n      - name: events\n  - name: crm\n    schema: source\n    tables:\n      - name: customers\n",
+            "macros/generate_schema_name.sql": "{% macro generate_schema_name(custom_schema_name, node) -%}\n    {%- if custom_schema_name is none -%}{{ target.schema }}{%- else -%}{{ custom_schema_name | trim }}{%- endif -%}\n{%- endmacro %}\n",
+            "models/staging/stg_orders.sql": "select\n    order_id,\n    customer_id,\n    lower(status) as status,\n    amount_cents / 100.0 as amount,\n    cast(ordered_at as date) as order_date\nfrom {{ source('shop', 'orders') }}\nwhere not is_test\n",
+            "models/marts/dim_customers.sql": "select customer_id, name from {{ source('crm', 'customers') }}\n",
+            "models/marts/fct_orders.sql": "select order_id, customer_id, status, amount from {{ ref('stg_orders') }}\n"
+          },
+          "runs": [
+            {
+              "command": "build",
+              "now": "2026-03-01 06:00:00"
+            }
+          ],
+          "tables": [
+            {
+              "name": "source.orders",
+              "rows": [
+                {
+                  "order_id": "O1",
+                  "customer_id": "C1",
+                  "status": "PLACED",
+                  "amount_cents": 1250,
+                  "ordered_at": "2026-02-01 09:00:00",
+                  "is_test": false
+                },
+                {
+                  "order_id": "O2",
+                  "customer_id": "C2",
+                  "status": "shipped",
+                  "amount_cents": 4000,
+                  "ordered_at": "2026-02-02 10:30:00",
+                  "is_test": false
+                },
+                {
+                  "order_id": "O3",
+                  "customer_id": "C1",
+                  "status": "Returned",
+                  "amount_cents": 999,
+                  "ordered_at": "2026-02-03 11:00:00",
+                  "is_test": false
+                },
+                {
+                  "order_id": "T9",
+                  "customer_id": "C9",
+                  "status": "placed",
+                  "amount_cents": 1,
+                  "ordered_at": "2026-02-03 12:00:00",
+                  "is_test": true
+                },
+                {
+                  "order_id": "O5",
+                  "customer_id": "C7",
+                  "status": "placed",
+                  "amount_cents": 100,
+                  "ordered_at": "2026-02-05 10:00:00",
+                  "is_test": false
+                }
+              ],
+              "types": {
+                "amount_cents": "INTEGER",
+                "ordered_at": "TIMESTAMP"
+              }
+            },
+            {
+              "name": "source.customers",
+              "rows": [
+                {
+                  "customer_id": "C1",
+                  "name": "Alice"
+                },
+                {
+                  "customer_id": "C2",
+                  "name": "Bruno"
+                },
+                {
+                  "customer_id": "C3",
+                  "name": "Chloe"
+                }
+              ]
+            }
+          ]
+        },
+        "expected": [
+          {
+            "name": "dim_customers",
+            "resource_type": "model",
+            "status": "success"
+          },
+          {
+            "name": "stg_orders",
+            "resource_type": "model",
+            "status": "success"
+          },
+          {
+            "name": "fct_orders",
+            "resource_type": "model",
+            "status": "success"
+          },
+          {
+            "name": "accepted_values_fct_orders_status__placed__shipped__returned",
+            "resource_type": "test",
+            "status": "pass"
+          },
+          {
+            "name": "not_null_fct_orders_customer_id",
+            "resource_type": "test",
+            "status": "pass"
+          },
+          {
+            "name": "not_null_fct_orders_order_id",
+            "resource_type": "test",
+            "status": "pass"
+          },
+          {
+            "name": "relationships_fct_orders_customer_id__customer_id__ref_dim_customers_",
+            "resource_type": "test",
+            "status": "fail"
+          },
+          {
+            "name": "unique_fct_orders_order_id",
+            "resource_type": "test",
+            "status": "pass"
+          }
+        ]
+      },
+      {
+        "id": "duplicate-and-status",
+        "visibility": "edge",
+        "input_rows": [],
+        "scenario": {
+          "outcome": "nodes",
+          "file": "models/marts/_marts.yml",
+          "files": {
+            "dbt_project.yml": "name: shop\nversion: '1.0.0'\nconfig-version: 2\nprofile: datapass\n\nmodels:\n  shop:\n    staging:\n      +materialized: view\n      +schema: silver\n    marts:\n      +materialized: table\n      +schema: gold\n",
+            "models/staging/_sources.yml": "version: 2\nsources:\n  - name: shop\n    schema: source\n    tables:\n      - name: orders\n      - name: order_lines\n      - name: events\n  - name: crm\n    schema: source\n    tables:\n      - name: customers\n",
+            "macros/generate_schema_name.sql": "{% macro generate_schema_name(custom_schema_name, node) -%}\n    {%- if custom_schema_name is none -%}{{ target.schema }}{%- else -%}{{ custom_schema_name | trim }}{%- endif -%}\n{%- endmacro %}\n",
+            "models/staging/stg_orders.sql": "select\n    order_id,\n    customer_id,\n    lower(status) as status,\n    amount_cents / 100.0 as amount,\n    cast(ordered_at as date) as order_date\nfrom {{ source('shop', 'orders') }}\nwhere not is_test\n",
+            "models/marts/dim_customers.sql": "select customer_id, name from {{ source('crm', 'customers') }}\n",
+            "models/marts/fct_orders.sql": "select order_id, customer_id, status, amount from {{ ref('stg_orders') }}\n"
+          },
+          "runs": [
+            {
+              "command": "build",
+              "now": "2026-03-01 06:00:00"
+            }
+          ],
+          "tables": [
+            {
+              "name": "source.orders",
+              "rows": [
+                {
+                  "order_id": "O1",
+                  "customer_id": "C1",
+                  "status": "PLACED",
+                  "amount_cents": 1250,
+                  "ordered_at": "2026-02-01 09:00:00",
+                  "is_test": false
+                },
+                {
+                  "order_id": "O2",
+                  "customer_id": "C2",
+                  "status": "shipped",
+                  "amount_cents": 4000,
+                  "ordered_at": "2026-02-02 10:30:00",
+                  "is_test": false
+                },
+                {
+                  "order_id": "O3",
+                  "customer_id": "C1",
+                  "status": "Returned",
+                  "amount_cents": 999,
+                  "ordered_at": "2026-02-03 11:00:00",
+                  "is_test": false
+                },
+                {
+                  "order_id": "T9",
+                  "customer_id": "C9",
+                  "status": "placed",
+                  "amount_cents": 1,
+                  "ordered_at": "2026-02-03 12:00:00",
+                  "is_test": true
+                },
+                {
+                  "order_id": "O1",
+                  "customer_id": "C2",
+                  "status": "lost",
+                  "amount_cents": 100,
+                  "ordered_at": "2026-02-05 10:00:00",
+                  "is_test": false
+                }
+              ],
+              "types": {
+                "amount_cents": "INTEGER",
+                "ordered_at": "TIMESTAMP"
+              }
+            },
+            {
+              "name": "source.customers",
+              "rows": [
+                {
+                  "customer_id": "C1",
+                  "name": "Alice"
+                },
+                {
+                  "customer_id": "C2",
+                  "name": "Bruno"
+                },
+                {
+                  "customer_id": "C3",
+                  "name": "Chloe"
+                }
+              ]
+            }
+          ]
+        },
+        "expected": [
+          {
+            "name": "dim_customers",
+            "resource_type": "model",
+            "status": "success"
+          },
+          {
+            "name": "stg_orders",
+            "resource_type": "model",
+            "status": "success"
+          },
+          {
+            "name": "fct_orders",
+            "resource_type": "model",
+            "status": "success"
+          },
+          {
+            "name": "accepted_values_fct_orders_status__placed__shipped__returned",
+            "resource_type": "test",
+            "status": "fail"
+          },
+          {
+            "name": "not_null_fct_orders_customer_id",
+            "resource_type": "test",
+            "status": "pass"
+          },
+          {
+            "name": "not_null_fct_orders_order_id",
+            "resource_type": "test",
+            "status": "pass"
+          },
+          {
+            "name": "relationships_fct_orders_customer_id__customer_id__ref_dim_customers_",
+            "resource_type": "test",
+            "status": "pass"
+          },
+          {
+            "name": "unique_fct_orders_order_id",
+            "resource_type": "test",
+            "status": "fail"
+          }
+        ]
+      }
+    ]
+  },
+  "dbt-singular-test": {
+    "solution": "-- Orders whose total differs from the sum of their lines.\nselect o.order_id, o.amount_cents, coalesce(sum(l.amount_cents), 0) as lines_cents\nfrom {{ source('shop', 'orders') }} as o\nleft join {{ source('shop', 'order_lines') }} as l on l.order_id = o.order_id\nwhere not o.is_test\ngroup by o.order_id, o.amount_cents\nhaving o.amount_cents <> coalesce(sum(l.amount_cents), 0)\n",
+    "fixtures": [
+      {
+        "id": "consistent",
+        "visibility": "visible",
+        "input_rows": [],
+        "scenario": {
+          "outcome": "nodes",
+          "file": "tests/assert_order_total_matches_lines.sql",
+          "files": {
+            "dbt_project.yml": "name: shop\nversion: '1.0.0'\nconfig-version: 2\nprofile: datapass\n\nmodels:\n  shop:\n    staging:\n      +materialized: view\n      +schema: silver\n    marts:\n      +materialized: table\n      +schema: gold\n",
+            "models/staging/_sources.yml": "version: 2\nsources:\n  - name: shop\n    schema: source\n    tables:\n      - name: orders\n      - name: order_lines\n      - name: events\n  - name: crm\n    schema: source\n    tables:\n      - name: customers\n",
+            "macros/generate_schema_name.sql": "{% macro generate_schema_name(custom_schema_name, node) -%}\n    {%- if custom_schema_name is none -%}{{ target.schema }}{%- else -%}{{ custom_schema_name | trim }}{%- endif -%}\n{%- endmacro %}\n"
+          },
+          "runs": [
+            {
+              "command": "test",
+              "now": "2026-03-01 06:00:00"
+            }
+          ],
+          "tables": [
+            {
+              "name": "source.orders",
+              "rows": [
+                {
+                  "order_id": "O1",
+                  "customer_id": "C1",
+                  "status": "PLACED",
+                  "amount_cents": 1250,
+                  "ordered_at": "2026-02-01 09:00:00",
+                  "is_test": false
+                },
+                {
+                  "order_id": "O2",
+                  "customer_id": "C2",
+                  "status": "shipped",
+                  "amount_cents": 4000,
+                  "ordered_at": "2026-02-02 10:30:00",
+                  "is_test": false
+                },
+                {
+                  "order_id": "O3",
+                  "customer_id": "C1",
+                  "status": "Returned",
+                  "amount_cents": 999,
+                  "ordered_at": "2026-02-03 11:00:00",
+                  "is_test": false
+                },
+                {
+                  "order_id": "T9",
+                  "customer_id": "C9",
+                  "status": "placed",
+                  "amount_cents": 1,
+                  "ordered_at": "2026-02-03 12:00:00",
+                  "is_test": true
+                }
+              ],
+              "types": {
+                "amount_cents": "INTEGER",
+                "ordered_at": "TIMESTAMP"
+              }
+            },
+            {
+              "name": "source.order_lines",
+              "rows": [
+                {
+                  "order_id": "O1",
+                  "line_number": 1,
+                  "amount_cents": 1000
+                },
+                {
+                  "order_id": "O1",
+                  "line_number": 2,
+                  "amount_cents": 250
+                },
+                {
+                  "order_id": "O2",
+                  "line_number": 1,
+                  "amount_cents": 4000
+                },
+                {
+                  "order_id": "O3",
+                  "line_number": 1,
+                  "amount_cents": 999
+                }
+              ],
+              "types": {
+                "amount_cents": "INTEGER"
+              }
+            }
+          ],
+          "columns": [
+            "name",
+            "status",
+            "failures"
+          ]
+        },
+        "expected": [
+          {
+            "name": "assert_order_total_matches_lines",
+            "status": "pass",
+            "failures": 0
+          }
+        ]
+      },
+      {
+        "id": "wrong-total",
+        "visibility": "hidden",
+        "input_rows": [],
+        "scenario": {
+          "outcome": "nodes",
+          "file": "tests/assert_order_total_matches_lines.sql",
+          "files": {
+            "dbt_project.yml": "name: shop\nversion: '1.0.0'\nconfig-version: 2\nprofile: datapass\n\nmodels:\n  shop:\n    staging:\n      +materialized: view\n      +schema: silver\n    marts:\n      +materialized: table\n      +schema: gold\n",
+            "models/staging/_sources.yml": "version: 2\nsources:\n  - name: shop\n    schema: source\n    tables:\n      - name: orders\n      - name: order_lines\n      - name: events\n  - name: crm\n    schema: source\n    tables:\n      - name: customers\n",
+            "macros/generate_schema_name.sql": "{% macro generate_schema_name(custom_schema_name, node) -%}\n    {%- if custom_schema_name is none -%}{{ target.schema }}{%- else -%}{{ custom_schema_name | trim }}{%- endif -%}\n{%- endmacro %}\n"
+          },
+          "runs": [
+            {
+              "command": "test",
+              "now": "2026-03-01 06:00:00"
+            }
+          ],
+          "tables": [
+            {
+              "name": "source.orders",
+              "rows": [
+                {
+                  "order_id": "O1",
+                  "customer_id": "C1",
+                  "status": "PLACED",
+                  "amount_cents": 1250,
+                  "ordered_at": "2026-02-01 09:00:00",
+                  "is_test": false
+                },
+                {
+                  "order_id": "O2",
+                  "customer_id": "C2",
+                  "status": "shipped",
+                  "amount_cents": 4000,
+                  "ordered_at": "2026-02-02 10:30:00",
+                  "is_test": false
+                },
+                {
+                  "order_id": "O3",
+                  "customer_id": "C1",
+                  "status": "Returned",
+                  "amount_cents": 999,
+                  "ordered_at": "2026-02-03 11:00:00",
+                  "is_test": false
+                },
+                {
+                  "order_id": "T9",
+                  "customer_id": "C9",
+                  "status": "placed",
+                  "amount_cents": 1,
+                  "ordered_at": "2026-02-03 12:00:00",
+                  "is_test": true
+                }
+              ],
+              "types": {
+                "amount_cents": "INTEGER",
+                "ordered_at": "TIMESTAMP"
+              }
+            },
+            {
+              "name": "source.order_lines",
+              "rows": [
+                {
+                  "order_id": "O1",
+                  "line_number": 1,
+                  "amount_cents": 1000
+                },
+                {
+                  "order_id": "O2",
+                  "line_number": 1,
+                  "amount_cents": 4000
+                },
+                {
+                  "order_id": "O3",
+                  "line_number": 1,
+                  "amount_cents": 999
+                }
+              ],
+              "types": {
+                "amount_cents": "INTEGER"
+              }
+            }
+          ],
+          "columns": [
+            "name",
+            "status",
+            "failures"
+          ]
+        },
+        "expected": [
+          {
+            "name": "assert_order_total_matches_lines",
+            "status": "fail",
+            "failures": 1
+          }
+        ]
+      },
+      {
+        "id": "order-without-lines",
+        "visibility": "edge",
+        "input_rows": [],
+        "scenario": {
+          "outcome": "nodes",
+          "file": "tests/assert_order_total_matches_lines.sql",
+          "files": {
+            "dbt_project.yml": "name: shop\nversion: '1.0.0'\nconfig-version: 2\nprofile: datapass\n\nmodels:\n  shop:\n    staging:\n      +materialized: view\n      +schema: silver\n    marts:\n      +materialized: table\n      +schema: gold\n",
+            "models/staging/_sources.yml": "version: 2\nsources:\n  - name: shop\n    schema: source\n    tables:\n      - name: orders\n      - name: order_lines\n      - name: events\n  - name: crm\n    schema: source\n    tables:\n      - name: customers\n",
+            "macros/generate_schema_name.sql": "{% macro generate_schema_name(custom_schema_name, node) -%}\n    {%- if custom_schema_name is none -%}{{ target.schema }}{%- else -%}{{ custom_schema_name | trim }}{%- endif -%}\n{%- endmacro %}\n"
+          },
+          "runs": [
+            {
+              "command": "test",
+              "now": "2026-03-01 06:00:00"
+            }
+          ],
+          "tables": [
+            {
+              "name": "source.orders",
+              "rows": [
+                {
+                  "order_id": "O1",
+                  "customer_id": "C1",
+                  "status": "PLACED",
+                  "amount_cents": 1250,
+                  "ordered_at": "2026-02-01 09:00:00",
+                  "is_test": false
+                },
+                {
+                  "order_id": "O2",
+                  "customer_id": "C2",
+                  "status": "shipped",
+                  "amount_cents": 4000,
+                  "ordered_at": "2026-02-02 10:30:00",
+                  "is_test": false
+                },
+                {
+                  "order_id": "O3",
+                  "customer_id": "C1",
+                  "status": "Returned",
+                  "amount_cents": 999,
+                  "ordered_at": "2026-02-03 11:00:00",
+                  "is_test": false
+                },
+                {
+                  "order_id": "T9",
+                  "customer_id": "C9",
+                  "status": "placed",
+                  "amount_cents": 1,
+                  "ordered_at": "2026-02-03 12:00:00",
+                  "is_test": true
+                },
+                {
+                  "order_id": "O4",
+                  "customer_id": "C2",
+                  "status": "placed",
+                  "amount_cents": 300,
+                  "ordered_at": "2026-02-04 10:00:00",
+                  "is_test": false
+                }
+              ],
+              "types": {
+                "amount_cents": "INTEGER",
+                "ordered_at": "TIMESTAMP"
+              }
+            },
+            {
+              "name": "source.order_lines",
+              "rows": [
+                {
+                  "order_id": "O1",
+                  "line_number": 1,
+                  "amount_cents": 1000
+                },
+                {
+                  "order_id": "O1",
+                  "line_number": 2,
+                  "amount_cents": 250
+                },
+                {
+                  "order_id": "O2",
+                  "line_number": 1,
+                  "amount_cents": 4000
+                },
+                {
+                  "order_id": "O3",
+                  "line_number": 1,
+                  "amount_cents": 999
+                }
+              ],
+              "types": {
+                "amount_cents": "INTEGER"
+              }
+            }
+          ],
+          "columns": [
+            "name",
+            "status",
+            "failures"
+          ]
+        },
+        "expected": [
+          {
+            "name": "assert_order_total_matches_lines",
+            "status": "fail",
+            "failures": 1
+          }
+        ]
+      }
+    ]
+  },
+  "dbt-test-severity-where": {
+    "solution": "version: 2\nmodels:\n  - name: stg_orders\n    columns:\n      - name: order_id\n        data_tests: [not_null]\n      - name: status\n        data_tests:\n          - accepted_values:\n              arguments:\n                values: ['placed', 'shipped', 'returned']\n              config:\n                severity: warn\n      - name: amount\n        data_tests:\n          - not_null:\n              config:\n                where: \"order_date >= '2026-01-01'\"\n",
+    "fixtures": [
+      {
+        "id": "legacy-order",
+        "visibility": "visible",
+        "input_rows": [],
+        "scenario": {
+          "outcome": "nodes",
+          "file": "models/staging/_staging.yml",
+          "files": {
+            "dbt_project.yml": "name: shop\nversion: '1.0.0'\nconfig-version: 2\nprofile: datapass\n\nmodels:\n  shop:\n    staging:\n      +materialized: view\n      +schema: silver\n    marts:\n      +materialized: table\n      +schema: gold\n",
+            "models/staging/_sources.yml": "version: 2\nsources:\n  - name: shop\n    schema: source\n    tables:\n      - name: orders\n      - name: order_lines\n      - name: events\n  - name: crm\n    schema: source\n    tables:\n      - name: customers\n",
+            "macros/generate_schema_name.sql": "{% macro generate_schema_name(custom_schema_name, node) -%}\n    {%- if custom_schema_name is none -%}{{ target.schema }}{%- else -%}{{ custom_schema_name | trim }}{%- endif -%}\n{%- endmacro %}\n",
+            "models/staging/stg_orders.sql": "select\n    order_id,\n    customer_id,\n    lower(status) as status,\n    amount_cents / 100.0 as amount,\n    cast(ordered_at as date) as order_date\nfrom {{ source('shop', 'orders') }}\nwhere not is_test\n",
+            "models/marts/fct_revenue.sql": "select status, sum(amount) as revenue from {{ ref('stg_orders') }} group by status\n"
+          },
+          "runs": [
+            {
+              "command": "build",
+              "now": "2026-03-01 06:00:00"
+            }
+          ],
+          "tables": [
+            {
+              "name": "source.orders",
+              "rows": [
+                {
+                  "order_id": "O1",
+                  "customer_id": "C1",
+                  "status": "PLACED",
+                  "amount_cents": 1250,
+                  "ordered_at": "2026-02-01 09:00:00",
+                  "is_test": false
+                },
+                {
+                  "order_id": "O2",
+                  "customer_id": "C2",
+                  "status": "shipped",
+                  "amount_cents": 4000,
+                  "ordered_at": "2026-02-02 10:30:00",
+                  "is_test": false
+                },
+                {
+                  "order_id": "O3",
+                  "customer_id": "C1",
+                  "status": "Returned",
+                  "amount_cents": 999,
+                  "ordered_at": "2026-02-03 11:00:00",
+                  "is_test": false
+                },
+                {
+                  "order_id": "T9",
+                  "customer_id": "C9",
+                  "status": "placed",
+                  "amount_cents": 1,
+                  "ordered_at": "2026-02-03 12:00:00",
+                  "is_test": true
+                },
+                {
+                  "order_id": "L1",
+                  "customer_id": "C1",
+                  "status": "placed",
+                  "amount_cents": null,
+                  "ordered_at": "2025-12-30 10:00:00",
+                  "is_test": false
+                }
+              ],
+              "types": {
+                "amount_cents": "INTEGER",
+                "ordered_at": "TIMESTAMP"
+              }
+            }
+          ]
+        },
+        "expected": [
+          {
+            "name": "stg_orders",
+            "resource_type": "model",
+            "status": "success"
+          },
+          {
+            "name": "accepted_values_stg_orders_status__placed__shipped__returned",
+            "resource_type": "test",
+            "status": "pass"
+          },
+          {
+            "name": "not_null_stg_orders_amount",
+            "resource_type": "test",
+            "status": "pass"
+          },
+          {
+            "name": "not_null_stg_orders_order_id",
+            "resource_type": "test",
+            "status": "pass"
+          },
+          {
+            "name": "fct_revenue",
+            "resource_type": "model",
+            "status": "success"
+          }
+        ]
+      },
+      {
+        "id": "new-status",
+        "visibility": "hidden",
+        "input_rows": [],
+        "scenario": {
+          "outcome": "nodes",
+          "file": "models/staging/_staging.yml",
+          "files": {
+            "dbt_project.yml": "name: shop\nversion: '1.0.0'\nconfig-version: 2\nprofile: datapass\n\nmodels:\n  shop:\n    staging:\n      +materialized: view\n      +schema: silver\n    marts:\n      +materialized: table\n      +schema: gold\n",
+            "models/staging/_sources.yml": "version: 2\nsources:\n  - name: shop\n    schema: source\n    tables:\n      - name: orders\n      - name: order_lines\n      - name: events\n  - name: crm\n    schema: source\n    tables:\n      - name: customers\n",
+            "macros/generate_schema_name.sql": "{% macro generate_schema_name(custom_schema_name, node) -%}\n    {%- if custom_schema_name is none -%}{{ target.schema }}{%- else -%}{{ custom_schema_name | trim }}{%- endif -%}\n{%- endmacro %}\n",
+            "models/staging/stg_orders.sql": "select\n    order_id,\n    customer_id,\n    lower(status) as status,\n    amount_cents / 100.0 as amount,\n    cast(ordered_at as date) as order_date\nfrom {{ source('shop', 'orders') }}\nwhere not is_test\n",
+            "models/marts/fct_revenue.sql": "select status, sum(amount) as revenue from {{ ref('stg_orders') }} group by status\n"
+          },
+          "runs": [
+            {
+              "command": "build",
+              "now": "2026-03-01 06:00:00"
+            }
+          ],
+          "tables": [
+            {
+              "name": "source.orders",
+              "rows": [
+                {
+                  "order_id": "O1",
+                  "customer_id": "C1",
+                  "status": "PLACED",
+                  "amount_cents": 1250,
+                  "ordered_at": "2026-02-01 09:00:00",
+                  "is_test": false
+                },
+                {
+                  "order_id": "O2",
+                  "customer_id": "C2",
+                  "status": "shipped",
+                  "amount_cents": 4000,
+                  "ordered_at": "2026-02-02 10:30:00",
+                  "is_test": false
+                },
+                {
+                  "order_id": "O3",
+                  "customer_id": "C1",
+                  "status": "Returned",
+                  "amount_cents": 999,
+                  "ordered_at": "2026-02-03 11:00:00",
+                  "is_test": false
+                },
+                {
+                  "order_id": "T9",
+                  "customer_id": "C9",
+                  "status": "placed",
+                  "amount_cents": 1,
+                  "ordered_at": "2026-02-03 12:00:00",
+                  "is_test": true
+                },
+                {
+                  "order_id": "L1",
+                  "customer_id": "C1",
+                  "status": "placed",
+                  "amount_cents": null,
+                  "ordered_at": "2025-12-30 10:00:00",
+                  "is_test": false
+                },
+                {
+                  "order_id": "O7",
+                  "customer_id": "C2",
+                  "status": "lost",
+                  "amount_cents": 500,
+                  "ordered_at": "2026-02-06 10:00:00",
+                  "is_test": false
+                }
+              ],
+              "types": {
+                "amount_cents": "INTEGER",
+                "ordered_at": "TIMESTAMP"
+              }
+            }
+          ]
+        },
+        "expected": [
+          {
+            "name": "stg_orders",
+            "resource_type": "model",
+            "status": "success"
+          },
+          {
+            "name": "accepted_values_stg_orders_status__placed__shipped__returned",
+            "resource_type": "test",
+            "status": "warn"
+          },
+          {
+            "name": "not_null_stg_orders_amount",
+            "resource_type": "test",
+            "status": "pass"
+          },
+          {
+            "name": "not_null_stg_orders_order_id",
+            "resource_type": "test",
+            "status": "pass"
+          },
+          {
+            "name": "fct_revenue",
+            "resource_type": "model",
+            "status": "success"
+          }
+        ]
+      },
+      {
+        "id": "recent-missing-amount",
+        "visibility": "edge",
+        "input_rows": [],
+        "scenario": {
+          "outcome": "nodes",
+          "file": "models/staging/_staging.yml",
+          "files": {
+            "dbt_project.yml": "name: shop\nversion: '1.0.0'\nconfig-version: 2\nprofile: datapass\n\nmodels:\n  shop:\n    staging:\n      +materialized: view\n      +schema: silver\n    marts:\n      +materialized: table\n      +schema: gold\n",
+            "models/staging/_sources.yml": "version: 2\nsources:\n  - name: shop\n    schema: source\n    tables:\n      - name: orders\n      - name: order_lines\n      - name: events\n  - name: crm\n    schema: source\n    tables:\n      - name: customers\n",
+            "macros/generate_schema_name.sql": "{% macro generate_schema_name(custom_schema_name, node) -%}\n    {%- if custom_schema_name is none -%}{{ target.schema }}{%- else -%}{{ custom_schema_name | trim }}{%- endif -%}\n{%- endmacro %}\n",
+            "models/staging/stg_orders.sql": "select\n    order_id,\n    customer_id,\n    lower(status) as status,\n    amount_cents / 100.0 as amount,\n    cast(ordered_at as date) as order_date\nfrom {{ source('shop', 'orders') }}\nwhere not is_test\n",
+            "models/marts/fct_revenue.sql": "select status, sum(amount) as revenue from {{ ref('stg_orders') }} group by status\n"
+          },
+          "runs": [
+            {
+              "command": "build",
+              "now": "2026-03-01 06:00:00"
+            }
+          ],
+          "tables": [
+            {
+              "name": "source.orders",
+              "rows": [
+                {
+                  "order_id": "O1",
+                  "customer_id": "C1",
+                  "status": "PLACED",
+                  "amount_cents": 1250,
+                  "ordered_at": "2026-02-01 09:00:00",
+                  "is_test": false
+                },
+                {
+                  "order_id": "O2",
+                  "customer_id": "C2",
+                  "status": "shipped",
+                  "amount_cents": 4000,
+                  "ordered_at": "2026-02-02 10:30:00",
+                  "is_test": false
+                },
+                {
+                  "order_id": "O3",
+                  "customer_id": "C1",
+                  "status": "Returned",
+                  "amount_cents": 999,
+                  "ordered_at": "2026-02-03 11:00:00",
+                  "is_test": false
+                },
+                {
+                  "order_id": "T9",
+                  "customer_id": "C9",
+                  "status": "placed",
+                  "amount_cents": 1,
+                  "ordered_at": "2026-02-03 12:00:00",
+                  "is_test": true
+                },
+                {
+                  "order_id": "O7",
+                  "customer_id": "C2",
+                  "status": "lost",
+                  "amount_cents": 500,
+                  "ordered_at": "2026-02-06 10:00:00",
+                  "is_test": false
+                },
+                {
+                  "order_id": "O8",
+                  "customer_id": "C2",
+                  "status": "placed",
+                  "amount_cents": null,
+                  "ordered_at": "2026-02-07 10:00:00",
+                  "is_test": false
+                }
+              ],
+              "types": {
+                "amount_cents": "INTEGER",
+                "ordered_at": "TIMESTAMP"
+              }
+            }
+          ]
+        },
+        "expected": [
+          {
+            "name": "stg_orders",
+            "resource_type": "model",
+            "status": "success"
+          },
+          {
+            "name": "accepted_values_stg_orders_status__placed__shipped__returned",
+            "resource_type": "test",
+            "status": "warn"
+          },
+          {
+            "name": "not_null_stg_orders_amount",
+            "resource_type": "test",
+            "status": "fail"
+          },
+          {
+            "name": "not_null_stg_orders_order_id",
+            "resource_type": "test",
+            "status": "pass"
+          },
+          {
+            "name": "fct_revenue",
+            "resource_type": "model",
+            "status": "skipped"
+          }
+        ]
+      }
+    ]
+  },
+  "dbt-incremental-append": {
+    "solution": "{{ config(materialized='incremental') }}\nselect event_id, customer_id, event_type, occurred_at\nfrom {{ source('shop', 'events') }}\n{% if is_incremental() %}\nwhere event_id > (select max(event_id) from {{ this }})\n{% endif %}\n",
+    "fixtures": [
+      {
+        "id": "two-days",
+        "visibility": "visible",
+        "input_rows": [],
+        "scenario": {
+          "outcome": "table",
+          "file": "models/marts/fct_events.sql",
+          "files": {
+            "dbt_project.yml": "name: shop\nversion: '1.0.0'\nconfig-version: 2\nprofile: datapass\n\nmodels:\n  shop:\n    staging:\n      +materialized: view\n      +schema: silver\n    marts:\n      +materialized: table\n      +schema: gold\n",
+            "models/staging/_sources.yml": "version: 2\nsources:\n  - name: shop\n    schema: source\n    tables:\n      - name: orders\n      - name: order_lines\n      - name: events\n  - name: crm\n    schema: source\n    tables:\n      - name: customers\n",
+            "macros/generate_schema_name.sql": "{% macro generate_schema_name(custom_schema_name, node) -%}\n    {%- if custom_schema_name is none -%}{{ target.schema }}{%- else -%}{{ custom_schema_name | trim }}{%- endif -%}\n{%- endmacro %}\n"
+          },
+          "runs": [
+            {
+              "command": "build",
+              "now": "2026-03-01 06:00:00",
+              "tables": [
+                {
+                  "name": "source.events",
+                  "rows": [
+                    {
+                      "event_id": 1,
+                      "customer_id": "C1",
+                      "event_type": "view",
+                      "occurred_at": "2026-03-01 08:00:00"
+                    },
+                    {
+                      "event_id": 2,
+                      "customer_id": "C2",
+                      "event_type": "view",
+                      "occurred_at": "2026-03-01 09:00:00"
+                    },
+                    {
+                      "event_id": 3,
+                      "customer_id": "C1",
+                      "event_type": "buy",
+                      "occurred_at": "2026-03-01 10:00:00"
+                    }
+                  ],
+                  "types": {
+                    "event_id": "INTEGER",
+                    "occurred_at": "TIMESTAMP"
+                  }
+                }
+              ],
+              "select": [
+                "fct_events"
+              ]
+            },
+            {
+              "command": "build",
+              "now": "2026-03-02 06:00:00",
+              "tables": [
+                {
+                  "name": "source.events",
+                  "rows": [
+                    {
+                      "event_id": 1,
+                      "customer_id": "C1",
+                      "event_type": "view",
+                      "occurred_at": "2026-03-01 08:00:00"
+                    },
+                    {
+                      "event_id": 2,
+                      "customer_id": "C2",
+                      "event_type": "view",
+                      "occurred_at": "2026-03-01 09:00:00"
+                    },
+                    {
+                      "event_id": 3,
+                      "customer_id": "C1",
+                      "event_type": "buy",
+                      "occurred_at": "2026-03-01 10:00:00"
+                    },
+                    {
+                      "event_id": 4,
+                      "customer_id": "C3",
+                      "event_type": "view",
+                      "occurred_at": "2026-03-02 08:00:00"
+                    },
+                    {
+                      "event_id": 5,
+                      "customer_id": "C3",
+                      "event_type": "buy",
+                      "occurred_at": "2026-03-02 09:00:00"
+                    }
+                  ],
+                  "types": {
+                    "event_id": "INTEGER",
+                    "occurred_at": "TIMESTAMP"
+                  }
+                }
+              ],
+              "select": [
+                "fct_events"
+              ]
+            }
+          ],
+          "table": "gold.fct_events"
+        },
+        "expected": [
+          {
+            "event_id": 1,
+            "customer_id": "C1",
+            "event_type": "view",
+            "occurred_at": "2026-03-01T08:00:00"
+          },
+          {
+            "event_id": 2,
+            "customer_id": "C2",
+            "event_type": "view",
+            "occurred_at": "2026-03-01T09:00:00"
+          },
+          {
+            "event_id": 3,
+            "customer_id": "C1",
+            "event_type": "buy",
+            "occurred_at": "2026-03-01T10:00:00"
+          },
+          {
+            "event_id": 4,
+            "customer_id": "C3",
+            "event_type": "view",
+            "occurred_at": "2026-03-02T08:00:00"
+          },
+          {
+            "event_id": 5,
+            "customer_id": "C3",
+            "event_type": "buy",
+            "occurred_at": "2026-03-02T09:00:00"
+          }
+        ]
+      },
+      {
+        "id": "same-day-twice",
+        "visibility": "hidden",
+        "input_rows": [],
+        "scenario": {
+          "outcome": "table",
+          "file": "models/marts/fct_events.sql",
+          "files": {
+            "dbt_project.yml": "name: shop\nversion: '1.0.0'\nconfig-version: 2\nprofile: datapass\n\nmodels:\n  shop:\n    staging:\n      +materialized: view\n      +schema: silver\n    marts:\n      +materialized: table\n      +schema: gold\n",
+            "models/staging/_sources.yml": "version: 2\nsources:\n  - name: shop\n    schema: source\n    tables:\n      - name: orders\n      - name: order_lines\n      - name: events\n  - name: crm\n    schema: source\n    tables:\n      - name: customers\n",
+            "macros/generate_schema_name.sql": "{% macro generate_schema_name(custom_schema_name, node) -%}\n    {%- if custom_schema_name is none -%}{{ target.schema }}{%- else -%}{{ custom_schema_name | trim }}{%- endif -%}\n{%- endmacro %}\n"
+          },
+          "runs": [
+            {
+              "command": "build",
+              "now": "2026-03-01 06:00:00",
+              "tables": [
+                {
+                  "name": "source.events",
+                  "rows": [
+                    {
+                      "event_id": 1,
+                      "customer_id": "C1",
+                      "event_type": "view",
+                      "occurred_at": "2026-03-01 08:00:00"
+                    },
+                    {
+                      "event_id": 2,
+                      "customer_id": "C2",
+                      "event_type": "view",
+                      "occurred_at": "2026-03-01 09:00:00"
+                    },
+                    {
+                      "event_id": 3,
+                      "customer_id": "C1",
+                      "event_type": "buy",
+                      "occurred_at": "2026-03-01 10:00:00"
+                    }
+                  ],
+                  "types": {
+                    "event_id": "INTEGER",
+                    "occurred_at": "TIMESTAMP"
+                  }
+                }
+              ],
+              "select": [
+                "fct_events"
+              ]
+            },
+            {
+              "command": "build",
+              "now": "2026-03-02 06:00:00",
+              "tables": [
+                {
+                  "name": "source.events",
+                  "rows": [
+                    {
+                      "event_id": 1,
+                      "customer_id": "C1",
+                      "event_type": "view",
+                      "occurred_at": "2026-03-01 08:00:00"
+                    },
+                    {
+                      "event_id": 2,
+                      "customer_id": "C2",
+                      "event_type": "view",
+                      "occurred_at": "2026-03-01 09:00:00"
+                    },
+                    {
+                      "event_id": 3,
+                      "customer_id": "C1",
+                      "event_type": "buy",
+                      "occurred_at": "2026-03-01 10:00:00"
+                    }
+                  ],
+                  "types": {
+                    "event_id": "INTEGER",
+                    "occurred_at": "TIMESTAMP"
+                  }
+                }
+              ],
+              "select": [
+                "fct_events"
+              ]
+            }
+          ],
+          "table": "gold.fct_events"
+        },
+        "expected": [
+          {
+            "event_id": 1,
+            "customer_id": "C1",
+            "event_type": "view",
+            "occurred_at": "2026-03-01T08:00:00"
+          },
+          {
+            "event_id": 2,
+            "customer_id": "C2",
+            "event_type": "view",
+            "occurred_at": "2026-03-01T09:00:00"
+          },
+          {
+            "event_id": 3,
+            "customer_id": "C1",
+            "event_type": "buy",
+            "occurred_at": "2026-03-01T10:00:00"
+          }
+        ]
+      },
+      {
+        "id": "three-days",
+        "visibility": "edge",
+        "input_rows": [],
+        "scenario": {
+          "outcome": "table",
+          "file": "models/marts/fct_events.sql",
+          "files": {
+            "dbt_project.yml": "name: shop\nversion: '1.0.0'\nconfig-version: 2\nprofile: datapass\n\nmodels:\n  shop:\n    staging:\n      +materialized: view\n      +schema: silver\n    marts:\n      +materialized: table\n      +schema: gold\n",
+            "models/staging/_sources.yml": "version: 2\nsources:\n  - name: shop\n    schema: source\n    tables:\n      - name: orders\n      - name: order_lines\n      - name: events\n  - name: crm\n    schema: source\n    tables:\n      - name: customers\n",
+            "macros/generate_schema_name.sql": "{% macro generate_schema_name(custom_schema_name, node) -%}\n    {%- if custom_schema_name is none -%}{{ target.schema }}{%- else -%}{{ custom_schema_name | trim }}{%- endif -%}\n{%- endmacro %}\n"
+          },
+          "runs": [
+            {
+              "command": "build",
+              "now": "2026-03-01 06:00:00",
+              "tables": [
+                {
+                  "name": "source.events",
+                  "rows": [
+                    {
+                      "event_id": 1,
+                      "customer_id": "C1",
+                      "event_type": "view",
+                      "occurred_at": "2026-03-01 08:00:00"
+                    },
+                    {
+                      "event_id": 2,
+                      "customer_id": "C2",
+                      "event_type": "view",
+                      "occurred_at": "2026-03-01 09:00:00"
+                    },
+                    {
+                      "event_id": 3,
+                      "customer_id": "C1",
+                      "event_type": "buy",
+                      "occurred_at": "2026-03-01 10:00:00"
+                    }
+                  ],
+                  "types": {
+                    "event_id": "INTEGER",
+                    "occurred_at": "TIMESTAMP"
+                  }
+                }
+              ],
+              "select": [
+                "fct_events"
+              ]
+            },
+            {
+              "command": "build",
+              "now": "2026-03-02 06:00:00",
+              "tables": [
+                {
+                  "name": "source.events",
+                  "rows": [
+                    {
+                      "event_id": 1,
+                      "customer_id": "C1",
+                      "event_type": "view",
+                      "occurred_at": "2026-03-01 08:00:00"
+                    },
+                    {
+                      "event_id": 2,
+                      "customer_id": "C2",
+                      "event_type": "view",
+                      "occurred_at": "2026-03-01 09:00:00"
+                    },
+                    {
+                      "event_id": 3,
+                      "customer_id": "C1",
+                      "event_type": "buy",
+                      "occurred_at": "2026-03-01 10:00:00"
+                    },
+                    {
+                      "event_id": 4,
+                      "customer_id": "C3",
+                      "event_type": "view",
+                      "occurred_at": "2026-03-02 08:00:00"
+                    },
+                    {
+                      "event_id": 5,
+                      "customer_id": "C3",
+                      "event_type": "buy",
+                      "occurred_at": "2026-03-02 09:00:00"
+                    }
+                  ],
+                  "types": {
+                    "event_id": "INTEGER",
+                    "occurred_at": "TIMESTAMP"
+                  }
+                }
+              ],
+              "select": [
+                "fct_events"
+              ]
+            },
+            {
+              "command": "build",
+              "now": "2026-03-03 06:00:00",
+              "tables": [
+                {
+                  "name": "source.events",
+                  "rows": [
+                    {
+                      "event_id": 1,
+                      "customer_id": "C1",
+                      "event_type": "view",
+                      "occurred_at": "2026-03-01 08:00:00"
+                    },
+                    {
+                      "event_id": 2,
+                      "customer_id": "C2",
+                      "event_type": "view",
+                      "occurred_at": "2026-03-01 09:00:00"
+                    },
+                    {
+                      "event_id": 3,
+                      "customer_id": "C1",
+                      "event_type": "buy",
+                      "occurred_at": "2026-03-01 10:00:00"
+                    },
+                    {
+                      "event_id": 4,
+                      "customer_id": "C3",
+                      "event_type": "view",
+                      "occurred_at": "2026-03-02 08:00:00"
+                    },
+                    {
+                      "event_id": 5,
+                      "customer_id": "C3",
+                      "event_type": "buy",
+                      "occurred_at": "2026-03-02 09:00:00"
+                    }
+                  ],
+                  "types": {
+                    "event_id": "INTEGER",
+                    "occurred_at": "TIMESTAMP"
+                  }
+                }
+              ],
+              "select": [
+                "fct_events"
+              ]
+            }
+          ],
+          "table": "gold.fct_events"
+        },
+        "expected": [
+          {
+            "event_id": 1,
+            "customer_id": "C1",
+            "event_type": "view",
+            "occurred_at": "2026-03-01T08:00:00"
+          },
+          {
+            "event_id": 2,
+            "customer_id": "C2",
+            "event_type": "view",
+            "occurred_at": "2026-03-01T09:00:00"
+          },
+          {
+            "event_id": 3,
+            "customer_id": "C1",
+            "event_type": "buy",
+            "occurred_at": "2026-03-01T10:00:00"
+          },
+          {
+            "event_id": 4,
+            "customer_id": "C3",
+            "event_type": "view",
+            "occurred_at": "2026-03-02T08:00:00"
+          },
+          {
+            "event_id": 5,
+            "customer_id": "C3",
+            "event_type": "buy",
+            "occurred_at": "2026-03-02T09:00:00"
+          }
+        ]
+      }
+    ]
+  },
+  "dbt-incremental-unique-key": {
+    "solution": "{{ config(materialized='incremental', unique_key='order_id') }}\nselect order_id, status, updated_at\nfrom {{ source('shop', 'orders') }}\n{% if is_incremental() %}\nwhere updated_at > (select max(updated_at) from {{ this }})\n{% endif %}\n",
+    "fixtures": [
+      {
+        "id": "two-days",
+        "visibility": "visible",
+        "input_rows": [],
+        "scenario": {
+          "outcome": "table",
+          "file": "models/marts/fct_order_status.sql",
+          "files": {
+            "dbt_project.yml": "name: shop\nversion: '1.0.0'\nconfig-version: 2\nprofile: datapass\n\nmodels:\n  shop:\n    staging:\n      +materialized: view\n      +schema: silver\n    marts:\n      +materialized: table\n      +schema: gold\n",
+            "models/staging/_sources.yml": "version: 2\nsources:\n  - name: shop\n    schema: source\n    tables:\n      - name: orders\n      - name: order_lines\n      - name: events\n  - name: crm\n    schema: source\n    tables:\n      - name: customers\n",
+            "macros/generate_schema_name.sql": "{% macro generate_schema_name(custom_schema_name, node) -%}\n    {%- if custom_schema_name is none -%}{{ target.schema }}{%- else -%}{{ custom_schema_name | trim }}{%- endif -%}\n{%- endmacro %}\n"
+          },
+          "runs": [
+            {
+              "command": "build",
+              "now": "2026-03-01 23:00:00",
+              "tables": [
+                {
+                  "name": "source.orders",
+                  "rows": [
+                    {
+                      "order_id": "O1",
+                      "status": "placed",
+                      "updated_at": "2026-03-01 08:00:00"
+                    },
+                    {
+                      "order_id": "O2",
+                      "status": "placed",
+                      "updated_at": "2026-03-01 09:00:00"
+                    }
+                  ],
+                  "types": {
+                    "updated_at": "TIMESTAMP"
+                  }
+                }
+              ],
+              "select": [
+                "fct_order_status"
+              ]
+            },
+            {
+              "command": "build",
+              "now": "2026-03-02 23:00:00",
+              "tables": [
+                {
+                  "name": "source.orders",
+                  "rows": [
+                    {
+                      "order_id": "O1",
+                      "status": "shipped",
+                      "updated_at": "2026-03-02 08:00:00"
+                    },
+                    {
+                      "order_id": "O2",
+                      "status": "placed",
+                      "updated_at": "2026-03-01 09:00:00"
+                    },
+                    {
+                      "order_id": "O3",
+                      "status": "placed",
+                      "updated_at": "2026-03-02 10:00:00"
+                    }
+                  ],
+                  "types": {
+                    "updated_at": "TIMESTAMP"
+                  }
+                }
+              ],
+              "select": [
+                "fct_order_status"
+              ]
+            }
+          ],
+          "table": "gold.fct_order_status"
+        },
+        "expected": [
+          {
+            "order_id": "O2",
+            "status": "placed",
+            "updated_at": "2026-03-01T09:00:00"
+          },
+          {
+            "order_id": "O1",
+            "status": "shipped",
+            "updated_at": "2026-03-02T08:00:00"
+          },
+          {
+            "order_id": "O3",
+            "status": "placed",
+            "updated_at": "2026-03-02T10:00:00"
+          }
+        ]
+      },
+      {
+        "id": "three-days",
+        "visibility": "hidden",
+        "input_rows": [],
+        "scenario": {
+          "outcome": "table",
+          "file": "models/marts/fct_order_status.sql",
+          "files": {
+            "dbt_project.yml": "name: shop\nversion: '1.0.0'\nconfig-version: 2\nprofile: datapass\n\nmodels:\n  shop:\n    staging:\n      +materialized: view\n      +schema: silver\n    marts:\n      +materialized: table\n      +schema: gold\n",
+            "models/staging/_sources.yml": "version: 2\nsources:\n  - name: shop\n    schema: source\n    tables:\n      - name: orders\n      - name: order_lines\n      - name: events\n  - name: crm\n    schema: source\n    tables:\n      - name: customers\n",
+            "macros/generate_schema_name.sql": "{% macro generate_schema_name(custom_schema_name, node) -%}\n    {%- if custom_schema_name is none -%}{{ target.schema }}{%- else -%}{{ custom_schema_name | trim }}{%- endif -%}\n{%- endmacro %}\n"
+          },
+          "runs": [
+            {
+              "command": "build",
+              "now": "2026-03-01 23:00:00",
+              "tables": [
+                {
+                  "name": "source.orders",
+                  "rows": [
+                    {
+                      "order_id": "O1",
+                      "status": "placed",
+                      "updated_at": "2026-03-01 08:00:00"
+                    },
+                    {
+                      "order_id": "O2",
+                      "status": "placed",
+                      "updated_at": "2026-03-01 09:00:00"
+                    }
+                  ],
+                  "types": {
+                    "updated_at": "TIMESTAMP"
+                  }
+                }
+              ],
+              "select": [
+                "fct_order_status"
+              ]
+            },
+            {
+              "command": "build",
+              "now": "2026-03-02 23:00:00",
+              "tables": [
+                {
+                  "name": "source.orders",
+                  "rows": [
+                    {
+                      "order_id": "O1",
+                      "status": "shipped",
+                      "updated_at": "2026-03-02 08:00:00"
+                    },
+                    {
+                      "order_id": "O2",
+                      "status": "placed",
+                      "updated_at": "2026-03-01 09:00:00"
+                    },
+                    {
+                      "order_id": "O3",
+                      "status": "placed",
+                      "updated_at": "2026-03-02 10:00:00"
+                    }
+                  ],
+                  "types": {
+                    "updated_at": "TIMESTAMP"
+                  }
+                }
+              ],
+              "select": [
+                "fct_order_status"
+              ]
+            },
+            {
+              "command": "build",
+              "now": "2026-03-03 23:00:00",
+              "tables": [
+                {
+                  "name": "source.orders",
+                  "rows": [
+                    {
+                      "order_id": "O1",
+                      "status": "delivered",
+                      "updated_at": "2026-03-03 08:00:00"
+                    },
+                    {
+                      "order_id": "O2",
+                      "status": "shipped",
+                      "updated_at": "2026-03-03 09:00:00"
+                    },
+                    {
+                      "order_id": "O3",
+                      "status": "placed",
+                      "updated_at": "2026-03-02 10:00:00"
+                    }
+                  ],
+                  "types": {
+                    "updated_at": "TIMESTAMP"
+                  }
+                }
+              ],
+              "select": [
+                "fct_order_status"
+              ]
+            }
+          ],
+          "table": "gold.fct_order_status"
+        },
+        "expected": [
+          {
+            "order_id": "O3",
+            "status": "placed",
+            "updated_at": "2026-03-02T10:00:00"
+          },
+          {
+            "order_id": "O1",
+            "status": "delivered",
+            "updated_at": "2026-03-03T08:00:00"
+          },
+          {
+            "order_id": "O2",
+            "status": "shipped",
+            "updated_at": "2026-03-03T09:00:00"
+          }
+        ]
+      },
+      {
+        "id": "day-run-twice",
+        "visibility": "edge",
+        "input_rows": [],
+        "scenario": {
+          "outcome": "table",
+          "file": "models/marts/fct_order_status.sql",
+          "files": {
+            "dbt_project.yml": "name: shop\nversion: '1.0.0'\nconfig-version: 2\nprofile: datapass\n\nmodels:\n  shop:\n    staging:\n      +materialized: view\n      +schema: silver\n    marts:\n      +materialized: table\n      +schema: gold\n",
+            "models/staging/_sources.yml": "version: 2\nsources:\n  - name: shop\n    schema: source\n    tables:\n      - name: orders\n      - name: order_lines\n      - name: events\n  - name: crm\n    schema: source\n    tables:\n      - name: customers\n",
+            "macros/generate_schema_name.sql": "{% macro generate_schema_name(custom_schema_name, node) -%}\n    {%- if custom_schema_name is none -%}{{ target.schema }}{%- else -%}{{ custom_schema_name | trim }}{%- endif -%}\n{%- endmacro %}\n"
+          },
+          "runs": [
+            {
+              "command": "build",
+              "now": "2026-03-01 23:00:00",
+              "tables": [
+                {
+                  "name": "source.orders",
+                  "rows": [
+                    {
+                      "order_id": "O1",
+                      "status": "placed",
+                      "updated_at": "2026-03-01 08:00:00"
+                    },
+                    {
+                      "order_id": "O2",
+                      "status": "placed",
+                      "updated_at": "2026-03-01 09:00:00"
+                    }
+                  ],
+                  "types": {
+                    "updated_at": "TIMESTAMP"
+                  }
+                }
+              ],
+              "select": [
+                "fct_order_status"
+              ]
+            },
+            {
+              "command": "build",
+              "now": "2026-03-02 23:00:00",
+              "tables": [
+                {
+                  "name": "source.orders",
+                  "rows": [
+                    {
+                      "order_id": "O1",
+                      "status": "shipped",
+                      "updated_at": "2026-03-02 08:00:00"
+                    },
+                    {
+                      "order_id": "O2",
+                      "status": "placed",
+                      "updated_at": "2026-03-01 09:00:00"
+                    },
+                    {
+                      "order_id": "O3",
+                      "status": "placed",
+                      "updated_at": "2026-03-02 10:00:00"
+                    }
+                  ],
+                  "types": {
+                    "updated_at": "TIMESTAMP"
+                  }
+                }
+              ],
+              "select": [
+                "fct_order_status"
+              ]
+            },
+            {
+              "command": "build",
+              "now": "2026-03-03 23:00:00",
+              "tables": [
+                {
+                  "name": "source.orders",
+                  "rows": [
+                    {
+                      "order_id": "O1",
+                      "status": "shipped",
+                      "updated_at": "2026-03-02 08:00:00"
+                    },
+                    {
+                      "order_id": "O2",
+                      "status": "placed",
+                      "updated_at": "2026-03-01 09:00:00"
+                    },
+                    {
+                      "order_id": "O3",
+                      "status": "placed",
+                      "updated_at": "2026-03-02 10:00:00"
+                    }
+                  ],
+                  "types": {
+                    "updated_at": "TIMESTAMP"
+                  }
+                }
+              ],
+              "select": [
+                "fct_order_status"
+              ]
+            }
+          ],
+          "table": "gold.fct_order_status"
+        },
+        "expected": [
+          {
+            "order_id": "O2",
+            "status": "placed",
+            "updated_at": "2026-03-01T09:00:00"
+          },
+          {
+            "order_id": "O1",
+            "status": "shipped",
+            "updated_at": "2026-03-02T08:00:00"
+          },
+          {
+            "order_id": "O3",
+            "status": "placed",
+            "updated_at": "2026-03-02T10:00:00"
+          }
+        ]
+      }
+    ]
+  },
+  "dbt-snapshot-timestamp": {
+    "solution": "{% snapshot customers_snapshot %}\n{{\n    config(\n        target_schema='silver',\n        unique_key='customer_id',\n        strategy='timestamp',\n        updated_at='updated_at'\n    )\n}}\nselect customer_id, city, segment, updated_at from {{ source('crm', 'customers') }}\n{% endsnapshot %}\n",
+    "fixtures": [
+      {
+        "id": "two-days",
+        "visibility": "visible",
+        "input_rows": [],
+        "scenario": {
+          "outcome": "table",
+          "file": "snapshots/customers_snapshot.sql",
+          "files": {
+            "dbt_project.yml": "name: shop\nversion: '1.0.0'\nconfig-version: 2\nprofile: datapass\n\nmodels:\n  shop:\n    staging:\n      +materialized: view\n      +schema: silver\n    marts:\n      +materialized: table\n      +schema: gold\n",
+            "models/staging/_sources.yml": "version: 2\nsources:\n  - name: shop\n    schema: source\n    tables:\n      - name: orders\n      - name: order_lines\n      - name: events\n  - name: crm\n    schema: source\n    tables:\n      - name: customers\n",
+            "macros/generate_schema_name.sql": "{% macro generate_schema_name(custom_schema_name, node) -%}\n    {%- if custom_schema_name is none -%}{{ target.schema }}{%- else -%}{{ custom_schema_name | trim }}{%- endif -%}\n{%- endmacro %}\n"
+          },
+          "runs": [
+            {
+              "command": "snapshot",
+              "now": "2026-03-01 06:00:00",
+              "tables": [
+                {
+                  "name": "source.customers",
+                  "rows": [
+                    {
+                      "customer_id": "C1",
+                      "city": "Paris",
+                      "segment": "Consumer",
+                      "updated_at": "2026-01-01 00:00:00"
+                    },
+                    {
+                      "customer_id": "C2",
+                      "city": "Geneva",
+                      "segment": "Corporate",
+                      "updated_at": "2026-01-01 00:00:00"
+                    }
+                  ],
+                  "types": {
+                    "updated_at": "TIMESTAMP"
+                  }
+                }
+              ]
+            },
+            {
+              "command": "snapshot",
+              "now": "2026-03-02 06:00:00",
+              "tables": [
+                {
+                  "name": "source.customers",
+                  "rows": [
+                    {
+                      "customer_id": "C1",
+                      "city": "Lyon",
+                      "segment": "Consumer",
+                      "updated_at": "2026-02-15 00:00:00"
+                    },
+                    {
+                      "customer_id": "C2",
+                      "city": "Geneva",
+                      "segment": "Corporate",
+                      "updated_at": "2026-01-01 00:00:00"
+                    },
+                    {
+                      "customer_id": "C3",
+                      "city": "Madrid",
+                      "segment": "Consumer",
+                      "updated_at": "2026-02-15 00:00:00"
+                    }
+                  ],
+                  "types": {
+                    "updated_at": "TIMESTAMP"
+                  }
+                }
+              ]
+            }
+          ],
+          "table": "silver.customers_snapshot",
+          "columns": [
+            "customer_id",
+            "city",
+            "segment",
+            "dbt_valid_from",
+            "dbt_valid_to"
+          ]
+        },
+        "expected": [
+          {
+            "customer_id": "C1",
+            "city": "Paris",
+            "segment": "Consumer",
+            "dbt_valid_from": "2026-01-01T00:00:00",
+            "dbt_valid_to": "2026-02-15T00:00:00"
+          },
+          {
+            "customer_id": "C2",
+            "city": "Geneva",
+            "segment": "Corporate",
+            "dbt_valid_from": "2026-01-01T00:00:00",
+            "dbt_valid_to": null
+          },
+          {
+            "customer_id": "C1",
+            "city": "Lyon",
+            "segment": "Consumer",
+            "dbt_valid_from": "2026-02-15T00:00:00",
+            "dbt_valid_to": null
+          },
+          {
+            "customer_id": "C3",
+            "city": "Madrid",
+            "segment": "Consumer",
+            "dbt_valid_from": "2026-02-15T00:00:00",
+            "dbt_valid_to": null
+          }
+        ]
+      },
+      {
+        "id": "three-days",
+        "visibility": "hidden",
+        "input_rows": [],
+        "scenario": {
+          "outcome": "table",
+          "file": "snapshots/customers_snapshot.sql",
+          "files": {
+            "dbt_project.yml": "name: shop\nversion: '1.0.0'\nconfig-version: 2\nprofile: datapass\n\nmodels:\n  shop:\n    staging:\n      +materialized: view\n      +schema: silver\n    marts:\n      +materialized: table\n      +schema: gold\n",
+            "models/staging/_sources.yml": "version: 2\nsources:\n  - name: shop\n    schema: source\n    tables:\n      - name: orders\n      - name: order_lines\n      - name: events\n  - name: crm\n    schema: source\n    tables:\n      - name: customers\n",
+            "macros/generate_schema_name.sql": "{% macro generate_schema_name(custom_schema_name, node) -%}\n    {%- if custom_schema_name is none -%}{{ target.schema }}{%- else -%}{{ custom_schema_name | trim }}{%- endif -%}\n{%- endmacro %}\n"
+          },
+          "runs": [
+            {
+              "command": "snapshot",
+              "now": "2026-03-01 06:00:00",
+              "tables": [
+                {
+                  "name": "source.customers",
+                  "rows": [
+                    {
+                      "customer_id": "C1",
+                      "city": "Paris",
+                      "segment": "Consumer",
+                      "updated_at": "2026-01-01 00:00:00"
+                    },
+                    {
+                      "customer_id": "C2",
+                      "city": "Geneva",
+                      "segment": "Corporate",
+                      "updated_at": "2026-01-01 00:00:00"
+                    }
+                  ],
+                  "types": {
+                    "updated_at": "TIMESTAMP"
+                  }
+                }
+              ]
+            },
+            {
+              "command": "snapshot",
+              "now": "2026-03-02 06:00:00",
+              "tables": [
+                {
+                  "name": "source.customers",
+                  "rows": [
+                    {
+                      "customer_id": "C1",
+                      "city": "Lyon",
+                      "segment": "Consumer",
+                      "updated_at": "2026-02-15 00:00:00"
+                    },
+                    {
+                      "customer_id": "C2",
+                      "city": "Geneva",
+                      "segment": "Corporate",
+                      "updated_at": "2026-01-01 00:00:00"
+                    },
+                    {
+                      "customer_id": "C3",
+                      "city": "Madrid",
+                      "segment": "Consumer",
+                      "updated_at": "2026-02-15 00:00:00"
+                    }
+                  ],
+                  "types": {
+                    "updated_at": "TIMESTAMP"
+                  }
+                }
+              ]
+            },
+            {
+              "command": "snapshot",
+              "now": "2026-03-03 06:00:00",
+              "tables": [
+                {
+                  "name": "source.customers",
+                  "rows": [
+                    {
+                      "customer_id": "C1",
+                      "city": "Lyon",
+                      "segment": "Corporate",
+                      "updated_at": "2026-03-01 00:00:00"
+                    },
+                    {
+                      "customer_id": "C2",
+                      "city": "Geneva",
+                      "segment": "Corporate",
+                      "updated_at": "2026-01-01 00:00:00"
+                    },
+                    {
+                      "customer_id": "C3",
+                      "city": "Madrid",
+                      "segment": "Consumer",
+                      "updated_at": "2026-02-15 00:00:00"
+                    }
+                  ],
+                  "types": {
+                    "updated_at": "TIMESTAMP"
+                  }
+                }
+              ]
+            }
+          ],
+          "table": "silver.customers_snapshot",
+          "columns": [
+            "customer_id",
+            "city",
+            "segment",
+            "dbt_valid_from",
+            "dbt_valid_to"
+          ]
+        },
+        "expected": [
+          {
+            "customer_id": "C1",
+            "city": "Paris",
+            "segment": "Consumer",
+            "dbt_valid_from": "2026-01-01T00:00:00",
+            "dbt_valid_to": "2026-02-15T00:00:00"
+          },
+          {
+            "customer_id": "C2",
+            "city": "Geneva",
+            "segment": "Corporate",
+            "dbt_valid_from": "2026-01-01T00:00:00",
+            "dbt_valid_to": null
+          },
+          {
+            "customer_id": "C1",
+            "city": "Lyon",
+            "segment": "Consumer",
+            "dbt_valid_from": "2026-02-15T00:00:00",
+            "dbt_valid_to": "2026-03-01T00:00:00"
+          },
+          {
+            "customer_id": "C3",
+            "city": "Madrid",
+            "segment": "Consumer",
+            "dbt_valid_from": "2026-02-15T00:00:00",
+            "dbt_valid_to": null
+          },
+          {
+            "customer_id": "C1",
+            "city": "Lyon",
+            "segment": "Corporate",
+            "dbt_valid_from": "2026-03-01T00:00:00",
+            "dbt_valid_to": null
+          }
+        ]
+      },
+      {
+        "id": "unchanged-day",
+        "visibility": "edge",
+        "input_rows": [],
+        "scenario": {
+          "outcome": "table",
+          "file": "snapshots/customers_snapshot.sql",
+          "files": {
+            "dbt_project.yml": "name: shop\nversion: '1.0.0'\nconfig-version: 2\nprofile: datapass\n\nmodels:\n  shop:\n    staging:\n      +materialized: view\n      +schema: silver\n    marts:\n      +materialized: table\n      +schema: gold\n",
+            "models/staging/_sources.yml": "version: 2\nsources:\n  - name: shop\n    schema: source\n    tables:\n      - name: orders\n      - name: order_lines\n      - name: events\n  - name: crm\n    schema: source\n    tables:\n      - name: customers\n",
+            "macros/generate_schema_name.sql": "{% macro generate_schema_name(custom_schema_name, node) -%}\n    {%- if custom_schema_name is none -%}{{ target.schema }}{%- else -%}{{ custom_schema_name | trim }}{%- endif -%}\n{%- endmacro %}\n"
+          },
+          "runs": [
+            {
+              "command": "snapshot",
+              "now": "2026-03-01 06:00:00",
+              "tables": [
+                {
+                  "name": "source.customers",
+                  "rows": [
+                    {
+                      "customer_id": "C1",
+                      "city": "Paris",
+                      "segment": "Consumer",
+                      "updated_at": "2026-01-01 00:00:00"
+                    },
+                    {
+                      "customer_id": "C2",
+                      "city": "Geneva",
+                      "segment": "Corporate",
+                      "updated_at": "2026-01-01 00:00:00"
+                    }
+                  ],
+                  "types": {
+                    "updated_at": "TIMESTAMP"
+                  }
+                }
+              ]
+            },
+            {
+              "command": "snapshot",
+              "now": "2026-03-02 06:00:00",
+              "tables": [
+                {
+                  "name": "source.customers",
+                  "rows": [
+                    {
+                      "customer_id": "C1",
+                      "city": "Paris",
+                      "segment": "Consumer",
+                      "updated_at": "2026-01-01 00:00:00"
+                    },
+                    {
+                      "customer_id": "C2",
+                      "city": "Geneva",
+                      "segment": "Corporate",
+                      "updated_at": "2026-01-01 00:00:00"
+                    }
+                  ],
+                  "types": {
+                    "updated_at": "TIMESTAMP"
+                  }
+                }
+              ]
+            },
+            {
+              "command": "snapshot",
+              "now": "2026-03-03 06:00:00",
+              "tables": [
+                {
+                  "name": "source.customers",
+                  "rows": [
+                    {
+                      "customer_id": "C1",
+                      "city": "Lyon",
+                      "segment": "Consumer",
+                      "updated_at": "2026-02-15 00:00:00"
+                    },
+                    {
+                      "customer_id": "C2",
+                      "city": "Geneva",
+                      "segment": "Corporate",
+                      "updated_at": "2026-01-01 00:00:00"
+                    },
+                    {
+                      "customer_id": "C3",
+                      "city": "Madrid",
+                      "segment": "Consumer",
+                      "updated_at": "2026-02-15 00:00:00"
+                    }
+                  ],
+                  "types": {
+                    "updated_at": "TIMESTAMP"
+                  }
+                }
+              ]
+            }
+          ],
+          "table": "silver.customers_snapshot",
+          "columns": [
+            "customer_id",
+            "city",
+            "segment",
+            "dbt_valid_from",
+            "dbt_valid_to"
+          ]
+        },
+        "expected": [
+          {
+            "customer_id": "C1",
+            "city": "Paris",
+            "segment": "Consumer",
+            "dbt_valid_from": "2026-01-01T00:00:00",
+            "dbt_valid_to": "2026-02-15T00:00:00"
+          },
+          {
+            "customer_id": "C2",
+            "city": "Geneva",
+            "segment": "Corporate",
+            "dbt_valid_from": "2026-01-01T00:00:00",
+            "dbt_valid_to": null
+          },
+          {
+            "customer_id": "C1",
+            "city": "Lyon",
+            "segment": "Consumer",
+            "dbt_valid_from": "2026-02-15T00:00:00",
+            "dbt_valid_to": null
+          },
+          {
+            "customer_id": "C3",
+            "city": "Madrid",
+            "segment": "Consumer",
+            "dbt_valid_from": "2026-02-15T00:00:00",
+            "dbt_valid_to": null
+          }
+        ]
+      }
+    ]
+  },
+  "dbt-snapshot-check-deletes": {
+    "solution": "{% snapshot segments_snapshot %}\n{{\n    config(\n        target_schema='silver',\n        unique_key='customer_id',\n        strategy='check',\n        check_cols=['segment'],\n        hard_deletes='invalidate'\n    )\n}}\nselect customer_id, segment from {{ source('crm', 'customers') }}\n{% endsnapshot %}\n",
+    "fixtures": [
+      {
+        "id": "change-and-delete",
+        "visibility": "visible",
+        "input_rows": [],
+        "scenario": {
+          "outcome": "table",
+          "file": "snapshots/segments_snapshot.sql",
+          "files": {
+            "dbt_project.yml": "name: shop\nversion: '1.0.0'\nconfig-version: 2\nprofile: datapass\n\nmodels:\n  shop:\n    staging:\n      +materialized: view\n      +schema: silver\n    marts:\n      +materialized: table\n      +schema: gold\n",
+            "models/staging/_sources.yml": "version: 2\nsources:\n  - name: shop\n    schema: source\n    tables:\n      - name: orders\n      - name: order_lines\n      - name: events\n  - name: crm\n    schema: source\n    tables:\n      - name: customers\n",
+            "macros/generate_schema_name.sql": "{% macro generate_schema_name(custom_schema_name, node) -%}\n    {%- if custom_schema_name is none -%}{{ target.schema }}{%- else -%}{{ custom_schema_name | trim }}{%- endif -%}\n{%- endmacro %}\n"
+          },
+          "runs": [
+            {
+              "command": "snapshot",
+              "now": "2026-03-01 06:00:00",
+              "tables": [
+                {
+                  "name": "source.customers",
+                  "rows": [
+                    {
+                      "customer_id": "C1",
+                      "segment": "Consumer"
+                    },
+                    {
+                      "customer_id": "C2",
+                      "segment": "Corporate"
+                    },
+                    {
+                      "customer_id": "C3",
+                      "segment": null
+                    }
+                  ],
+                  "types": {
+                    "segment": "VARCHAR"
+                  }
+                }
+              ]
+            },
+            {
+              "command": "snapshot",
+              "now": "2026-03-02 06:00:00",
+              "tables": [
+                {
+                  "name": "source.customers",
+                  "rows": [
+                    {
+                      "customer_id": "C1",
+                      "segment": "Corporate"
+                    },
+                    {
+                      "customer_id": "C3",
+                      "segment": "Consumer"
+                    }
+                  ],
+                  "types": {
+                    "segment": "VARCHAR"
+                  }
+                }
+              ]
+            }
+          ],
+          "table": "silver.segments_snapshot",
+          "columns": [
+            "customer_id",
+            "segment",
+            "dbt_valid_from",
+            "dbt_valid_to"
+          ]
+        },
+        "expected": [
+          {
+            "customer_id": "C1",
+            "segment": "Consumer",
+            "dbt_valid_from": "2026-03-01T06:00:00",
+            "dbt_valid_to": "2026-03-02T06:00:00"
+          },
+          {
+            "customer_id": "C2",
+            "segment": "Corporate",
+            "dbt_valid_from": "2026-03-01T06:00:00",
+            "dbt_valid_to": "2026-03-02T06:00:00"
+          },
+          {
+            "customer_id": "C3",
+            "segment": null,
+            "dbt_valid_from": "2026-03-01T06:00:00",
+            "dbt_valid_to": "2026-03-02T06:00:00"
+          },
+          {
+            "customer_id": "C1",
+            "segment": "Corporate",
+            "dbt_valid_from": "2026-03-02T06:00:00",
+            "dbt_valid_to": null
+          },
+          {
+            "customer_id": "C3",
+            "segment": "Consumer",
+            "dbt_valid_from": "2026-03-02T06:00:00",
+            "dbt_valid_to": null
+          }
+        ]
+      },
+      {
+        "id": "comes-back",
+        "visibility": "hidden",
+        "input_rows": [],
+        "scenario": {
+          "outcome": "table",
+          "file": "snapshots/segments_snapshot.sql",
+          "files": {
+            "dbt_project.yml": "name: shop\nversion: '1.0.0'\nconfig-version: 2\nprofile: datapass\n\nmodels:\n  shop:\n    staging:\n      +materialized: view\n      +schema: silver\n    marts:\n      +materialized: table\n      +schema: gold\n",
+            "models/staging/_sources.yml": "version: 2\nsources:\n  - name: shop\n    schema: source\n    tables:\n      - name: orders\n      - name: order_lines\n      - name: events\n  - name: crm\n    schema: source\n    tables:\n      - name: customers\n",
+            "macros/generate_schema_name.sql": "{% macro generate_schema_name(custom_schema_name, node) -%}\n    {%- if custom_schema_name is none -%}{{ target.schema }}{%- else -%}{{ custom_schema_name | trim }}{%- endif -%}\n{%- endmacro %}\n"
+          },
+          "runs": [
+            {
+              "command": "snapshot",
+              "now": "2026-03-01 06:00:00",
+              "tables": [
+                {
+                  "name": "source.customers",
+                  "rows": [
+                    {
+                      "customer_id": "C1",
+                      "segment": "Consumer"
+                    },
+                    {
+                      "customer_id": "C2",
+                      "segment": "Corporate"
+                    },
+                    {
+                      "customer_id": "C3",
+                      "segment": null
+                    }
+                  ],
+                  "types": {
+                    "segment": "VARCHAR"
+                  }
+                }
+              ]
+            },
+            {
+              "command": "snapshot",
+              "now": "2026-03-02 06:00:00",
+              "tables": [
+                {
+                  "name": "source.customers",
+                  "rows": [
+                    {
+                      "customer_id": "C1",
+                      "segment": "Corporate"
+                    },
+                    {
+                      "customer_id": "C3",
+                      "segment": "Consumer"
+                    }
+                  ],
+                  "types": {
+                    "segment": "VARCHAR"
+                  }
+                }
+              ]
+            },
+            {
+              "command": "snapshot",
+              "now": "2026-03-03 06:00:00",
+              "tables": [
+                {
+                  "name": "source.customers",
+                  "rows": [
+                    {
+                      "customer_id": "C1",
+                      "segment": "Corporate"
+                    },
+                    {
+                      "customer_id": "C2",
+                      "segment": "Corporate"
+                    },
+                    {
+                      "customer_id": "C3",
+                      "segment": "Consumer"
+                    }
+                  ],
+                  "types": {
+                    "segment": "VARCHAR"
+                  }
+                }
+              ]
+            }
+          ],
+          "table": "silver.segments_snapshot",
+          "columns": [
+            "customer_id",
+            "segment",
+            "dbt_valid_from",
+            "dbt_valid_to"
+          ]
+        },
+        "expected": [
+          {
+            "customer_id": "C1",
+            "segment": "Consumer",
+            "dbt_valid_from": "2026-03-01T06:00:00",
+            "dbt_valid_to": "2026-03-02T06:00:00"
+          },
+          {
+            "customer_id": "C2",
+            "segment": "Corporate",
+            "dbt_valid_from": "2026-03-01T06:00:00",
+            "dbt_valid_to": "2026-03-02T06:00:00"
+          },
+          {
+            "customer_id": "C3",
+            "segment": null,
+            "dbt_valid_from": "2026-03-01T06:00:00",
+            "dbt_valid_to": "2026-03-02T06:00:00"
+          },
+          {
+            "customer_id": "C1",
+            "segment": "Corporate",
+            "dbt_valid_from": "2026-03-02T06:00:00",
+            "dbt_valid_to": null
+          },
+          {
+            "customer_id": "C3",
+            "segment": "Consumer",
+            "dbt_valid_from": "2026-03-02T06:00:00",
+            "dbt_valid_to": null
+          },
+          {
+            "customer_id": "C2",
+            "segment": "Corporate",
+            "dbt_valid_from": "2026-03-03T06:00:00",
+            "dbt_valid_to": null
+          }
+        ]
+      },
+      {
+        "id": "no-change",
+        "visibility": "edge",
+        "input_rows": [],
+        "scenario": {
+          "outcome": "table",
+          "file": "snapshots/segments_snapshot.sql",
+          "files": {
+            "dbt_project.yml": "name: shop\nversion: '1.0.0'\nconfig-version: 2\nprofile: datapass\n\nmodels:\n  shop:\n    staging:\n      +materialized: view\n      +schema: silver\n    marts:\n      +materialized: table\n      +schema: gold\n",
+            "models/staging/_sources.yml": "version: 2\nsources:\n  - name: shop\n    schema: source\n    tables:\n      - name: orders\n      - name: order_lines\n      - name: events\n  - name: crm\n    schema: source\n    tables:\n      - name: customers\n",
+            "macros/generate_schema_name.sql": "{% macro generate_schema_name(custom_schema_name, node) -%}\n    {%- if custom_schema_name is none -%}{{ target.schema }}{%- else -%}{{ custom_schema_name | trim }}{%- endif -%}\n{%- endmacro %}\n"
+          },
+          "runs": [
+            {
+              "command": "snapshot",
+              "now": "2026-03-01 06:00:00",
+              "tables": [
+                {
+                  "name": "source.customers",
+                  "rows": [
+                    {
+                      "customer_id": "C1",
+                      "segment": "Consumer"
+                    },
+                    {
+                      "customer_id": "C2",
+                      "segment": "Corporate"
+                    },
+                    {
+                      "customer_id": "C3",
+                      "segment": null
+                    }
+                  ],
+                  "types": {
+                    "segment": "VARCHAR"
+                  }
+                }
+              ]
+            },
+            {
+              "command": "snapshot",
+              "now": "2026-03-02 06:00:00",
+              "tables": [
+                {
+                  "name": "source.customers",
+                  "rows": [
+                    {
+                      "customer_id": "C1",
+                      "segment": "Consumer"
+                    },
+                    {
+                      "customer_id": "C2",
+                      "segment": "Corporate"
+                    },
+                    {
+                      "customer_id": "C3",
+                      "segment": null
+                    }
+                  ],
+                  "types": {
+                    "segment": "VARCHAR"
+                  }
+                }
+              ]
+            }
+          ],
+          "table": "silver.segments_snapshot",
+          "columns": [
+            "customer_id",
+            "segment",
+            "dbt_valid_from",
+            "dbt_valid_to"
+          ]
+        },
+        "expected": [
+          {
+            "customer_id": "C1",
+            "segment": "Consumer",
+            "dbt_valid_from": "2026-03-01T06:00:00",
+            "dbt_valid_to": null
+          },
+          {
+            "customer_id": "C2",
+            "segment": "Corporate",
+            "dbt_valid_from": "2026-03-01T06:00:00",
+            "dbt_valid_to": null
+          },
+          {
+            "customer_id": "C3",
+            "segment": null,
+            "dbt_valid_from": "2026-03-01T06:00:00",
+            "dbt_valid_to": null
+          }
+        ]
+      }
+    ]
+  },
+  "dbt-dim-from-snapshot": {
+    "solution": "select\n    md5(customer_id || '|' || cast(dbt_valid_from as varchar)) as customer_key,\n    customer_id,\n    city,\n    segment,\n    cast(dbt_valid_from as date) as valid_from,\n    coalesce(cast(dbt_valid_to as date), date '9999-12-31') as valid_to,\n    dbt_valid_to is null as is_current\nfrom {{ ref('customers_snapshot') }}\n",
+    "fixtures": [
+      {
+        "id": "two-days",
+        "visibility": "visible",
+        "input_rows": [],
+        "scenario": {
+          "outcome": "table",
+          "file": "models/marts/dim_customer.sql",
+          "files": {
+            "dbt_project.yml": "name: shop\nversion: '1.0.0'\nconfig-version: 2\nprofile: datapass\n\nmodels:\n  shop:\n    staging:\n      +materialized: view\n      +schema: silver\n    marts:\n      +materialized: table\n      +schema: gold\n",
+            "models/staging/_sources.yml": "version: 2\nsources:\n  - name: shop\n    schema: source\n    tables:\n      - name: orders\n      - name: order_lines\n      - name: events\n  - name: crm\n    schema: source\n    tables:\n      - name: customers\n",
+            "macros/generate_schema_name.sql": "{% macro generate_schema_name(custom_schema_name, node) -%}\n    {%- if custom_schema_name is none -%}{{ target.schema }}{%- else -%}{{ custom_schema_name | trim }}{%- endif -%}\n{%- endmacro %}\n",
+            "snapshots/customers_snapshot.sql": "{% snapshot customers_snapshot %}\n{{\n    config(\n        target_schema='silver',\n        unique_key='customer_id',\n        strategy='timestamp',\n        updated_at='updated_at'\n    )\n}}\nselect customer_id, city, segment, updated_at from {{ source('crm', 'customers') }}\n{% endsnapshot %}\n"
+          },
+          "runs": [
+            {
+              "command": "build",
+              "now": "2026-03-01 06:00:00",
+              "tables": [
+                {
+                  "name": "source.customers",
+                  "rows": [
+                    {
+                      "customer_id": "C1",
+                      "city": "Paris",
+                      "segment": "Consumer",
+                      "updated_at": "2026-01-01 00:00:00"
+                    },
+                    {
+                      "customer_id": "C2",
+                      "city": "Geneva",
+                      "segment": "Corporate",
+                      "updated_at": "2026-01-01 00:00:00"
+                    }
+                  ],
+                  "types": {
+                    "updated_at": "TIMESTAMP"
+                  }
+                }
+              ]
+            },
+            {
+              "command": "build",
+              "now": "2026-03-02 06:00:00",
+              "tables": [
+                {
+                  "name": "source.customers",
+                  "rows": [
+                    {
+                      "customer_id": "C1",
+                      "city": "Lyon",
+                      "segment": "Consumer",
+                      "updated_at": "2026-02-15 00:00:00"
+                    },
+                    {
+                      "customer_id": "C2",
+                      "city": "Geneva",
+                      "segment": "Corporate",
+                      "updated_at": "2026-01-01 00:00:00"
+                    },
+                    {
+                      "customer_id": "C3",
+                      "city": "Madrid",
+                      "segment": "Consumer",
+                      "updated_at": "2026-02-15 00:00:00"
+                    }
+                  ],
+                  "types": {
+                    "updated_at": "TIMESTAMP"
+                  }
+                }
+              ]
+            }
+          ],
+          "table": "gold.dim_customer",
+          "columns": [
+            "customer_id",
+            "city",
+            "segment",
+            "valid_from",
+            "valid_to",
+            "is_current"
+          ]
+        },
+        "expected": [
+          {
+            "customer_id": "C1",
+            "city": "Paris",
+            "segment": "Consumer",
+            "valid_from": "2026-01-01",
+            "valid_to": "2026-02-15",
+            "is_current": false
+          },
+          {
+            "customer_id": "C2",
+            "city": "Geneva",
+            "segment": "Corporate",
+            "valid_from": "2026-01-01",
+            "valid_to": "9999-12-31",
+            "is_current": true
+          },
+          {
+            "customer_id": "C1",
+            "city": "Lyon",
+            "segment": "Consumer",
+            "valid_from": "2026-02-15",
+            "valid_to": "9999-12-31",
+            "is_current": true
+          },
+          {
+            "customer_id": "C3",
+            "city": "Madrid",
+            "segment": "Consumer",
+            "valid_from": "2026-02-15",
+            "valid_to": "9999-12-31",
+            "is_current": true
+          }
+        ]
+      },
+      {
+        "id": "three-days",
+        "visibility": "hidden",
+        "input_rows": [],
+        "scenario": {
+          "outcome": "table",
+          "file": "models/marts/dim_customer.sql",
+          "files": {
+            "dbt_project.yml": "name: shop\nversion: '1.0.0'\nconfig-version: 2\nprofile: datapass\n\nmodels:\n  shop:\n    staging:\n      +materialized: view\n      +schema: silver\n    marts:\n      +materialized: table\n      +schema: gold\n",
+            "models/staging/_sources.yml": "version: 2\nsources:\n  - name: shop\n    schema: source\n    tables:\n      - name: orders\n      - name: order_lines\n      - name: events\n  - name: crm\n    schema: source\n    tables:\n      - name: customers\n",
+            "macros/generate_schema_name.sql": "{% macro generate_schema_name(custom_schema_name, node) -%}\n    {%- if custom_schema_name is none -%}{{ target.schema }}{%- else -%}{{ custom_schema_name | trim }}{%- endif -%}\n{%- endmacro %}\n",
+            "snapshots/customers_snapshot.sql": "{% snapshot customers_snapshot %}\n{{\n    config(\n        target_schema='silver',\n        unique_key='customer_id',\n        strategy='timestamp',\n        updated_at='updated_at'\n    )\n}}\nselect customer_id, city, segment, updated_at from {{ source('crm', 'customers') }}\n{% endsnapshot %}\n"
+          },
+          "runs": [
+            {
+              "command": "build",
+              "now": "2026-03-01 06:00:00",
+              "tables": [
+                {
+                  "name": "source.customers",
+                  "rows": [
+                    {
+                      "customer_id": "C1",
+                      "city": "Paris",
+                      "segment": "Consumer",
+                      "updated_at": "2026-01-01 00:00:00"
+                    },
+                    {
+                      "customer_id": "C2",
+                      "city": "Geneva",
+                      "segment": "Corporate",
+                      "updated_at": "2026-01-01 00:00:00"
+                    }
+                  ],
+                  "types": {
+                    "updated_at": "TIMESTAMP"
+                  }
+                }
+              ]
+            },
+            {
+              "command": "build",
+              "now": "2026-03-02 06:00:00",
+              "tables": [
+                {
+                  "name": "source.customers",
+                  "rows": [
+                    {
+                      "customer_id": "C1",
+                      "city": "Lyon",
+                      "segment": "Consumer",
+                      "updated_at": "2026-02-15 00:00:00"
+                    },
+                    {
+                      "customer_id": "C2",
+                      "city": "Geneva",
+                      "segment": "Corporate",
+                      "updated_at": "2026-01-01 00:00:00"
+                    },
+                    {
+                      "customer_id": "C3",
+                      "city": "Madrid",
+                      "segment": "Consumer",
+                      "updated_at": "2026-02-15 00:00:00"
+                    }
+                  ],
+                  "types": {
+                    "updated_at": "TIMESTAMP"
+                  }
+                }
+              ]
+            },
+            {
+              "command": "build",
+              "now": "2026-03-03 06:00:00",
+              "tables": [
+                {
+                  "name": "source.customers",
+                  "rows": [
+                    {
+                      "customer_id": "C1",
+                      "city": "Lyon",
+                      "segment": "Corporate",
+                      "updated_at": "2026-03-01 00:00:00"
+                    },
+                    {
+                      "customer_id": "C2",
+                      "city": "Geneva",
+                      "segment": "Corporate",
+                      "updated_at": "2026-01-01 00:00:00"
+                    },
+                    {
+                      "customer_id": "C3",
+                      "city": "Madrid",
+                      "segment": "Consumer",
+                      "updated_at": "2026-02-15 00:00:00"
+                    }
+                  ],
+                  "types": {
+                    "updated_at": "TIMESTAMP"
+                  }
+                }
+              ]
+            }
+          ],
+          "table": "gold.dim_customer",
+          "columns": [
+            "customer_id",
+            "city",
+            "segment",
+            "valid_from",
+            "valid_to",
+            "is_current"
+          ]
+        },
+        "expected": [
+          {
+            "customer_id": "C1",
+            "city": "Paris",
+            "segment": "Consumer",
+            "valid_from": "2026-01-01",
+            "valid_to": "2026-02-15",
+            "is_current": false
+          },
+          {
+            "customer_id": "C2",
+            "city": "Geneva",
+            "segment": "Corporate",
+            "valid_from": "2026-01-01",
+            "valid_to": "9999-12-31",
+            "is_current": true
+          },
+          {
+            "customer_id": "C1",
+            "city": "Lyon",
+            "segment": "Consumer",
+            "valid_from": "2026-02-15",
+            "valid_to": "2026-03-01",
+            "is_current": false
+          },
+          {
+            "customer_id": "C3",
+            "city": "Madrid",
+            "segment": "Consumer",
+            "valid_from": "2026-02-15",
+            "valid_to": "9999-12-31",
+            "is_current": true
+          },
+          {
+            "customer_id": "C1",
+            "city": "Lyon",
+            "segment": "Corporate",
+            "valid_from": "2026-03-01",
+            "valid_to": "9999-12-31",
+            "is_current": true
+          }
+        ]
+      },
+      {
+        "id": "keys",
+        "visibility": "edge",
+        "input_rows": [],
+        "scenario": {
+          "outcome": "result",
+          "file": "models/marts/dim_customer.sql",
+          "files": {
+            "dbt_project.yml": "name: shop\nversion: '1.0.0'\nconfig-version: 2\nprofile: datapass\n\nmodels:\n  shop:\n    staging:\n      +materialized: view\n      +schema: silver\n    marts:\n      +materialized: table\n      +schema: gold\n",
+            "models/staging/_sources.yml": "version: 2\nsources:\n  - name: shop\n    schema: source\n    tables:\n      - name: orders\n      - name: order_lines\n      - name: events\n  - name: crm\n    schema: source\n    tables:\n      - name: customers\n",
+            "macros/generate_schema_name.sql": "{% macro generate_schema_name(custom_schema_name, node) -%}\n    {%- if custom_schema_name is none -%}{{ target.schema }}{%- else -%}{{ custom_schema_name | trim }}{%- endif -%}\n{%- endmacro %}\n",
+            "snapshots/customers_snapshot.sql": "{% snapshot customers_snapshot %}\n{{\n    config(\n        target_schema='silver',\n        unique_key='customer_id',\n        strategy='timestamp',\n        updated_at='updated_at'\n    )\n}}\nselect customer_id, city, segment, updated_at from {{ source('crm', 'customers') }}\n{% endsnapshot %}\n"
+          },
+          "runs": [
+            {
+              "command": "build",
+              "now": "2026-03-01 06:00:00",
+              "tables": [
+                {
+                  "name": "source.customers",
+                  "rows": [
+                    {
+                      "customer_id": "C1",
+                      "city": "Paris",
+                      "segment": "Consumer",
+                      "updated_at": "2026-01-01 00:00:00"
+                    },
+                    {
+                      "customer_id": "C2",
+                      "city": "Geneva",
+                      "segment": "Corporate",
+                      "updated_at": "2026-01-01 00:00:00"
+                    }
+                  ],
+                  "types": {
+                    "updated_at": "TIMESTAMP"
+                  }
+                }
+              ]
+            },
+            {
+              "command": "build",
+              "now": "2026-03-02 06:00:00",
+              "tables": [
+                {
+                  "name": "source.customers",
+                  "rows": [
+                    {
+                      "customer_id": "C1",
+                      "city": "Lyon",
+                      "segment": "Consumer",
+                      "updated_at": "2026-02-15 00:00:00"
+                    },
+                    {
+                      "customer_id": "C2",
+                      "city": "Geneva",
+                      "segment": "Corporate",
+                      "updated_at": "2026-01-01 00:00:00"
+                    },
+                    {
+                      "customer_id": "C3",
+                      "city": "Madrid",
+                      "segment": "Consumer",
+                      "updated_at": "2026-02-15 00:00:00"
+                    }
+                  ],
+                  "types": {
+                    "updated_at": "TIMESTAMP"
+                  }
+                }
+              ]
+            }
+          ],
+          "query": "SELECT customer_id, valid_from, customer_key FROM gold.dim_customer"
+        },
+        "expected": [
+          {
+            "customer_id": "C1",
+            "valid_from": "2026-01-01",
+            "customer_key": "6981234c1497bb9f99f224304048ab54"
+          },
+          {
+            "customer_id": "C2",
+            "valid_from": "2026-01-01",
+            "customer_key": "fae920a357e78cfb096044c2688fa47c"
+          },
+          {
+            "customer_id": "C1",
+            "valid_from": "2026-02-15",
+            "customer_key": "ef97ab83949f708f7ef273c5d37d3fd2"
+          },
+          {
+            "customer_id": "C3",
+            "valid_from": "2026-02-15",
+            "customer_key": "1e8cb5ec8ee38c22e8dae37d7afa93ec"
+          }
+        ]
+      }
+    ]
+  },
+  "dbt-generate-schema-name": {
+    "solution": "{% macro generate_schema_name(custom_schema_name, node) -%}\n    {%- if custom_schema_name is none -%}\n        {{ target.schema }}\n    {%- else -%}\n        {{ custom_schema_name | trim }}\n    {%- endif -%}\n{%- endmacro %}\n",
+    "fixtures": [
+      {
+        "id": "layers",
+        "visibility": "visible",
+        "input_rows": [],
+        "scenario": {
+          "outcome": "nodes",
+          "file": "macros/generate_schema_name.sql",
+          "files": {
+            "dbt_project.yml": "name: shop\nversion: '1.0.0'\nconfig-version: 2\nprofile: datapass\n\nmodels:\n  shop:\n    staging:\n      +materialized: view\n      +schema: silver\n    marts:\n      +materialized: table\n      +schema: gold\n",
+            "models/staging/_sources.yml": "version: 2\nsources:\n  - name: shop\n    schema: source\n    tables:\n      - name: orders\n      - name: order_lines\n      - name: events\n  - name: crm\n    schema: source\n    tables:\n      - name: customers\n",
+            "models/staging/stg_orders.sql": "select\n    order_id,\n    customer_id,\n    lower(status) as status,\n    amount_cents / 100.0 as amount,\n    cast(ordered_at as date) as order_date\nfrom {{ source('shop', 'orders') }}\nwhere not is_test\n",
+            "models/marts/fct_daily_orders.sql": "select order_date, count(*) as orders, sum(amount) as revenue\nfrom {{ ref('stg_orders') }}\ngroup by order_date\n"
+          },
+          "runs": [
+            {
+              "command": "run",
+              "now": "2026-03-01 06:00:00"
+            }
+          ],
+          "tables": [
+            {
+              "name": "source.orders",
+              "rows": [
+                {
+                  "order_id": "O1",
+                  "customer_id": "C1",
+                  "status": "PLACED",
+                  "amount_cents": 1250,
+                  "ordered_at": "2026-02-01 09:00:00",
+                  "is_test": false
+                },
+                {
+                  "order_id": "O2",
+                  "customer_id": "C2",
+                  "status": "shipped",
+                  "amount_cents": 4000,
+                  "ordered_at": "2026-02-02 10:30:00",
+                  "is_test": false
+                },
+                {
+                  "order_id": "O3",
+                  "customer_id": "C1",
+                  "status": "Returned",
+                  "amount_cents": 999,
+                  "ordered_at": "2026-02-03 11:00:00",
+                  "is_test": false
+                },
+                {
+                  "order_id": "T9",
+                  "customer_id": "C9",
+                  "status": "placed",
+                  "amount_cents": 1,
+                  "ordered_at": "2026-02-03 12:00:00",
+                  "is_test": true
+                }
+              ],
+              "types": {
+                "amount_cents": "INTEGER",
+                "ordered_at": "TIMESTAMP"
+              }
+            }
+          ],
+          "columns": [
+            "name",
+            "relation",
+            "status"
+          ]
+        },
+        "expected": [
+          {
+            "name": "stg_orders",
+            "relation": "silver.stg_orders",
+            "status": "success"
+          },
+          {
+            "name": "fct_daily_orders",
+            "relation": "gold.fct_daily_orders",
+            "status": "success"
+          }
+        ]
+      },
+      {
+        "id": "rows",
+        "visibility": "hidden",
+        "input_rows": [],
+        "scenario": {
+          "outcome": "table",
+          "file": "macros/generate_schema_name.sql",
+          "files": {
+            "dbt_project.yml": "name: shop\nversion: '1.0.0'\nconfig-version: 2\nprofile: datapass\n\nmodels:\n  shop:\n    staging:\n      +materialized: view\n      +schema: silver\n    marts:\n      +materialized: table\n      +schema: gold\n",
+            "models/staging/_sources.yml": "version: 2\nsources:\n  - name: shop\n    schema: source\n    tables:\n      - name: orders\n      - name: order_lines\n      - name: events\n  - name: crm\n    schema: source\n    tables:\n      - name: customers\n",
+            "models/staging/stg_orders.sql": "select\n    order_id,\n    customer_id,\n    lower(status) as status,\n    amount_cents / 100.0 as amount,\n    cast(ordered_at as date) as order_date\nfrom {{ source('shop', 'orders') }}\nwhere not is_test\n",
+            "models/marts/fct_daily_orders.sql": "select order_date, count(*) as orders, sum(amount) as revenue\nfrom {{ ref('stg_orders') }}\ngroup by order_date\n"
+          },
+          "runs": [
+            {
+              "command": "run",
+              "now": "2026-03-01 06:00:00"
+            }
+          ],
+          "tables": [
+            {
+              "name": "source.orders",
+              "rows": [
+                {
+                  "order_id": "O1",
+                  "customer_id": "C1",
+                  "status": "PLACED",
+                  "amount_cents": 1250,
+                  "ordered_at": "2026-02-01 09:00:00",
+                  "is_test": false
+                },
+                {
+                  "order_id": "O2",
+                  "customer_id": "C2",
+                  "status": "shipped",
+                  "amount_cents": 4000,
+                  "ordered_at": "2026-02-02 10:30:00",
+                  "is_test": false
+                },
+                {
+                  "order_id": "O3",
+                  "customer_id": "C1",
+                  "status": "Returned",
+                  "amount_cents": 999,
+                  "ordered_at": "2026-02-03 11:00:00",
+                  "is_test": false
+                },
+                {
+                  "order_id": "T9",
+                  "customer_id": "C9",
+                  "status": "placed",
+                  "amount_cents": 1,
+                  "ordered_at": "2026-02-03 12:00:00",
+                  "is_test": true
+                }
+              ],
+              "types": {
+                "amount_cents": "INTEGER",
+                "ordered_at": "TIMESTAMP"
+              }
+            }
+          ],
+          "table": "gold.fct_daily_orders"
+        },
+        "expected": [
+          {
+            "order_date": "2026-02-01",
+            "orders": 1,
+            "revenue": 12.5
+          },
+          {
+            "order_date": "2026-02-02",
+            "orders": 1,
+            "revenue": 40.0
+          },
+          {
+            "order_date": "2026-02-03",
+            "orders": 1,
+            "revenue": 9.99
+          }
+        ]
+      }
+    ]
+  },
+  "dbt-conditional-ref": {
+    "solution": "-- depends_on: {{ ref('order_cutoff') }}\n{{ config(materialized='incremental', unique_key='order_id') }}\nselect order_id, status, amount, order_date\nfrom {{ ref('stg_orders') }}\n{% if is_incremental() %}\nwhere order_date >= (select last_order_date - 1 from {{ ref('order_cutoff') }})\n{% endif %}\n",
+    "fixtures": [
+      {
+        "id": "second-build",
+        "visibility": "visible",
+        "input_rows": [],
+        "scenario": {
+          "outcome": "nodes",
+          "file": "models/marts/fct_recent_orders.sql",
+          "files": {
+            "dbt_project.yml": "name: shop\nversion: '1.0.0'\nconfig-version: 2\nprofile: datapass\n\nmodels:\n  shop:\n    staging:\n      +materialized: view\n      +schema: silver\n    marts:\n      +materialized: table\n      +schema: gold\n",
+            "models/staging/_sources.yml": "version: 2\nsources:\n  - name: shop\n    schema: source\n    tables:\n      - name: orders\n      - name: order_lines\n      - name: events\n  - name: crm\n    schema: source\n    tables:\n      - name: customers\n",
+            "macros/generate_schema_name.sql": "{% macro generate_schema_name(custom_schema_name, node) -%}\n    {%- if custom_schema_name is none -%}{{ target.schema }}{%- else -%}{{ custom_schema_name | trim }}{%- endif -%}\n{%- endmacro %}\n",
+            "models/staging/stg_orders.sql": "select\n    order_id,\n    customer_id,\n    lower(status) as status,\n    amount_cents / 100.0 as amount,\n    cast(ordered_at as date) as order_date\nfrom {{ source('shop', 'orders') }}\nwhere not is_test\n",
+            "models/marts/order_cutoff.sql": "select max(order_date) as last_order_date from {{ ref('stg_orders') }}\n"
+          },
+          "runs": [
+            {
+              "command": "build",
+              "now": "2026-03-01 06:00:00",
+              "tables": [
+                {
+                  "name": "source.orders",
+                  "rows": [
+                    {
+                      "order_id": "O1",
+                      "customer_id": "C1",
+                      "status": "PLACED",
+                      "amount_cents": 1250,
+                      "ordered_at": "2026-02-01 09:00:00",
+                      "is_test": false
+                    },
+                    {
+                      "order_id": "O2",
+                      "customer_id": "C2",
+                      "status": "shipped",
+                      "amount_cents": 4000,
+                      "ordered_at": "2026-02-02 10:30:00",
+                      "is_test": false
+                    },
+                    {
+                      "order_id": "O3",
+                      "customer_id": "C1",
+                      "status": "Returned",
+                      "amount_cents": 999,
+                      "ordered_at": "2026-02-03 11:00:00",
+                      "is_test": false
+                    },
+                    {
+                      "order_id": "T9",
+                      "customer_id": "C9",
+                      "status": "placed",
+                      "amount_cents": 1,
+                      "ordered_at": "2026-02-03 12:00:00",
+                      "is_test": true
+                    }
+                  ],
+                  "types": {
+                    "amount_cents": "INTEGER",
+                    "ordered_at": "TIMESTAMP"
+                  }
+                }
+              ]
+            },
+            {
+              "command": "build",
+              "now": "2026-03-01 06:00:00",
+              "tables": [
+                {
+                  "name": "source.orders",
+                  "rows": [
+                    {
+                      "order_id": "O1",
+                      "customer_id": "C1",
+                      "status": "PLACED",
+                      "amount_cents": 1250,
+                      "ordered_at": "2026-02-01 09:00:00",
+                      "is_test": false
+                    },
+                    {
+                      "order_id": "O2",
+                      "customer_id": "C2",
+                      "status": "shipped",
+                      "amount_cents": 4000,
+                      "ordered_at": "2026-02-02 10:30:00",
+                      "is_test": false
+                    },
+                    {
+                      "order_id": "O3",
+                      "customer_id": "C1",
+                      "status": "Returned",
+                      "amount_cents": 999,
+                      "ordered_at": "2026-02-03 11:00:00",
+                      "is_test": false
+                    },
+                    {
+                      "order_id": "T9",
+                      "customer_id": "C9",
+                      "status": "placed",
+                      "amount_cents": 1,
+                      "ordered_at": "2026-02-03 12:00:00",
+                      "is_test": true
+                    }
+                  ],
+                  "types": {
+                    "amount_cents": "INTEGER",
+                    "ordered_at": "TIMESTAMP"
+                  }
+                }
+              ]
+            }
+          ],
+          "only": [
+            "fct_recent_orders"
+          ]
+        },
+        "expected": [
+          {
+            "name": "fct_recent_orders",
+            "resource_type": "model",
+            "status": "success"
+          }
+        ]
+      },
+      {
+        "id": "rows",
+        "visibility": "hidden",
+        "input_rows": [],
+        "scenario": {
+          "outcome": "table",
+          "file": "models/marts/fct_recent_orders.sql",
+          "files": {
+            "dbt_project.yml": "name: shop\nversion: '1.0.0'\nconfig-version: 2\nprofile: datapass\n\nmodels:\n  shop:\n    staging:\n      +materialized: view\n      +schema: silver\n    marts:\n      +materialized: table\n      +schema: gold\n",
+            "models/staging/_sources.yml": "version: 2\nsources:\n  - name: shop\n    schema: source\n    tables:\n      - name: orders\n      - name: order_lines\n      - name: events\n  - name: crm\n    schema: source\n    tables:\n      - name: customers\n",
+            "macros/generate_schema_name.sql": "{% macro generate_schema_name(custom_schema_name, node) -%}\n    {%- if custom_schema_name is none -%}{{ target.schema }}{%- else -%}{{ custom_schema_name | trim }}{%- endif -%}\n{%- endmacro %}\n",
+            "models/staging/stg_orders.sql": "select\n    order_id,\n    customer_id,\n    lower(status) as status,\n    amount_cents / 100.0 as amount,\n    cast(ordered_at as date) as order_date\nfrom {{ source('shop', 'orders') }}\nwhere not is_test\n",
+            "models/marts/order_cutoff.sql": "select max(order_date) as last_order_date from {{ ref('stg_orders') }}\n"
+          },
+          "runs": [
+            {
+              "command": "build",
+              "now": "2026-03-01 06:00:00",
+              "tables": [
+                {
+                  "name": "source.orders",
+                  "rows": [
+                    {
+                      "order_id": "O1",
+                      "customer_id": "C1",
+                      "status": "PLACED",
+                      "amount_cents": 1250,
+                      "ordered_at": "2026-02-01 09:00:00",
+                      "is_test": false
+                    },
+                    {
+                      "order_id": "O2",
+                      "customer_id": "C2",
+                      "status": "shipped",
+                      "amount_cents": 4000,
+                      "ordered_at": "2026-02-02 10:30:00",
+                      "is_test": false
+                    },
+                    {
+                      "order_id": "O3",
+                      "customer_id": "C1",
+                      "status": "Returned",
+                      "amount_cents": 999,
+                      "ordered_at": "2026-02-03 11:00:00",
+                      "is_test": false
+                    },
+                    {
+                      "order_id": "T9",
+                      "customer_id": "C9",
+                      "status": "placed",
+                      "amount_cents": 1,
+                      "ordered_at": "2026-02-03 12:00:00",
+                      "is_test": true
+                    }
+                  ],
+                  "types": {
+                    "amount_cents": "INTEGER",
+                    "ordered_at": "TIMESTAMP"
+                  }
+                }
+              ]
+            },
+            {
+              "command": "build",
+              "now": "2026-03-01 06:00:00",
+              "tables": [
+                {
+                  "name": "source.orders",
+                  "rows": [
+                    {
+                      "order_id": "O1",
+                      "customer_id": "C1",
+                      "status": "PLACED",
+                      "amount_cents": 1250,
+                      "ordered_at": "2026-02-01 09:00:00",
+                      "is_test": false
+                    },
+                    {
+                      "order_id": "O2",
+                      "customer_id": "C2",
+                      "status": "shipped",
+                      "amount_cents": 4000,
+                      "ordered_at": "2026-02-02 10:30:00",
+                      "is_test": false
+                    },
+                    {
+                      "order_id": "O3",
+                      "customer_id": "C1",
+                      "status": "Returned",
+                      "amount_cents": 999,
+                      "ordered_at": "2026-02-03 11:00:00",
+                      "is_test": false
+                    },
+                    {
+                      "order_id": "T9",
+                      "customer_id": "C9",
+                      "status": "placed",
+                      "amount_cents": 1,
+                      "ordered_at": "2026-02-03 12:00:00",
+                      "is_test": true
+                    },
+                    {
+                      "order_id": "O4",
+                      "customer_id": "C3",
+                      "status": "placed",
+                      "amount_cents": 700,
+                      "ordered_at": "2026-02-04 10:00:00",
+                      "is_test": false
+                    }
+                  ],
+                  "types": {
+                    "amount_cents": "INTEGER",
+                    "ordered_at": "TIMESTAMP"
+                  }
+                }
+              ]
+            }
+          ],
+          "table": "gold.fct_recent_orders"
+        },
+        "expected": [
+          {
+            "order_id": "O1",
+            "status": "placed",
+            "amount": 12.5,
+            "order_date": "2026-02-01"
+          },
+          {
+            "order_id": "O2",
+            "status": "shipped",
+            "amount": 40.0,
+            "order_date": "2026-02-02"
+          },
+          {
+            "order_id": "O3",
+            "status": "returned",
+            "amount": 9.99,
+            "order_date": "2026-02-03"
+          },
+          {
+            "order_id": "O4",
+            "status": "placed",
+            "amount": 7.0,
+            "order_date": "2026-02-04"
+          }
+        ]
+      }
+    ]
+  }
+}

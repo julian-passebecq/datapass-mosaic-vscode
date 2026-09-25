@@ -135,6 +135,67 @@ try {
   assert.deepEqual(bi.influenceOf(view.lineage, "gold.fct_sales"), [
     { source: "source.shop_orders.order_date", role: "join" }, { source: "gold.dim_customer.valid_from", role: "join" }]);
   assert.deepEqual(view.lineage.impact["source.shop_orders.order_date"], [{ table: "gold.fct_sales", column: "*", effect: "rows" }]);
+  // dbt tab: which files make the project, bounded selectors, the runtime response and the DAG.
+  for (const path of ["dbt_project.yml", "models/marts/fct_sales.sql", "models/staging/_sources.yml", "seeds/raw.csv", "snapshots/s.sql"]) {
+    assert.ok(bi.isDbtProjectFile(path), path);
+  }
+  for (const path of ["README.md", "profiles.yml", "packages.yml", "models/../x.sql", "target/run.sql.bak"]) {
+    assert.equal(bi.isDbtProjectFile(path), false, path);
+  }
+  assert.deepEqual(bi.parseSelect(" +fct_sales  tag:daily "), { selectors: ["+fct_sales", "tag:daily"] });
+  assert.ok(bi.parseSelect("--vars x").error);
+  assert.ok(bi.parseSelect("a; rm -rf").error);
+  const dbtRaw = {
+    status: "error", project: { name: "datapass_bi", issues: [{ path: "dbt_project.yml", message: "on-run-start hooks are not run" }] },
+    nodes: [
+      { unique_id: "model.p.stg", name: "stg", resource_type: "model", materialized: "view", relation: "silver.stg", path: "models/stg.sql",
+        depends_on: [], sources: ["shop.orders"], tags: [], description: "", problem: null },
+      { unique_id: "model.p.fct", name: "fct", resource_type: "model", materialized: "table", relation: "gold.fct", path: "models/fct.sql",
+        depends_on: ["model.p.stg"], sources: [], tags: ["daily"], description: "Facts", problem: null },
+      { unique_id: "test.p.not_null_stg_id", name: "not_null_stg_id", resource_type: "test", materialized: "test", relation: null,
+        path: "models/schema.yml", depends_on: ["model.p.stg"], sources: [], tags: [], description: "", problem: null }
+    ],
+    sources: [{ name: "shop.orders", relation: "source.orders", description: "" }],
+    run: { status: "error", counts: { success: 1, fail: 1, skipped: 1, pass: 0 }, now: "2026-03-01 06:00:00", results: [
+      { unique_id: "model.p.stg", name: "stg", resource_type: "model", status: "success", message: "OK", materialized: "view",
+        relation: "silver.stg", rows_affected: null, failures: null, compiled: "select 1", failing_rows: [], path: "models/stg.sql" },
+      { unique_id: "test.p.not_null_stg_id", name: "not_null_stg_id", resource_type: "test", status: "fail", message: "Got 1 result",
+        materialized: "test", relation: null, rows_affected: null, failures: 1, compiled: "select id", failing_rows: [{ id: null }], path: "models/schema.yml" },
+      { unique_id: "model.p.fct", name: "fct", resource_type: "model", status: "skipped", message: "SKIP", materialized: "table",
+        relation: "gold.fct", rows_affected: null, failures: null, compiled: "", failing_rows: [], path: "models/fct.sql" }
+    ] },
+    lineage: { tables: [], columns: [], influence: [], impact: {}, issues: [], truth: "static" },
+    truth: "Datapass dbt emulation ... not dbt Core"
+  };
+  const dbtView = bi.toBiDbtView(dbtRaw, { command: "build", select: "+fct" });
+  assert.equal(dbtView.status, "error");
+  assert.equal(dbtView.projectName, "datapass_bi");
+  assert.deepEqual(dbtView.results.map(r => [r.name, r.status, r.failures ?? null]), [["stg", "success", null], ["not_null_stg_id", "fail", 1], ["fct", "skipped", null]]);
+  assert.deepEqual(dbtView.results[1].failingRows, [{ id: null }]);
+  assert.deepEqual(dbtView.counts, { success: 1, fail: 1, skipped: 1, pass: 0 });
+  assert.match(dbtView.truth, /not dbt Core/);
+  const dag = bi.dbtGraph(dbtView);
+  assert.deepEqual(dag.nodes.map(n => [n.id, n.status ?? null]), [["source:shop.orders", null], ["model.p.stg", "success"], ["model.p.fct", "skipped"]]);
+  assert.deepEqual(dag.edges.map(e => e.id), ["source:shop.orders->model.p.stg", "model.p.stg->model.p.fct"]);
+  const withTests = bi.dbtGraph(dbtView, true);
+  assert.equal(withTests.nodes.find(n => n.id === "test.p.not_null_stg_id").status, "failed");
+  assert.equal(bi.toBiDbtView({ status: "invalid", error: "dbt_project.yml is missing" }, { command: "build", select: "" }).error, "dbt_project.yml is missing");
+
+  // The sample dbt project is a project: every file the host sends is one dbt reads.
+  const dbtSample = "samples/bi-lab/dbt";
+  async function walk(folder, prefix = "") {
+    const found = [];
+    for (const entry of await readdir(`${folder}/${prefix}`, { withFileTypes: true })) {
+      const relative = prefix ? `${prefix}/${entry.name}` : entry.name;
+      if (entry.isDirectory()) found.push(...await walk(folder, relative));
+      else found.push(relative);
+    }
+    return found;
+  }
+  const sampleFiles = await walk(dbtSample);
+  assert.ok(sampleFiles.includes("dbt_project.yml") && sampleFiles.length >= 15, sampleFiles.join(","));
+  const projectFiles = sampleFiles.filter(file => file !== "README.md");
+  assert.ok(projectFiles.every(file => bi.isDbtProjectFile(file)), projectFiles.filter(file => !bi.isDbtProjectFile(file)).join(","));
   console.log("BI Lab smoke passed.");
 } finally {
   await rm(dir, { recursive: true, force: true });

@@ -184,6 +184,32 @@ class BiLabRequest(BaseModel):
         return self
 
 
+class BiDbtRequest(BaseModel):
+    """BI Lab dbt tab: a dbt project's files (TEXT, never read from disk here) and one command for the emulation."""
+    model_config = ConfigDict(extra="forbid", strict=True)
+    files: dict[str, str] = Field(max_length=200)
+    command: Literal["build", "run", "test", "seed", "snapshot", "compile", "parse"] = "build"
+    select: list[str] = Field(default_factory=list, max_length=10)
+    exclude: list[str] = Field(default_factory=list, max_length=10)
+    full_refresh: bool = False
+    vars: dict[str, Any] = Field(default_factory=dict)
+
+    @model_validator(mode="after")
+    def bounded(self) -> "BiDbtRequest":
+        for path in self.files:
+            parts = path.split("/")
+            if not re.fullmatch(r"[A-Za-z0-9_./ -]{1,200}", path) or path.startswith("/") or ".." in parts:
+                raise ValueError(f"unexpected project path {path!r}")
+        if sum(len(text) for text in self.files.values()) > 600_000:
+            raise ValueError("the dbt project exceeds 600 KB")
+        for selector in [*self.select, *self.exclude]:
+            if not re.fullmatch(r"[A-Za-z0-9_.*+:/@-]{1,120}", selector) or selector.startswith("-"):
+                raise ValueError(f"{selector!r} is not a dbt selector")
+        if len(json.dumps(self.vars)) > 10_000:
+            raise ValueError("vars exceed 10 KB")
+        return self
+
+
 class RetailDemoRequest(BaseModel):
     model_config = ConfigDict(extra="forbid", strict=True)
     dataset_path: str = Field(min_length=1, max_length=500)
@@ -199,7 +225,8 @@ class ExerciseGradeRequest(BaseModel):
     exercise_id: str = Field(pattern=r"^[A-Za-z0-9_-]{1,100}$")
     exercise_version: str = Field(min_length=1, max_length=40)
     language: Literal["sql", "sparklab", "python", "polars", "dbt", "airflow", "factory", "factory-notebook", "sqlpool",
-                      "databricks-job", "databricks-notebook", "databricks-grants", "warehouse", "bi-model"]
+                      "databricks-job", "databricks-notebook", "databricks-grants", "warehouse", "bi-model",
+                      "dbt-sql", "dbt-yml"]
     code: str = Field(min_length=1, max_length=40000)
     mode: Literal["run", "submit"]
     notebook_id: str = Field(pattern=r"^[A-Za-z0-9_-]{1,100}$")
@@ -287,6 +314,7 @@ def capabilities() -> dict[str, object]:
             "lineage": "column-level lineage and impact from the SQL text (sqlglot); nothing executed",
             "model": "star model checks (keys, grain, SCD2 validity, relationships) are real queries",
             "power_bi": False,
+            "dbt": "Datapass dbt emulation: sandboxed Jinja, real DuckDB SQL, dbt Core semantics for a documented subset; not dbt Core",
         },
         "pipeline_lab": {
             "mode": "hybrid",
@@ -412,6 +440,13 @@ def bi_lab(body: BiLabRequest) -> object:
     """BI Lab: run the warehouse scripts on the local catalog, then report tables, SQL lineage and model checks."""
     return native_command({"op": "bi_lab", "scripts": [s.model_dump() for s in body.scripts],
                            "model": body.model, "run": body.run})
+
+
+@app.post("/api/local/bi/dbt")
+def bi_dbt(body: BiDbtRequest) -> object:
+    """BI Lab dbt tab: run a dbt command with the emulation on the local catalog; report nodes, results, lineage."""
+    return native_command({"op": "bi_dbt", "files": body.files, "command": body.command, "select": body.select,
+                           "exclude": body.exclude, "full_refresh": body.full_refresh, "vars": body.vars})
 
 
 @app.post("/api/local/databricks/run")
