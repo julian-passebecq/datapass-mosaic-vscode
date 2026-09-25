@@ -19,7 +19,21 @@ import { FACTORY_FLAVORS, PIPELINE_NAME, pipelineRelativePath } from "./platform
 import { SQLPOOL_FLAVORS, SQLPOOL_LIMITS, isValidScale } from "./platform/sqlpoolRun";
 import { findDbtProjects, projectFolder } from "./dbtState";
 import { writeDbtProfiles, type DbtTerminalSession, type DbtToolsManager } from "./dbtLab";
-import { buildDbtCommand, type DbtCommand } from "./platform/dbtTools";
+import {
+  buildDbtCommand,
+  buildDctCommand,
+  dbtTerminalEnv,
+  isBoardPath,
+  renderPath,
+  toDctValidation,
+  type DbtCommand,
+  type DctFormat,
+  type DctValidationView
+} from "./platform/dbtTools";
+import { findFreePort } from "./platform/runtimeEndpoint";
+import { execFile } from "node:child_process";
+import * as http from "node:http";
+import * as path from "node:path";
 import { MODULES, type ModuleId } from "./modules";
 import { writeMosaicLayout } from "./mosaicLayoutStore";
 import { createDefaultProjectManifest, readProjectManifest, writeProjectManifest } from "./project/projectManifest";
@@ -108,6 +122,8 @@ export class WorkbenchPanel {
   private lastAirflowFile?: vscode.Uri;
   /** The T-SQL script the SQL pool tab last ran, to reveal a statement's line in it. */
   private lastSqlPoolFile?: vscode.Uri;
+  /** `dct validate --json` results per `<project>::<board>`, shown next to each board. */
+  private readonly dctValidations = new Map<string, DctValidationView>();
   /** The active .sql file the BI Lab last ran (not under bi/), to reveal a statement's line in it. */
   private lastBiActiveFile?: vscode.Uri;
   /** The lab tab (or Practice filter) a project step asked to show. */
@@ -338,6 +354,19 @@ export class WorkbenchPanel {
         return;
       case "openDbtFile":
         await this.openDbtFile(message.path);
+        return;
+      case "runDct":
+        await this.runDct(message.action, message.board, message.format);
+        return;
+      case "serveDct":
+        await this.serveDct();
+        return;
+      case "stopDctServe":
+        this.dbtLab.terminal.stopServe();
+        await this.refresh();
+        return;
+      case "openDctHtml":
+        await this.openDctHtml(message.board);
         return;
       case "reattachCatalog":
         if (!(await this.runtimeManager.reattachCatalog())) {
@@ -1176,11 +1205,11 @@ export class WorkbenchPanel {
     await this.refresh();
   }
 
-  /** Explicit action only: create the managed dbt tools environment and install dbt Core + dbt-duckdb in it. */
+  /** Explicit action only: create the managed dbt tools environment and install dbt Core, dbt-duckdb and dbt Charts in it. */
   private async installDbtTools(): Promise<void> {
     const choice = await vscode.window.showInformationMessage(
-      "Install dbt Core and dbt-duckdb for the dbt Lab? Datapass creates a separate Python environment in its " +
-      "extension storage (about 200 MB, a few minutes). Nothing else on your machine changes.",
+      "Install dbt Core, dbt-duckdb and dbt Charts for the dbt Lab? Datapass creates (or updates) a separate Python environment in its " +
+      "extension storage (about 250 MB, a few minutes). Nothing else on your machine changes.",
       { modal: true },
       "Install dbt tools"
     );
@@ -1227,6 +1256,97 @@ export class WorkbenchPanel {
     const profilesDir = await writeDbtProfiles(root, projects.map(item => item.file));
     await this.dbtLab.terminal.run(folder, profilesDir, commandLine);
     await this.refresh();
+  }
+
+  /** The selected dbt project and its folder, or undefined (with a message) when there is none. */
+  private async selectedDbtProject(): Promise<{ path: string; folder: vscode.Uri; files: vscode.Uri[] } | undefined> {
+    const projects = await findDbtProjects();
+    const selected = this.context.workspaceState.get<string>(DBT_SELECTED_KEY);
+    const project = projects.find(item => item.path === selected) ?? projects[0];
+    const folder = project ? projectFolder(project.path) : undefined;
+    if (!project || !folder) {
+      void vscode.window.showWarningMessage("No dbt project in this workspace. Create the retail sample or start a mission first.");
+      return undefined;
+    }
+    return { path: project.path, folder, files: projects.map(item => item.file) };
+  }
+
+  /** dbt Charts needs the managed tools with dbt-charts in them. */
+  private dctReady(): boolean {
+    const tools = this.dbtLab.tools.refresh();
+    if (tools.status !== "ready") {
+      void vscode.window.showWarningMessage("Install the dbt tools first (dbt Lab > Install dbt tools).");
+      return false;
+    }
+    if (!tools.versions?.["dbt-charts"]) {
+      void vscode.window.showWarningMessage("dbt Charts is not in the dbt tools yet: use Update dbt tools in the dbt Lab.");
+      return false;
+    }
+    return true;
+  }
+
+  /**
+   * dbt Charts: type `dct validate` or `dct render` in the dbt terminal. Validate also runs `dct validate --json`
+   * (no database, nothing executed) to show the result next to the board; render borrows the catalog like dbt.
+   */
+  private async runDct(action: "validate" | "render", board: string, format: DctFormat | undefined): Promise<void> {
+    const root = vscode.workspace.workspaceFolders?.[0]?.uri;
+    if (!root || !this.dctReady() || !isBoardPath(board)) return;
+    const project = await this.selectedDbtProject();
+    if (!project) return;
+    const profilesDir = await writeDbtProfiles(root, project.files);
+    const commandLine = action === "validate"
+      ? buildDctCommand({ action, board })
+      : buildDctCommand({ action, board, format: format ?? "png" });
+    // dct writes --output files but does not create their folder (dct 0.8).
+    if (action === "render") await vscode.workspace.fs.createDirectory(vscode.Uri.joinPath(project.folder, "renders"));
+    await this.dbtLab.terminal.run(project.folder, profilesDir, commandLine);
+    if (action === "validate") {
+      const output = await runTool(path.join(this.dbtLab.tools.binDir, process.platform === "win32" ? "dct.exe" : "dct"),
+        ["--no-workspace-guard", "validate", "--json", board], project.folder.fsPath,
+        dbtTerminalEnv(process.env, this.dbtLab.tools.binDir, this.dbtLab.tools.venvRoot, profilesDir.fsPath, path.delimiter));
+      try {
+        this.dctValidations.set(`${project.path}::${board}`, toDctValidation(JSON.parse(output), board, new Date().toISOString()));
+      } catch {
+        this.dctValidations.set(`${project.path}::${board}`, {
+          board, success: false, checkedAt: new Date().toISOString(), warnings: [],
+          errors: [{ code: "", message: output.trim().split(/\r?\n/).slice(-3).join(" ") || "dct validate gave no JSON." }]
+        });
+      }
+    }
+    await this.refresh();
+  }
+
+  /** `dct serve` on a free loopback port in its own terminal, then the board list in VS Code's Simple Browser. */
+  private async serveDct(): Promise<void> {
+    const root = vscode.workspace.workspaceFolders?.[0]?.uri;
+    if (!root || !this.dctReady()) return;
+    const project = await this.selectedDbtProject();
+    if (!project) return;
+    const profilesDir = await writeDbtProfiles(root, project.files);
+    const port = await findFreePort("127.0.0.1");
+    const url = `http://127.0.0.1:${port}/`;
+    await this.dbtLab.terminal.serve(project.folder, profilesDir, buildDctCommand({ action: "serve", port }), url);
+    await this.refresh();
+    if (await waitForHttp(url, 90_000)) {
+      await vscode.commands.executeCommand("simpleBrowser.show", url);
+    } else {
+      void vscode.window.showWarningMessage(`dct serve did not answer on ${url} yet: see its terminal.`);
+    }
+    await this.refresh();
+  }
+
+  /** A rendered HTML board carries scripts, so it opens in the system browser, never inside the Workbench webview. */
+  private async openDctHtml(board: string): Promise<void> {
+    if (!isBoardPath(board)) return;
+    const project = await this.selectedDbtProject();
+    if (!project) return;
+    const uri = vscode.Uri.joinPath(project.folder, ...renderPath(board, "html").split("/"));
+    if (!(await exists(uri))) {
+      void vscode.window.showWarningMessage(`${renderPath(board, "html")} does not exist yet: render the board as HTML first.`);
+      return;
+    }
+    await vscode.env.openExternal(uri);
   }
 
   /** Open a file of the selected dbt project (a model, or its compiled SQL under target/). */
@@ -1401,7 +1521,9 @@ export class WorkbenchPanel {
         dbtLab: {
           tools: this.dbtLab.tools.snapshot(),
           selected: this.context.workspaceState.get<string>(DBT_SELECTED_KEY),
-          shellIntegration: this.dbtLab.terminal.hasShellIntegration
+          shellIntegration: this.dbtLab.terminal.hasShellIntegration,
+          validations: this.dctValidations,
+          serveUrl: this.dbtLab.terminal.serveUrl
         }
       }
     );
@@ -1560,4 +1682,30 @@ async function exists(uri: vscode.Uri): Promise<boolean> {
   } catch {
     return false;
   }
+}
+
+/** Run a managed tool without a shell and return its stdout (or stderr), never throwing. */
+function runTool(command: string, args: string[], cwd: string, env: Record<string, string>): Promise<string> {
+  return new Promise(resolve => {
+    execFile(command, args, { cwd, env: { ...process.env, ...env, PYTHONIOENCODING: "utf-8" }, timeout: 60_000, windowsHide: true,
+      maxBuffer: 4_000_000 }, (_error, stdout, stderr) => resolve(String(stdout || stderr || "")));
+  });
+}
+
+/** Poll a loopback URL until it answers (any HTTP status) or the time runs out. */
+async function waitForHttp(url: string, timeoutMs: number): Promise<boolean> {
+  const deadline = Date.now() + timeoutMs;
+  while (Date.now() < deadline) {
+    const answered = await new Promise<boolean>(resolve => {
+      const request = http.get(url, response => {
+        response.resume();
+        resolve(true);
+      });
+      request.setTimeout(2000, () => request.destroy());
+      request.on("error", () => resolve(false));
+    });
+    if (answered) return true;
+    await new Promise(resolve => setTimeout(resolve, 700));
+  }
+  return false;
 }

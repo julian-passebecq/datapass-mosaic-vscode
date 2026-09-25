@@ -244,6 +244,15 @@ catalog. (The BI Lab keeps the guided dbt emulation.)
 6. After a run the lab reads `target/manifest.json` and `target/run_results.json`, labelled **dbt Core (real)**: the
    command, dbt version, invocation, status counts, the DAG colored by status (tests optional), failures and warnings,
    and each node's message, file and compiled SQL. `dbt parse` shows the DAG without touching the database.
+7. **dbt Charts.** The same tools include dbt Charts (`dct`, Apache-2.0, pre-1.0, pinned to 0.8.x). A project with a
+   `dbt_charts.yml` (a `dbt_profile` source) lists its boards (`charts/*.yml`, whose queries `ref()` the dbt models).
+   **Validate** types `dct validate <board>` (no database) and shows the result next to the board; **Render PNG**,
+   **Render data (JSON)** and **Render HTML** type `dct render <board> --format …` (output in `renders/`, the catalog is
+   lent like for dbt). The PNG shows in the lab, the JSON shows each chart's data, and the HTML (which carries scripts)
+   opens in your browser, never inside the Workbench. **dct serve** starts the live preview on a free loopback port
+   (`--host 127.0.0.1`) in its own terminal and opens it in VS Code's Simple Browser; **Stop dct serve** closes it and
+   the catalog comes back. Build the models first: boards read what dbt built. If you installed the dbt tools before
+   dbt Charts was added, use **Update dbt tools**.
 
 ## 4. Runtime
 

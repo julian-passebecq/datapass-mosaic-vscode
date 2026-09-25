@@ -2,7 +2,7 @@ import type { ModuleId, WorkbenchModule } from "../modules";
 import type { MosaicLayoutItem } from "../platform/mosaicLayout";
 import type { PythonTrustState } from "../platform/pythonTrust";
 import type { DbtCoreRunView } from "../platform/dbtArtifacts";
-import type { DbtCommand } from "../platform/dbtTools";
+import type { DbtCommand, DctFormat, DctRenderView, DctValidationView } from "../platform/dbtTools";
 import type { ProjectsViewState } from "../platform/projects";
 
 export type RuntimeStatus = "stopped" | "starting" | "running" | "error";
@@ -1079,6 +1079,31 @@ export interface DbtViewState {
   artifactError?: string;
   /** The dbt terminal reports command start and end (VS Code shell integration), so the handoff is automatic. */
   shellIntegration?: boolean;
+  /** dbt Charts boards of the selected project (charts/*.yml) and what dct last rendered for them. */
+  charts?: DbtChartsView;
+}
+
+export interface DbtBoardView {
+  /** Relative to the project: `charts/revenue.yml`. */
+  path: string;
+  /** renders/<stem>.png as a data: URI (the Workbench CSP allows data: images; nothing else is injected). */
+  png?: string;
+  pngAt?: string;
+  /** renders/<stem>.html, when dct rendered it (opened outside the Workbench: it carries scripts). */
+  html?: string;
+  /** renders/<stem>.json: the resolved board with each chart's data. */
+  render?: DctRenderView;
+  renderError?: string;
+  /** The last `dct validate --json` of this board. */
+  validation?: DctValidationView;
+}
+
+export interface DbtChartsView {
+  /** dbt_charts.yml at the project root. */
+  configured: boolean;
+  boards: readonly DbtBoardView[];
+  /** The loopback `dct serve` URL while it runs. */
+  serveUrl?: string;
 }
 
 export interface WorkbenchViewState {
@@ -1172,6 +1197,10 @@ export type WebviewToHostMessage =
   | { type: "openDbtTerminal" }
   | { type: "openDbtFile"; path: string }
   | { type: "reattachCatalog" }
+  | { type: "runDct"; action: "validate" | "render"; board: string; format?: DctFormat }
+  | { type: "serveDct" }
+  | { type: "stopDctServe" }
+  | { type: "openDctHtml"; board: string }
   | { type: "prepareProject"; projectId: string }
   | { type: "openProjectStep"; projectId: string; stepId: string }
   | { type: "verifyProjectSteps"; projectId: string; stepIds: string[] }

@@ -3,6 +3,7 @@ import { useMemo, useState } from "react";
 import type { DbtViewState, RuntimeViewState } from "./contracts";
 import type { VsCodeApi } from "./WorkbenchApp";
 import { SharedGraphCanvas } from "./SharedGraphCanvas";
+import { ResultTable } from "./ResultTable";
 import { countsLine, dbtCoreGraph, type DbtCoreNodeView } from "../platform/dbtArtifacts";
 import {
   DBT_COMMANDS,
@@ -191,7 +192,103 @@ export function DbtSurface({
           {node && <NodeDetail node={node} vscode={vscode} />}
         </div>
       )}
+
+      {dbt.projects.length > 0 && <ChartsPanel dbt={dbt} vscode={vscode} ready={ready} />}
     </section>
+  );
+}
+
+function ChartsPanel({ dbt, vscode, ready }: { dbt: DbtViewState; vscode: VsCodeApi; ready: boolean }) {
+  const charts = dbt.charts;
+  const dct = dbt.tools.versions?.["dbt-charts"];
+  if (!charts) return null;
+  const canRun = ready && Boolean(dct);
+  return (
+    <div className="bi-panel bi-wide">
+      <div className="factory-result-head">
+        <div>
+          <div className="eyebrow">dbt Charts (real){dct ? ` · dct ${dct}` : ""}</div>
+          <Text weight="semibold">Boards</Text>
+        </div>
+        <div className="button-row">
+          {charts.serveUrl ? (
+            <>
+              <Badge appearance="tint" color="success">dct serve on {charts.serveUrl}</Badge>
+              <Button size="small" appearance="secondary" onClick={() => vscode.postMessage({ type: "stopDctServe" })}>Stop dct serve</Button>
+            </>
+          ) : (
+            <Button size="small" appearance="secondary" disabled={!canRun || !charts.configured}
+              onClick={() => vscode.postMessage({ type: "serveDct" })}>
+              dct serve
+            </Button>
+          )}
+        </div>
+      </div>
+      {ready && !dct && (
+        <div className="factory-note">
+          dbt Charts is not in the dbt tools yet.{" "}
+          <Button size="small" appearance="secondary" onClick={() => vscode.postMessage({ type: "installDbtTools" })}>Update dbt tools</Button>
+        </div>
+      )}
+      <p className="factory-note">
+        Boards are YAML files in <code>charts/</code>, read by the real <code>dct</code> CLI through the project's dbt profile
+        {charts.configured ? <> (<code>dbt_charts.yml</code>)</> : <>: add a <code>dbt_charts.yml</code> with a <code>dbt_profile</code> source first</>}.
+        {" "}<code>dct validate</code> needs no database; <code>dct render</code> and <code>dct serve</code> borrow the catalog like dbt.
+        {" "}Rendered HTML opens in your browser, not in the Workbench.
+      </p>
+      {charts.boards.length === 0 && <p className="factory-note">No board in charts/ yet.</p>}
+      {charts.boards.map(board => (
+        <div key={board.path} className="dct-board">
+          <div className="factory-toolbar">
+            <div className="button-row">
+              <button type="button" className="bi-link" onClick={() => vscode.postMessage({ type: "openDbtFile", path: board.path })}>{board.path}</button>
+              {board.validation && (
+                <Badge appearance="tint" color={board.validation.success ? "success" : "danger"}>
+                  {board.validation.success ? "valid" : `${board.validation.errors.length} error(s)`}
+                  {board.validation.warnings.length ? ` · ${board.validation.warnings.length} warning(s)` : ""}
+                </Badge>
+              )}
+            </div>
+            <div className="button-row">
+              <Button size="small" appearance="secondary" disabled={!canRun}
+                onClick={() => vscode.postMessage({ type: "runDct", action: "validate", board: board.path })}>Validate</Button>
+              <Button size="small" appearance="primary" disabled={!canRun}
+                onClick={() => vscode.postMessage({ type: "runDct", action: "render", board: board.path, format: "png" })}>Render PNG</Button>
+              <Button size="small" appearance="secondary" disabled={!canRun}
+                onClick={() => vscode.postMessage({ type: "runDct", action: "render", board: board.path, format: "json" })}>Render data (JSON)</Button>
+              <Button size="small" appearance="secondary" disabled={!canRun}
+                onClick={() => vscode.postMessage({ type: "runDct", action: "render", board: board.path, format: "html" })}>Render HTML</Button>
+              {board.html && (
+                <Button size="small" appearance="secondary" onClick={() => vscode.postMessage({ type: "openDctHtml", board: board.path })}>
+                  Open HTML in browser
+                </Button>
+              )}
+            </div>
+          </div>
+          {board.validation && [...board.validation.errors, ...board.validation.warnings].map((issue, index) => (
+            <p key={index} className={index < board.validation!.errors.length ? "factory-error" : "factory-warning"}>
+              {issue.code && <code>{issue.code}</code>} {issue.message}{issue.line ? ` (line ${issue.line})` : ""}
+            </p>
+          ))}
+          {board.png && (
+            <figure className="dct-render">
+              <img src={board.png} alt={`dct render of ${board.path}`} />
+              <figcaption className="factory-note">renders/ · rendered by dct{board.pngAt ? ` at ${formatTime(board.pngAt)}` : ""}</figcaption>
+            </figure>
+          )}
+          {board.renderError && <p className="factory-warning">{board.renderError}</p>}
+          {board.render?.charts.map(chart => (
+            <details key={chart.id} className="sqlpool-sql">
+              <summary>
+                Data of <strong>{chart.title || chart.id}</strong> ({chart.type}{chart.x ? `, x ${chart.x}` : ""}{chart.y ? `, y ${chart.y}` : ""}) ·{" "}
+                {chart.totalRows} row(s)
+              </summary>
+              <ResultTable result={{ columns: chart.columns, rows: chart.rows }} maxRows={50} />
+            </details>
+          ))}
+        </div>
+      ))}
+    </div>
   );
 }
 

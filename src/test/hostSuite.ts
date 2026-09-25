@@ -11,6 +11,7 @@
  */
 import assert from "node:assert/strict";
 import { spawn } from "node:child_process";
+import { existsSync } from "node:fs";
 import { mkdtemp } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import * as path from "node:path";
@@ -20,6 +21,7 @@ import { CatalogTreeProvider, openTableScratch } from "../catalogTree";
 import { biFileUri, collectBiDbtFiles, collectBiScripts, copyBiSamples, loadBiState, readBiModel } from "../biState";
 import { DbtTerminalSession, writeDbtProfiles } from "../dbtLab";
 import { findDbtProjects, loadDbtState } from "../dbtState";
+import { buildDctCommand } from "../platform/dbtTools";
 import { loadExerciseCatalog } from "../exerciseCatalog";
 import { collectDatabricksFiles, collectFactoryFiles, copyFactorySamples, loadFactoryState, readPoolScript } from "../factoryState";
 import { MODULES } from "../modules";
@@ -470,6 +472,47 @@ export async function run(): Promise<void> {
         session.dispose();
       }
     }] as Step]),
+    ...(!dbtPython || !existsSync(path.join(path.dirname(dbtPython), process.platform === "win32" ? "dct.exe" : "dct")) ? [] : [[
+      "dbt Charts renders the retail board for real from the dbt-built mart", async () => {
+        const binDir = path.dirname(dbtPython);
+        const session = new DbtTerminalSession(runtime!, { binDir, venvRoot: path.dirname(binDir) });
+        const runAndWait = async (folder: vscode.Uri, profilesDir: vscode.Uri, commandLine: string) => {
+          const ended = new Promise<{ commandLine: string; exitCode: number | undefined }>((resolve, reject) => {
+            const timer = setTimeout(() => reject(new Error(`${commandLine} did not report its end within 240 s`)), 240_000);
+            const listener = session.onDidEndCommand(event => {
+              if (event.commandLine.trim() !== commandLine) return;
+              clearTimeout(timer);
+              listener.dispose();
+              resolve(event);
+            });
+          });
+          await session.run(folder, profilesDir, commandLine);
+          return ended;
+        };
+        try {
+          const retail = vscode.Uri.joinPath(root, "dbt", "retail-dbt");
+          const profilesDir = await writeDbtProfiles(root, (await findDbtProjects()).map(project => project.file));
+          const built = await runAndWait(retail, profilesDir, "dbt build");
+          if ((built.exitCode ?? 0) !== 0) {
+            const log = new TextDecoder().decode(await vscode.workspace.fs.readFile(vscode.Uri.joinPath(retail, "logs", "dbt.log")));
+            const errors = log.split(/\r?\n/).filter(line => /error|Error/.test(line)).slice(-12).join("\n");
+            assert.fail(`dbt build exited ${built.exitCode}:\n${errors}`);
+          }
+          await vscode.workspace.fs.createDirectory(vscode.Uri.joinPath(retail, "renders"));
+          const render = buildDctCommand({ action: "render", board: "charts/revenue.yml", format: "json" });
+          assert.equal((await runAndWait(retail, profilesDir, render)).exitCode ?? 0, 0);
+          assert.equal((await runAndWait(retail, profilesDir, buildDctCommand({ action: "render", board: "charts/revenue.yml", format: "png" }))).exitCode ?? 0, 0);
+          assert.equal(runtime!.snapshot().catalogLease, undefined, "dct gave the catalog back");
+          const dbt = await loadDbtState({ tools: { status: "ready" }, selected: "dbt/retail-dbt" });
+          const board = dbt.charts?.boards.find(item => item.path === "charts/revenue.yml");
+          assert.ok(dbt.charts?.configured && board, JSON.stringify(dbt.charts));
+          assert.deepEqual(board!.render?.charts.map(chart => chart.id), ["monthly", "by_customer"], board!.renderError);
+          assert.equal(board!.render!.charts[0].totalRows, 4);
+          assert.ok(board!.png?.startsWith("data:image/png;base64,"), "the PNG render is shown as a data: image");
+        } finally {
+          session.dispose();
+        }
+      }] as Step]),
     ["Catalog tree lists layers, tables, columns and row counts, and opens a SQL scratch", async () => {
       const tree = new CatalogTreeProvider(runtime!);
       try {

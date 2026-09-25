@@ -230,11 +230,18 @@ export async function writeDbtProfiles(root: vscode.Uri, projectFiles: readonly 
  */
 export class DbtTerminalSession implements vscode.Disposable {
   private terminal?: vscode.Terminal;
+  private serveTerminal?: vscode.Terminal;
   private cwd?: string;
-  private readonly running = new Set<vscode.TerminalShellExecution>();
+  /** Catalog commands in flight, with the terminal that runs them. */
+  private readonly running = new Map<vscode.TerminalShellExecution, vscode.Terminal>();
+  /** Every command in flight in an owned terminal: a new one waits for them (executeCommand would interrupt it). */
+  private readonly busy = new Map<vscode.TerminalShellExecution, vscode.Terminal>();
+  private readonly idle = new vscode.EventEmitter<void>();
   private readonly disposables: vscode.Disposable[] = [];
   private readonly ended = new vscode.EventEmitter<{ commandLine: string; exitCode: number | undefined }>();
   readonly onDidEndCommand = this.ended.event;
+  /** The `dct serve` URL while its terminal is open. */
+  serveUrl?: string;
 
   constructor(
     private readonly runtime: RuntimeManager,
@@ -242,19 +249,27 @@ export class DbtTerminalSession implements vscode.Disposable {
   ) {
     this.disposables.push(
       vscode.window.onDidStartTerminalShellExecution(event => {
-        if (event.terminal !== this.terminal || !isCatalogCommand(event.execution.commandLine.value)) return;
-        this.running.add(event.execution);
+        if (this.owns(event.terminal)) this.busy.set(event.execution, event.terminal);
+        if (!this.owns(event.terminal) || !isCatalogCommand(event.execution.commandLine.value)) return;
+        this.running.set(event.execution, event.terminal);
         void this.lend(event.execution.commandLine.value);
       }),
       vscode.window.onDidEndTerminalShellExecution(event => {
-        if (event.terminal !== this.terminal || !this.running.delete(event.execution)) return;
+        if (this.busy.delete(event.execution)) this.idle.fire();
+        if (!this.owns(event.terminal) || !this.running.delete(event.execution)) return;
         void this.giveBack().then(() => this.ended.fire({ commandLine: event.execution.commandLine.value, exitCode: event.exitCode }));
       }),
       vscode.window.onDidCloseTerminal(terminal => {
-        if (terminal !== this.terminal) return;
-        this.terminal = undefined;
-        this.running.clear();
-        void this.giveBack();
+        if (!this.owns(terminal)) return;
+        if (terminal === this.terminal) this.terminal = undefined;
+        if (terminal === this.serveTerminal) {
+          this.serveTerminal = undefined;
+          this.serveUrl = undefined;
+        }
+        for (const [execution, owner] of this.running) if (owner === terminal) this.running.delete(execution);
+        for (const [execution, owner] of this.busy) if (owner === terminal) this.busy.delete(execution);
+        this.idle.fire();
+        void this.giveBack().then(() => this.ended.fire({ commandLine: "", exitCode: undefined }));
       })
     );
   }
@@ -263,8 +278,40 @@ export class DbtTerminalSession implements vscode.Disposable {
   async run(projectDir: vscode.Uri, profilesDir: vscode.Uri, commandLine: string | undefined): Promise<void> {
     const terminal = this.ensureTerminal(projectDir, profilesDir);
     terminal.show(!commandLine ? false : true);
-    if (!commandLine) return;
-    // Release before typing: dbt opens the file within seconds of starting.
+    if (commandLine) await this.execute(terminal, commandLine);
+  }
+
+  /**
+   * `dct serve` in a terminal of its own (a server keeps its terminal busy). It borrows the catalog while it runs;
+   * closing the terminal (Stop) ends it and gives the catalog back.
+   */
+  async serve(projectDir: vscode.Uri, profilesDir: vscode.Uri, commandLine: string, url: string): Promise<void> {
+    this.serveTerminal?.dispose();
+    this.serveTerminal = this.createTerminal(`dct serve · ${path.basename(projectDir.fsPath)}`, projectDir, profilesDir);
+    this.serveUrl = url;
+    this.serveTerminal.show(true);
+    await this.execute(this.serveTerminal, commandLine);
+  }
+
+  stopServe(): void {
+    this.serveTerminal?.dispose();
+  }
+
+  get serving(): boolean {
+    return Boolean(this.serveTerminal);
+  }
+
+  get hasShellIntegration(): boolean {
+    return Boolean(this.terminal?.shellIntegration);
+  }
+
+  private owns(terminal: vscode.Terminal): boolean {
+    return terminal === this.terminal || terminal === this.serveTerminal;
+  }
+
+  private async execute(terminal: vscode.Terminal, commandLine: string): Promise<void> {
+    await this.whenIdle(terminal);
+    // Release before typing: dbt and dct open the file within seconds of starting.
     if (isCatalogCommand(commandLine)) await this.lend(commandLine);
     const integration = terminal.shellIntegration ?? await waitForShellIntegration(terminal, 4000);
     if (integration) {
@@ -275,21 +322,36 @@ export class DbtTerminalSession implements vscode.Disposable {
     }
   }
 
-  get hasShellIntegration(): boolean {
-    return Boolean(this.terminal?.shellIntegration);
+  /** Wait (up to 10 minutes) until no command runs in `terminal`: typing now would interrupt the running one. */
+  private whenIdle(terminal: vscode.Terminal): Promise<void> {
+    const isBusy = () => [...this.busy.values()].includes(terminal);
+    if (!isBusy()) return Promise.resolve();
+    return new Promise(resolve => {
+      const timer = setTimeout(done, 600_000);
+      const listener = this.idle.event(() => { if (!isBusy()) done(); });
+      function done() {
+        clearTimeout(timer);
+        listener.dispose();
+        resolve();
+      }
+    });
   }
 
   private ensureTerminal(projectDir: vscode.Uri, profilesDir: vscode.Uri): vscode.Terminal {
     if (this.terminal && this.terminal.exitStatus === undefined && this.cwd === projectDir.fsPath) return this.terminal;
     this.terminal?.dispose();
     this.cwd = projectDir.fsPath;
-    this.terminal = vscode.window.createTerminal({
-      name: `dbt · ${path.basename(projectDir.fsPath)}`,
+    this.terminal = this.createTerminal(`dbt · ${path.basename(projectDir.fsPath)}`, projectDir, profilesDir);
+    return this.terminal;
+  }
+
+  private createTerminal(name: string, projectDir: vscode.Uri, profilesDir: vscode.Uri): vscode.Terminal {
+    return vscode.window.createTerminal({
+      name,
       cwd: projectDir,
       iconPath: new vscode.ThemeIcon("database"),
       env: dbtTerminalEnv(process.env, this.tools.binDir, this.tools.venvRoot, profilesDir.fsPath, path.delimiter)
     });
-    return this.terminal;
   }
 
   private async lend(commandLine: string): Promise<void> {
@@ -320,7 +382,9 @@ export class DbtTerminalSession implements vscode.Disposable {
   dispose(): void {
     for (const disposable of this.disposables) disposable.dispose();
     this.ended.dispose();
+    this.idle.dispose();
     this.terminal?.dispose();
+    this.serveTerminal?.dispose();
   }
 }
 
