@@ -1,4 +1,5 @@
 import * as vscode from "vscode";
+import type { QueryHistoryEntry } from "./platform/mosaicTools";
 import { loadAirflowState } from "./airflowState";
 import { loadBiState } from "./biState";
 import { loadDbtState } from "./dbtState";
@@ -32,6 +33,7 @@ export async function collectWorkbenchState(
       missions?: DbtViewState["missions"];
     };
     practiceSolutions?: Record<string, string>;
+    queryHistory?: readonly QueryHistoryEntry[];
   } = {}
 ): Promise<WorkbenchViewState> {
   const folder = vscode.workspace.workspaceFolders?.[0];
@@ -90,7 +92,8 @@ export async function collectWorkbenchState(
     bi,
     dbt,
     projects,
-    focus: extras.focus
+    focus: extras.focus,
+    queryHistory: extras.queryHistory
   };
 }
 

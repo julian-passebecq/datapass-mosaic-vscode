@@ -935,6 +935,23 @@ export async function run(): Promise<void> {
       assert.deepEqual(sum.lastRun?.result?.rows, [{ visits: 8 }], sum.lastRun?.error?.message);
       assert.equal(sum.csvImport, undefined, "a newer SQL run replaces the import preview");
     }],
+    ["Mosaic data tools: typed JSON import, SUMMARIZE profile, EXPLAIN ANALYZE", async () => {
+      const json = JSON.stringify([{ sku: "A1", qty: 2, price: 9.5 }, { sku: "B2", qty: 5, price: 3.25 }]);
+      const imported = await runtime!.importFile("bronze.skus_e2e", "json", Buffer.from(json).toString("base64"), "skus.json");
+      assert.equal(imported.rows_imported, 2);
+      assert.equal(imported.format, "json");
+      assert.ok(imported.schema.some(column => column.name === "qty" && /INT/.test(column.type)), JSON.stringify(imported.schema));
+      await assert.rejects(runtime!.importFile("bronze.skus_e2e", "json", Buffer.from(json).toString("base64"), "again.json"),
+        /JSON import refused: .*already exists/);
+      await runtime!.profileTable("bronze.skus_e2e");
+      const profile = runtime!.snapshot().tableProfile!;
+      assert.equal(profile.asset, "bronze.skus_e2e");
+      assert.deepEqual(profile.result.rows.map(row => row.column_name), ["sku", "qty", "price"]);
+      const plan = await runtime!.explainQuery("SELECT sku, SUM(qty * price) AS revenue FROM bronze.skus_e2e GROUP BY sku", "e2e.sql");
+      assert.match(plan.plan, /HASH_GROUP_BY/);
+      assert.equal(runtime!.snapshot().queryPlan?.source, "e2e.sql");
+      await assert.rejects(runtime!.explainQuery("DROP TABLE bronze.skus_e2e"), /EXPLAIN ANALYZE refused/);
+    }],
     ["Projects: the runtime verifies steps on the workspace and progress.json keeps them", async () => {
       const retail = (await loadProjectContents(extension.extensionUri)).projects[0];
       const csv = new TextDecoder().decode(await vscode.workspace.fs.readFile(

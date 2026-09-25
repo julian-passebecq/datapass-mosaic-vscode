@@ -6,6 +6,7 @@ import { LabTreeProvider } from "./labTree";
 import { MODULES } from "./modules";
 import { PythonTrustController } from "./pythonTrustController";
 import { registerReferenceSolutions } from "./referenceSolutions";
+import { registerQueryPlanDocuments } from "./queryPlanDocuments";
 import { RuntimeManager } from "./runtimeManager";
 import { WorkbenchPanel } from "./workbenchPanel";
 
@@ -25,6 +26,7 @@ export function activate(context: vscode.ExtensionContext): void {
     dbtLab.terminal,
     vscode.window.registerTreeDataProvider("datapass.labs", new LabTreeProvider()),
     registerReferenceSolutions(context.extensionUri),
+    registerQueryPlanDocuments(),
     ...registerCatalogTree(runtimeManager, () => WorkbenchPanel.show(context, runtimeManager, pythonTrust, "mosaic", dbtLab))
   );
 

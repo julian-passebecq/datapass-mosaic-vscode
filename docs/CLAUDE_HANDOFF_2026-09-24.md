@@ -129,6 +129,13 @@ holds the code-debt audit of 2026-09-25). One PR per item, merged on green CI.
   Real VS Code: wrong cross join → 4 matching · 12 missing; hint 1 of 2; locked at 1 failure, unlocked at 3; diff tab.
 - **Fix** (`fix/first-catalog-timeout`): the first catalog listing after Start runtime takes ~4 s on Windows (kernel
   start + DuckDB seeding) and hit the 3 s client timeout; now 30 s.
+- **V1-6** (`feature/mosaic-data-tools`): Mosaic **Profile** (DuckDB SUMMARIZE, `/api/local/profile`), **Explain
+  active SQL** (EXPLAIN ANALYZE of the file or its selection, `/api/local/explain`; **Open in editor** shows it in a
+  read-only `datapass-plan:` tab), **Import file…** for CSV (text,
+  unchanged), Parquet (file types) and JSON (read_json_auto types) via `/api/local/import-file` (base64 content,
+  10 MB / 100,000 rows, new bronze tables only, journaled as `file_import`), and a query history (last 30, workspace
+  state). The catalog connection now sets `allowed_directories` to `.datapass/data/imports/` before disabling
+  external access; runtime_smoke checks that cell SQL still cannot read files there or anywhere else.
 
 ## 0a. ZillaCode pack (`zilla-v1`) and the Snowflake SQL dialect — Claude, 2026-09-25
 

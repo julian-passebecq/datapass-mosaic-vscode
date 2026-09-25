@@ -315,6 +315,25 @@ class CsvImportRequest(BaseModel):
     text: str = Field(min_length=1, max_length=1_000_000)
 
 
+class FileImportRequest(BaseModel):
+    """Parquet or JSON CONTENT as base64, never a path: the runtime writes and reads its own temporary copy."""
+    model_config = ConfigDict(extra="forbid", strict=True)
+    asset: str = Field(pattern=r"^bronze\.[A-Za-z][A-Za-z0-9_]{0,62}$")
+    format: Literal["parquet", "json"]
+    # local_data.import_file enforces the exact 10 MB decoded limit.
+    data: str = Field(min_length=4, max_length=13_400_000)
+
+
+class TableProfileRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid", strict=True)
+    asset: str = Field(pattern=r"^(source|bronze|silver|gold|warehouse|features|metrics)\.[A-Za-z][A-Za-z0-9_]{0,62}$")
+
+
+class ExplainRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid", strict=True)
+    query: str = Field(min_length=1, max_length=40000)
+
+
 class ProjectCheckRequest(BaseModel):
     """Projects: verify steps of a project shipped in content/projects. Checks come from the content only."""
     model_config = ConfigDict(extra="forbid", strict=True)
@@ -353,6 +372,9 @@ def capabilities() -> dict[str, object]:
             "engines": ["polars", "duckdb"],
             "spark_by_default": False,
             "csv_import": "new bronze tables only; CSV text up to 1 MB / 5,000 rows; all columns VARCHAR; never overwrites",
+            "file_import": "new bronze tables only; Parquet (types from the file) or JSON (read_json_auto types) up to 10 MB / 100,000 rows; never overwrites",
+            "profile": "DuckDB SUMMARIZE of a catalog table",
+            "explain": "DuckDB EXPLAIN ANALYZE of one read-only query (it runs once)",
         },
         "practice": {"mode": "local-tests", "editors": "vscode-native"},
         "fabric_lab": {"mode": "simulation", "notebook": "fabric-inspired", "lakehouse": "duckdb-ducklake", "kernel": "sparklab", "cloud_connection": False},
@@ -510,6 +532,34 @@ def local_import_csv(body: CsvImportRequest) -> object:
     """Create a NEW bronze table from CSV text. Never overwrites; every column is VARCHAR."""
     try:
         return record_run("csv_import", {}, native_command({"op": "import_csv", "asset": body.asset, "text": body.text}))
+    except ValueError as error:
+        raise HTTPException(status_code=400, detail=str(error)) from error
+
+
+@app.post("/api/local/import-file")
+def local_import_file(body: FileImportRequest) -> object:
+    """Create a NEW bronze table from Parquet or JSON content. Never overwrites; types come from the file."""
+    try:
+        return record_run("file_import", {}, native_command(
+            {"op": "import_file", "asset": body.asset, "format": body.format, "data": body.data}))
+    except ValueError as error:
+        raise HTTPException(status_code=400, detail=str(error)) from error
+
+
+@app.post("/api/local/profile")
+def local_profile(body: TableProfileRequest) -> object:
+    """DuckDB SUMMARIZE of one catalog table (read-only)."""
+    try:
+        return native_command({"op": "profile_table", "asset": body.asset})
+    except ValueError as error:
+        raise HTTPException(status_code=400, detail=str(error)) from error
+
+
+@app.post("/api/local/explain")
+def local_explain(body: ExplainRequest) -> object:
+    """EXPLAIN ANALYZE of one read-only query: it runs once on the local catalog."""
+    try:
+        return native_command({"op": "explain_query", "query": body.query})
     except ValueError as error:
         raise HTTPException(status_code=400, detail=str(error)) from error
 

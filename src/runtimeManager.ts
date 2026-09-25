@@ -11,10 +11,13 @@ import type {
   CsvImportView,
   FactoryFlavor,
   FactoryScenarioInput,
+  LocalCellRunView,
+  QueryPlanView,
   RuntimeEnvironmentView,
   DatabricksScenarioInput,
   RuntimeViewState,
-  SqlPoolFlavor
+  SqlPoolFlavor,
+  TableProfileView
 } from "./webview/contracts";
 import { findFreePort, waitForDatapassHealth } from "./platform/runtimeEndpoint";
 import {
@@ -407,7 +410,7 @@ export class RuntimeManager implements vscode.Disposable {
     return csvImport;
   }
 
-  async runSql(code: string): Promise<void> {
+  async runSql(code: string): Promise<LocalCellRunView> {
     const url = this.state.status === "running" ? this.state.url : undefined;
     if (!url) throw new Error("Start the Datapass runtime before running SQL.");
     const lastRun = await requestJson<NonNullable<RuntimeViewState["lastRun"]>>(
@@ -430,6 +433,56 @@ export class RuntimeManager implements vscode.Disposable {
       csvImport: undefined
     });
     await this.refreshCatalog();
+    return lastRun;
+  }
+
+  /** Parquet or JSON CONTENT (base64) into a new bronze table; the runtime keeps the file's types. */
+  async importFile(asset: string, format: "parquet" | "json", data: string, fileName: string): Promise<CsvImportView> {
+    const url = this.state.status === "running" ? this.state.url : undefined;
+    if (!url) throw new Error("Start the Datapass runtime before importing a file.");
+    let response: Omit<CsvImportView, "fileName">;
+    try {
+      response = await requestJson<Omit<CsvImportView, "fileName">>(
+        `${url}/api/local/import-file`, "POST", { asset, format, data }, 120000);
+    } catch (error) {
+      throw new Error(`${format === "parquet" ? "Parquet" : "JSON"} import refused: ${runtimeErrorDetail(error)}`);
+    }
+    const fileImport: CsvImportView = { ...response, fileName, format };
+    this.setState({
+      ...this.state,
+      detail: `Imported ${fileImport.rows_imported} rows from ${fileName} into ${fileImport.asset} (typed columns).`,
+      lastRun: undefined,
+      csvImport: fileImport
+    });
+    await this.refreshCatalog();
+    return fileImport;
+  }
+
+  /** DuckDB SUMMARIZE of a catalog table. */
+  async profileTable(asset: string): Promise<void> {
+    const url = this.state.status === "running" ? this.state.url : undefined;
+    if (!url) throw new Error("Start the Datapass runtime before profiling a table.");
+    let tableProfile: TableProfileView;
+    try {
+      tableProfile = await requestJson<TableProfileView>(`${url}/api/local/profile`, "POST", { asset }, 60000);
+    } catch (error) {
+      throw new Error(`Profile refused: ${runtimeErrorDetail(error)}`);
+    }
+    this.setState({ ...this.state, detail: `Profiled ${asset} in ${tableProfile.elapsed_ms.toFixed(1)} ms.`, tableProfile });
+  }
+
+  /** DuckDB EXPLAIN ANALYZE of one read-only query: it runs once to time each operator. */
+  async explainQuery(query: string, source?: string): Promise<QueryPlanView> {
+    const url = this.state.status === "running" ? this.state.url : undefined;
+    if (!url) throw new Error("Start the Datapass runtime before explaining a query.");
+    let plan: QueryPlanView;
+    try {
+      plan = { ...await requestJson<QueryPlanView>(`${url}/api/local/explain`, "POST", { query }, 60000), source };
+    } catch (error) {
+      throw new Error(`EXPLAIN ANALYZE refused: ${runtimeErrorDetail(error)}`);
+    }
+    this.setState({ ...this.state, detail: `Query plan measured in ${plan.elapsed_ms.toFixed(1)} ms.`, queryPlan: plan });
+    return plan;
   }
 
   async runPython(code: string): Promise<void> {

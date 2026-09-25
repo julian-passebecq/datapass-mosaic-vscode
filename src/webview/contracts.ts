@@ -5,6 +5,7 @@ import type { DbtCoreRunView } from "../platform/dbtArtifacts";
 import type { MissionProgressView, MissionView } from "../platform/missions";
 import type { DbtCommand, DctFormat, DctRenderView, DctValidationView } from "../platform/dbtTools";
 import type { ProjectsViewState } from "../platform/projects";
+import type { QueryHistoryEntry } from "../platform/mosaicTools";
 import type { PracticeProgress } from "../platform/practiceProgress";
 import type { RowValidation } from "../platform/practiceFeedback";
 
@@ -42,6 +43,28 @@ export interface LocalCatalogAssetView {
   row_count: number;
   fresh: boolean;
   producer?: string;
+}
+
+/** DuckDB SUMMARIZE of one catalog table (Mosaic → Profile). */
+export interface TableProfileView {
+  asset: string;
+  elapsed_ms: number;
+  truth: string;
+  result: {
+    columns: readonly string[];
+    rows: readonly Record<string, string | number | boolean | null>[];
+    truncated?: boolean;
+  };
+}
+
+/** DuckDB EXPLAIN ANALYZE of one read-only query (Mosaic → Explain active SQL). */
+export interface QueryPlanView {
+  plan: string;
+  query: string;
+  elapsed_ms: number;
+  truth: string;
+  /** Workspace-relative file the query came from; "selection" is appended when only a selection was explained. */
+  source?: string;
 }
 
 export interface LocalCellRunView {
@@ -159,6 +182,8 @@ export interface RuntimeSetupProgressView {
 export interface CsvImportView {
   asset: string;
   fileName: string;
+  /** csv (every column text) when absent; parquet and json keep their types. */
+  format?: "csv" | "parquet" | "json";
   rows_imported: number;
   sha256: string;
   schema: readonly { name: string; type: string }[];
@@ -192,6 +217,8 @@ export interface RuntimeViewState {
   lastRun?: LocalCellRunView;
   /** Latest Mosaic CSV import; cleared when a newer SQL/Python run replaces the preview. */
   csvImport?: CsvImportView;
+  tableProfile?: TableProfileView;
+  queryPlan?: QueryPlanView;
   pipelineRun?: PipelineRunView;
   practiceResult?: PracticeResultView;
   environment?: RuntimeEnvironmentView;
@@ -1135,6 +1162,8 @@ export interface WorkbenchViewState {
   pythonTrust: PythonTrustView;
   /** Project-portable layout from .datapass/mosaic.json, when present and valid. */
   mosaicLayout?: readonly MosaicLayoutItem[];
+  /** Mosaic SQL runs and plans in this workspace, newest first (VS Code workspace state, not a project file). */
+  queryHistory?: readonly QueryHistoryEntry[];
   sparkProfiles?: readonly SparkLabProfileView[];
   practice?: PracticeViewState;
   pipeline?: PipelineViewState;
@@ -1174,6 +1203,12 @@ export type WebviewToHostMessage =
   | { type: "runRetailDemo" }
   | { type: "refreshCatalog" }
   | { type: "importCsv" }
+  | { type: "importFile" }
+  | { type: "profileTable"; asset: string }
+  | { type: "explainActiveSql" }
+  | { type: "openQueryPlan" }
+  | { type: "rerunQuery"; id: string }
+  | { type: "openQueryFile"; id: string }
   | { type: "runActiveSql" }
   | { type: "runActivePython" }
   | { type: "runActiveSparkLab"; profileId: string; aqe: boolean }
