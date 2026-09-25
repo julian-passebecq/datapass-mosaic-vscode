@@ -94,6 +94,8 @@ Prefer real dbt Core over a fake dbt engine. Datapass adds project scaffolding, 
 
 Airflow Lab simulates DAG scheduling concepts: dependencies, retries, trigger rules, task states, logical dates, logs and manual runs. It does not need a full Airflow installation for basic learning.
 
+Practice `airflow` exercises use the runtime simulator in `runtime/airflowlab` (see its README). The learner writes a real-looking Airflow DAG file; a whitelisted AST reader turns it into a DAG model and **never executes it**. The simulator then creates the DAG runs a scheduler would create (Airflow 3 timetables, catchup, `start_date`) and simulates task instances (trigger rules, retries, execution timeouts, sensors, branching, short-circuits) and rendered templates for each fixture's scenario. Grading compares the simulated outcome rows: runs, task instances, rendered templates, edges or tasks. The Airflow Lab surface still runs its own step-by-step simulator over `airflow/main.dag.json`.
+
 ## Pipeline Lab
 
 Pipeline Lab is hybrid. The Python-like pipeline source is parsed by a bounded AST compiler and is **never eval/exec'd**. Supported activity bodies can then execute against the shared local runtime.

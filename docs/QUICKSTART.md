@@ -114,6 +114,8 @@ Use **Step** or **Run to end** to inspect:
 
 This is a deterministic scheduler simulator, not an Airflow installation.
 
+For targeted Airflow practice, filter Practice on **Airflow**: 13 exercises where you write a real Airflow 3 DAG file (dependencies, TaskFlow, catchup, cron, data intervals, `{{ ds }}` templates, retries, trigger rules, a failure watcher, branching, sensors, `default_args`). The file is parsed, never executed, and graded on simulated runs and task states.
+
 ### dbt Lab
 
 Open the retained `dbt/retail-dbt` sample.
@@ -149,7 +151,7 @@ The runtime is a local IPC/control plane, not a separate Datapass web applicatio
 | Fabric Lab | local files, DuckDB/DuckLake | Fabric UI/orchestration semantics |
 | SparkLab | whitelist parser, compiled SQL and result rows computed locally | stages, shuffle, duration, credits, cluster behavior |
 | dbt Lab | dbt Core + DuckDB when installed | static lineage fallback is not execution |
-| Airflow Lab | project DAG definition | scheduler/executor/task runtime |
+| Airflow Lab | project DAG definition; Practice DAG files are parsed, never executed | scheduler/executor/task runtime, runs, task states, rendered templates |
 | Pipeline Lab | source files, bounded compiler, SQL/quality execution; Python/Polars after trusted-Python opt-in | scheduler/service semantics; dbt activity declared only, never executed or reported as success |
 
 The UI should always preserve this distinction.

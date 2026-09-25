@@ -26,6 +26,8 @@ class Fixture(Contract):
     # Named fixture tables for multi-table SQL exercises. When present, the
     # public data_context declares one entry per table and input_rows is empty.
     tables: dict[str, list[dict[str, Any]]] | None = None
+    # Airflow Lab fixtures: a simulation scenario instead of input rows.
+    scenario: dict[str, Any] | None = None
 
 
 # Declared fixture column types are interpolated into CAST(...); allowlist only.
@@ -62,7 +64,7 @@ class PackRegistry:
                 raise ValueError('Exercise identity must fit a shared notebook ID')
             if definition.canonical_placement.topic not in definition.topics:
                 raise ValueError('Canonical topic must belong to exercise topics')
-            if definition.language not in {'sql','python','polars','sparklab','dbt'}:
+            if definition.language not in {'sql','python','polars','sparklab','dbt','airflow'}:
                 raise ValueError('No grading adapter for '+definition.language)
             private = GradingDefinition.model_validate(grading[definition.id])
             refs = {'visible': [c.id for c in definition.visible_checks], 'hidden': definition.hidden_check_refs, 'edge': definition.edge_check_refs}
@@ -90,6 +92,14 @@ class PackRegistry:
                     for context in definition.data_context:
                         if any(set(row) != set(context.columns) for row in fixture.tables[context.name]):
                             raise ValueError('Fixture table schema disagrees with data_context: '+definition.id+'.'+context.name)
+            for fixture in private.fixtures:
+                if (fixture.scenario is not None) != (definition.language == 'airflow'):
+                    raise ValueError('Airflow fixtures, and only they, need a simulation scenario: '+definition.id)
+                if fixture.scenario is not None:
+                    from airflowlab.simulate import Scenario
+                    Scenario.model_validate(fixture.scenario)
+                    if fixture.input_rows or fixture.tables is not None:
+                        raise ValueError('Airflow fixtures take a scenario, not input rows: '+definition.id)
             for fixture in private.fixtures:
                 for rows in (fixture.input_rows,fixture.expected,*(fixture.tables or {}).values()):
                     if rows and any(set(row)!=set(rows[0]) for row in rows):

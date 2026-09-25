@@ -1,0 +1,1341 @@
+[
+  {
+    "schema_version": 1,
+    "id": "af-fan-in-fan-out",
+    "version": "1",
+    "title": "Fan-in and fan-out dependencies",
+    "difficulty": "easy",
+    "topics": [
+      "dependencies",
+      "fan-in",
+      "fan-out"
+    ],
+    "tags": [
+      "airflow-lab",
+      "airflow",
+      "simulated"
+    ],
+    "origin": "authored",
+    "language": "airflow",
+    "runtime": "datapass-airflow-sim-v1",
+    "prompt": "Wire customer_360: extract_orders and extract_customers both feed transform; transform feeds load_warehouse and load_search; notify runs after both loads. The two extracts, and the two loads, run in parallel.",
+    "sections": [
+      {
+        "title": "Simulator",
+        "body": "Your DAG file is read by a whitelisted parser and never executed. Grading simulates the Airflow 3 scheduler and task instances for each check's scenario (scheduler clock, task durations, failures, file arrival, branch choice). Times are UTC; each run is simulated to completion with free worker slots."
+      },
+      {
+        "title": "Graded",
+        "body": "The dependency edges, when each task starts in a normal run (every task takes 60 s, extract_customers 120 s), and the task states on a day when extract_customers fails."
+      }
+    ],
+    "starter_source": "from datetime import datetime\n\nfrom airflow.sdk import DAG\nfrom airflow.providers.standard.operators.empty import EmptyOperator\n\nwith DAG(dag_id=\"customer_360\", schedule=\"@daily\", start_date=datetime(2026, 3, 1)) as dag:\n\n    extract_orders = EmptyOperator(task_id=\"extract_orders\")\n    extract_customers = EmptyOperator(task_id=\"extract_customers\")\n    transform = EmptyOperator(task_id=\"transform\")\n    load_warehouse = EmptyOperator(task_id=\"load_warehouse\")\n    load_search = EmptyOperator(task_id=\"load_search\")\n    notify = EmptyOperator(task_id=\"notify\")\n\n    # Wrong: everything runs one after another.\n    extract_orders >> extract_customers >> transform >> load_warehouse >> load_search >> notify\n",
+    "fixtures": [
+      {
+        "id": "af-fan-in-fan-out-fixtures",
+        "version": "1"
+      }
+    ],
+    "visible_checks": [
+      {
+        "id": "edges",
+        "description": "Simulated edges, then start times, then states for the public scenario."
+      }
+    ],
+    "hidden_check_refs": [
+      "start-times"
+    ],
+    "edge_check_refs": [
+      "extract-fails"
+    ],
+    "hints": [
+      "A list on either side of >> links every task in it.",
+      "`[a, b] >> c >> [d, e] >> f` reads left to right."
+    ],
+    "solution": {
+      "available": true,
+      "reveal": "explicit"
+    },
+    "explanation": "Lists express fan-in and fan-out: `[a, b] >> c` makes c wait for both, `c >> [d, e]` starts both after c. Airflow cannot link a list directly to a list with >>; the task in the middle (or cross_downstream) does that.",
+    "follow_ups": [
+      "How would you link [a, b] to [c, d] with every pair connected?"
+    ],
+    "canonical_placement": {
+      "domain": "airflow",
+      "topic": "dependencies"
+    },
+    "related_associations": [
+      "airflow/orchestration"
+    ],
+    "recommendation": {
+      "rank": 1,
+      "reason": "Airflow lab progression"
+    },
+    "validator_version": "rows-v2",
+    "validation": {
+      "kind": "rows",
+      "ordered": false,
+      "duplicate_sensitive": true,
+      "relative_tolerance": 1e-09,
+      "absolute_tolerance": 1e-06,
+      "required_columns": [],
+      "exact_schema": null,
+      "forbidden_extra_columns": true,
+      "null_semantics": "equal"
+    },
+    "runtime_requirements": [
+      "airflow-simulator"
+    ],
+    "provenance": {
+      "source": "Authored for Datapass Workbench: Airflow 3 scheduling and task semantics on the Airflow Lab simulator",
+      "fixtures": "Authored scenarios; expected rows computed by simulating the reference DAG and reviewed"
+    },
+    "constraints": {
+      "truth": "Simulated: the DAG file is parsed, never executed, and no Airflow scheduler, executor or worker runs. Semantics follow Airflow 3 for the supported subset."
+    },
+    "truth": "simulated"
+  },
+  {
+    "schema_version": 1,
+    "id": "af-taskflow-data-dependencies",
+    "version": "1",
+    "title": "TaskFlow: dependencies come from passing return values",
+    "difficulty": "medium",
+    "topics": [
+      "taskflow",
+      "xcom",
+      "dependencies"
+    ],
+    "tags": [
+      "airflow-lab",
+      "airflow",
+      "simulated"
+    ],
+    "origin": "authored",
+    "language": "airflow",
+    "runtime": "datapass-airflow-sim-v1",
+    "prompt": "In orders_taskflow, extract's result feeds transform, transform's result feeds load, and audit runs after load (it takes no input). Wire it with TaskFlow calls: passing a task's return value to another task creates the dependency.",
+    "sections": [
+      {
+        "title": "Simulator",
+        "body": "Your DAG file is read by a whitelisted parser and never executed. Grading simulates the Airflow 3 scheduler and task instances for each check's scenario (scheduler clock, task durations, failures, file arrival, branch choice). Times are UTC; each run is simulated to completion with free worker slots."
+      },
+      {
+        "title": "Graded",
+        "body": "The dependency edges, the task states when transform fails, and the task states in a normal run."
+      }
+    ],
+    "starter_source": "import pendulum\n\nfrom airflow.sdk import dag, task\n\n\n@dag(schedule=\"@daily\", start_date=pendulum.datetime(2026, 3, 1, tz=\"UTC\"))\ndef orders_taskflow():\n    @task\n    def extract():\n        return [{\"order_id\": 1, \"amount\": 10.0}]\n\n    @task\n    def transform(rows):\n        return [row for row in rows if row[\"amount\"] > 0]\n\n    @task\n    def load(rows):\n        print(f\"loading {len(rows)} rows\")\n\n    @task\n    def audit():\n        print(\"audit done\")\n\n    raw = extract()\n    clean = transform(raw)\n    # Wrong: load receives the raw rows, and audit is not linked at all.\n    load(raw)\n    audit()\n\n\norders_taskflow()\n",
+    "fixtures": [
+      {
+        "id": "af-taskflow-data-dependencies-fixtures",
+        "version": "1"
+      }
+    ],
+    "visible_checks": [
+      {
+        "id": "edges",
+        "description": "Simulated edges, then states for the public scenario."
+      }
+    ],
+    "hidden_check_refs": [
+      "transform-fails"
+    ],
+    "edge_check_refs": [
+      "normal-run"
+    ],
+    "hints": [
+      "Calling a @task with another task's result as an argument adds an edge.",
+      "A TaskFlow call returns a reference you can also use with >>."
+    ],
+    "solution": {
+      "available": true,
+      "reveal": "explicit"
+    },
+    "explanation": "With TaskFlow, `transform(raw)` both passes the XCom value and declares extract >> transform. A task that consumes nothing (audit) still needs an explicit >> to run after load.",
+    "follow_ups": [
+      "What happens if you call extract() twice in the same DAG?"
+    ],
+    "canonical_placement": {
+      "domain": "airflow",
+      "topic": "taskflow"
+    },
+    "related_associations": [
+      "airflow/orchestration"
+    ],
+    "recommendation": {
+      "rank": 2,
+      "reason": "Airflow lab progression"
+    },
+    "validator_version": "rows-v2",
+    "validation": {
+      "kind": "rows",
+      "ordered": false,
+      "duplicate_sensitive": true,
+      "relative_tolerance": 1e-09,
+      "absolute_tolerance": 1e-06,
+      "required_columns": [],
+      "exact_schema": null,
+      "forbidden_extra_columns": true,
+      "null_semantics": "equal"
+    },
+    "runtime_requirements": [
+      "airflow-simulator"
+    ],
+    "provenance": {
+      "source": "Authored for Datapass Workbench: Airflow 3 scheduling and task semantics on the Airflow Lab simulator",
+      "fixtures": "Authored scenarios; expected rows computed by simulating the reference DAG and reviewed"
+    },
+    "constraints": {
+      "truth": "Simulated: the DAG file is parsed, never executed, and no Airflow scheduler, executor or worker runs. Semantics follow Airflow 3 for the supported subset."
+    },
+    "truth": "simulated"
+  },
+  {
+    "schema_version": 1,
+    "id": "af-catchup-backfill",
+    "version": "1",
+    "title": "Catch up every day since start_date",
+    "difficulty": "easy",
+    "topics": [
+      "scheduling",
+      "catchup",
+      "backfill"
+    ],
+    "tags": [
+      "airflow-lab",
+      "airflow",
+      "simulated"
+    ],
+    "origin": "authored",
+    "language": "airflow",
+    "runtime": "datapass-airflow-sim-v1",
+    "prompt": "daily_sales starts on 2026-03-01 and runs daily at midnight UTC. It is deployed and unpaused later. When it is unpaused, the scheduler must create one run for every day since March 1, not only the latest one.",
+    "sections": [
+      {
+        "title": "Simulator",
+        "body": "Your DAG file is read by a whitelisted parser and never executed. Grading simulates the Airflow 3 scheduler and task instances for each check's scenario (scheduler clock, task durations, failures, file arrival, branch choice). Times are UTC; each run is simulated to completion with free worker slots."
+      },
+      {
+        "title": "Airflow 3 defaults",
+        "body": "catchup is False by default in Airflow 3. A cron string or preset such as @daily uses CronTriggerTimetable: one run per tick, and the logical date is the tick itself."
+      },
+      {
+        "title": "Graded",
+        "body": "The runs created by a given scheduler time (logical date and run_after)."
+      }
+    ],
+    "starter_source": "from datetime import datetime\n\nfrom airflow.sdk import DAG\nfrom airflow.providers.standard.operators.bash import BashOperator\n\nwith DAG(\n    dag_id=\"daily_sales\",\n    schedule=\"@daily\",\n    start_date=datetime(2026, 3, 1),\n) as dag:\n    BashOperator(task_id=\"load\", bash_command=\"load_sales --day {{ ds }}\")\n",
+    "fixtures": [
+      {
+        "id": "af-catchup-backfill-fixtures",
+        "version": "1"
+      }
+    ],
+    "visible_checks": [
+      {
+        "id": "unpaused-march-5",
+        "description": "Simulated runs for the public scenario."
+      }
+    ],
+    "hidden_check_refs": [
+      "unpaused-march-3-early"
+    ],
+    "edge_check_refs": [
+      "before-start-date"
+    ],
+    "hints": [
+      "Which DAG argument decides whether past ticks since start_date get runs?"
+    ],
+    "solution": {
+      "available": true,
+      "reveal": "explicit"
+    },
+    "explanation": "catchup=True makes the scheduler create a run for every tick between start_date and now. With Airflow 3's default CronTriggerTimetable, the run for March 3 has logical date 2026-03-03 00:00 and starts at that tick. Before start_date there is nothing to run.",
+    "follow_ups": [
+      "How would you reprocess only March 2 later, without enabling catchup? (airflow dags backfill)"
+    ],
+    "canonical_placement": {
+      "domain": "airflow",
+      "topic": "scheduling"
+    },
+    "related_associations": [
+      "airflow/orchestration"
+    ],
+    "recommendation": {
+      "rank": 3,
+      "reason": "Airflow lab progression"
+    },
+    "validator_version": "rows-v2",
+    "validation": {
+      "kind": "rows",
+      "ordered": false,
+      "duplicate_sensitive": true,
+      "relative_tolerance": 1e-09,
+      "absolute_tolerance": 1e-06,
+      "required_columns": [
+        "logical_date",
+        "run_after"
+      ],
+      "exact_schema": [
+        "logical_date",
+        "run_after"
+      ],
+      "forbidden_extra_columns": true,
+      "null_semantics": "equal"
+    },
+    "runtime_requirements": [
+      "airflow-simulator"
+    ],
+    "provenance": {
+      "source": "Authored for Datapass Workbench: Airflow 3 scheduling and task semantics on the Airflow Lab simulator",
+      "fixtures": "Authored scenarios; expected rows computed by simulating the reference DAG and reviewed"
+    },
+    "constraints": {
+      "truth": "Simulated: the DAG file is parsed, never executed, and no Airflow scheduler, executor or worker runs. Semantics follow Airflow 3 for the supported subset."
+    },
+    "truth": "simulated"
+  },
+  {
+    "schema_version": 1,
+    "id": "af-no-accidental-backfill",
+    "version": "1",
+    "title": "Deploy without an accidental backfill",
+    "difficulty": "easy",
+    "topics": [
+      "scheduling",
+      "catchup"
+    ],
+    "tags": [
+      "airflow-lab",
+      "airflow",
+      "simulated"
+    ],
+    "origin": "authored",
+    "language": "airflow",
+    "runtime": "datapass-airflow-sim-v1",
+    "prompt": "inventory_snapshot keeps a historical start_date of 2025-01-01, but it only makes sense for the current day. When it is unpaused, the scheduler must create a run for the latest tick only, then one run per new day, instead of hundreds of past runs.",
+    "sections": [
+      {
+        "title": "Simulator",
+        "body": "Your DAG file is read by a whitelisted parser and never executed. Grading simulates the Airflow 3 scheduler and task instances for each check's scenario (scheduler clock, task durations, failures, file arrival, branch choice). Times are UTC; each run is simulated to completion with free worker slots."
+      },
+      {
+        "title": "Graded",
+        "body": "The runs created by a given scheduler time, for the unpause times in each scenario."
+      }
+    ],
+    "starter_source": "from datetime import datetime\n\nfrom airflow.sdk import DAG\nfrom airflow.providers.standard.operators.bash import BashOperator\n\nwith DAG(\n    dag_id=\"inventory_snapshot\",\n    schedule=\"@daily\",\n    start_date=datetime(2025, 1, 1),\n    catchup=True,  # copied from an Airflow 2 template\n) as dag:\n    BashOperator(task_id=\"snapshot\", bash_command=\"snapshot_inventory --day {{ ds }}\")\n",
+    "fixtures": [
+      {
+        "id": "af-no-accidental-backfill-fixtures",
+        "version": "1"
+      }
+    ],
+    "visible_checks": [
+      {
+        "id": "unpaused-today",
+        "description": "Simulated runs for the public scenario."
+      }
+    ],
+    "hidden_check_refs": [
+      "running-for-three-days"
+    ],
+    "edge_check_refs": [
+      "unpaused-at-midnight"
+    ],
+    "hints": [
+      "Airflow 3 already defaults to catchup=False; the template overrides it."
+    ],
+    "solution": {
+      "available": true,
+      "reveal": "explicit"
+    },
+    "explanation": "With catchup=False the first run is the latest tick at or before the unpause time; from then on the scheduler creates one run per tick. Removing the catchup argument gives the same result in Airflow 3, where the default is False (it was True in Airflow 2).",
+    "follow_ups": [
+      "Why is moving start_date to the deployment day a fragile alternative?"
+    ],
+    "canonical_placement": {
+      "domain": "airflow",
+      "topic": "scheduling"
+    },
+    "related_associations": [
+      "airflow/orchestration"
+    ],
+    "recommendation": {
+      "rank": 4,
+      "reason": "Airflow lab progression"
+    },
+    "validator_version": "rows-v2",
+    "validation": {
+      "kind": "rows",
+      "ordered": false,
+      "duplicate_sensitive": true,
+      "relative_tolerance": 1e-09,
+      "absolute_tolerance": 1e-06,
+      "required_columns": [
+        "logical_date",
+        "run_after"
+      ],
+      "exact_schema": [
+        "logical_date",
+        "run_after"
+      ],
+      "forbidden_extra_columns": true,
+      "null_semantics": "equal"
+    },
+    "runtime_requirements": [
+      "airflow-simulator"
+    ],
+    "provenance": {
+      "source": "Authored for Datapass Workbench: Airflow 3 scheduling and task semantics on the Airflow Lab simulator",
+      "fixtures": "Authored scenarios; expected rows computed by simulating the reference DAG and reviewed"
+    },
+    "constraints": {
+      "truth": "Simulated: the DAG file is parsed, never executed, and no Airflow scheduler, executor or worker runs. Semantics follow Airflow 3 for the supported subset."
+    },
+    "truth": "simulated"
+  },
+  {
+    "schema_version": 1,
+    "id": "af-cron-weekdays",
+    "version": "1",
+    "title": "Cron schedule: 06:30 UTC on weekdays",
+    "difficulty": "easy",
+    "topics": [
+      "scheduling",
+      "cron"
+    ],
+    "tags": [
+      "airflow-lab",
+      "airflow",
+      "simulated"
+    ],
+    "origin": "authored",
+    "language": "airflow",
+    "runtime": "datapass-airflow-sim-v1",
+    "prompt": "market_prices must run at 06:30 UTC from Monday to Friday, and never on weekends. Write the schedule as a cron expression. catchup is on so the checks can list the runs of a whole week.",
+    "sections": [
+      {
+        "title": "Simulator",
+        "body": "Your DAG file is read by a whitelisted parser and never executed. Grading simulates the Airflow 3 scheduler and task instances for each check's scenario (scheduler clock, task durations, failures, file arrival, branch choice). Times are UTC; each run is simulated to completion with free worker slots."
+      },
+      {
+        "title": "Cron fields",
+        "body": "minute hour day-of-month month day-of-week; day-of-week 0 or 7 is Sunday, 1 is Monday."
+      },
+      {
+        "title": "Graded",
+        "body": "The runs (logical dates) created between start_date (Monday 2026-03-02) and the scheduler time."
+      }
+    ],
+    "starter_source": "from datetime import datetime\n\nfrom airflow.sdk import DAG\nfrom airflow.providers.standard.operators.bash import BashOperator\n\nwith DAG(\n    dag_id=\"market_prices\",\n    schedule=\"30 6 * * *\",  # also runs on Saturday and Sunday\n    start_date=datetime(2026, 3, 2),\n    catchup=True,\n) as dag:\n    BashOperator(task_id=\"fetch\", bash_command=\"fetch_prices --ts {{ ts }}\")\n",
+    "fixtures": [
+      {
+        "id": "af-cron-weekdays-fixtures",
+        "version": "1"
+      }
+    ],
+    "visible_checks": [
+      {
+        "id": "first-week",
+        "description": "Simulated runs for the public scenario."
+      }
+    ],
+    "hidden_check_refs": [
+      "monday-before-0630"
+    ],
+    "edge_check_refs": [
+      "first-morning"
+    ],
+    "hints": [
+      "Use a range in the day-of-week field."
+    ],
+    "solution": {
+      "available": true,
+      "reveal": "explicit"
+    },
+    "explanation": "`30 6 * * 1-5` fires at 06:30 on Monday (1) through Friday (5). A run exists once its tick has passed: at 06:29 on a Monday that day's run has not been created yet.",
+    "follow_ups": [
+      "How would you also skip public holidays? (a custom timetable or a short-circuit task)"
+    ],
+    "canonical_placement": {
+      "domain": "airflow",
+      "topic": "scheduling"
+    },
+    "related_associations": [
+      "airflow/orchestration"
+    ],
+    "recommendation": {
+      "rank": 5,
+      "reason": "Airflow lab progression"
+    },
+    "validator_version": "rows-v2",
+    "validation": {
+      "kind": "rows",
+      "ordered": false,
+      "duplicate_sensitive": true,
+      "relative_tolerance": 1e-09,
+      "absolute_tolerance": 1e-06,
+      "required_columns": [
+        "logical_date"
+      ],
+      "exact_schema": [
+        "logical_date"
+      ],
+      "forbidden_extra_columns": true,
+      "null_semantics": "equal"
+    },
+    "runtime_requirements": [
+      "airflow-simulator"
+    ],
+    "provenance": {
+      "source": "Authored for Datapass Workbench: Airflow 3 scheduling and task semantics on the Airflow Lab simulator",
+      "fixtures": "Authored scenarios; expected rows computed by simulating the reference DAG and reviewed"
+    },
+    "constraints": {
+      "truth": "Simulated: the DAG file is parsed, never executed, and no Airflow scheduler, executor or worker runs. Semantics follow Airflow 3 for the supported subset."
+    },
+    "truth": "simulated"
+  },
+  {
+    "schema_version": 1,
+    "id": "af-data-interval-timetable",
+    "version": "1",
+    "title": "Load exactly one day with a data-interval timetable",
+    "difficulty": "medium",
+    "topics": [
+      "scheduling",
+      "data-interval",
+      "templating"
+    ],
+    "tags": [
+      "airflow-lab",
+      "airflow",
+      "simulated"
+    ],
+    "origin": "authored",
+    "language": "airflow",
+    "runtime": "datapass-airflow-sim-v1",
+    "prompt": "daily_sales_load reads sales between data_interval_start and data_interval_end. Each run must cover one full day, and the run for a day must start once that day is over (its logical date is the day it loads). With the plain \"@daily\" schedule the interval is empty. Make the DAG use data intervals.",
+    "sections": [
+      {
+        "title": "Simulator",
+        "body": "Your DAG file is read by a whitelisted parser and never executed. Grading simulates the Airflow 3 scheduler and task instances for each check's scenario (scheduler clock, task durations, failures, file arrival, branch choice). Times are UTC; each run is simulated to completion with free worker slots."
+      },
+      {
+        "title": "Airflow 3 timetables",
+        "body": "A cron string or preset uses CronTriggerTimetable: logical date = trigger time, and data_interval_start = data_interval_end. CronDataIntervalTimetable (Airflow 2's default) creates one run per interval between two ticks; logical date = interval start, and the run starts at the interval end. Import it from airflow.timetables.interval and pass timezone=\"UTC\"."
+      },
+      {
+        "title": "Graded",
+        "body": "The rendered SQL of each run created by a given scheduler time (catchup is on)."
+      }
+    ],
+    "starter_source": "from datetime import datetime\n\nfrom airflow.sdk import DAG\nfrom airflow.providers.common.sql.operators.sql import SQLExecuteQueryOperator\n\nwith DAG(\n    dag_id=\"daily_sales_load\",\n    schedule=\"@daily\",\n    start_date=datetime(2026, 3, 1),\n    catchup=True,\n) as dag:\n    SQLExecuteQueryOperator(\n        task_id=\"load_day\",\n        conn_id=\"warehouse\",\n        sql=(\n            \"INSERT INTO daily_sales SELECT * FROM sales \"\n            \"WHERE sold_at >= '{{ data_interval_start | ds }}' AND sold_at < '{{ data_interval_end | ds }}'\"\n        ),\n    )\n",
+    "fixtures": [
+      {
+        "id": "af-data-interval-timetable-fixtures",
+        "version": "1"
+      }
+    ],
+    "visible_checks": [
+      {
+        "id": "first-days",
+        "description": "Simulated rendered for the public scenario."
+      }
+    ],
+    "hidden_check_refs": [
+      "one-interval-exactly"
+    ],
+    "edge_check_refs": [
+      "first-day-not-over"
+    ],
+    "hints": [
+      "Keep the SQL; change what schedule= receives.",
+      "CronDataIntervalTimetable(\"0 0 * * *\", timezone=\"UTC\") makes daily intervals."
+    ],
+    "solution": {
+      "available": true,
+      "reveal": "explicit"
+    },
+    "explanation": "With CronDataIntervalTimetable the run whose logical date is March 1 covers [March 1, March 2) and starts at midnight on March 2, so a run only exists once its day is complete. The same SQL rendered under CronTriggerTimetable reads from '2026-03-01' to '2026-03-01': nothing.",
+    "follow_ups": [
+      "What does the run for March 1 read if you keep @daily and write {{ macros.ds_add(ds, -1) }}?"
+    ],
+    "canonical_placement": {
+      "domain": "airflow",
+      "topic": "scheduling"
+    },
+    "related_associations": [
+      "airflow/orchestration"
+    ],
+    "recommendation": {
+      "rank": 6,
+      "reason": "Airflow lab progression"
+    },
+    "validator_version": "rows-v2",
+    "validation": {
+      "kind": "rows",
+      "ordered": false,
+      "duplicate_sensitive": true,
+      "relative_tolerance": 1e-09,
+      "absolute_tolerance": 1e-06,
+      "required_columns": [
+        "logical_date",
+        "value"
+      ],
+      "exact_schema": [
+        "logical_date",
+        "value"
+      ],
+      "forbidden_extra_columns": true,
+      "null_semantics": "equal"
+    },
+    "runtime_requirements": [
+      "airflow-simulator"
+    ],
+    "provenance": {
+      "source": "Authored for Datapass Workbench: Airflow 3 scheduling and task semantics on the Airflow Lab simulator",
+      "fixtures": "Authored scenarios; expected rows computed by simulating the reference DAG and reviewed"
+    },
+    "constraints": {
+      "truth": "Simulated: the DAG file is parsed, never executed, and no Airflow scheduler, executor or worker runs. Semantics follow Airflow 3 for the supported subset."
+    },
+    "truth": "simulated"
+  },
+  {
+    "schema_version": 1,
+    "id": "af-airflow3-previous-day-partition",
+    "version": "1",
+    "title": "Airflow 3 @daily: load yesterday's partition",
+    "difficulty": "medium",
+    "topics": [
+      "templating",
+      "macros",
+      "scheduling"
+    ],
+    "tags": [
+      "airflow-lab",
+      "airflow",
+      "simulated"
+    ],
+    "origin": "authored",
+    "language": "airflow",
+    "runtime": "datapass-airflow-sim-v1",
+    "prompt": "partition_loader keeps schedule=\"@daily\". The run triggered at midnight must load the partition of the day that just ended: the run with logical date 2026-03-05 loads dt=2026-03-04. Fix the templated command without changing the schedule.",
+    "sections": [
+      {
+        "title": "Simulator",
+        "body": "Your DAG file is read by a whitelisted parser and never executed. Grading simulates the Airflow 3 scheduler and task instances for each check's scenario (scheduler clock, task durations, failures, file arrival, branch choice). Times are UTC; each run is simulated to completion with free worker slots."
+      },
+      {
+        "title": "Airflow 3 @daily",
+        "body": "A preset uses CronTriggerTimetable: the run triggered at 2026-03-05 00:00 has logical date 2026-03-05, so {{ ds }} is 2026-03-05. Airflow 2's default gave it logical date 2026-03-04."
+      },
+      {
+        "title": "Graded",
+        "body": "The rendered bash_command of each run (catchup is on)."
+      }
+    ],
+    "starter_source": "from datetime import datetime\n\nfrom airflow.sdk import DAG\nfrom airflow.providers.standard.operators.bash import BashOperator\n\nwith DAG(\n    dag_id=\"partition_loader\",\n    schedule=\"@daily\",\n    start_date=datetime(2026, 3, 1),\n    catchup=True,\n) as dag:\n    BashOperator(\n        task_id=\"load_partition\",\n        bash_command=\"load_partition --table events --dt {{ ds }}\",  # loads today's, still empty, partition\n    )\n",
+    "fixtures": [
+      {
+        "id": "af-airflow3-previous-day-partition-fixtures",
+        "version": "1"
+      }
+    ],
+    "visible_checks": [
+      {
+        "id": "first-runs",
+        "description": "Simulated rendered for the public scenario."
+      }
+    ],
+    "hidden_check_refs": [
+      "month-boundary"
+    ],
+    "edge_check_refs": [
+      "first-run-only"
+    ],
+    "hints": [
+      "macros.ds_add(ds, days) shifts a YYYY-MM-DD string by whole days."
+    ],
+    "solution": {
+      "available": true,
+      "reveal": "explicit"
+    },
+    "explanation": "Under Airflow 3's default timetable, {{ ds }} is the trigger day. The day that just ended is {{ macros.ds_add(ds, -1) }}, which also handles month boundaries (2026-04-01 loads 2026-03-31).",
+    "follow_ups": [
+      "When is switching to CronDataIntervalTimetable and {{ data_interval_start | ds }} the better fix?"
+    ],
+    "canonical_placement": {
+      "domain": "airflow",
+      "topic": "templating"
+    },
+    "related_associations": [
+      "airflow/orchestration"
+    ],
+    "recommendation": {
+      "rank": 7,
+      "reason": "Airflow lab progression"
+    },
+    "validator_version": "rows-v2",
+    "validation": {
+      "kind": "rows",
+      "ordered": false,
+      "duplicate_sensitive": true,
+      "relative_tolerance": 1e-09,
+      "absolute_tolerance": 1e-06,
+      "required_columns": [
+        "logical_date",
+        "value"
+      ],
+      "exact_schema": [
+        "logical_date",
+        "value"
+      ],
+      "forbidden_extra_columns": true,
+      "null_semantics": "equal"
+    },
+    "runtime_requirements": [
+      "airflow-simulator"
+    ],
+    "provenance": {
+      "source": "Authored for Datapass Workbench: Airflow 3 scheduling and task semantics on the Airflow Lab simulator",
+      "fixtures": "Authored scenarios; expected rows computed by simulating the reference DAG and reviewed"
+    },
+    "constraints": {
+      "truth": "Simulated: the DAG file is parsed, never executed, and no Airflow scheduler, executor or worker runs. Semantics follow Airflow 3 for the supported subset."
+    },
+    "truth": "simulated"
+  },
+  {
+    "schema_version": 1,
+    "id": "af-retries-flaky-api",
+    "version": "1",
+    "title": "Retry a flaky API call",
+    "difficulty": "easy",
+    "topics": [
+      "retries",
+      "task-states"
+    ],
+    "tags": [
+      "airflow-lab",
+      "airflow",
+      "simulated"
+    ],
+    "origin": "authored",
+    "language": "airflow",
+    "runtime": "datapass-airflow-sim-v1",
+    "prompt": "fetch_rates calls an API that sometimes fails for a few minutes. Give it at most 3 tries in total, 10 minutes apart, so a transient outage does not fail the run. publish_rates runs after it.",
+    "sections": [
+      {
+        "title": "Simulator",
+        "body": "Your DAG file is read by a whitelisted parser and never executed. Grading simulates the Airflow 3 scheduler and task instances for each check's scenario (scheduler clock, task durations, failures, file arrival, branch choice). Times are UTC; each run is simulated to completion with free worker slots."
+      },
+      {
+        "title": "Graded",
+        "body": "Task states, try numbers and end times (seconds after the run starts; every attempt takes 60 s) when the API fails on the first two tries, when it never recovers, and on a normal day."
+      }
+    ],
+    "starter_source": "from datetime import datetime, timedelta\n\nfrom airflow.sdk import DAG\nfrom airflow.providers.standard.operators.bash import BashOperator\n\nwith DAG(dag_id=\"exchange_rates\", schedule=\"@daily\", start_date=datetime(2026, 3, 5)) as dag:\n    fetch = BashOperator(task_id=\"fetch_rates\", bash_command=\"fetch_rates --day {{ ds }}\")\n    publish = BashOperator(task_id=\"publish_rates\", bash_command=\"publish_rates --day {{ ds }}\")\n    fetch >> publish\n",
+    "fixtures": [
+      {
+        "id": "af-retries-flaky-api-fixtures",
+        "version": "1"
+      }
+    ],
+    "visible_checks": [
+      {
+        "id": "recovers-on-third-try",
+        "description": "Simulated task instances for the public scenario."
+      }
+    ],
+    "hidden_check_refs": [
+      "never-recovers"
+    ],
+    "edge_check_refs": [
+      "normal-day"
+    ],
+    "hints": [
+      "retries counts retries, not tries: 3 tries means retries=2.",
+      "retry_delay takes a timedelta."
+    ],
+    "solution": {
+      "available": true,
+      "reveal": "explicit"
+    },
+    "explanation": "retries=2 allows try 1 plus two retries. Each failed try waits retry_delay before the next one, so the third try starts at 60 + 600 + 60 + 600 = 1320 s and ends at 1380 s. When the API never recovers, fetch_rates fails after its third try and publish_rates is upstream_failed.",
+    "follow_ups": [
+      "Why not set retries=10 to be safe?"
+    ],
+    "canonical_placement": {
+      "domain": "airflow",
+      "topic": "retries"
+    },
+    "related_associations": [
+      "airflow/orchestration"
+    ],
+    "recommendation": {
+      "rank": 8,
+      "reason": "Airflow lab progression"
+    },
+    "validator_version": "rows-v2",
+    "validation": {
+      "kind": "rows",
+      "ordered": false,
+      "duplicate_sensitive": true,
+      "relative_tolerance": 1e-09,
+      "absolute_tolerance": 1e-06,
+      "required_columns": [
+        "task_id",
+        "state",
+        "try_number",
+        "end_s"
+      ],
+      "exact_schema": [
+        "task_id",
+        "state",
+        "try_number",
+        "end_s"
+      ],
+      "forbidden_extra_columns": true,
+      "null_semantics": "equal"
+    },
+    "runtime_requirements": [
+      "airflow-simulator"
+    ],
+    "provenance": {
+      "source": "Authored for Datapass Workbench: Airflow 3 scheduling and task semantics on the Airflow Lab simulator",
+      "fixtures": "Authored scenarios; expected rows computed by simulating the reference DAG and reviewed"
+    },
+    "constraints": {
+      "truth": "Simulated: the DAG file is parsed, never executed, and no Airflow scheduler, executor or worker runs. Semantics follow Airflow 3 for the supported subset."
+    },
+    "truth": "simulated"
+  },
+  {
+    "schema_version": 1,
+    "id": "af-cleanup-trigger-rule",
+    "version": "1",
+    "title": "A cleanup task that always runs",
+    "difficulty": "easy",
+    "topics": [
+      "trigger-rules",
+      "task-states"
+    ],
+    "tags": [
+      "airflow-lab",
+      "airflow",
+      "simulated"
+    ],
+    "origin": "authored",
+    "language": "airflow",
+    "runtime": "datapass-airflow-sim-v1",
+    "prompt": "drop_tmp removes the temporary tables that create_tmp builds. It must run after transform whether transform succeeds or fails.",
+    "sections": [
+      {
+        "title": "Simulator",
+        "body": "Your DAG file is read by a whitelisted parser and never executed. Grading simulates the Airflow 3 scheduler and task instances for each check's scenario (scheduler clock, task durations, failures, file arrival, branch choice). Times are UTC; each run is simulated to completion with free worker slots."
+      },
+      {
+        "title": "Graded",
+        "body": "Task states on a normal day, on a day when transform fails, and on a day when create_tmp fails."
+      }
+    ],
+    "starter_source": "from datetime import datetime\n\nfrom airflow.sdk import DAG\nfrom airflow.providers.standard.operators.bash import BashOperator\n\nwith DAG(dag_id=\"staging_refresh\", schedule=\"@daily\", start_date=datetime(2026, 3, 5)) as dag:\n    create_tmp = BashOperator(task_id=\"create_tmp\", bash_command=\"create_tmp_tables\")\n    transform = BashOperator(task_id=\"transform\", bash_command=\"run_transform --day {{ ds }}\")\n    drop_tmp = BashOperator(task_id=\"drop_tmp\", bash_command=\"drop_tmp_tables\")\n    create_tmp >> transform >> drop_tmp\n",
+    "fixtures": [
+      {
+        "id": "af-cleanup-trigger-rule-fixtures",
+        "version": "1"
+      }
+    ],
+    "visible_checks": [
+      {
+        "id": "normal-day",
+        "description": "Simulated task instances for the public scenario."
+      }
+    ],
+    "hidden_check_refs": [
+      "transform-fails"
+    ],
+    "edge_check_refs": [
+      "create-fails"
+    ],
+    "hints": [
+      "The default trigger rule all_success needs every upstream task to succeed."
+    ],
+    "solution": {
+      "available": true,
+      "reveal": "explicit"
+    },
+    "explanation": "trigger_rule=\"all_done\" runs the task once every upstream task has finished, whatever its state. When create_tmp fails, transform is upstream_failed, which also counts as finished, so drop_tmp still runs.",
+    "follow_ups": [
+      "After this change the DAG run is marked success even when transform fails. Why? (see the watcher exercise)"
+    ],
+    "canonical_placement": {
+      "domain": "airflow",
+      "topic": "trigger-rules"
+    },
+    "related_associations": [
+      "airflow/orchestration"
+    ],
+    "recommendation": {
+      "rank": 9,
+      "reason": "Airflow lab progression"
+    },
+    "validator_version": "rows-v2",
+    "validation": {
+      "kind": "rows",
+      "ordered": false,
+      "duplicate_sensitive": true,
+      "relative_tolerance": 1e-09,
+      "absolute_tolerance": 1e-06,
+      "required_columns": [
+        "task_id",
+        "state"
+      ],
+      "exact_schema": [
+        "task_id",
+        "state"
+      ],
+      "forbidden_extra_columns": true,
+      "null_semantics": "equal"
+    },
+    "runtime_requirements": [
+      "airflow-simulator"
+    ],
+    "provenance": {
+      "source": "Authored for Datapass Workbench: Airflow 3 scheduling and task semantics on the Airflow Lab simulator",
+      "fixtures": "Authored scenarios; expected rows computed by simulating the reference DAG and reviewed"
+    },
+    "constraints": {
+      "truth": "Simulated: the DAG file is parsed, never executed, and no Airflow scheduler, executor or worker runs. Semantics follow Airflow 3 for the supported subset."
+    },
+    "truth": "simulated"
+  },
+  {
+    "schema_version": 1,
+    "id": "af-watcher-fails-the-run",
+    "version": "1",
+    "title": "Watcher task: a failure must still fail the DAG run",
+    "difficulty": "hard",
+    "topics": [
+      "trigger-rules",
+      "dag-run-state"
+    ],
+    "tags": [
+      "airflow-lab",
+      "airflow",
+      "simulated"
+    ],
+    "origin": "authored",
+    "language": "airflow",
+    "runtime": "datapass-airflow-sim-v1",
+    "prompt": "Because drop_tmp (all_done) is the only leaf and succeeds, the DAG run is marked success even when transform fails. Add the provided watcher task so that the run fails whenever any other task fails, and stays successful otherwise. watcher raises whenever it runs.",
+    "sections": [
+      {
+        "title": "Simulator",
+        "body": "Your DAG file is read by a whitelisted parser and never executed. Grading simulates the Airflow 3 scheduler and task instances for each check's scenario (scheduler clock, task durations, failures, file arrival, branch choice). Times are UTC; each run is simulated to completion with free worker slots."
+      },
+      {
+        "title": "DAG run state",
+        "body": "Airflow sets the run state from its leaf tasks: failed if any leaf failed or is upstream_failed, success otherwise."
+      },
+      {
+        "title": "Graded",
+        "body": "The DAG run state on a normal day, when transform fails, and when create_tmp fails. In every scenario watcher fails when it runs."
+      }
+    ],
+    "starter_source": "from datetime import datetime\n\nfrom airflow.sdk import DAG, task\nfrom airflow.providers.standard.operators.bash import BashOperator\n\n\n@task\ndef watcher():\n    raise RuntimeError(\"An upstream task failed; failing the DAG run on purpose.\")\n\n\nwith DAG(dag_id=\"staging_refresh\", schedule=\"@daily\", start_date=datetime(2026, 3, 5)) as dag:\n    create_tmp = BashOperator(task_id=\"create_tmp\", bash_command=\"create_tmp_tables\")\n    transform = BashOperator(task_id=\"transform\", bash_command=\"run_transform --day {{ ds }}\")\n    drop_tmp = BashOperator(task_id=\"drop_tmp\", bash_command=\"drop_tmp_tables\", trigger_rule=\"all_done\")\n    create_tmp >> transform >> drop_tmp\n    # Not wired yet: as a root task with all_success, watcher runs first and fails every run.\n    watcher()\n",
+    "fixtures": [
+      {
+        "id": "af-watcher-fails-the-run-fixtures",
+        "version": "1"
+      }
+    ],
+    "visible_checks": [
+      {
+        "id": "normal-day",
+        "description": "Simulated runs for the public scenario."
+      }
+    ],
+    "hidden_check_refs": [
+      "transform-fails"
+    ],
+    "edge_check_refs": [
+      "create-fails"
+    ],
+    "hints": [
+      "watcher must be downstream of every task whose failure matters.",
+      "Which trigger rule fires as soon as one upstream task has failed?"
+    ],
+    "solution": {
+      "available": true,
+      "reveal": "explicit"
+    },
+    "explanation": "watcher is downstream of every task with trigger_rule=\"one_failed\": on a normal day it is skipped (a skipped leaf keeps the run successful); when any task fails it runs, fails, and as a failed leaf it fails the run. one_failed also counts upstream_failed tasks. Hanging watcher only under drop_tmp does not work: drop_tmp succeeds even when transform fails.",
+    "follow_ups": [
+      "Why does all_failed not work here?"
+    ],
+    "canonical_placement": {
+      "domain": "airflow",
+      "topic": "trigger-rules"
+    },
+    "related_associations": [
+      "airflow/orchestration"
+    ],
+    "recommendation": {
+      "rank": 10,
+      "reason": "Airflow lab progression"
+    },
+    "validator_version": "rows-v2",
+    "validation": {
+      "kind": "rows",
+      "ordered": false,
+      "duplicate_sensitive": true,
+      "relative_tolerance": 1e-09,
+      "absolute_tolerance": 1e-06,
+      "required_columns": [
+        "logical_date",
+        "state"
+      ],
+      "exact_schema": [
+        "logical_date",
+        "state"
+      ],
+      "forbidden_extra_columns": true,
+      "null_semantics": "equal"
+    },
+    "runtime_requirements": [
+      "airflow-simulator"
+    ],
+    "provenance": {
+      "source": "Authored for Datapass Workbench: Airflow 3 scheduling and task semantics on the Airflow Lab simulator",
+      "fixtures": "Authored scenarios; expected rows computed by simulating the reference DAG and reviewed"
+    },
+    "constraints": {
+      "truth": "Simulated: the DAG file is parsed, never executed, and no Airflow scheduler, executor or worker runs. Semantics follow Airflow 3 for the supported subset."
+    },
+    "truth": "simulated"
+  },
+  {
+    "schema_version": 1,
+    "id": "af-branch-join",
+    "version": "1",
+    "title": "Join after a branch without skipping the join",
+    "difficulty": "medium",
+    "topics": [
+      "branching",
+      "trigger-rules"
+    ],
+    "tags": [
+      "airflow-lab",
+      "airflow",
+      "simulated"
+    ],
+    "origin": "authored",
+    "language": "airflow",
+    "runtime": "datapass-airflow-sim-v1",
+    "prompt": "choose picks full_load or incremental_load; the other path is skipped. publish must run after whichever load ran, must not run if that load failed, and is skipped when choose selects nothing.",
+    "sections": [
+      {
+        "title": "Simulator",
+        "body": "Your DAG file is read by a whitelisted parser and never executed. Grading simulates the Airflow 3 scheduler and task instances for each check's scenario (scheduler clock, task durations, failures, file arrival, branch choice). Times are UTC; each run is simulated to completion with free worker slots."
+      },
+      {
+        "title": "Branching",
+        "body": "A branch task skips its direct downstream tasks that it did not choose. With the default all_success, a join after both paths sees one skipped upstream and is skipped too."
+      },
+      {
+        "title": "Graded",
+        "body": "Task states when choose selects incremental_load, when it selects full_load and full_load fails, when it selects both loads and one fails, and when it selects no task."
+      }
+    ],
+    "starter_source": "from datetime import datetime\n\nfrom airflow.sdk import DAG\nfrom airflow.providers.standard.operators.bash import BashOperator\nfrom airflow.providers.standard.operators.python import BranchPythonOperator\n\n\ndef choose_load(**context):\n    return \"full_load\" if context[\"logical_date\"].day == 1 else \"incremental_load\"\n\n\nwith DAG(dag_id=\"warehouse_load\", schedule=\"@daily\", start_date=datetime(2026, 3, 5)) as dag:\n    choose = BranchPythonOperator(task_id=\"choose\", python_callable=choose_load)\n    full = BashOperator(task_id=\"full_load\", bash_command=\"load --full\")\n    incremental = BashOperator(task_id=\"incremental_load\", bash_command=\"load --since {{ ds }}\")\n    publish = BashOperator(task_id=\"publish\", bash_command=\"publish_marts\")\n    choose >> [full, incremental] >> publish\n",
+    "fixtures": [
+      {
+        "id": "af-branch-join-fixtures",
+        "version": "1"
+      }
+    ],
+    "visible_checks": [
+      {
+        "id": "incremental-day",
+        "description": "Simulated task instances for the public scenario."
+      }
+    ],
+    "hidden_check_refs": [
+      "full-load-fails",
+      "both-chosen-one-fails"
+    ],
+    "edge_check_refs": [
+      "nothing-to-load"
+    ],
+    "hints": [
+      "Look for the trigger rule that tolerates skipped upstream tasks but not failed ones, and needs at least one success."
+    ],
+    "solution": {
+      "available": true,
+      "reveal": "explicit"
+    },
+    "explanation": "none_failed_min_one_success runs publish when no upstream failed and at least one succeeded: after the chosen path. A failed load makes publish upstream_failed; if every upstream was skipped, publish is skipped. none_failed would still run it when both paths were skipped, all_done would run it after a failure, and one_success would start it as soon as one chosen load succeeded, even if another one then failed.",
+    "follow_ups": [
+      "What if publish also depended directly on choose?"
+    ],
+    "canonical_placement": {
+      "domain": "airflow",
+      "topic": "branching"
+    },
+    "related_associations": [
+      "airflow/orchestration"
+    ],
+    "recommendation": {
+      "rank": 11,
+      "reason": "Airflow lab progression"
+    },
+    "validator_version": "rows-v2",
+    "validation": {
+      "kind": "rows",
+      "ordered": false,
+      "duplicate_sensitive": true,
+      "relative_tolerance": 1e-09,
+      "absolute_tolerance": 1e-06,
+      "required_columns": [
+        "task_id",
+        "state"
+      ],
+      "exact_schema": [
+        "task_id",
+        "state"
+      ],
+      "forbidden_extra_columns": true,
+      "null_semantics": "equal"
+    },
+    "runtime_requirements": [
+      "airflow-simulator"
+    ],
+    "provenance": {
+      "source": "Authored for Datapass Workbench: Airflow 3 scheduling and task semantics on the Airflow Lab simulator",
+      "fixtures": "Authored scenarios; expected rows computed by simulating the reference DAG and reviewed"
+    },
+    "constraints": {
+      "truth": "Simulated: the DAG file is parsed, never executed, and no Airflow scheduler, executor or worker runs. Semantics follow Airflow 3 for the supported subset."
+    },
+    "truth": "simulated"
+  },
+  {
+    "schema_version": 1,
+    "id": "af-sensor-soft-fail",
+    "version": "1",
+    "title": "A file sensor that gives up without failing the run",
+    "difficulty": "hard",
+    "topics": [
+      "sensors",
+      "timeouts",
+      "soft-fail"
+    ],
+    "tags": [
+      "airflow-lab",
+      "airflow",
+      "simulated"
+    ],
+    "origin": "authored",
+    "language": "airflow",
+    "runtime": "datapass-airflow-sim-v1",
+    "prompt": "wait_for_feed waits for a partner file. Check every 10 minutes, give up after 2 hours, and when the file never arrives end the run without a failure: the sensor and load_feed are skipped. Use reschedule mode so the sensor does not hold a worker slot between checks.",
+    "sections": [
+      {
+        "title": "Simulator",
+        "body": "Your DAG file is read by a whitelisted parser and never executed. Grading simulates the Airflow 3 scheduler and task instances for each check's scenario (scheduler clock, task durations, failures, file arrival, branch choice). Times are UTC; each run is simulated to completion with free worker slots."
+      },
+      {
+        "title": "Sensor timing",
+        "body": "A sensor pokes at start, then every poke_interval. After a false poke, if more than timeout seconds have passed it times out: failed (timeouts are not retried), or skipped with soft_fail=True."
+      },
+      {
+        "title": "Graded",
+        "body": "States and end times (seconds after the run starts; load_feed takes 60 s) when the file arrives after 50 minutes, when it never arrives, and when it arrives exactly at 2 hours. The mode does not change these outcomes and is not graded."
+      }
+    ],
+    "starter_source": "from datetime import datetime, timedelta\n\nfrom airflow.sdk import DAG\nfrom airflow.providers.standard.operators.bash import BashOperator\nfrom airflow.providers.standard.sensors.filesystem import FileSensor\n\nwith DAG(dag_id=\"partner_feed\", schedule=\"0 6 * * *\", start_date=datetime(2026, 3, 5)) as dag:\n    wait = FileSensor(task_id=\"wait_for_feed\", filepath=\"/data/partner/{{ ds }}.csv\")\n    load = BashOperator(task_id=\"load_feed\", bash_command=\"load_feed --day {{ ds }}\")\n    wait >> load\n",
+    "fixtures": [
+      {
+        "id": "af-sensor-soft-fail-fixtures",
+        "version": "1"
+      }
+    ],
+    "visible_checks": [
+      {
+        "id": "arrives-after-50-min",
+        "description": "Simulated task instances for the public scenario."
+      }
+    ],
+    "hidden_check_refs": [
+      "never-arrives"
+    ],
+    "edge_check_refs": [
+      "arrives-at-two-hours"
+    ],
+    "hints": [
+      "poke_interval and timeout accept timedelta values.",
+      "soft_fail=True turns a sensor timeout into a skip."
+    ],
+    "solution": {
+      "available": true,
+      "reveal": "explicit"
+    },
+    "explanation": "With a 600 s poke interval the sensor sees the file at the poke at 3000 s. When the file never arrives, the false poke at 7200 s is not yet past the 7200 s timeout, so the sensor times out at the next false poke, at 7800 s, and soft_fail skips it and load_feed. The default timeout is 7 days, and without soft_fail a timeout fails the run.",
+    "follow_ups": [
+      "When is poke mode the better choice?"
+    ],
+    "canonical_placement": {
+      "domain": "airflow",
+      "topic": "sensors"
+    },
+    "related_associations": [
+      "airflow/orchestration"
+    ],
+    "recommendation": {
+      "rank": 12,
+      "reason": "Airflow lab progression"
+    },
+    "validator_version": "rows-v2",
+    "validation": {
+      "kind": "rows",
+      "ordered": false,
+      "duplicate_sensitive": true,
+      "relative_tolerance": 1e-09,
+      "absolute_tolerance": 1e-06,
+      "required_columns": [
+        "task_id",
+        "state",
+        "end_s"
+      ],
+      "exact_schema": [
+        "task_id",
+        "state",
+        "end_s"
+      ],
+      "forbidden_extra_columns": true,
+      "null_semantics": "equal"
+    },
+    "runtime_requirements": [
+      "airflow-simulator"
+    ],
+    "provenance": {
+      "source": "Authored for Datapass Workbench: Airflow 3 scheduling and task semantics on the Airflow Lab simulator",
+      "fixtures": "Authored scenarios; expected rows computed by simulating the reference DAG and reviewed"
+    },
+    "constraints": {
+      "truth": "Simulated: the DAG file is parsed, never executed, and no Airflow scheduler, executor or worker runs. Semantics follow Airflow 3 for the supported subset."
+    },
+    "truth": "simulated"
+  },
+  {
+    "schema_version": 1,
+    "id": "af-default-args-override",
+    "version": "1",
+    "title": "default_args for every task, with one exception",
+    "difficulty": "medium",
+    "topics": [
+      "default-args",
+      "retries"
+    ],
+    "tags": [
+      "airflow-lab",
+      "airflow",
+      "simulated"
+    ],
+    "origin": "authored",
+    "language": "airflow",
+    "runtime": "datapass-airflow-sim-v1",
+    "prompt": "Every task of billing_export should retry twice, 1 minute apart, through default_args. send_invoices is not idempotent: a retry would email customers twice, so it must never retry.",
+    "sections": [
+      {
+        "title": "Simulator",
+        "body": "Your DAG file is read by a whitelisted parser and never executed. Grading simulates the Airflow 3 scheduler and task instances for each check's scenario (scheduler clock, task durations, failures, file arrival, branch choice). Times are UTC; each run is simulated to completion with free worker slots."
+      },
+      {
+        "title": "default_args",
+        "body": "default_args apply to every task in the DAG; an argument passed to an operator overrides the default."
+      },
+      {
+        "title": "Graded",
+        "body": "States and try numbers when every task fails its first try, on a normal day, and when send_invoices fails."
+      }
+    ],
+    "starter_source": "from datetime import datetime, timedelta\n\nfrom airflow.sdk import DAG\nfrom airflow.providers.standard.operators.bash import BashOperator\n\nwith DAG(\n    dag_id=\"billing_export\",\n    schedule=\"@daily\",\n    start_date=datetime(2026, 3, 5),\n    default_args={\"retries\": 2, \"retry_delay\": timedelta(minutes=1)},\n) as dag:\n    extract = BashOperator(task_id=\"extract\", bash_command=\"extract --day {{ ds }}\")\n    transform = BashOperator(task_id=\"transform\", bash_command=\"transform --day {{ ds }}\")\n    send = BashOperator(task_id=\"send_invoices\", bash_command=\"send_invoices --day {{ ds }}\")\n    extract >> transform >> send\n",
+    "fixtures": [
+      {
+        "id": "af-default-args-override-fixtures",
+        "version": "1"
+      }
+    ],
+    "visible_checks": [
+      {
+        "id": "first-tries-fail",
+        "description": "Simulated task instances for the public scenario."
+      }
+    ],
+    "hidden_check_refs": [
+      "normal-day"
+    ],
+    "edge_check_refs": [
+      "transform-needs-third-try"
+    ],
+    "hints": [
+      "An operator argument overrides the same key in default_args."
+    ],
+    "solution": {
+      "available": true,
+      "reveal": "explicit"
+    },
+    "explanation": "default_args gives extract and transform retries=2; retries=0 on send_invoices overrides it, so a failed send is final (the run fails) instead of sending invoices again.",
+    "follow_ups": [
+      "How would you make send_invoices safe to retry instead?"
+    ],
+    "canonical_placement": {
+      "domain": "airflow",
+      "topic": "default-args"
+    },
+    "related_associations": [
+      "airflow/orchestration"
+    ],
+    "recommendation": {
+      "rank": 13,
+      "reason": "Airflow lab progression"
+    },
+    "validator_version": "rows-v2",
+    "validation": {
+      "kind": "rows",
+      "ordered": false,
+      "duplicate_sensitive": true,
+      "relative_tolerance": 1e-09,
+      "absolute_tolerance": 1e-06,
+      "required_columns": [
+        "task_id",
+        "state",
+        "try_number"
+      ],
+      "exact_schema": [
+        "task_id",
+        "state",
+        "try_number"
+      ],
+      "forbidden_extra_columns": true,
+      "null_semantics": "equal"
+    },
+    "runtime_requirements": [
+      "airflow-simulator"
+    ],
+    "provenance": {
+      "source": "Authored for Datapass Workbench: Airflow 3 scheduling and task semantics on the Airflow Lab simulator",
+      "fixtures": "Authored scenarios; expected rows computed by simulating the reference DAG and reviewed"
+    },
+    "constraints": {
+      "truth": "Simulated: the DAG file is parsed, never executed, and no Airflow scheduler, executor or worker runs. Semantics follow Airflow 3 for the supported subset."
+    },
+    "truth": "simulated"
+  }
+]

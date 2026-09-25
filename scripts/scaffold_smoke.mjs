@@ -126,6 +126,16 @@ try {
   assert.match(brief, /## Common pitfall/);
   assert.match(brief, /hidden and edge-case fixtures that are not shown/);
 
+  const airflowBrief = readmeMod.exerciseReadme({
+    key: "airflow-lab-v1/a/airflow", packId: "airflow-lab-v1", packTitle: "Airflow lab", id: "a", version: "1",
+    title: "Retries", difficulty: "easy", language: "airflow", prompt: "Retry the API call.",
+    starterSource: "x", truth: "simulated", topics: ["retries"],
+    sections: [{ title: "Simulator", body: "Parsed, never executed." }], hints: [], dataContext: []
+  });
+  assert.match(airflowBrief, /- Truth: simulated/);
+  assert.match(airflowBrief, /\*\*Run visible\*\* simulates the public scenario/);
+  assert.match(airflowBrief, /The DAG file is parsed, never executed\./);
+
   console.log("Retail scaffold, exercise brief and dbt detection smoke tests passed.");
 } finally {
   await rm(dir, { recursive: true, force: true });

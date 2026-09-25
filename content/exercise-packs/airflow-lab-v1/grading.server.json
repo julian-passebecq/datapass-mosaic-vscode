@@ -1,0 +1,1404 @@
+{
+  "af-fan-in-fan-out": {
+    "solution": "from datetime import datetime\n\nfrom airflow.sdk import DAG\nfrom airflow.providers.standard.operators.empty import EmptyOperator\n\nwith DAG(dag_id=\"customer_360\", schedule=\"@daily\", start_date=datetime(2026, 3, 1)) as dag:\n\n    extract_orders = EmptyOperator(task_id=\"extract_orders\")\n    extract_customers = EmptyOperator(task_id=\"extract_customers\")\n    transform = EmptyOperator(task_id=\"transform\")\n    load_warehouse = EmptyOperator(task_id=\"load_warehouse\")\n    load_search = EmptyOperator(task_id=\"load_search\")\n    notify = EmptyOperator(task_id=\"notify\")\n\n    [extract_orders, extract_customers] >> transform >> [load_warehouse, load_search] >> notify\n",
+    "fixtures": [
+      {
+        "id": "edges",
+        "visibility": "visible",
+        "input_rows": [],
+        "scenario": {
+          "now": "2026-03-01T12:00:00Z",
+          "outcome": "edges"
+        },
+        "expected": [
+          {
+            "upstream": "extract_orders",
+            "downstream": "transform"
+          },
+          {
+            "upstream": "extract_customers",
+            "downstream": "transform"
+          },
+          {
+            "upstream": "transform",
+            "downstream": "load_warehouse"
+          },
+          {
+            "upstream": "transform",
+            "downstream": "load_search"
+          },
+          {
+            "upstream": "load_warehouse",
+            "downstream": "notify"
+          },
+          {
+            "upstream": "load_search",
+            "downstream": "notify"
+          }
+        ]
+      },
+      {
+        "id": "start-times",
+        "visibility": "hidden",
+        "input_rows": [],
+        "scenario": {
+          "now": "2026-03-01T12:00:00Z",
+          "outcome": "task_instances",
+          "columns": [
+            "task_id",
+            "state",
+            "start_s"
+          ],
+          "tasks": {
+            "extract_customers": {
+              "duration_seconds": 120
+            }
+          }
+        },
+        "expected": [
+          {
+            "task_id": "extract_orders",
+            "state": "success",
+            "start_s": 0.0
+          },
+          {
+            "task_id": "extract_customers",
+            "state": "success",
+            "start_s": 0.0
+          },
+          {
+            "task_id": "transform",
+            "state": "success",
+            "start_s": 120.0
+          },
+          {
+            "task_id": "load_warehouse",
+            "state": "success",
+            "start_s": 180.0
+          },
+          {
+            "task_id": "load_search",
+            "state": "success",
+            "start_s": 180.0
+          },
+          {
+            "task_id": "notify",
+            "state": "success",
+            "start_s": 240.0
+          }
+        ]
+      },
+      {
+        "id": "extract-fails",
+        "visibility": "edge",
+        "input_rows": [],
+        "scenario": {
+          "now": "2026-03-01T12:00:00Z",
+          "outcome": "task_instances",
+          "columns": [
+            "task_id",
+            "state"
+          ],
+          "tasks": {
+            "extract_customers": {
+              "fail_attempts": "all"
+            }
+          }
+        },
+        "expected": [
+          {
+            "task_id": "extract_orders",
+            "state": "success"
+          },
+          {
+            "task_id": "extract_customers",
+            "state": "failed"
+          },
+          {
+            "task_id": "transform",
+            "state": "upstream_failed"
+          },
+          {
+            "task_id": "load_warehouse",
+            "state": "upstream_failed"
+          },
+          {
+            "task_id": "load_search",
+            "state": "upstream_failed"
+          },
+          {
+            "task_id": "notify",
+            "state": "upstream_failed"
+          }
+        ]
+      }
+    ]
+  },
+  "af-taskflow-data-dependencies": {
+    "solution": "import pendulum\n\nfrom airflow.sdk import dag, task\n\n\n@dag(schedule=\"@daily\", start_date=pendulum.datetime(2026, 3, 1, tz=\"UTC\"))\ndef orders_taskflow():\n    @task\n    def extract():\n        return [{\"order_id\": 1, \"amount\": 10.0}]\n\n    @task\n    def transform(rows):\n        return [row for row in rows if row[\"amount\"] > 0]\n\n    @task\n    def load(rows):\n        print(f\"loading {len(rows)} rows\")\n\n    @task\n    def audit():\n        print(\"audit done\")\n\n    raw = extract()\n    clean = transform(raw)\n    load(clean) >> audit()\n\n\norders_taskflow()\n",
+    "fixtures": [
+      {
+        "id": "edges",
+        "visibility": "visible",
+        "input_rows": [],
+        "scenario": {
+          "now": "2026-03-01T12:00:00Z",
+          "outcome": "edges"
+        },
+        "expected": [
+          {
+            "upstream": "extract",
+            "downstream": "transform"
+          },
+          {
+            "upstream": "transform",
+            "downstream": "load"
+          },
+          {
+            "upstream": "load",
+            "downstream": "audit"
+          }
+        ]
+      },
+      {
+        "id": "transform-fails",
+        "visibility": "hidden",
+        "input_rows": [],
+        "scenario": {
+          "now": "2026-03-01T12:00:00Z",
+          "outcome": "task_instances",
+          "columns": [
+            "task_id",
+            "state"
+          ],
+          "tasks": {
+            "transform": {
+              "fail_attempts": "all"
+            }
+          }
+        },
+        "expected": [
+          {
+            "task_id": "extract",
+            "state": "success"
+          },
+          {
+            "task_id": "transform",
+            "state": "failed"
+          },
+          {
+            "task_id": "load",
+            "state": "upstream_failed"
+          },
+          {
+            "task_id": "audit",
+            "state": "upstream_failed"
+          }
+        ]
+      },
+      {
+        "id": "normal-run",
+        "visibility": "edge",
+        "input_rows": [],
+        "scenario": {
+          "now": "2026-03-01T12:00:00Z",
+          "outcome": "task_instances",
+          "columns": [
+            "task_id",
+            "state",
+            "start_s"
+          ]
+        },
+        "expected": [
+          {
+            "task_id": "extract",
+            "state": "success",
+            "start_s": 0.0
+          },
+          {
+            "task_id": "transform",
+            "state": "success",
+            "start_s": 60.0
+          },
+          {
+            "task_id": "load",
+            "state": "success",
+            "start_s": 120.0
+          },
+          {
+            "task_id": "audit",
+            "state": "success",
+            "start_s": 180.0
+          }
+        ]
+      }
+    ]
+  },
+  "af-catchup-backfill": {
+    "solution": "from datetime import datetime\n\nfrom airflow.sdk import DAG\nfrom airflow.providers.standard.operators.bash import BashOperator\n\nwith DAG(\n    dag_id=\"daily_sales\",\n    schedule=\"@daily\",\n    start_date=datetime(2026, 3, 1),\n    catchup=True,\n) as dag:\n    BashOperator(task_id=\"load\", bash_command=\"load_sales --day {{ ds }}\")\n",
+    "fixtures": [
+      {
+        "id": "unpaused-march-5",
+        "visibility": "visible",
+        "input_rows": [],
+        "scenario": {
+          "now": "2026-03-05T12:00:00Z",
+          "outcome": "runs",
+          "columns": [
+            "logical_date",
+            "run_after"
+          ]
+        },
+        "expected": [
+          {
+            "logical_date": "2026-03-01T00:00:00+00:00",
+            "run_after": "2026-03-01T00:00:00+00:00"
+          },
+          {
+            "logical_date": "2026-03-02T00:00:00+00:00",
+            "run_after": "2026-03-02T00:00:00+00:00"
+          },
+          {
+            "logical_date": "2026-03-03T00:00:00+00:00",
+            "run_after": "2026-03-03T00:00:00+00:00"
+          },
+          {
+            "logical_date": "2026-03-04T00:00:00+00:00",
+            "run_after": "2026-03-04T00:00:00+00:00"
+          },
+          {
+            "logical_date": "2026-03-05T00:00:00+00:00",
+            "run_after": "2026-03-05T00:00:00+00:00"
+          }
+        ]
+      },
+      {
+        "id": "unpaused-march-3-early",
+        "visibility": "hidden",
+        "input_rows": [],
+        "scenario": {
+          "now": "2026-03-03T06:00:00Z",
+          "outcome": "runs",
+          "columns": [
+            "logical_date",
+            "run_after"
+          ]
+        },
+        "expected": [
+          {
+            "logical_date": "2026-03-01T00:00:00+00:00",
+            "run_after": "2026-03-01T00:00:00+00:00"
+          },
+          {
+            "logical_date": "2026-03-02T00:00:00+00:00",
+            "run_after": "2026-03-02T00:00:00+00:00"
+          },
+          {
+            "logical_date": "2026-03-03T00:00:00+00:00",
+            "run_after": "2026-03-03T00:00:00+00:00"
+          }
+        ]
+      },
+      {
+        "id": "before-start-date",
+        "visibility": "edge",
+        "input_rows": [],
+        "scenario": {
+          "now": "2026-02-28T23:00:00Z",
+          "outcome": "runs",
+          "columns": [
+            "logical_date",
+            "run_after"
+          ]
+        },
+        "expected": []
+      }
+    ]
+  },
+  "af-no-accidental-backfill": {
+    "solution": "from datetime import datetime\n\nfrom airflow.sdk import DAG\nfrom airflow.providers.standard.operators.bash import BashOperator\n\nwith DAG(\n    dag_id=\"inventory_snapshot\",\n    schedule=\"@daily\",\n    start_date=datetime(2025, 1, 1),\n    catchup=False,\n) as dag:\n    BashOperator(task_id=\"snapshot\", bash_command=\"snapshot_inventory --day {{ ds }}\")\n",
+    "fixtures": [
+      {
+        "id": "unpaused-today",
+        "visibility": "visible",
+        "input_rows": [],
+        "scenario": {
+          "now": "2026-03-05T12:00:00Z",
+          "outcome": "runs",
+          "columns": [
+            "logical_date",
+            "run_after"
+          ]
+        },
+        "expected": [
+          {
+            "logical_date": "2026-03-05T00:00:00+00:00",
+            "run_after": "2026-03-05T00:00:00+00:00"
+          }
+        ]
+      },
+      {
+        "id": "running-for-three-days",
+        "visibility": "hidden",
+        "input_rows": [],
+        "scenario": {
+          "now": "2026-03-07T08:00:00Z",
+          "unpaused_at": "2026-03-05T10:00:00Z",
+          "outcome": "runs",
+          "columns": [
+            "logical_date",
+            "run_after"
+          ]
+        },
+        "expected": [
+          {
+            "logical_date": "2026-03-05T00:00:00+00:00",
+            "run_after": "2026-03-05T00:00:00+00:00"
+          },
+          {
+            "logical_date": "2026-03-06T00:00:00+00:00",
+            "run_after": "2026-03-06T00:00:00+00:00"
+          },
+          {
+            "logical_date": "2026-03-07T00:00:00+00:00",
+            "run_after": "2026-03-07T00:00:00+00:00"
+          }
+        ]
+      },
+      {
+        "id": "unpaused-at-midnight",
+        "visibility": "edge",
+        "input_rows": [],
+        "scenario": {
+          "now": "2026-03-06T00:00:00Z",
+          "unpaused_at": "2026-03-06T00:00:00Z",
+          "outcome": "runs",
+          "columns": [
+            "logical_date",
+            "run_after"
+          ]
+        },
+        "expected": [
+          {
+            "logical_date": "2026-03-06T00:00:00+00:00",
+            "run_after": "2026-03-06T00:00:00+00:00"
+          }
+        ]
+      }
+    ]
+  },
+  "af-cron-weekdays": {
+    "solution": "from datetime import datetime\n\nfrom airflow.sdk import DAG\nfrom airflow.providers.standard.operators.bash import BashOperator\n\nwith DAG(\n    dag_id=\"market_prices\",\n    schedule=\"30 6 * * 1-5\",\n    start_date=datetime(2026, 3, 2),\n    catchup=True,\n) as dag:\n    BashOperator(task_id=\"fetch\", bash_command=\"fetch_prices --ts {{ ts }}\")\n",
+    "fixtures": [
+      {
+        "id": "first-week",
+        "visibility": "visible",
+        "input_rows": [],
+        "scenario": {
+          "now": "2026-03-09T07:00:00Z",
+          "outcome": "runs",
+          "columns": [
+            "logical_date"
+          ]
+        },
+        "expected": [
+          {
+            "logical_date": "2026-03-02T06:30:00+00:00"
+          },
+          {
+            "logical_date": "2026-03-03T06:30:00+00:00"
+          },
+          {
+            "logical_date": "2026-03-04T06:30:00+00:00"
+          },
+          {
+            "logical_date": "2026-03-05T06:30:00+00:00"
+          },
+          {
+            "logical_date": "2026-03-06T06:30:00+00:00"
+          },
+          {
+            "logical_date": "2026-03-09T06:30:00+00:00"
+          }
+        ]
+      },
+      {
+        "id": "monday-before-0630",
+        "visibility": "hidden",
+        "input_rows": [],
+        "scenario": {
+          "now": "2026-03-16T06:29:00Z",
+          "outcome": "runs",
+          "columns": [
+            "logical_date"
+          ]
+        },
+        "expected": [
+          {
+            "logical_date": "2026-03-02T06:30:00+00:00"
+          },
+          {
+            "logical_date": "2026-03-03T06:30:00+00:00"
+          },
+          {
+            "logical_date": "2026-03-04T06:30:00+00:00"
+          },
+          {
+            "logical_date": "2026-03-05T06:30:00+00:00"
+          },
+          {
+            "logical_date": "2026-03-06T06:30:00+00:00"
+          },
+          {
+            "logical_date": "2026-03-09T06:30:00+00:00"
+          },
+          {
+            "logical_date": "2026-03-10T06:30:00+00:00"
+          },
+          {
+            "logical_date": "2026-03-11T06:30:00+00:00"
+          },
+          {
+            "logical_date": "2026-03-12T06:30:00+00:00"
+          },
+          {
+            "logical_date": "2026-03-13T06:30:00+00:00"
+          }
+        ]
+      },
+      {
+        "id": "first-morning",
+        "visibility": "edge",
+        "input_rows": [],
+        "scenario": {
+          "now": "2026-03-02T06:30:00Z",
+          "outcome": "runs",
+          "columns": [
+            "logical_date"
+          ]
+        },
+        "expected": [
+          {
+            "logical_date": "2026-03-02T06:30:00+00:00"
+          }
+        ]
+      }
+    ]
+  },
+  "af-data-interval-timetable": {
+    "solution": "from datetime import datetime\n\nfrom airflow.sdk import DAG\nfrom airflow.providers.common.sql.operators.sql import SQLExecuteQueryOperator\nfrom airflow.timetables.interval import CronDataIntervalTimetable\n\nwith DAG(\n    dag_id=\"daily_sales_load\",\n    schedule=CronDataIntervalTimetable(\"0 0 * * *\", timezone=\"UTC\"),\n    start_date=datetime(2026, 3, 1),\n    catchup=True,\n) as dag:\n    SQLExecuteQueryOperator(\n        task_id=\"load_day\",\n        conn_id=\"warehouse\",\n        sql=(\n            \"INSERT INTO daily_sales SELECT * FROM sales \"\n            \"WHERE sold_at >= '{{ data_interval_start | ds }}' AND sold_at < '{{ data_interval_end | ds }}'\"\n        ),\n    )\n",
+    "fixtures": [
+      {
+        "id": "first-days",
+        "visibility": "visible",
+        "input_rows": [],
+        "scenario": {
+          "now": "2026-03-03T12:00:00Z",
+          "outcome": "rendered",
+          "columns": [
+            "logical_date",
+            "value"
+          ]
+        },
+        "expected": [
+          {
+            "logical_date": "2026-03-01T00:00:00+00:00",
+            "value": "INSERT INTO daily_sales SELECT * FROM sales WHERE sold_at >= '2026-03-01' AND sold_at < '2026-03-02'"
+          },
+          {
+            "logical_date": "2026-03-02T00:00:00+00:00",
+            "value": "INSERT INTO daily_sales SELECT * FROM sales WHERE sold_at >= '2026-03-02' AND sold_at < '2026-03-03'"
+          }
+        ]
+      },
+      {
+        "id": "one-interval-exactly",
+        "visibility": "hidden",
+        "input_rows": [],
+        "scenario": {
+          "now": "2026-03-02T00:00:00Z",
+          "outcome": "rendered",
+          "columns": [
+            "logical_date",
+            "value"
+          ]
+        },
+        "expected": [
+          {
+            "logical_date": "2026-03-01T00:00:00+00:00",
+            "value": "INSERT INTO daily_sales SELECT * FROM sales WHERE sold_at >= '2026-03-01' AND sold_at < '2026-03-02'"
+          }
+        ]
+      },
+      {
+        "id": "first-day-not-over",
+        "visibility": "edge",
+        "input_rows": [],
+        "scenario": {
+          "now": "2026-03-01T23:59:00Z",
+          "outcome": "rendered",
+          "columns": [
+            "logical_date",
+            "value"
+          ]
+        },
+        "expected": []
+      }
+    ]
+  },
+  "af-airflow3-previous-day-partition": {
+    "solution": "from datetime import datetime\n\nfrom airflow.sdk import DAG\nfrom airflow.providers.standard.operators.bash import BashOperator\n\nwith DAG(\n    dag_id=\"partition_loader\",\n    schedule=\"@daily\",\n    start_date=datetime(2026, 3, 1),\n    catchup=True,\n) as dag:\n    BashOperator(\n        task_id=\"load_partition\",\n        bash_command=\"load_partition --table events --dt {{ macros.ds_add(ds, -1) }}\",\n    )\n",
+    "fixtures": [
+      {
+        "id": "first-runs",
+        "visibility": "visible",
+        "input_rows": [],
+        "scenario": {
+          "now": "2026-03-02T12:00:00Z",
+          "outcome": "rendered",
+          "columns": [
+            "logical_date",
+            "value"
+          ]
+        },
+        "expected": [
+          {
+            "logical_date": "2026-03-01T00:00:00+00:00",
+            "value": "load_partition --table events --dt 2026-02-28"
+          },
+          {
+            "logical_date": "2026-03-02T00:00:00+00:00",
+            "value": "load_partition --table events --dt 2026-03-01"
+          }
+        ]
+      },
+      {
+        "id": "month-boundary",
+        "visibility": "hidden",
+        "input_rows": [],
+        "scenario": {
+          "now": "2026-04-01T00:30:00Z",
+          "outcome": "rendered",
+          "columns": [
+            "logical_date",
+            "value"
+          ]
+        },
+        "expected": [
+          {
+            "logical_date": "2026-03-01T00:00:00+00:00",
+            "value": "load_partition --table events --dt 2026-02-28"
+          },
+          {
+            "logical_date": "2026-03-02T00:00:00+00:00",
+            "value": "load_partition --table events --dt 2026-03-01"
+          },
+          {
+            "logical_date": "2026-03-03T00:00:00+00:00",
+            "value": "load_partition --table events --dt 2026-03-02"
+          },
+          {
+            "logical_date": "2026-03-04T00:00:00+00:00",
+            "value": "load_partition --table events --dt 2026-03-03"
+          },
+          {
+            "logical_date": "2026-03-05T00:00:00+00:00",
+            "value": "load_partition --table events --dt 2026-03-04"
+          },
+          {
+            "logical_date": "2026-03-06T00:00:00+00:00",
+            "value": "load_partition --table events --dt 2026-03-05"
+          },
+          {
+            "logical_date": "2026-03-07T00:00:00+00:00",
+            "value": "load_partition --table events --dt 2026-03-06"
+          },
+          {
+            "logical_date": "2026-03-08T00:00:00+00:00",
+            "value": "load_partition --table events --dt 2026-03-07"
+          },
+          {
+            "logical_date": "2026-03-09T00:00:00+00:00",
+            "value": "load_partition --table events --dt 2026-03-08"
+          },
+          {
+            "logical_date": "2026-03-10T00:00:00+00:00",
+            "value": "load_partition --table events --dt 2026-03-09"
+          },
+          {
+            "logical_date": "2026-03-11T00:00:00+00:00",
+            "value": "load_partition --table events --dt 2026-03-10"
+          },
+          {
+            "logical_date": "2026-03-12T00:00:00+00:00",
+            "value": "load_partition --table events --dt 2026-03-11"
+          },
+          {
+            "logical_date": "2026-03-13T00:00:00+00:00",
+            "value": "load_partition --table events --dt 2026-03-12"
+          },
+          {
+            "logical_date": "2026-03-14T00:00:00+00:00",
+            "value": "load_partition --table events --dt 2026-03-13"
+          },
+          {
+            "logical_date": "2026-03-15T00:00:00+00:00",
+            "value": "load_partition --table events --dt 2026-03-14"
+          },
+          {
+            "logical_date": "2026-03-16T00:00:00+00:00",
+            "value": "load_partition --table events --dt 2026-03-15"
+          },
+          {
+            "logical_date": "2026-03-17T00:00:00+00:00",
+            "value": "load_partition --table events --dt 2026-03-16"
+          },
+          {
+            "logical_date": "2026-03-18T00:00:00+00:00",
+            "value": "load_partition --table events --dt 2026-03-17"
+          },
+          {
+            "logical_date": "2026-03-19T00:00:00+00:00",
+            "value": "load_partition --table events --dt 2026-03-18"
+          },
+          {
+            "logical_date": "2026-03-20T00:00:00+00:00",
+            "value": "load_partition --table events --dt 2026-03-19"
+          },
+          {
+            "logical_date": "2026-03-21T00:00:00+00:00",
+            "value": "load_partition --table events --dt 2026-03-20"
+          },
+          {
+            "logical_date": "2026-03-22T00:00:00+00:00",
+            "value": "load_partition --table events --dt 2026-03-21"
+          },
+          {
+            "logical_date": "2026-03-23T00:00:00+00:00",
+            "value": "load_partition --table events --dt 2026-03-22"
+          },
+          {
+            "logical_date": "2026-03-24T00:00:00+00:00",
+            "value": "load_partition --table events --dt 2026-03-23"
+          },
+          {
+            "logical_date": "2026-03-25T00:00:00+00:00",
+            "value": "load_partition --table events --dt 2026-03-24"
+          },
+          {
+            "logical_date": "2026-03-26T00:00:00+00:00",
+            "value": "load_partition --table events --dt 2026-03-25"
+          },
+          {
+            "logical_date": "2026-03-27T00:00:00+00:00",
+            "value": "load_partition --table events --dt 2026-03-26"
+          },
+          {
+            "logical_date": "2026-03-28T00:00:00+00:00",
+            "value": "load_partition --table events --dt 2026-03-27"
+          },
+          {
+            "logical_date": "2026-03-29T00:00:00+00:00",
+            "value": "load_partition --table events --dt 2026-03-28"
+          },
+          {
+            "logical_date": "2026-03-30T00:00:00+00:00",
+            "value": "load_partition --table events --dt 2026-03-29"
+          },
+          {
+            "logical_date": "2026-03-31T00:00:00+00:00",
+            "value": "load_partition --table events --dt 2026-03-30"
+          },
+          {
+            "logical_date": "2026-04-01T00:00:00+00:00",
+            "value": "load_partition --table events --dt 2026-03-31"
+          }
+        ]
+      },
+      {
+        "id": "first-run-only",
+        "visibility": "edge",
+        "input_rows": [],
+        "scenario": {
+          "now": "2026-03-01T00:00:00Z",
+          "outcome": "rendered",
+          "columns": [
+            "logical_date",
+            "value"
+          ]
+        },
+        "expected": [
+          {
+            "logical_date": "2026-03-01T00:00:00+00:00",
+            "value": "load_partition --table events --dt 2026-02-28"
+          }
+        ]
+      }
+    ]
+  },
+  "af-retries-flaky-api": {
+    "solution": "from datetime import datetime, timedelta\n\nfrom airflow.sdk import DAG\nfrom airflow.providers.standard.operators.bash import BashOperator\n\nwith DAG(dag_id=\"exchange_rates\", schedule=\"@daily\", start_date=datetime(2026, 3, 5)) as dag:\n    fetch = BashOperator(\n        task_id=\"fetch_rates\",\n        bash_command=\"fetch_rates --day {{ ds }}\",\n        retries=2,\n        retry_delay=timedelta(minutes=10),\n    )\n    publish = BashOperator(task_id=\"publish_rates\", bash_command=\"publish_rates --day {{ ds }}\")\n    fetch >> publish\n",
+    "fixtures": [
+      {
+        "id": "recovers-on-third-try",
+        "visibility": "visible",
+        "input_rows": [],
+        "scenario": {
+          "now": "2026-03-05T12:00:00Z",
+          "outcome": "task_instances",
+          "columns": [
+            "task_id",
+            "state",
+            "try_number",
+            "end_s"
+          ],
+          "tasks": {
+            "fetch_rates": {
+              "fail_attempts": [
+                1,
+                2
+              ]
+            }
+          }
+        },
+        "expected": [
+          {
+            "task_id": "fetch_rates",
+            "state": "success",
+            "try_number": 3,
+            "end_s": 1380.0
+          },
+          {
+            "task_id": "publish_rates",
+            "state": "success",
+            "try_number": 1,
+            "end_s": 1440.0
+          }
+        ]
+      },
+      {
+        "id": "never-recovers",
+        "visibility": "hidden",
+        "input_rows": [],
+        "scenario": {
+          "now": "2026-03-05T12:00:00Z",
+          "outcome": "task_instances",
+          "columns": [
+            "task_id",
+            "state",
+            "try_number",
+            "end_s"
+          ],
+          "tasks": {
+            "fetch_rates": {
+              "fail_attempts": "all"
+            }
+          }
+        },
+        "expected": [
+          {
+            "task_id": "fetch_rates",
+            "state": "failed",
+            "try_number": 3,
+            "end_s": 1380.0
+          },
+          {
+            "task_id": "publish_rates",
+            "state": "upstream_failed",
+            "try_number": 0,
+            "end_s": 1380.0
+          }
+        ]
+      },
+      {
+        "id": "normal-day",
+        "visibility": "edge",
+        "input_rows": [],
+        "scenario": {
+          "now": "2026-03-05T12:00:00Z",
+          "outcome": "task_instances",
+          "columns": [
+            "task_id",
+            "state",
+            "try_number",
+            "end_s"
+          ]
+        },
+        "expected": [
+          {
+            "task_id": "fetch_rates",
+            "state": "success",
+            "try_number": 1,
+            "end_s": 60.0
+          },
+          {
+            "task_id": "publish_rates",
+            "state": "success",
+            "try_number": 1,
+            "end_s": 120.0
+          }
+        ]
+      }
+    ]
+  },
+  "af-cleanup-trigger-rule": {
+    "solution": "from datetime import datetime\n\nfrom airflow.sdk import DAG\nfrom airflow.providers.standard.operators.bash import BashOperator\n\nwith DAG(dag_id=\"staging_refresh\", schedule=\"@daily\", start_date=datetime(2026, 3, 5)) as dag:\n    create_tmp = BashOperator(task_id=\"create_tmp\", bash_command=\"create_tmp_tables\")\n    transform = BashOperator(task_id=\"transform\", bash_command=\"run_transform --day {{ ds }}\")\n    drop_tmp = BashOperator(task_id=\"drop_tmp\", bash_command=\"drop_tmp_tables\", trigger_rule=\"all_done\")\n    create_tmp >> transform >> drop_tmp\n",
+    "fixtures": [
+      {
+        "id": "normal-day",
+        "visibility": "visible",
+        "input_rows": [],
+        "scenario": {
+          "now": "2026-03-05T12:00:00Z",
+          "outcome": "task_instances",
+          "columns": [
+            "task_id",
+            "state"
+          ]
+        },
+        "expected": [
+          {
+            "task_id": "create_tmp",
+            "state": "success"
+          },
+          {
+            "task_id": "transform",
+            "state": "success"
+          },
+          {
+            "task_id": "drop_tmp",
+            "state": "success"
+          }
+        ]
+      },
+      {
+        "id": "transform-fails",
+        "visibility": "hidden",
+        "input_rows": [],
+        "scenario": {
+          "now": "2026-03-05T12:00:00Z",
+          "outcome": "task_instances",
+          "columns": [
+            "task_id",
+            "state"
+          ],
+          "tasks": {
+            "transform": {
+              "fail_attempts": "all"
+            }
+          }
+        },
+        "expected": [
+          {
+            "task_id": "create_tmp",
+            "state": "success"
+          },
+          {
+            "task_id": "transform",
+            "state": "failed"
+          },
+          {
+            "task_id": "drop_tmp",
+            "state": "success"
+          }
+        ]
+      },
+      {
+        "id": "create-fails",
+        "visibility": "edge",
+        "input_rows": [],
+        "scenario": {
+          "now": "2026-03-05T12:00:00Z",
+          "outcome": "task_instances",
+          "columns": [
+            "task_id",
+            "state"
+          ],
+          "tasks": {
+            "create_tmp": {
+              "fail_attempts": "all"
+            }
+          }
+        },
+        "expected": [
+          {
+            "task_id": "create_tmp",
+            "state": "failed"
+          },
+          {
+            "task_id": "transform",
+            "state": "upstream_failed"
+          },
+          {
+            "task_id": "drop_tmp",
+            "state": "success"
+          }
+        ]
+      }
+    ]
+  },
+  "af-watcher-fails-the-run": {
+    "solution": "from datetime import datetime\n\nfrom airflow.sdk import DAG, task\nfrom airflow.providers.standard.operators.bash import BashOperator\n\n\n@task\ndef watcher():\n    raise RuntimeError(\"An upstream task failed; failing the DAG run on purpose.\")\n\n\nwith DAG(dag_id=\"staging_refresh\", schedule=\"@daily\", start_date=datetime(2026, 3, 5)) as dag:\n    create_tmp = BashOperator(task_id=\"create_tmp\", bash_command=\"create_tmp_tables\")\n    transform = BashOperator(task_id=\"transform\", bash_command=\"run_transform --day {{ ds }}\")\n    drop_tmp = BashOperator(task_id=\"drop_tmp\", bash_command=\"drop_tmp_tables\", trigger_rule=\"all_done\")\n    create_tmp >> transform >> drop_tmp\n    [create_tmp, transform, drop_tmp] >> watcher.override(trigger_rule=\"one_failed\")()\n",
+    "fixtures": [
+      {
+        "id": "normal-day",
+        "visibility": "visible",
+        "input_rows": [],
+        "scenario": {
+          "now": "2026-03-05T12:00:00Z",
+          "outcome": "runs",
+          "columns": [
+            "logical_date",
+            "state"
+          ],
+          "tasks": {
+            "watcher": {
+              "fail_attempts": "all"
+            }
+          }
+        },
+        "expected": [
+          {
+            "logical_date": "2026-03-05T00:00:00+00:00",
+            "state": "success"
+          }
+        ]
+      },
+      {
+        "id": "transform-fails",
+        "visibility": "hidden",
+        "input_rows": [],
+        "scenario": {
+          "now": "2026-03-05T12:00:00Z",
+          "outcome": "runs",
+          "columns": [
+            "logical_date",
+            "state"
+          ],
+          "tasks": {
+            "watcher": {
+              "fail_attempts": "all"
+            },
+            "transform": {
+              "fail_attempts": "all"
+            }
+          }
+        },
+        "expected": [
+          {
+            "logical_date": "2026-03-05T00:00:00+00:00",
+            "state": "failed"
+          }
+        ]
+      },
+      {
+        "id": "create-fails",
+        "visibility": "edge",
+        "input_rows": [],
+        "scenario": {
+          "now": "2026-03-05T12:00:00Z",
+          "outcome": "runs",
+          "columns": [
+            "logical_date",
+            "state"
+          ],
+          "tasks": {
+            "watcher": {
+              "fail_attempts": "all"
+            },
+            "create_tmp": {
+              "fail_attempts": "all"
+            }
+          }
+        },
+        "expected": [
+          {
+            "logical_date": "2026-03-05T00:00:00+00:00",
+            "state": "failed"
+          }
+        ]
+      }
+    ]
+  },
+  "af-branch-join": {
+    "solution": "from datetime import datetime\n\nfrom airflow.sdk import DAG\nfrom airflow.providers.standard.operators.bash import BashOperator\nfrom airflow.providers.standard.operators.python import BranchPythonOperator\n\n\ndef choose_load(**context):\n    return \"full_load\" if context[\"logical_date\"].day == 1 else \"incremental_load\"\n\n\nwith DAG(dag_id=\"warehouse_load\", schedule=\"@daily\", start_date=datetime(2026, 3, 5)) as dag:\n    choose = BranchPythonOperator(task_id=\"choose\", python_callable=choose_load)\n    full = BashOperator(task_id=\"full_load\", bash_command=\"load --full\")\n    incremental = BashOperator(task_id=\"incremental_load\", bash_command=\"load --since {{ ds }}\")\n    publish = BashOperator(task_id=\"publish\", bash_command=\"publish_marts\",\n                           trigger_rule=\"none_failed_min_one_success\")\n    choose >> [full, incremental] >> publish\n",
+    "fixtures": [
+      {
+        "id": "incremental-day",
+        "visibility": "visible",
+        "input_rows": [],
+        "scenario": {
+          "now": "2026-03-05T12:00:00Z",
+          "outcome": "task_instances",
+          "columns": [
+            "task_id",
+            "state"
+          ],
+          "tasks": {
+            "choose": {
+              "branch": [
+                "incremental_load"
+              ]
+            }
+          }
+        },
+        "expected": [
+          {
+            "task_id": "choose",
+            "state": "success"
+          },
+          {
+            "task_id": "full_load",
+            "state": "skipped"
+          },
+          {
+            "task_id": "incremental_load",
+            "state": "success"
+          },
+          {
+            "task_id": "publish",
+            "state": "success"
+          }
+        ]
+      },
+      {
+        "id": "full-load-fails",
+        "visibility": "hidden",
+        "input_rows": [],
+        "scenario": {
+          "now": "2026-03-05T12:00:00Z",
+          "outcome": "task_instances",
+          "columns": [
+            "task_id",
+            "state"
+          ],
+          "tasks": {
+            "choose": {
+              "branch": [
+                "full_load"
+              ]
+            },
+            "full_load": {
+              "fail_attempts": "all"
+            }
+          }
+        },
+        "expected": [
+          {
+            "task_id": "choose",
+            "state": "success"
+          },
+          {
+            "task_id": "full_load",
+            "state": "failed"
+          },
+          {
+            "task_id": "incremental_load",
+            "state": "skipped"
+          },
+          {
+            "task_id": "publish",
+            "state": "upstream_failed"
+          }
+        ]
+      },
+      {
+        "id": "both-chosen-one-fails",
+        "visibility": "hidden",
+        "input_rows": [],
+        "scenario": {
+          "now": "2026-03-05T12:00:00Z",
+          "outcome": "task_instances",
+          "columns": [
+            "task_id",
+            "state"
+          ],
+          "tasks": {
+            "choose": {
+              "branch": [
+                "full_load",
+                "incremental_load"
+              ]
+            },
+            "full_load": {
+              "duration_seconds": 30
+            },
+            "incremental_load": {
+              "fail_attempts": "all"
+            }
+          }
+        },
+        "expected": [
+          {
+            "task_id": "choose",
+            "state": "success"
+          },
+          {
+            "task_id": "full_load",
+            "state": "success"
+          },
+          {
+            "task_id": "incremental_load",
+            "state": "failed"
+          },
+          {
+            "task_id": "publish",
+            "state": "upstream_failed"
+          }
+        ]
+      },
+      {
+        "id": "nothing-to-load",
+        "visibility": "edge",
+        "input_rows": [],
+        "scenario": {
+          "now": "2026-03-05T12:00:00Z",
+          "outcome": "task_instances",
+          "columns": [
+            "task_id",
+            "state"
+          ],
+          "tasks": {
+            "choose": {
+              "branch": []
+            }
+          }
+        },
+        "expected": [
+          {
+            "task_id": "choose",
+            "state": "success"
+          },
+          {
+            "task_id": "full_load",
+            "state": "skipped"
+          },
+          {
+            "task_id": "incremental_load",
+            "state": "skipped"
+          },
+          {
+            "task_id": "publish",
+            "state": "skipped"
+          }
+        ]
+      }
+    ]
+  },
+  "af-sensor-soft-fail": {
+    "solution": "from datetime import datetime, timedelta\n\nfrom airflow.sdk import DAG\nfrom airflow.providers.standard.operators.bash import BashOperator\nfrom airflow.providers.standard.sensors.filesystem import FileSensor\n\nwith DAG(dag_id=\"partner_feed\", schedule=\"0 6 * * *\", start_date=datetime(2026, 3, 5)) as dag:\n    wait = FileSensor(\n        task_id=\"wait_for_feed\",\n        filepath=\"/data/partner/{{ ds }}.csv\",\n        poke_interval=timedelta(minutes=10),\n        timeout=timedelta(hours=2),\n        mode=\"reschedule\",\n        soft_fail=True,\n    )\n    load = BashOperator(task_id=\"load_feed\", bash_command=\"load_feed --day {{ ds }}\")\n    wait >> load\n",
+    "fixtures": [
+      {
+        "id": "arrives-after-50-min",
+        "visibility": "visible",
+        "input_rows": [],
+        "scenario": {
+          "now": "2026-03-05T12:00:00Z",
+          "outcome": "task_instances",
+          "columns": [
+            "task_id",
+            "state",
+            "end_s"
+          ],
+          "tasks": {
+            "wait_for_feed": {
+              "sensor_true_after_seconds": 3000
+            }
+          }
+        },
+        "expected": [
+          {
+            "task_id": "wait_for_feed",
+            "state": "success",
+            "end_s": 3000.0
+          },
+          {
+            "task_id": "load_feed",
+            "state": "success",
+            "end_s": 3060.0
+          }
+        ]
+      },
+      {
+        "id": "never-arrives",
+        "visibility": "hidden",
+        "input_rows": [],
+        "scenario": {
+          "now": "2026-03-05T12:00:00Z",
+          "outcome": "task_instances",
+          "columns": [
+            "task_id",
+            "state",
+            "end_s"
+          ]
+        },
+        "expected": [
+          {
+            "task_id": "wait_for_feed",
+            "state": "skipped",
+            "end_s": 7800.0
+          },
+          {
+            "task_id": "load_feed",
+            "state": "skipped",
+            "end_s": 7800.0
+          }
+        ]
+      },
+      {
+        "id": "arrives-at-two-hours",
+        "visibility": "edge",
+        "input_rows": [],
+        "scenario": {
+          "now": "2026-03-05T12:00:00Z",
+          "outcome": "task_instances",
+          "columns": [
+            "task_id",
+            "state",
+            "end_s"
+          ],
+          "tasks": {
+            "wait_for_feed": {
+              "sensor_true_after_seconds": 7200
+            }
+          }
+        },
+        "expected": [
+          {
+            "task_id": "wait_for_feed",
+            "state": "success",
+            "end_s": 7200.0
+          },
+          {
+            "task_id": "load_feed",
+            "state": "success",
+            "end_s": 7260.0
+          }
+        ]
+      }
+    ]
+  },
+  "af-default-args-override": {
+    "solution": "from datetime import datetime, timedelta\n\nfrom airflow.sdk import DAG\nfrom airflow.providers.standard.operators.bash import BashOperator\n\nwith DAG(\n    dag_id=\"billing_export\",\n    schedule=\"@daily\",\n    start_date=datetime(2026, 3, 5),\n    default_args={\"retries\": 2, \"retry_delay\": timedelta(minutes=1)},\n) as dag:\n    extract = BashOperator(task_id=\"extract\", bash_command=\"extract --day {{ ds }}\")\n    transform = BashOperator(task_id=\"transform\", bash_command=\"transform --day {{ ds }}\")\n    send = BashOperator(task_id=\"send_invoices\", bash_command=\"send_invoices --day {{ ds }}\", retries=0)\n    extract >> transform >> send\n",
+    "fixtures": [
+      {
+        "id": "first-tries-fail",
+        "visibility": "visible",
+        "input_rows": [],
+        "scenario": {
+          "now": "2026-03-05T12:00:00Z",
+          "outcome": "task_instances",
+          "columns": [
+            "task_id",
+            "state",
+            "try_number"
+          ],
+          "tasks": {
+            "extract": {
+              "fail_attempts": [
+                1
+              ]
+            },
+            "transform": {
+              "fail_attempts": [
+                1
+              ]
+            },
+            "send_invoices": {
+              "fail_attempts": [
+                1
+              ]
+            }
+          }
+        },
+        "expected": [
+          {
+            "task_id": "extract",
+            "state": "success",
+            "try_number": 2
+          },
+          {
+            "task_id": "transform",
+            "state": "success",
+            "try_number": 2
+          },
+          {
+            "task_id": "send_invoices",
+            "state": "failed",
+            "try_number": 1
+          }
+        ]
+      },
+      {
+        "id": "normal-day",
+        "visibility": "hidden",
+        "input_rows": [],
+        "scenario": {
+          "now": "2026-03-05T12:00:00Z",
+          "outcome": "task_instances",
+          "columns": [
+            "task_id",
+            "state",
+            "try_number"
+          ]
+        },
+        "expected": [
+          {
+            "task_id": "extract",
+            "state": "success",
+            "try_number": 1
+          },
+          {
+            "task_id": "transform",
+            "state": "success",
+            "try_number": 1
+          },
+          {
+            "task_id": "send_invoices",
+            "state": "success",
+            "try_number": 1
+          }
+        ]
+      },
+      {
+        "id": "transform-needs-third-try",
+        "visibility": "edge",
+        "input_rows": [],
+        "scenario": {
+          "now": "2026-03-05T12:00:00Z",
+          "outcome": "task_instances",
+          "columns": [
+            "task_id",
+            "state",
+            "try_number"
+          ],
+          "tasks": {
+            "transform": {
+              "fail_attempts": [
+                1,
+                2
+              ]
+            }
+          }
+        },
+        "expected": [
+          {
+            "task_id": "extract",
+            "state": "success",
+            "try_number": 1
+          },
+          {
+            "task_id": "transform",
+            "state": "success",
+            "try_number": 3
+          },
+          {
+            "task_id": "send_invoices",
+            "state": "success",
+            "try_number": 1
+          }
+        ]
+      }
+    ]
+  }
+}

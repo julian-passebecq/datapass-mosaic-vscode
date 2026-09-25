@@ -250,6 +250,23 @@ export async function run(): Promise<void> {
       const notIn = await submit(antiJoin2, "SELECT customer_id, name FROM customers WHERE customer_id NOT IN (SELECT customer_id FROM orders)");
       assert.equal(notIn.status, "failed", "NOT IN must fail once orders.customer_id contains NULL");
       assert.deepEqual(notIn.checks.map(check => check.passed), [true, false, true], "only the guest-order fixture catches NOT IN");
+
+      // Airflow lab: the DAG file is parsed, never executed; scenarios are simulated.
+      const airflowLab = catalog.filter(item => item.packId === "airflow-lab-v1");
+      assert.equal(airflowLab.length, 13);
+      assert.ok(airflowLab.every(item => item.language === "airflow" && item.truth === "simulated"));
+      const airflowGrading = JSON.parse(new TextDecoder().decode(await vscode.workspace.fs.readFile(
+        vscode.Uri.joinPath(extension.extensionUri, "content", "exercise-packs", "airflow-lab-v1", "grading.server.json")
+      ))) as Record<string, { solution: string }>;
+      const branchJoin = airflowLab.find(item => item.id === "af-branch-join")!;
+      const joined = await submit(branchJoin, airflowGrading[branchJoin.id].solution);
+      assert.equal(joined.status, "passed", JSON.stringify(joined.checks));
+      assert.equal(joined.truth, "simulated");
+      const skippedJoin = await submit(branchJoin, branchJoin.starterSource);
+      assert.equal(skippedJoin.status, "failed", "a default all_success join after a branch must fail");
+      const rejected = await submit(branchJoin, "import os\n");
+      assert.equal(rejected.status, "failed");
+      assert.match(rejected.checks[0].message, /Unsupported import/);
     }],
     ["Pipeline starter compiles into a graph and runs its activities", async () => {
       await vscode.workspace.fs.createDirectory(vscode.Uri.joinPath(root, "pipelines"));

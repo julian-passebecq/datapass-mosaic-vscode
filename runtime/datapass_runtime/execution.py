@@ -104,6 +104,7 @@ class Engine:
                 {'id':'python','available':self.trusted_python,'truth':'trusted local CPython worker; not a security sandbox'},
                 {'id':'polars','available':self.trusted_python and importlib.util.find_spec('polars') is not None,'truth':'real Polars when installed; no substitute'},
                 {'id':'dbt','available':True,'truth':'literal ref/source teaching adapter; SQL executes; not dbt Core'},
+                {'id':'airflow','available':True,'truth':'DAG file parsed, never executed; deterministic Airflow 3 scheduler/task simulation'},
             ],
             'session_generation': self.generation,
             'distributed_spark': False,

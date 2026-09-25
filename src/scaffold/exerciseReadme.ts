@@ -48,7 +48,10 @@ export function exerciseReadme(exercise: ExerciseSummary): string {
   lines.push(
     "## Grading",
     "",
-    "**Run visible** checks the public example above. **Submit** also runs hidden and edge-case fixtures that are not shown here.",
+    exercise.language === "airflow"
+      ? "**Run visible** simulates the public scenario. **Submit** also simulates hidden and edge-case scenarios " +
+        "that are not shown here. The DAG file is parsed, never executed."
+      : "**Run visible** checks the public example above. **Submit** also runs hidden and edge-case fixtures that are not shown here.",
     "",
     "## Workspace rule",
     "",

@@ -37,12 +37,12 @@ Never blur real execution and simulation.
 - Fabric Lab: Fabric-inspired UX; local DuckDB/DuckLake and selected real-local operations; no implicit Microsoft Fabric connection.
 - SparkLab/ZilaCode: bounded PySpark-style semantics; distributed Spark behavior and telemetry are simulated/teaching data.
 - dbt Lab: prefer real dbt Core + dbt-duckdb; static lineage is a fallback, not execution.
-- Airflow Lab: deterministic scheduling simulator; it is not an Airflow scheduler/executor.
+- Airflow Lab: deterministic scheduling simulator; it is not an Airflow scheduler/executor. Airflow DAG files (Practice `airflow` exercises) are parsed by a whitelisted AST reader (`runtime/airflowlab`) and NEVER eval/exec'd; scheduler and task outcomes are simulated with Airflow 3 semantics.
 - Pipeline Lab: the Python-like pipeline source is parsed by a bounded AST compiler and is NEVER eval/exec'd. Supported activity bodies may execute locally. Scheduling remains metadata/simulation.
 
 ## Security boundaries
 
-- Never eval/exec Pipeline Lab source.
+- Never eval/exec Pipeline Lab source or Airflow Lab DAG files.
 - Never silently enable arbitrary Python execution.
 - The local Python worker is process-isolated for lifecycle reasons; it is NOT a security sandbox.
 - Trusted Python/Polars must remain an explicit user choice.
@@ -72,7 +72,7 @@ npm install --no-audit --no-fund
 npm run compile
 npm test
 python -m pip install ./runtime
-python -m compileall -q runtime/datapass_runtime runtime/sparklab
+python -m compileall -q runtime/datapass_runtime runtime/sparklab runtime/airflowlab
 python scripts/runtime_smoke.py
 python scripts/exercise_packs_smoke.py
 npm run test:host   # with DATAPASS_E2E_PYTHON set; see docs/LOCAL_TEST.md

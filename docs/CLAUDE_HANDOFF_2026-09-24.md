@@ -8,13 +8,25 @@ PR #1 merged the implementation branch into `main` with a merge commit (`f35dbe4
 
 Workflow from here: branch from `main` for each tranche, keep CI green, merge through a pull request. The dated sections below record how the project got here; branch names and tips in them are historical.
 
-## 0. Data-engineering patterns pack — Claude, 2026-09-25 (newest)
+## 0. Airflow lab simulator and exercise pack — Claude, 2026-09-25 (newest)
 
-Branch `content/more-exercises`. New pack `content/exercise-packs/de-patterns-v1` (16 authored DuckDB SQL exercises, 5 easy / 8 medium / 3 hard). It fills the gap between `sql-lab-v1` (joins/grouping/windows) and real pipeline work: typing text columns after Mosaic **Import CSV**, latest-per-key CDC dedup with a tie-breaker, the `NOT IN` NULL trap, gaps and islands, 30-minute sessionization, `ASOF LEFT JOIN`, SCD2 validity ranges with `LEAD`, full-row upsert results, a UNION ALL data-quality rule report, a `generate_series` calendar spine, a user-level funnel, `MEDIAN`, monthly cohorts, `string_split`/`UNNEST` tag normalisation, strict `>` watermarks, and `COUNT(*) FILTER` vs the `COUNT(boolean)` trap.
+Branch `content/airflow-lab-v1`. Airflow practice without Airflow, in the local runtime (no FastAPI Cloud, no separate service; `datapass-airflow-runner` stays empty).
+
+- **Simulator** `runtime/airflowlab` (new package, shipped in the VSIX with the runtime): `parser.py` reads a real-looking Airflow DAG file through a whitelisted AST walk and never executes it (classic operators, sensors, TaskFlow `@task`/`@dag`, `>>`/lists/`chain`, `default_args`, timetables); unsupported syntax is rejected with a line number, including Airflow 2 arguments removed in Airflow 3. `schedule.py` creates runs with Airflow 3 timetables (CronTriggerTimetable by default, CronDataIntervalTimetable on request, catchup default False). `simulate.py` simulates task instances (Airflow's TriggerRuleDep rules, retries, execution_timeout, sensor poke/timeout/soft_fail, branch and short-circuit skipping, leaf-based run state). `templates.py` renders `{{ ds }}`-style fields without Jinja or eval. See its README for exactly what is and is not modeled.
+- **Grading**: new exercise language `airflow`, runtime `datapass-airflow-sim-v1`, truth `simulated` (`datapass_runtime/airflow_grading.py`). Fixtures carry a `scenario` (scheduler clock, task behavior, outcome table) instead of input rows; the registry validates it. See `docs/EXERCISE_AUTHORING.md`.
+- **Pack** `airflow-lab-v1` (13 exercises: 6 easy / 5 medium / 2 hard): fan-in/fan-out, TaskFlow data dependencies, catchup, no accidental backfill, weekday cron, data-interval timetable, `ds_add` under the Airflow 3 `@daily` default, retries, all_done cleanup, one_failed watcher, branch join, soft-fail sensor, `default_args` override. Expected rows computed by simulating the references, reviewed by hand; 32 mutants.
+- **Extension**: `airflow` solutions open as `.py`; the brief says the file is parsed, never executed. The Airflow Lab surface is unchanged: it still simulates `airflow/main.dag.json` in the webview. Next step: point it at DAG `.py` files and this runtime simulator, and retire the webview simulator, so there is one Airflow implementation.
+- **Semantics checked against Airflow's code paths from memory, not against a live Airflow**: CronTriggerTimetable vs CronDataIntervalTimetable run creation, `_skip_to_latest`, TriggerRuleDep, sensor timeout after a false poke, `try_number <= retries`. A real-Airflow oracle (like the Spark one in `fastapispark` PR #1) would be the way to verify them.
+
+Checked: `npm run compile`; `npm test` (airflow brief, package boundary); `pip install ./runtime`; compileall; `runtime_smoke.py` (parser rejections, both timetables, catchup, a trigger-rule table, retries, sensor timeout, templates); `exercise_packs_smoke.py` → 186 references pass, 186 starters and 220 mutants rejected; `npm run test:host` (branch-join reference passes, starter fails, `import os` rejected). Not re-checked in a real F5 session.
+
+## 0a. Data-engineering patterns pack — Claude, 2026-09-25
+
+Merged as PR #6 (`63e5f0b`). Branch `content/more-exercises`. New pack `content/exercise-packs/de-patterns-v1` (16 authored DuckDB SQL exercises, 5 easy / 8 medium / 3 hard). It fills the gap between `sql-lab-v1` (joins/grouping/windows) and real pipeline work: typing text columns after Mosaic **Import CSV**, latest-per-key CDC dedup with a tie-breaker, the `NOT IN` NULL trap, gaps and islands, 30-minute sessionization, `ASOF LEFT JOIN`, SCD2 validity ranges with `LEAD`, full-row upsert results, a UNION ALL data-quality rule report, a `generate_series` calendar spine, a user-level funnel, `MEDIAN`, monthly cohorts, `string_split`/`UNNEST` tag normalisation, strict `>` watermarks, and `COUNT(*) FILTER` vs the `COUNT(boolean)` trap.
 
 Every exercise has a visible, a hidden and an edge fixture designed around its pitfall, a runnable starter that fails, and 1-3 mutants (34 in total). Expected rows were computed by running the reference over the grader's own typed fixture CTEs, then reviewed by hand. Gate: `exercise_packs_smoke.py` → 173 references pass, 173 starters and 188 mutants rejected; `de-patterns-v1` joined `RUNNABLE_STARTER_PACKS`. The host E2E grades `de-not-in-null-trap` from the extension catalog (the reference passes; `NOT IN` fails only on the guest-order fixture).
 
-## 0a. Mosaic CSV import — Claude, 2026-09-25
+## 0b. Mosaic CSV import — Claude, 2026-09-25
 
 Merged as PR #4 (`aeb7aef`).
 
@@ -26,7 +38,7 @@ Branch `feature/mosaic-import-csv`. Gives learners a way to load their own data 
 
 Checked: `npm run compile`; `npm test` (new `csv_import_smoke.mjs`); `runtime_smoke.py` (new TestClient block: import, catalog, duplicate/non-bronze/injection-name/malformed/over-limit/extra-`path` refusals, CAST query); compileall; pack smoke; `npm run test:host` (new step, 17/17); browser harness render of the preview and the button → `importCsv` message. Not re-checked in a real F5 session (the native file picker and input box are only exercised through the host classes).
 
-## 0b. Polish tranche — Claude, 2026-09-25
+## 0c. Polish tranche — Claude, 2026-09-25
 
 Merged as PR #3 (`603babd`). Branch `polish/setup-progress-and-lockfile`. Closes the three "known, not fixed" items from the F5 pass below and the lockfile decision.
 
@@ -37,7 +49,7 @@ Merged as PR #3 (`603babd`). Branch `polish/setup-progress-and-lockfile`. Closes
 
 Checked: `npm run compile`, `npm test` (new parser assertions in `runtime_environment_smoke.mjs`), the Python gates, and the built webview in a browser harness with a stubbed VS Code API (setup-progress card, pipeline header, minimap computed colors in a dark theme). Not re-checked in a real F5 session.
 
-## 0c. Manual F5 pass — Claude, 2026-09-25
+## 0d. Manual F5 pass — Claude, 2026-09-25
 
 A real VS Code 1.139 Extension Development Host (fresh profile, disposable workspace, managed runtime set up through the UI) was driven over the Chrome DevTools Protocol: real webview buttons, the real modal dialog, real mouse drags, screenshots. This replaced the "NOT exercised" item from the earlier tranche.
 
@@ -53,11 +65,11 @@ Bugs found and fixed:
 6. **Start runtime without an open folder** started anyway, then HTTP 500s. Now refused with a clear message.
 7. Badges wrapped out of their pills; Output panel popped open on every start; a broken dbt install dumped a 20-line traceback into the dbt card (now one line). QUICKSTART/README used stale button labels.
 
-Known, not fixed at the time (all three addressed in §0b): first **Setup runtime** took ~15 min on this Windows machine (pip unpacking under antivirus); only the output channel shows progress. React Flow minimap is light in dark theme. Pipeline header shows the compiler's `compiled_design_only` truth next to executable activities.
+Known, not fixed at the time (all three addressed in §0c): first **Setup runtime** took ~15 min on this Windows machine (pip unpacking under antivirus); only the output channel shows progress. React Flow minimap is light in dark theme. Pipeline header shows the compiler's `compiled_design_only` truth next to executable activities.
 
 The driver lives outside the repo (Playwright over CDP); if you repeat it, launch Code with `--folder-uri`, `--disable-features=CalculateNativeWinOcclusion --disable-backgrounding-occluded-windows`, and `window.dialogStyle: custom`, and use DOM clicks inside webviews.
 
-## 0d. Content tranche — Claude, 2026-09-24
+## 0e. Content tranche — Claude, 2026-09-24
 
 | Commit | Change |
 | --- | --- |
@@ -115,9 +127,9 @@ NOT exercised: a human F5 session clicking through the real webview inside VS Co
 
 1. Manual F5 pass over the new UI (see "NOT exercised" above), then decide on un-drafting PR #1. *(Done 2026-09-25; PR #1 merged.)*
 2. P2 content: promote exercises from `legacy-donors/leetcodedataeng`. The grader uses a single `input` fixture table per exercise (`content/exercise-packs/*/grading.server.json`); most donor SQL problems are multi-table, so either extend fixtures to named tables or re-author. Add each exercise to the runtime smoke with its reference solution.
-3. ~~A Mosaic "Import CSV into catalog" action~~ Done (§0a).
+3. ~~A Mosaic "Import CSV into catalog" action~~ Done (§0b).
 4. If wiring Pipeline dbt later: extend the trusted-local opt-in to dbt, validate the project path against the manifest `assets.dbt`, reuse `dbt_runner` artifact validation, never report success without a qualified manifest/run_results pair.
-5. ~~`package-lock.json` is not committed~~ Done: the lockfile is committed and CI uses `npm ci` (§0b).
+5. ~~`package-lock.json` is not committed~~ Done: the lockfile is committed and CI uses `npm ci` (§0c).
 
 ## 1. Start here
 
@@ -431,7 +443,7 @@ Proceed in this order unless a newly reproduced bug blocks the sequence.
 1. Branch from `main` for each tranche; merge back through a pull request.
 2. Keep CI green after every coherent tranche.
 3. Do not force-push or rewrite `main` history.
-4. For user-facing changes, repeat the manual F5 pass (see §0) before merging.
+4. For user-facing changes, repeat the manual F5 pass (see §0d) before merging.
 
 Status after the 2026-09-24 Claude tranches: P1 trusted Python — done; P1 SparkLab — done; P1 E2E — done (`npm run test:host`); P2 pipeline dbt — decided: explicitly unsupported; P2 Mosaic durability — done; P2 content — donor Practice content promoted: `sql-lab-v1` (60), `engine-lab-v1` (68 variants), `python-lab-v1` (12); non-gradable donor tracks intentionally left to reference material. Manual F5 pass done on 2026-09-25 and PR #1 merged to `main`. Remaining: the known limitations listed in §0 and further content.
 
@@ -514,7 +526,7 @@ Runtime:
 
 ```bash
 python -m pip install ./runtime
-python -m compileall -q runtime/datapass_runtime runtime/sparklab
+python -m compileall -q runtime/datapass_runtime runtime/sparklab runtime/airflowlab
 python scripts/runtime_smoke.py
 python scripts/exercise_packs_smoke.py
 ```
