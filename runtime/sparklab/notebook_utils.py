@@ -16,6 +16,10 @@ catalog as they are reached:
 - `dbutils.widgets.text/dropdown(name, default, ...)` declare a Databricks
   parameter; `dbutils.widgets.get(name)` reads the value the pipeline passed
   (baseParameters) or the default.
+- `dbutils.jobs.taskValues.set(key, value)` / `.get(taskKey, key, default, debugValue)`:
+  task values passed between the tasks of a Databricks job run (JSON values, at
+  most 48 KiB each), available when the job runner supplies them.
+- `df.collect()` / `df.first()`: at most 1,000 rows as Rows (`row['col']`, `row[0]`).
 - `display(df)` shows a DataFrame and `print(...)` does nothing: output is not captured.
 
 Fabric and Synapse pass pipeline parameters by injecting assignments right after
@@ -40,6 +44,35 @@ class NotebookRuntime(Protocol):
     def count(self, dataframe: Any) -> int: ...
     def statement(self, sql: str) -> None: ...
     def save_as_table(self, dataframe: Any, table: str, mode: str, partition_by: tuple[str, ...]) -> str: ...
+    def fetch(self, sql: str, limit: int) -> list[tuple[Any, ...]]: ...  # rows for pyspark.ml
+    def fetch_rows(self, sql: str, limit: int) -> tuple[list[str], list[tuple[Any, ...]]]: ...  # collect()
+
+
+class TaskValueStore(Protocol):
+    """Task values of the current job run (supplied by the Databricks job runner)."""
+
+    def set(self, key: str, value: Any) -> None: ...
+    def get(self, task_key: str, key: str) -> tuple[bool, Any]: ...
+
+
+class Row:
+    """A collected row: row['name'] or row[0]; asDict() gives a dict."""
+
+    def __init__(self, columns: list[str], values: tuple[Any, ...]):
+        self._columns, self._values = list(columns), tuple(values)
+
+    def __getitem__(self, key: Any) -> Any:
+        if isinstance(key, int) and not isinstance(key, bool):
+            return self._values[key]
+        if isinstance(key, str) and key in self._columns:
+            return self._values[self._columns.index(key)]
+        raise ValueError(f"Row has no field {key!r}")
+
+    def asDict(self) -> dict[str, Any]:
+        return dict(zip(self._columns, self._values))
+
+    def __repr__(self) -> str:
+        return 'Row(' + ', '.join(f"{c}={v!r}" for c, v in zip(self._columns, self._values)) + ')'
 
 
 class NotebookExit(Exception):
@@ -136,10 +169,52 @@ class _Widgets:
                          "(declare it with dbutils.widgets.text or pass it in baseParameters)")
 
 
+MAX_TASK_VALUE_BYTES = 48 * 1024
+_UNSET = object()
+
+
+class _TaskValues:
+    def __init__(self, store: TaskValueStore | None):
+        self.store = store
+
+    def set(self, key: str, value: Any) -> None:
+        import json
+        if not isinstance(key, str) or not key:
+            raise ValueError('Task value keys are strings')
+        try:
+            text = json.dumps(value)
+        except (TypeError, ValueError):
+            raise ValueError(f"Task value {key!r} must be JSON: text, a number, a boolean, a list or a dict") from None
+        if len(text.encode('utf-8')) > MAX_TASK_VALUE_BYTES:
+            raise ValueError(f"Task value {key!r} is larger than 48 KiB")
+        if self.store is None:
+            return  # outside a job run the value goes nowhere, as in an interactive notebook
+        self.store.set(key, json.loads(text))
+
+    def get(self, taskKey: str, key: str, default: Any = _UNSET, debugValue: Any = _UNSET) -> Any:
+        if self.store is None:
+            if debugValue is not _UNSET:
+                return debugValue
+            raise ValueError('dbutils.jobs.taskValues.get outside a job run needs a debugValue')
+        found, value = self.store.get(taskKey, key)
+        if found:
+            return value
+        if default is not _UNSET:
+            return default
+        raise ValueError(f"No task value {key!r} was set by task {taskKey!r} in this run (only tasks that already "
+                         "ran can be read)")
+
+
+class _Jobs:
+    def __init__(self, store: TaskValueStore | None):
+        self.taskValues = _TaskValues(store)
+
+
 class DbUtils:
-    def __init__(self, parameters: dict[str, Any]):
+    def __init__(self, parameters: dict[str, Any], task_values: TaskValueStore | None = None):
         self.widgets = _Widgets(parameters)
         self.notebook = _NotebookApi()
+        self.jobs = _Jobs(task_values)
 
 
 def no_op(*args: Any, **kwargs: Any) -> None:

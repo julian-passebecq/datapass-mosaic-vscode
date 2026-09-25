@@ -2,7 +2,17 @@ import * as vscode from "vscode";
 import { AIRFLOW_STARTER_FILE, airflowPaths } from "./airflowState";
 import { loadExerciseCatalog } from "./exerciseCatalog";
 import { decodeCsvBytes, suggestBronzeAsset, validateBronzeAsset } from "./platform/csvImport";
-import { collectFactoryFiles, copyFactorySamples, factoryFileUri, factoryRoot, pipelineUri, readPoolScript } from "./factoryState";
+import {
+  collectDatabricksFiles,
+  collectFactoryFiles,
+  copyFactorySamples,
+  databricksJobPath,
+  factoryFileUri,
+  factoryRoot,
+  pipelineUri,
+  readPoolScript
+} from "./factoryState";
+import { JOB_NAME } from "./platform/databricksRun";
 import { FACTORY_FLAVORS, PIPELINE_NAME, pipelineRelativePath } from "./platform/factoryRun";
 import { SQLPOOL_FLAVORS, SQLPOOL_LIMITS, isValidScale } from "./platform/sqlpoolRun";
 import { probeDbtCli } from "./dbtState";
@@ -20,6 +30,7 @@ import type {
   AirflowScenarioInput,
   FactoryFlavor,
   FactoryScenarioInput,
+  DatabricksScenarioInput,
   ScratchKind,
   SqlPoolFlavor,
   WebviewToHostMessage
@@ -225,6 +236,12 @@ export class WorkbenchPanel {
         break;
       case "revealSqlPoolLine":
         await this.revealSqlPoolLine(message.line);
+        break;
+      case "simulateDatabricks":
+        await this.simulateDatabricks(message.name, message.scenario);
+        break;
+      case "refreshDatabricksState":
+        await this.refreshDatabricksState();
         break;
       case "openDbtProject":
         await this.openDbtProject();
@@ -771,7 +788,7 @@ export class WorkbenchPanel {
     const starter = pipelineUri("fabric", "pl_retail_daily");
     if (starter && (await exists(starter))) await this.openBeside(starter);
     void vscode.window.showInformationMessage(
-      "Cloud Lab files are in factory/: the same daily load for Fabric, Azure Data Factory and Synapse, with notebooks, a stored procedure and T-SQL scripts for the SQL pool tab (factory/sql/pool). Existing files were kept."
+      "Cloud Lab files are in factory/: the same daily load for Fabric, Azure Data Factory and Synapse, notebooks, a stored procedure, T-SQL scripts for the SQL pool tab (factory/sql/pool) and Databricks jobs (factory/databricks). Existing files were kept."
     );
     await this.refresh();
   }
@@ -867,6 +884,39 @@ export class WorkbenchPanel {
       void vscode.window.showErrorMessage(
         `SQL pool run failed: ${error instanceof Error ? error.message : String(error)}`
       );
+    }
+    await this.refresh();
+  }
+
+  /** Run a Databricks job of the Cloud Lab: the runtime simulates it; notebook and SQL tasks run on the catalog. */
+  private async simulateDatabricks(name: string, scenario: DatabricksScenarioInput): Promise<void> {
+    if (!JOB_NAME.test(name)) return;
+    const root = factoryRoot();
+    if (root) {
+      for (const document of vscode.workspace.textDocuments) {
+        if (document.isDirty && document.uri.toString().startsWith(root.toString() + "/")) await document.save();
+      }
+    }
+    const { files, jobs, warnings } = await collectDatabricksFiles();
+    const path = databricksJobPath(name);
+    const document = jobs[name];
+    if (!document) {
+      void vscode.window.showWarningMessage(`Job ${name} is missing or is not valid JSON (${path}).`);
+      return;
+    }
+    try {
+      await this.runtimeManager.simulateDatabricks({ name, path, document, files, scenario, warnings });
+    } catch (error) {
+      void vscode.window.showErrorMessage(`Databricks job run failed: ${error instanceof Error ? error.message : String(error)}`);
+    }
+    await this.refresh();
+  }
+
+  private async refreshDatabricksState(): Promise<void> {
+    try {
+      await this.runtimeManager.exploreDatabricks((await collectDatabricksFiles()).files);
+    } catch (error) {
+      void vscode.window.showErrorMessage(`Databricks state refresh failed: ${error instanceof Error ? error.message : String(error)}`);
     }
     await this.refresh();
   }

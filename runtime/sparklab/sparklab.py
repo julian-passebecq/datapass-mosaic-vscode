@@ -257,10 +257,13 @@ class DataFrame:
         self.source = source
         self.ops = list(ops or [])
         self.hints: set[str] = set()
+        # pyspark.ml feature vectors: vector column name -> the numeric columns it stands for.
+        self.vectors: dict[str, tuple[str, ...]] = {}
 
     def _clone(self) -> "DataFrame":
         c = DataFrame(self.session, self.source, self.ops)
         c.hints = set(self.hints)
+        c.vectors = dict(self.vectors)
         return c
 
     def filter(self, expr: Expr) -> "DataFrame":
@@ -355,6 +358,51 @@ class DataFrame:
     def write(self) -> Any:
         from .notebook_utils import DataFrameWriter
         return DataFrameWriter(self)
+
+    def collect(self) -> list[Any]:
+        """An action: at most 1,000 rows, as Rows (row['col'] or row[0])."""
+        from .notebook_utils import Row
+        runtime = self.session.notebook_runtime
+        if runtime is None or not hasattr(runtime, 'fetch_rows'):
+            raise ValueError('collect() is an action; in SparkLab cells, Run shows the result instead')
+        columns, rows = runtime.fetch_rows(self.sql, 1001)
+        if len(rows) > 1000:
+            raise ValueError('collect() is limited to 1,000 rows in the lab: aggregate or limit() first')
+        return [Row(columns, row) for row in rows]
+
+    def first(self) -> Any:
+        rows = self.limit(1).collect()
+        return rows[0] if rows else None
+
+    @property
+    def columns(self) -> list[str]:
+        known = self.current_columns()
+        if known is None:
+            raise ValueError('The columns of this DataFrame are not known')
+        return list(known)
+
+    def randomSplit(self, weights: list[float], seed: int | None = None) -> list["DataFrame"]:
+        """A stable split: each row falls in a bucket by an md5 of its values and the seed."""
+        if not isinstance(weights, (list, tuple)) or len(weights) < 2 or any(
+                not isinstance(w, (int, float)) or w <= 0 for w in weights):
+            raise ValueError('randomSplit needs at least two positive weights, for example [0.8, 0.2]')
+        if seed is not None and type(seed) is not int:
+            raise ValueError('randomSplit seed must be an integer')
+        known = self.current_columns()
+        if not known:
+            raise ValueError('randomSplit needs a DataFrame with known columns')
+        values = ", ".join(f"COALESCE(CAST({_quote(c)} AS VARCHAR), '<null>')" for c in known)
+        bucket = (f"(('0x' || substr(md5(concat_ws('|', {values}, '{seed or 0}')), 1, 8))::BIGINT "
+                  f"/ 4294967296.0)")
+        total = float(sum(weights))
+        splits, low = [], 0.0
+        for index, weight in enumerate(weights):
+            high = 1.0 if index == len(weights) - 1 else low + weight / total
+            part = self.filter(Expr(f"({bucket} >= {low!r} AND {bucket} < {high!r})"
+                                    if index < len(weights) - 1 else f"({bucket} >= {low!r})"))
+            splits.append(part)
+            low = high
+        return splits
 
 
     def _source_columns(self) -> list[str] | None:

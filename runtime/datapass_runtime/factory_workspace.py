@@ -24,7 +24,7 @@ from factorylab.lab import factory_view
 from sparklab.safe_parser import SafeSparkParser, SparkLabSyntaxError
 from sparklab.sparklab import SparkSession
 
-from .catalog import ASSET, Catalog, sql_tokens
+from .catalog import ASSET, Catalog, sql_tokens, validate_sql
 
 SPARK_HOME = Path(__file__).resolve().parents[1] / 'sparklab'
 NOTEBOOK_HOMES = {
@@ -57,6 +57,15 @@ class CatalogNotebookRuntime:
 
     def count(self, dataframe: Any) -> int:
         return int(self.catalog.query(f"SELECT COUNT(*) AS n FROM ({dataframe.sql}) AS notebook_count")['rows'][0]['n'])
+
+    def fetch(self, sql: str, limit: int) -> list[tuple[Any, ...]]:
+        return self.fetch_rows(sql, limit)[1]
+
+    def fetch_rows(self, sql: str, limit: int) -> tuple[list[str], list[tuple[Any, ...]]]:
+        """Rows of a SparkLab-compiled query (collect(), pyspark.ml); validated as one read-only query."""
+        query = validate_sql(sql, read_only=True)[0]
+        cursor = self.catalog.db.execute(f"SELECT * FROM ({query}) AS notebook_rows LIMIT {int(limit)}")
+        return [d[0] for d in cursor.description], cursor.fetchall()
 
     def statement(self, sql: str) -> None:
         self.catalog.execute(sql, self.producer)

@@ -11,9 +11,24 @@ import ast
 from dataclasses import dataclass, field
 from typing import Any
 
-from .notebook_utils import (DataFrameWriter, DbUtils, NotebookExit, NotebookUtils, _NotebookApi, _Widgets, no_op,
-                             parameters_cell_end)
+from . import ml
+from .mlflow_api import (ActiveRun, MLflowApi, MlflowClient, MlflowStore, ModelInfo, ModelVersion, RunInfo,
+                         Signature, _ModelsModule, _SparkFlavor)
+from .notebook_utils import (DataFrameWriter, DbUtils, NotebookExit, NotebookUtils, Row, TaskValueStore, _Jobs,
+                             _NotebookApi, _TaskValues, _Widgets, no_op, parameters_cell_end)
 from .sparklab import DataFrame, Expr, GroupedData, ReadBuilder, SparkSession, Window, WindowSpec, functions as F
+
+# pyspark.ml names a notebook can import (a bounded, lab-implemented subset).
+ML_IMPORTS = {
+    'pyspark.ml': {'Pipeline': ml.Pipeline, 'PipelineModel': ml.PipelineModel},
+    'pyspark.ml.feature': {'VectorAssembler': ml.VectorAssembler},
+    'pyspark.ml.regression': {'LinearRegression': ml.LinearRegression},
+    'pyspark.ml.classification': {'LogisticRegression': ml.LogisticRegression},
+    'pyspark.ml.evaluation': {'RegressionEvaluator': ml.RegressionEvaluator,
+                              'BinaryClassificationEvaluator': ml.BinaryClassificationEvaluator,
+                              'MulticlassClassificationEvaluator': ml.MulticlassClassificationEvaluator},
+}
+MLFLOW_MODULES = {'mlflow', 'mlflow.spark', 'mlflow.models', 'mlflow.tracking'}
 
 NOTEBOOK_STYLES = ('fabric', 'synapse', 'databricks')
 
@@ -52,6 +67,7 @@ class SafeSparkParser:
         }
         self.last_dataframe_name: str | None = None
         self.notebook_mode = False
+        self.mlflow: MLflowApi | None = None
 
     def parse(self, source: str) -> ParseResult:
         self.last_dataframe_name = None
@@ -71,7 +87,8 @@ class SafeSparkParser:
             raise SparkLabSyntaxError("Final result is not a DataFrame")
         return ParseResult(value, dict(self.symbols), self.last_dataframe_name, self.action)
 
-    def run_notebook(self, source: str, parameters: dict[str, Any], style: str) -> NotebookRun:
+    def run_notebook(self, source: str, parameters: dict[str, Any], style: str,
+                     task_values: TaskValueStore | None = None, mlflow: MlflowStore | None = None) -> NotebookRun:
         """Run a pipeline notebook statement by statement, still without eval/exec.
 
         The session's notebook runtime performs table writes, spark.sql statements
@@ -90,9 +107,10 @@ class SafeSparkParser:
         self.notebook_mode = True
         self.last_dataframe_name = None
         self.symbols.update({'display': self._display, 'print': no_op, 'str': str, 'int': int, 'float': float,
-                             'bool': bool})
+                             'bool': bool, 'round': round, 'len': len, 'abs': abs})
+        self.mlflow = MLflowApi(mlflow) if mlflow is not None else None
         if style == 'databricks':
-            self.symbols['dbutils'] = DbUtils(dict(parameters))
+            self.symbols['dbutils'] = DbUtils(dict(parameters), task_values)
         else:
             self.symbols['notebookutils'] = self.symbols['mssparkutils'] = NotebookUtils()
         run = NotebookRun()
@@ -110,8 +128,8 @@ class SafeSparkParser:
                 run.exited, run.exit_value = True, done.value
                 break
             except Exception as exc:  # SparkLab and catalog errors both stop the notebook at this line
-                raise SparkLabSyntaxError(f"line {stmt.lineno}: {exc}") from exc
-            target = stmt.targets[0].id if isinstance(stmt, ast.Assign) else None
+                raise SparkLabSyntaxError(str(exc) if str(exc).startswith('line ') else f"line {stmt.lineno}: {exc}") from exc
+            target = stmt.targets[0].id if isinstance(stmt, ast.Assign) and isinstance(stmt.targets[0], ast.Name) else None
             if run.injected and target in run.injected:
                 where = ('there is no parameters cell, so the pipeline values were injected at the top'
                          if cell_end is None else 'this line runs after the parameters cell')
@@ -136,6 +154,22 @@ class SafeSparkParser:
         if isinstance(node, (ast.Import, ast.ImportFrom)):
             self._handle_import(node)
             return
+        if isinstance(node, ast.Assign) and self.notebook_mode and len(node.targets) == 1 and isinstance(
+                node.targets[0], (ast.Tuple, ast.List)):
+            names = node.targets[0].elts
+            if not all(isinstance(n, ast.Name) for n in names):
+                raise SparkLabSyntaxError("Unpack into plain names, for example train, test = df.randomSplit(...)")
+            values = self._expr(node.value)
+            if not isinstance(values, (list, tuple)) or len(values) != len(names):
+                raise SparkLabSyntaxError(f"Cannot unpack into {len(names)} names")
+            for target, value in zip(names, values):
+                self.symbols[target.id] = value
+                if isinstance(value, DataFrame):
+                    self.last_dataframe_name = target.id
+            return
+        if isinstance(node, ast.With) and self.notebook_mode:
+            self._with(node)
+            return
         if isinstance(node, ast.Assign):
             if len(node.targets) != 1 or not isinstance(node.targets[0], ast.Name):
                 raise SparkLabSyntaxError("Only simple variable assignments are supported")
@@ -153,6 +187,78 @@ class SafeSparkParser:
             return
         raise SparkLabSyntaxError(f"Unsupported statement: {type(node).__name__}")
 
+    def _with(self, node: ast.With) -> None:
+        """`with mlflow.start_run(...) as run:`: the only context manager a notebook can use."""
+        if len(node.items) != 1:
+            raise SparkLabSyntaxError('with takes one context: with mlflow.start_run() as run:')
+        item = node.items[0]
+        context = self._expr(item.context_expr)
+        if not isinstance(context, ActiveRun):
+            raise SparkLabSyntaxError('Only `with mlflow.start_run(...)` is supported as a with block')
+        if item.optional_vars is not None:
+            if not isinstance(item.optional_vars, ast.Name):
+                raise SparkLabSyntaxError('with ... as takes a plain name')
+            self.symbols[item.optional_vars.id] = context._lab_enter()
+        failed = True
+        try:
+            for stmt in node.body:
+                try:
+                    self._stmt(stmt)
+                except NotebookExit:
+                    raise
+                except Exception as exc:
+                    raise SparkLabSyntaxError(exc if str(exc).startswith('line ') else f"line {stmt.lineno}: {exc}") from exc
+            failed = False
+        except NotebookExit:
+            failed = False
+            raise
+        finally:
+            context._lab_exit(failed)
+
+    def _import_notebook_libraries(self, node: ast.Import | ast.ImportFrom) -> bool:
+        """pyspark.ml and mlflow imports in notebooks; True when handled."""
+        if isinstance(node, ast.Import):
+            names = [a.name for a in node.names]
+            if all(n in MLFLOW_MODULES for n in names):
+                api = self._mlflow_api()
+                for alias in node.names:
+                    if alias.asname:
+                        target = api if alias.name == 'mlflow' else api.spark if alias.name == 'mlflow.spark' else \
+                            api.models if alias.name == 'mlflow.models' else api
+                        self.symbols[alias.asname] = target
+                    else:
+                        self.symbols['mlflow'] = api
+                return True
+            if all(n in ML_IMPORTS for n in names):
+                raise SparkLabSyntaxError('Import pyspark.ml names explicitly, for example '
+                                          'from pyspark.ml.regression import LinearRegression')
+            return False
+        module = node.module or ''
+        if module in ML_IMPORTS:
+            for alias in node.names:
+                if alias.name not in ML_IMPORTS[module]:
+                    raise SparkLabSyntaxError(f"Unsupported {module} import: {alias.name} (the lab supports "
+                                              f"{', '.join(ML_IMPORTS[module])})")
+                self.symbols[alias.asname or alias.name] = ML_IMPORTS[module][alias.name]
+            return True
+        if module in MLFLOW_MODULES:
+            api = self._mlflow_api()
+            exports = {'mlflow': {'MlflowClient': api.MlflowClient, 'spark': api.spark, 'models': api.models},
+                       'mlflow.tracking': {'MlflowClient': api.MlflowClient},
+                       'mlflow.models': {'infer_signature': api.models.infer_signature},
+                       'mlflow.spark': {'log_model': api.spark.log_model, 'load_model': api.spark.load_model}}[module]
+            for alias in node.names:
+                if alias.name not in exports:
+                    raise SparkLabSyntaxError(f"Unsupported {module} import: {alias.name}")
+                self.symbols[alias.asname or alias.name] = exports[alias.name]
+            return True
+        return False
+
+    def _mlflow_api(self) -> MLflowApi:
+        if self.mlflow is None:
+            raise SparkLabSyntaxError('MLflow is available in notebooks run by a Databricks job in the lab')
+        return self.mlflow
+
     def _handle_import(self, node: ast.Import | ast.ImportFrom) -> None:
         """Accept common PySpark SQL imports and bind their aliases safely.
 
@@ -160,6 +266,8 @@ class SafeSparkParser:
         executed. Names are mapped to SparkLab's already-whitelisted objects.
         """
         allowed_modules = {"pyspark.sql", "pyspark.sql.functions", "pyspark.sql.window"}
+        if self.notebook_mode and self._import_notebook_libraries(node):
+            return
         if self.notebook_mode and isinstance(node, (ast.Import, ast.ImportFrom)):
             # Fabric and Synapse notebooks often import their utilities; bind the lab objects instead.
             names = [a.name for a in node.names] if isinstance(node, ast.Import) else [node.module or '']
@@ -227,6 +335,13 @@ class SafeSparkParser:
             return ''.join(parts)
         if isinstance(node, ast.Tuple):
             return tuple(self._expr(x) for x in node.elts)
+        if isinstance(node, ast.Dict) and self.notebook_mode:
+            if any(k is None for k in node.keys):
+                raise SparkLabSyntaxError('Dict unpacking (**) is not supported')
+            keys = [self._expr(k) for k in node.keys]
+            if not all(isinstance(k, str) for k in keys):
+                raise SparkLabSyntaxError('Dict keys must be text')
+            return {k: self._expr(v) for k, v in zip(keys, node.values)}
         if isinstance(node, ast.List):
             return [self._expr(x) for x in node.elts]
         if isinstance(node, ast.Subscript):
@@ -234,6 +349,17 @@ class SafeSparkParser:
             key = self._expr(node.slice)
             if isinstance(base, DataFrame) and isinstance(key, str):
                 return F.col(key)
+            if self.notebook_mode:
+                if isinstance(base, Row):
+                    return base[key]
+                if isinstance(base, (list, tuple)) and isinstance(key, int) and not isinstance(key, bool):
+                    if not -len(base) <= key < len(base):
+                        raise SparkLabSyntaxError(f"Index {key} is out of range")
+                    return base[key]
+                if isinstance(base, dict) and isinstance(key, str):
+                    if key not in base:
+                        raise SparkLabSyntaxError(f"No key {key!r}")
+                    return base[key]
             raise SparkLabSyntaxError("Only DataFrame string column access is supported in subscripts")
         if isinstance(node, ast.Call):
             return self._call(node)
@@ -304,15 +430,33 @@ class SafeSparkParser:
 
     def _notebook_attribute(self, base: Any, attr: str) -> tuple[bool, Any]:
         allowed: dict[type, set[str]] = {
-            SparkSession: {'sql'}, DataFrame: {'write', 'count'}, ReadBuilder: {'table'},
+            SparkSession: {'sql'}, DataFrame: {'write', 'count', 'collect', 'first', 'columns', 'randomSplit'},
+            ReadBuilder: {'table'},
             DataFrameWriter: {'mode', 'format', 'option', 'partitionBy', 'saveAsTable'},
             NotebookUtils: {'notebook'}, _NotebookApi: {'exit', 'run'},
-            DbUtils: {'widgets', 'notebook'}, _Widgets: {'text', 'dropdown', 'get'},
+            DbUtils: {'widgets', 'notebook', 'jobs'}, _Widgets: {'text', 'dropdown', 'get'},
+            _Jobs: {'taskValues'}, _TaskValues: {'set', 'get'}, Row: {'asDict'},
+            ml.VectorAssembler: {'transform', 'fit'}, ml.LinearRegression: {'fit'}, ml.LogisticRegression: {'fit'},
+            ml.Pipeline: {'fit'}, ml.PipelineModel: {'transform', 'stages'},
+            ml.LinearRegressionModel: {'transform', 'coefficients', 'intercept', 'summary'},
+            ml.LogisticRegressionModel: {'transform', 'coefficients', 'intercept', 'summary'},
+            ml._Summary: {'rootMeanSquaredError', 'r2', 'meanAbsoluteError', 'areaUnderROC', 'accuracy'},
+            ml.RegressionEvaluator: {'evaluate'}, ml.BinaryClassificationEvaluator: {'evaluate'},
+            ml.MulticlassClassificationEvaluator: {'evaluate'},
+            MLflowApi: {'set_experiment', 'set_registry_uri', 'start_run', 'end_run', 'active_run', 'last_active_run',
+                        'log_param', 'log_params', 'log_metric', 'log_metrics', 'set_tag', 'register_model', 'spark',
+                        'models', 'MlflowClient'},
+            _SparkFlavor: {'log_model', 'load_model'}, _ModelsModule: {'infer_signature'},
+            ActiveRun: {'info'}, RunInfo: {'run_id', 'run_name', 'experiment_id'},
+            ModelVersion: {'name', 'version', 'aliases', 'run_id'}, ModelInfo: {'model_uri', 'registered_model_version'},
+            MlflowClient: {'set_registered_model_alias', 'delete_registered_model_alias', 'get_model_version_by_alias'},
+            Signature: {'inputs', 'outputs'},
         }
         for typ, names in allowed.items():
             if isinstance(base, typ) and attr in names:
                 return True, getattr(base, attr)
-        if isinstance(base, (DataFrameWriter, NotebookUtils, _NotebookApi, DbUtils, _Widgets)):
+        guarded = tuple(t for t in allowed if t not in (SparkSession, DataFrame, ReadBuilder))
+        if isinstance(base, guarded):
             raise SparkLabSyntaxError(f"Unsupported {type(base).__name__.lstrip('_')} attribute: {attr}")
         return False, None
 

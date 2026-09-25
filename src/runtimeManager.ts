@@ -9,6 +9,7 @@ import type {
   FactoryFlavor,
   FactoryScenarioInput,
   RuntimeEnvironmentView,
+  DatabricksScenarioInput,
   RuntimeViewState,
   SqlPoolFlavor
 } from "./webview/contracts";
@@ -25,6 +26,8 @@ import { toAirflowLabView, toRuntimeScenario } from "./platform/airflowRun";
 import { toFactoryLabView, toRuntimeScenario as toFactoryScenario } from "./platform/factoryRun";
 import type { FactoryFilesPayload } from "./factoryState";
 import { toSqlPoolView } from "./platform/sqlpoolRun";
+import { toDatabricksLabView, toDatabricksScenario, toDatabricksStateView } from "./platform/databricksRun";
+import type { DatabricksFilesPayload } from "./factoryState";
 
 const HOST = "127.0.0.1";
 // A cold start in a fresh managed venv (FastAPI, DuckDB, Polars, pandas; first
@@ -555,6 +558,54 @@ export class RuntimeManager implements vscode.Disposable {
       sqlpoolRun
     });
     if (request.script.trim()) await this.refreshCatalog();
+  }
+
+  /**
+   * Databricks Lab: the runtime validates and simulates the job; notebook and SQL tasks run on the local
+   * catalog under Unity Catalog rules (or not at all in a dry run).
+   */
+  async simulateDatabricks(request: {
+    name: string;
+    path: string;
+    document: unknown;
+    files: DatabricksFilesPayload;
+    scenario: DatabricksScenarioInput;
+    warnings: string[];
+  }): Promise<void> {
+    const url = this.state.status === "running" ? this.state.url : undefined;
+    if (!url) throw new Error("Start the Datapass runtime before running a Databricks job.");
+    const context = { jobName: request.name, path: request.path, scenario: request.scenario, warnings: request.warnings };
+    const { scenario, errors } = toDatabricksScenario(request.scenario);
+    if (errors.length) {
+      const databricksRun = toDatabricksLabView({ status: "error", issues: errors.map(message => ({ path: "scenario", message })) }, context);
+      this.setState({ ...this.state, detail: `Job ${request.name} not run: fix the run settings.`, databricksRun });
+      return;
+    }
+    const raw = await requestJson<unknown>(
+      `${url}/api/local/databricks/run`,
+      "POST",
+      { name: request.name, document: request.document, files: request.files, scenario, data_plane: request.scenario.dataPlane },
+      60000
+    );
+    const databricksRun = toDatabricksLabView(raw, context);
+    const record = raw && typeof raw === "object" ? raw as Record<string, unknown> : {};
+    this.setState({
+      ...this.state,
+      detail: databricksRun.run
+        ? `Job ${request.name}: ${databricksRun.run.statusLabel} (${databricksRun.dataPlane === "local" ? "tasks ran on the local catalog" : "dry run"}).`
+        : `Job ${request.name} not run: ${databricksRun.issues[0]?.message ?? databricksRun.status}`,
+      databricksRun,
+      databricksState: record.unity ? toDatabricksStateView(raw) : this.state.databricksState
+    });
+    if (databricksRun.tablesChanged.length) await this.refreshCatalog();
+  }
+
+  /** Databricks Lab: Unity Catalog, MLflow and compute as they are, without running a job. */
+  async exploreDatabricks(files: DatabricksFilesPayload): Promise<void> {
+    const url = this.state.status === "running" ? this.state.url : undefined;
+    if (!url) return;
+    const raw = await requestJson<unknown>(`${url}/api/local/databricks/state`, "POST", { files }, 20000);
+    this.setState({ ...this.state, databricksState: toDatabricksStateView(raw) });
   }
 
   async runPipeline(source: string): Promise<void> {

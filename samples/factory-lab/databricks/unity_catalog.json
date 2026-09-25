@@ -1,0 +1,10 @@
+{
+  "groups": {
+    "data-engineers": [
+      "ana@contoso.com"
+    ],
+    "analysts": [
+      "bob@contoso.com"
+    ]
+  }
+}

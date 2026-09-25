@@ -130,6 +130,25 @@ try:
 except AirflowLabError as error:
     assert "removed" in str(error), error
 
+def databricks_files() -> dict:
+    """The Databricks Lab sample files, keyed the way the extension sends them (see src/factoryState.ts)."""
+    root = Path(__file__).resolve().parents[1] / "samples" / "factory-lab" / "databricks"
+    files = {"notebooks": {}, "sql": {}, "compute": json.loads((root / "compute.json").read_text(encoding="utf-8")),
+             "unity_catalog": json.loads((root / "unity_catalog.json").read_text(encoding="utf-8")),
+             "grants": (root / "grants.sql").read_text(encoding="utf-8")}
+    for path in sorted(root.rglob("*.py")):
+        files["notebooks"]["databricks:/" + path.relative_to(root).with_suffix("").as_posix()] = path.read_text(encoding="utf-8")
+    for path in sorted(root.rglob("*.sql")):
+        if path.name != "grants.sql":
+            files["sql"]["databricks:/" + path.relative_to(root).as_posix()] = path.read_text(encoding="utf-8")
+    return files
+
+
+def databricks_job(name: str) -> dict:
+    root = Path(__file__).resolve().parents[1] / "samples" / "factory-lab" / "databricks" / "jobs"
+    return json.loads((root / f"{name}.json").read_text(encoding="utf-8"))
+
+
 # Factory Lab engine: Data Factory orchestration semantics, without a workspace (everything simulated).
 def fx(activities, scenario=None, flavor="fabric", parameters=None, variables=None):
     document = {"properties": {"activities": activities, "parameters": parameters or {}, "variables": variables or {}}}
@@ -369,6 +388,153 @@ with TemporaryDirectory(prefix="datapass-sqlpool-smoke-") as temp:
                       "fabric")[-1]
     assert fabric.status == "ok" and "managed layout (Fabric), CLUSTER BY (order_id)" in fabric.message, fabric
     pool_catalog.close()
+
+# Databricks Lab: jobs orchestrated on a logical clock; notebook and SQL tasks run on the catalog under Unity Catalog.
+from databrickslab.compute import load_compute
+from databrickslab.engine import JobScenario, simulate_job
+from databrickslab.model import DatabricksLabError
+
+
+def dbx_task(key, deps=(), **extra):
+    task = {"task_key": key, "notebook_task": {"notebook_path": f"/Shared/{key}"}}
+    if deps:
+        task["depends_on"] = [{"task_key": d} if isinstance(d, str) else {"task_key": d[0], "outcome": d[1]} for d in deps]
+    task.update(extra)
+    return task
+
+
+def dbx_dry(tasks, scenario=None, **job):
+    _, result = simulate_job({"name": "smoke", "tasks": tasks, **job}, load_compute(None),
+                             JobScenario.model_validate(scenario or {}), None)
+    return result, {t["key"]: t["state"] for t in result["tasks"]}
+
+
+# run_if, exclusion through the unmet If/else branch, and the leaf rule for the run status.
+result, states = dbx_dry([
+    dbx_task("a"),
+    {"task_key": "check", "depends_on": [{"task_key": "a"}],
+     "condition_task": {"op": "GREATER_THAN", "left": "{{tasks.a.values.n}}", "right": "0"}},
+    dbx_task("yes", [("check", "true")]), dbx_task("no", [("check", "false")]),
+    dbx_task("after_no", ["no"]), dbx_task("cleanup", ["yes", "after_no"], run_if="ALL_DONE"),
+], {"tasks": {"a": {"values": {"n": 3}}}})
+assert states == {"a": "success", "check": "success", "yes": "success", "no": "excluded", "after_no": "excluded",
+                  "cleanup": "success"}, states
+assert result["result_state"] == "SUCCESS", result
+result, states = dbx_dry([dbx_task("a"), dbx_task("b", ["a"]), dbx_task("handler", ["a"], run_if="AT_LEAST_ONE_FAILED")],
+                         {"tasks": {"a": {"fail_attempts": "all"}}})
+assert states == {"a": "failed", "b": "upstream_failed", "handler": "success"}, states
+assert result["result_state"] == "FAILED", result  # b is a leaf and is upstream failed
+result, states = dbx_dry([dbx_task("a"), dbx_task("b", ["a"]), dbx_task("handler", ["a"], run_if="AT_LEAST_ONE_FAILED")])
+assert states["handler"] == "excluded" and result["result_state"] == "SUCCESS", states
+result, states = dbx_dry([dbx_task("a"), dbx_task("b"), dbx_task("c", ["a", "b"], run_if="AT_LEAST_ONE_SUCCESS")],
+                         {"tasks": {"a": {"fail_attempts": "all"}}})
+assert states["c"] == "success" and result["result_state"] == "SUCCESS_WITH_FAILURES", result
+# Retries and timeouts.
+result, states = dbx_dry([dbx_task("a", max_retries=2, min_retry_interval_millis=30000)],
+                         {"tasks": {"a": {"fail_attempts": [1, 2], "duration_seconds": 60}}})
+attempts = result["tasks"][0]["attempts"]
+assert states["a"] == "success" and [x["status"] for x in attempts] == ["failed", "failed", "success"], attempts
+assert attempts[1]["start_s"] - attempts[0]["end_s"] == 30, attempts
+result, states = dbx_dry([dbx_task("a", timeout_seconds=30, max_retries=1)], {"tasks": {"a": {"duration_seconds": 60}}})
+assert states["a"] == "timedout" and len(result["tasks"][0]["attempts"]) == 1, result  # retry_on_timeout is false
+# If/else: == compares text, > compares numbers; job parameters are pushed down and win over task parameters.
+for op, left, right, outcome in [("EQUAL_TO", "12.0", "12", "false"), ("GREATER_THAN_OR_EQUAL", "12.0", "12", "true")]:
+    result, _ = dbx_dry([{"task_key": "c", "condition_task": {"op": op, "left": left, "right": right}}])
+    assert result["tasks"][0]["outcome"] == outcome, (op, result["tasks"][0])
+result, _ = dbx_dry([dbx_task("a", notebook_task={"notebook_path": "/Shared/a", "base_parameters": {
+    "day": "x", "run": "{{job.run_id}}", "lit": "{{unknown.ref}}"}})],
+    {"job_parameters": {"day": "2026-03-09"}, "run_id": 42}, parameters=[{"name": "day", "default": "{{job.start_time.iso_date}}"}])
+assert result["tasks"][0]["parameters"] == {"day": "2026-03-09", "run": "42", "lit": "{{unknown.ref}}"}, result["tasks"][0]
+result, states = dbx_dry([dbx_task("a", notebook_task={"notebook_path": "/Shared/a", "base_parameters": {"x": "{{job.nope}}"}})])
+assert states["a"] == "failed" and "Invalid dynamic value reference" in result["tasks"][0]["error"], result
+# For each: iterations with concurrency; compute and cost: a job cluster starts once and terminates after its last task.
+result, _ = dbx_dry([{"task_key": "loop", "for_each_task": {"inputs": "[1, 2, 3]", "concurrency": 2,
+                                                           "task": dbx_task("inner", notebook_task={"notebook_path": "/Shared/i", "base_parameters": {"n": "{{input}}"}})}}])
+assert [i["parameters"]["n"] for i in result["tasks"][0]["iterations"]] == ["1", "2", "3"], result
+result, _ = dbx_dry([dbx_task("a", job_cluster_key="c"), dbx_task("b", ["a"], job_cluster_key="c")],
+                    job_clusters=[{"job_cluster_key": "c", "new_cluster": {"spark_version": "15.4.x-scala2.12",
+                                                                            "node_type_id": "Standard_DS3_v2", "num_workers": 2}}])
+[usage] = result["compute"]
+assert (usage["startup_s"], usage["billed_s"], usage["tasks"]) == (300, 540, ["a", "b"]), usage
+for bad, expected in [
+    ([dbx_task("a"), dbx_task("b", ["missing"])], "not a task of this job"),
+    ([dbx_task("a", ["b"]), dbx_task("b", ["a"])], "cycle"),
+    ([{"task_key": "p", "spark_python_task": {"python_file": "x.py"}}], "does not simulate"),
+    ([dbx_task("a", job_cluster_key="none")], "not in job_clusters"),
+    ([dbx_task("a", existing_cluster_id="nope")], "does not exist"),
+    ([dbx_task("a"), {"task_key": "c", "depends_on": [{"task_key": "a"}], "condition_task": {"op": "EQUAL_TO", "left": "1", "right": "1"}},
+      dbx_task("d", ["c"])], 'set outcome to "true" or "false"'),
+]:
+    try:
+        dbx_dry(bad)
+        raise AssertionError(f"expected an invalid job: {expected}")
+    except DatabricksLabError as error:
+        assert any(expected in issue["message"] for issue in error.issues), (expected, error.issues)
+
+with TemporaryDirectory(prefix="datapass-databricks-smoke-") as temp:
+    from datapass_runtime.catalog import Catalog, statements
+    from datapass_runtime.databricks_workspace import bind_parameters, map_names
+
+    # Files with Windows line endings split cleanly; comments and literals keep their text.
+    assert statements("SELECT 1;\r\nSELECT 2;\r\n") == ["SELECT 1;", "SELECT 2;"]
+    assert bind_parameters("-- :x\r\nSELECT ':x', :x", {"x": "a'b"}) == "-- :x\r\nSELECT ':x', 'a''b'"
+    assert map_names("SELECT * FROM main.gold.t -- main.silver.u") == "SELECT * FROM gold.t -- main.silver.u"
+    from datapass_runtime.databricks_workspace import explore as dbx_explore, run as dbx_run
+
+    dbx_catalog = Catalog(Path(temp), "duckdb")
+    dbx_files = databricks_files()
+
+    def dbx_local(name, files=None, scenario=None):
+        return dbx_run(dbx_catalog, {"name": name, "document": databricks_job(name), "files": files or dbx_files,
+                                     "scenario": scenario or {}, "data_plane": "local"})
+
+    retail = dbx_local("retail_daily_dbx")
+    assert retail["status"] == "simulated" and retail["run"]["result_state"] == "SUCCESS", retail["run"]
+    tasks = {t["key"]: t for t in retail["run"]["tasks"]}
+    assert tasks["ingest_orders"]["values"] == {"new_rows": 12} and tasks["has_new_rows"]["outcome"] == "true", tasks
+    assert tasks["gold_checks"]["rows"] == [{"segments": 4, "revenue": 4985.0, "enough_segments": True}], tasks["gold_checks"]
+    assert tasks["alert_on_failure"]["state"] == "excluded", tasks["alert_on_failure"]
+    assert {t["name"] for t in retail["tables_changed"]} == {"bronze.orders", "silver.orders", "gold.revenue_by_segment"}
+    assert [u["kind"] for u in retail["run"]["compute"]] == ["job_cluster", "warehouse"], retail["run"]["compute"]
+
+    # The ML job runs as a service principal: least privileges, a registered model, an alias and batch scoring.
+    power = dbx_local("power_model_training")
+    assert power["run"]["result_state"] == "SUCCESS", [(t["key"], t["error"]) for t in power["run"]["tasks"]]
+    train = power["run"]["tasks"][0]
+    assert train["values"] == {"rmse": 0.0, "model_version": 1}, train  # power = 2 * wind_speed + 4 exactly
+    [model] = power["mlflow"]["models"]
+    assert model["name"] == "main.ml.power_model" and model["aliases"] == {"champion": 1}, model
+    assert model["owner"] == "sp-ml-training" and model["versions"][0]["signature"]["inputs"] == ["wind_speed"], model
+    scored = dbx_catalog.query("SELECT MAX(ABS(prediction - actual_power)) AS err FROM gold.turbine_power_scored")["rows"]
+    assert scored == [{"err": 0.0}], scored
+    again = dbx_local("power_model_training")
+    assert again["mlflow"]["models"][0]["aliases"] == {"champion": 2}, again["mlflow"]
+    denied_files = dict(dbx_files, grants=dbx_files["grants"].replace(
+        "GRANT SELECT ON TABLE main.source.turbine_readings TO `sp-ml-training`;", ""))
+    denied = dbx_local("power_model_training", denied_files)
+    train = denied["run"]["tasks"][0]
+    assert train["state"] == "failed" and train["error_code"] == "UnauthorizedError", train
+    assert "does not have SELECT on Table 'main.source.turbine_readings'" in train["error"], train
+    state = dbx_explore(dbx_catalog, {"files": dbx_files})
+    owners = state["unity"]["owners"]
+    assert owners == {"main.ml.power_model": "sp-ml-training", "main.gold.turbine_power_scored": "sp-ml-training"}, owners
+    assert any(g["principal"] == "analysts" and g["privilege"] == "SELECT" for g in state["unity"]["grants"])
+    assert state["mlflow"]["experiments"][0]["name"] == "/Shared/power-forecast", state["mlflow"]
+
+    # Notebooks stay bounded: no eval/exec, no arbitrary imports, even with MLflow available.
+    from sparklab.safe_parser import SafeSparkParser, SparkLabSyntaxError
+    from sparklab.sparklab import SparkSession
+    for unsafe in ("import os\n", "import mlflow\nmlflow.log_artifact('/etc/passwd')\n",
+                   "from pyspark.ml.feature import StringIndexer\n", "x = __import__('os')\n",
+                   "with open('x') as f:\n    pass\n"):
+        session = SparkSession({"tables": {}})
+        session.notebook_runtime = object()
+        try:
+            SafeSparkParser(session).run_notebook(unsafe, {}, "databricks", None, None)
+            raise AssertionError(f"must reject: {unsafe!r}")
+        except SparkLabSyntaxError:
+            pass
+    dbx_catalog.close()
 
 source = """pipeline("ci")
 a = sql("a", "SELECT 1")
@@ -645,6 +811,26 @@ with TemporaryDirectory(prefix="datapass-csv-import-smoke-") as temp:
                         {"script": "SELECT 1;", "path": "/etc/passwd"}):
                 assert client.post("/api/local/sqlpool/run", json=bad).status_code == 422, bad
             assert capabilities()["sqlpool_lab"]["cloud_connection"] is False
+            # Databricks Lab: the route runs a job on the workspace catalog; the state route shows UC and MLflow.
+            dbx = client.post("/api/local/databricks/run", json={"name": "retail_daily_dbx", "document": databricks_job("retail_daily_dbx"),
+                                                                 "files": databricks_files(), "data_plane": "local"})
+            assert dbx.status_code == 200, dbx.text
+            dbx = dbx.json()
+            assert dbx["status"] == "simulated" and dbx["run"]["status_label"] == "Succeeded", dbx.get("run")
+            assert "Nothing connects to Azure Databricks" in dbx["truth"] and dbx["job"]["tasks"][1]["kind"] == "condition"
+            dry = client.post("/api/local/databricks/run", json={"name": "retail_daily_dbx", "document": databricks_job("retail_daily_dbx"),
+                                                                 "files": databricks_files(), "data_plane": "simulated",
+                                                                 "scenario": {"tasks": {"ingest_orders": {"values": {"new_rows": 0}}}}}).json()
+            assert dry["run"]["tasks"][1]["outcome"] == "false" and dry["tables_changed"] == [], dry["run"]["tasks"][1]
+            explored = client.post("/api/local/databricks/state", json={"files": databricks_files()}).json()
+            assert explored["unity"]["catalog"] == "main" and explored["compute_catalog"]["warehouses"][0]["id"] == "serverless-sql"
+            for bad in ({"name": "x", "document": {}, "files": {"notebooks": {"../evil": "x"}}},
+                        {"name": "x", "document": {}, "files": {"notebooks": {"databricks:/x": "x" * 40001}}},
+                        {"name": "bad name!", "document": {}}, {"name": "x", "document": {}, "data_plane": "cloud"}):
+                assert client.post("/api/local/databricks/run", json=bad).status_code == 422, bad
+            invalid = client.post("/api/local/databricks/run", json={"name": "x", "document": {"name": "x"}}).json()
+            assert invalid["status"] == "invalid" and invalid["run"] is None, invalid
+            assert capabilities()["databricks_lab"]["cloud_connection"] is False
     finally:
         if previous_workspace is None:
             os.environ.pop("DATAPASS_WORKSPACE_ROOT", None)

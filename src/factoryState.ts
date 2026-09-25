@@ -10,6 +10,7 @@ import {
   pipelineRelativePath
 } from "./platform/factoryRun";
 import { SQLPOOL_LIMITS, flavorHint } from "./platform/sqlpoolRun";
+import { DATABRICKS_LIMITS, JOB_NAME, jobDesignView } from "./platform/databricksRun";
 import type { FactoryFlavor, FactoryViewState } from "./webview/contracts";
 
 const MAX_FILES = 400;
@@ -36,12 +37,26 @@ export function factoryRoot(): vscode.Uri | undefined {
 /** Every pipeline of the lab, parsed for the canvas (the runtime validates them when they run). */
 export async function loadFactoryState(): Promise<FactoryViewState> {
   const root = factoryRoot();
-  const state: FactoryViewState = { folder: FACTORY_FOLDER, exists: false, pipelines: [], poolScripts: [], warnings: [] };
+  const state: FactoryViewState = {
+    folder: FACTORY_FOLDER, exists: false, pipelines: [], poolScripts: [], warnings: [],
+    databricks: { exists: false, jobs: [], notebooks: [], sqlFiles: [], warnings: [] }
+  };
   if (!root || !(await exists(root))) return state;
   state.exists = true;
   const files = await listFiles(root, state.warnings);
   for (const file of files) {
     const role = classifyFactoryPath(file.relative);
+    if (file.relative.startsWith("databricks/")) state.databricks.exists = true;
+    if (role?.role === "dbxJob") {
+      if (!JOB_NAME.test(role.name)) {
+        state.databricks.warnings.push(`${file.relative}: job file names use letters, digits, space, _, . and - (at most 100)`);
+      } else if (state.databricks.jobs.length < DATABRICKS_LIMITS.jobs) {
+        state.databricks.jobs.push(jobDesignView(role.name, `${FACTORY_FOLDER}/${file.relative}`, await readText(file.uri)));
+      }
+      continue;
+    }
+    if (role?.role === "notebook" && role.key.startsWith("databricks:")) state.databricks.notebooks.push(role.key.slice(11));
+    if (role?.role === "dbxSql") state.databricks.sqlFiles.push(role.key.slice(11));
     if (role?.role === "poolScript") {
       if (state.poolScripts.length < SQLPOOL_LIMITS.scripts) {
         const path = `${FACTORY_FOLDER}/${file.relative}`;
@@ -73,7 +88,7 @@ export async function collectFactoryFiles(flavor: FactoryFlavor): Promise<{ file
   if (!root || !(await exists(root))) return { files, warnings };
   for (const file of await listFiles(root, warnings)) {
     const role = classifyFactoryPath(file.relative);
-    if (!role || role.role === "poolScript") continue;
+    if (!role || role.role === "poolScript" || role.role.startsWith("dbx")) continue;
     const text = await readText(file.uri);
     const tooLong = text.length > FACTORY_LIMITS.textChars;
     if (role.role === "pipeline" || role.role === "dataset") {
@@ -110,6 +125,57 @@ export function factoryFileUri(relative: string): vscode.Uri | undefined {
     return undefined;
   }
   return vscode.Uri.joinPath(root, ...parts);
+}
+
+/** Lab files a Databricks job run needs: notebooks, SQL files, compute and Unity Catalog settings. */
+export interface DatabricksFilesPayload {
+  notebooks: Record<string, string>;
+  sql: Record<string, string>;
+  compute?: unknown;
+  unity_catalog?: unknown;
+  grants?: string;
+}
+
+export async function collectDatabricksFiles(): Promise<{ files: DatabricksFilesPayload; jobs: Record<string, unknown>; warnings: string[] }> {
+  const files: DatabricksFilesPayload = { notebooks: {}, sql: {} };
+  const jobs: Record<string, unknown> = {};
+  const warnings: string[] = [];
+  const root = factoryRoot();
+  if (!root || !(await exists(root))) return { files, jobs, warnings };
+  for (const file of await listFiles(root, warnings)) {
+    if (!file.relative.startsWith("databricks/")) continue;
+    const role = classifyFactoryPath(file.relative);
+    if (!role) continue;
+    const text = await readText(file.uri);
+    if (text.length > DATABRICKS_LIMITS.textChars) {
+      warnings.push(`${file.relative} skipped: longer than ${DATABRICKS_LIMITS.textChars} characters`);
+      continue;
+    }
+    const json = (): unknown => {
+      const parsed = parseJsonDocument(text);
+      if (parsed.error) warnings.push(`${file.relative} skipped: ${parsed.error}`);
+      return parsed.error ? undefined : parsed.value;
+    };
+    if (role.role === "notebook" && Object.keys(files.notebooks).length < DATABRICKS_LIMITS.notebooks) {
+      files.notebooks[role.key] = text;
+    } else if (role.role === "dbxSql" && Object.keys(files.sql).length < DATABRICKS_LIMITS.sqlFiles) {
+      files.sql[role.key] = text;
+    } else if (role.role === "dbxJob" && JOB_NAME.test(role.name)) {
+      const value = json();
+      if (value !== undefined) jobs[role.name] = value;
+    } else if (role.role === "dbxCompute") {
+      files.compute = json();
+    } else if (role.role === "dbxUnity") {
+      files.unity_catalog = json();
+    } else if (role.role === "dbxGrants") {
+      files.grants = text;
+    }
+  }
+  return { files, jobs, warnings };
+}
+
+export function databricksJobPath(name: string): string {
+  return `${FACTORY_FOLDER}/databricks/jobs/${name}.json`;
 }
 
 /** A SQL pool script's text (an open editor wins over the file on disk), or an error to show. */
