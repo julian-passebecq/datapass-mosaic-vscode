@@ -35,7 +35,8 @@ React / Fluent / React Flow views
        ├─ SparkLab
        ├─ workflow engine
        ├─ Airflow simulator
-       └─ dbt adapter
+       ├─ dbt emulation (BI Lab) and missions checker
+       └─ catalog handoff to the learner's real dbt Core / dct
 ```
 
 ## Catalog view

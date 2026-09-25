@@ -22,6 +22,82 @@ Workflow from here: branch from `main` for each tranche, keep CI green, merge th
 - **Bug found.** The Cloud Lab sub-tabs and the execution badge overflowed a narrow Workbench. Fixed in PR #17.
 - **Stacked PRs.** Retarget the next PR to `main` before merging its base with `--delete-branch`. Otherwise GitHub closes it.
 
+## 0. dbt Lab rebuild: real dbt Core, dbt Charts, missions — Claude, 2026-09-25 (newest)
+
+The user approved a lab map on 2026-09-25: the BI Lab stays the guided place to learn data warehousing (with the dbt
+emulation, labelled "not dbt Core"), and the **dbt Lab** is rebuilt as the real-life lab. Terminal Lab (real shells)
+and Infra Lab (simulated Terraform, Docker, VM + monitoring, Kubernetes) come later. Every lab is a package of the one
+local FastAPI runtime. Delivered as five PRs, each merged on green CI:
+
+- **#18 Catalog tree view.** A native TreeView (`datapass.catalog`, `src/catalogTree.ts`): catalog layers first,
+  then any other schema of the DuckDB file (the ones dbt builds); tables and views with a real `COUNT(*)`, columns
+  and types. Click opens `.datapass/scratch/<schema>.<table>.sql` (`SELECT * ... LIMIT 100`, never overwritten);
+  Preview Rows runs it into Mosaic. Runtime: `GET /api/local/catalog/schema`.
+- **#22 Real dbt Core runner and the catalog handoff.**
+  - Managed tools: `dbt-tools-venv` in global storage (Python 3.10–3.13; `py -3.13` … or `datapass.dbtTools.python`),
+    created only by **Install dbt tools** after a modal; DuckDB pinned to the runtime's version.
+  - `.datapass/dbt/profiles.yml` generated: one output per project profile, target schema `dbt_dev`, no secrets.
+  - Buttons type the real command in a terminal in the project folder (tools on PATH, `DBT_PROFILES_DIR`, telemetry
+    off); the learner retypes or edits it. Commands in a terminal are queued (shell integration's `executeCommand`
+    would interrupt a running one).
+  - Handoff (investigated first): the kernel worker holds `workspace.duckdb` open and dbt fails with an IO error.
+    `POST /api/local/catalog/release` stops the worker gracefully and answers 409 to every catalog request until
+    `/reattach`, which reopens it (409 again while the file is held). The terminal session releases on shell
+    integration's command start (dbt and dct commands that open the database) and reattaches on its end, with retries
+    (Windows frees the file a moment after the process exits); **Reattach catalog** in the lab and the Catalog view.
+    A lock held by an outside process maps to a clear 409.
+  - Artifacts: `target/manifest.json` + `run_results.json` → command, counts, DAG by status, failures, node details,
+    labelled "dbt Core (real)".
+- **#25 Real dbt Charts.** `dbt-charts>=0.8,<0.9` in the same venv. Conventions checked on dct 0.8.0 itself (`dct
+  --help`, `dct docs`) and on github.com/dbt-labs/dbt-charts: `dbt_charts.yml` sources (`type: dbt_profile`, found
+  through `DBT_PROFILES_DIR`), boards in `charts/`, `{{ ref() }}` resolved against the manifest, `dct render` →
+  `renders/<stem>.<ext>` (it does not create the `--output` folder), `--format json` = resolved board with data,
+  `dct validate --json` without a database, DuckDB opened read-only (so the handoff applies too). Validate / Render
+  PNG · JSON · HTML in the lab; the PNG as a `data:` image (CSP unchanged); HTML opens in the system browser;
+  `dct serve --host 127.0.0.1` in its own terminal, opened in the Simple Browser. The retail sample board was
+  rewritten for dct 0.8.
+- **#32 Missions** (`runtime/missionlab`, README there; `content/missions/dbt-v1`; dbt Lab › Missions):
+  ticket, acceptance criteria, hints on demand, no pre-chewed starter; the project is copied to `missions/<id>/`
+  (never overwritten) with `TICKET.md`; fixture batches load into the mission's own raw schema; a hidden checker with
+  11 check kinds (SQL, manifest node and test, run results, freshness config and result, dct validate, board, render,
+  file, Airflow). Five missions on the BI warehouse sources: prod unique-test failure, source freshness, incremental
+  over a changes-only export (with **Load next batch**), a 3-day backfill scheduled from an Airflow 3 DAG (the
+  simulator replays the three nights; `macros.ds_add(ds, -1)` because Airflow 3's `@daily` logical date is the
+  midnight that starts), a sales board in dbt Charts. Progress in `.datapass/missions/progress.json`.
+- **This PR: truth model and docs.** CLAUDE.md (product boundary, truth model, security), QUICKSTART, ARCHITECTURE,
+  LOCAL_TEST, this section.
+
+Retired with the rebuild: the dbt Lab's regex static lineage (use `dbt parse` for a real manifest, or the BI Lab's
+emulation), the PATH `dbt --version` probe (`src/platform/dbtVersion.ts`), the single hard-coded `dbt/retail-dbt`
+project (the sample stays, as one project among others), and the unwired in-runtime dbt adapter of the old API layer
+(`runtime/datapass_runtime/dbt_runner.py`, `dbt_worker.py`, `local_routes.py` and `pipeline_runner.py`, which nothing
+imported). The BI Lab's emulation (`runtime/dbtlab`) is unchanged, so `dbt_oracle_smoke.py` was not needed.
+
+Checked:
+- `npm run compile`, `npm test` (new `catalog_tree_smoke`, `dbt_lab_smoke`, `missions_ui_smoke`);
+- `pip install ./runtime`, compileall with `runtime/missionlab`, `runtime_smoke.py` (catalog schema; handoff with a
+  second process writing the file; every mission batch and an untouched check), `exercise_packs_smoke.py`,
+  `projects_smoke.py`;
+- `scripts/missions_smoke.py` with real dbt Core 1.12.5 + dbt-duckdb 1.11.0 + dct 0.8.0: 5 references pass, 5
+  untouched projects and 7 mutants fail (in CI: the runtime job installs the dbt tools);
+- `npm run test:host` with `DATAPASS_DBT_PYTHON` (in CI too): `dbt build` of the BI project in a real terminal with
+  the catalog lent and reattached through shell integration; `dct render` of the retail board; the prod-unique
+  mission reproduced, fixed and passed through the missions service;
+- the packaged VSIX installed with `code --install-extension` and driven in the user's VS Code build (Playwright
+  `_electron.launch`, fresh `--user-data-dir` and `--extensions-dir`): Setup runtime → Catalog tree → Install dbt
+  tools (the real install) → dbt build in the terminal → artifacts → dct render → a mission checked (not yet, then
+  passed after the fix). Screenshots looked at.
+
+Open points:
+- `dct serve` keeps the catalog lent while it runs (the runtime cannot reopen a file dct holds read-only); stop it to
+  get the catalog back. A later option: serve from a copy of the file.
+- Without shell integration (cmd.exe) the end of a command is not reported: new artifacts trigger a reattach attempt
+  and **Reattach catalog** is always there.
+- `dbt deps` downloads packages (hub.getdbt.com or Git) when a project declares them; the shipped projects declare
+  none. dbt Charts is pre-1.0 and pinned to 0.8.x: re-check its conventions before moving the pin.
+- Next: **Terminal Lab** (real bash, PowerShell and Git; Datapass checks the resulting folder and repository state)
+  can reuse `missionlab` with new check kinds, then Infra Lab.
+
 ## Vague 1: Practice and Mosaic quick wins — Claude, 2026-09-25
 
 Roadmap artifact: https://claude.ai/artifact/RhQMPGxeuNo9GTFzH5B8aJ (items V1-x; section "Dette technique" D-1…D-10
@@ -46,7 +122,7 @@ holds the code-debt audit of 2026-09-25). One PR per item, merged on green CI.
   state; a Projects focus clears them). Checked in a real VS Code window: submit → solved, starter run → "attempted ·
   1 run", counts 1/1/270, status and language filters, progress.json content.
 
-## 0. ZillaCode pack (`zilla-v1`) and the Snowflake SQL dialect — Claude, 2026-09-25 (newest)
+## 0a. ZillaCode pack (`zilla-v1`) and the Snowflake SQL dialect — Claude, 2026-09-25
 
 The user asked for the 52 ZillaCode problems (Apache-2.0), which so far lived only in the standalone CodeDELeet app. They
 are now a Practice pack built on our engines, with a Snowflake SQL variant. There are two PRs: #19 (the Snowflake
@@ -113,7 +189,7 @@ Open points:
   `ARRAY`/`SPLIT` functions, `REGEXP_SUBSTR` capture groups. Each needs its own semantic check first.
 - Descriptions keep ZillaCode's company/scenario names; attribution is in place, and the NOTICE is not a legal review.
 
-## 0a. Projects: end-to-end stories across the labs — Claude, 2026-09-25
+## 0b. Projects: end-to-end stories across the labs — Claude, 2026-09-25
 
 The user asked for a Workbench module **Projects** that gives meaning to every lab: 2-3 end-to-end projects, each a
 story whose steps are done in the existing modules, with checkboxes that follow the learner's progress. PRs #20
@@ -183,7 +259,7 @@ Open points for the user:
 - Next: steps for the future labs (dbt Core + dbt Charts, Terminal Lab, simulated Infra Lab) through `record_run`
   and the generic `run` check.
 
-## 0b. BI-2: dbt in the BI Lab (Datapass dbt emulation) — Claude, 2026-09-25
+## 0c. BI-2: dbt in the BI Lab (Datapass dbt emulation) — Claude, 2026-09-25
 
 Branch `feature/bi-dbt`, stacked on `feature/bi-lab` (§0c). The user asked to continue with BI-2 (dbt in the BI
 Lab). dbt runs without dbt Core, with an emulation that is checked against dbt Core.
@@ -232,7 +308,7 @@ Open points for the user:
 - Next: BI-3 (KPIs, a DAX-like measure layer translated to SQL, charts, the dbt Charts board preview), then the
   Cloud lab's dbt layer (Databricks dbt_task, Fabric dbt job activity), which can now run on this emulation.
 
-## 0c. BI Lab: data warehousing, SQL lineage and star models — Claude, 2026-09-25
+## 0d. BI Lab: data warehousing, SQL lineage and star models — Claude, 2026-09-25
 
 Branch `feature/bi-lab`, stacked on `content/databricks-v1` (§0d). A new Workbench module **BI Lab** (id `bi`), the
 pipeline-free lab the user asked for, focused on data warehousing notions (the user asked explicitly for SQL
@@ -304,7 +380,7 @@ Decided with the user in this session (2026-09-25), not built yet:
   activity: dbt runs from CI/CD or Airflow there. Execution stays real dbt Core + dbt-duckdb when installed (say the
   adapter is dbt-duckdb), else the step fails explicitly.
 
-## 0d. Cloud Lab Databricks (jobs, compute, Unity Catalog, MLflow) — Claude, 2026-09-25
+## 0e. Cloud Lab Databricks (jobs, compute, Unity Catalog, MLflow) — Claude, 2026-09-25
 
 Branch `feature/databricks-lab`, stacked on `feature/sqlpool-lab` (§0e). A **Databricks** tab in Cloud Lab: a simulated
 Azure Databricks workspace. Facts checked on Microsoft Learn (run_if options and outcomes, the leaf rule, If/else
@@ -350,7 +426,7 @@ Checked:
 - `npm run test:host` (22 steps): the sample jobs through the runtime, as their principals;
 - the tab rendered in a browser harness with a real runtime response. Not checked in a real F5 session.
 
-## 0e. Cloud Lab SQL pool (Synapse dedicated SQL pool, Fabric Warehouse) — Claude, 2026-09-25
+## 0f. Cloud Lab SQL pool (Synapse dedicated SQL pool, Fabric Warehouse) — Claude, 2026-09-25
 
 Branch `feature/sqlpool-lab`, stacked on `content/cloud-pipelines-v1` (§0f). A **SQL pool** tab in Cloud Lab and the `sqlpool-v1` Practice pack.
 
@@ -375,7 +451,7 @@ Checked:
 - `npm run test:host` (18 steps): the four sample scripts on the runtime, the pack's reference and starters, and the workspace catalog unchanged by grading;
 - the tab rendered in a browser harness with a real runtime response. Not checked in a real F5 session.
 
-## 0f. Cloud Lab pipeline exercises — Claude, 2026-09-25
+## 0g. Cloud Lab pipeline exercises — Claude, 2026-09-25
 
 Branch `content/cloud-pipelines-v1`, stacked on `feature/factory-lab` (§0g). Guided Practice exercises on the Cloud Lab pipeline simulator.
 
@@ -426,7 +502,7 @@ Checked:
 - `exercise_packs_smoke.py`: 202 references pass, 202 starters and 259 mutants rejected;
 - `npm run test:host`: the watermark reference passes, its starter fails, invalid JSON is rejected, the notebook reference passes and its starter fails, and the workspace catalog is unchanged.
 
-## 0g. Cloud Lab pipelines (Factory Lab) — Claude, 2026-09-25
+## 0h. Cloud Lab pipelines (Factory Lab) — Claude, 2026-09-25
 
 Branch `feature/factory-lab`, stacked on `feature/airflow-lab-surface`. "Fabric Lab" becomes **Cloud Lab** (module id `fabric` and command id unchanged). It is the first piece of the simulated cloud platform the user asked for. Nothing connects to Fabric, Azure or Databricks, and the real Fabric VS Code extension is not used.
 
@@ -479,7 +555,7 @@ Checked:
 
 Not re-checked in a real F5 session.
 
-## 0h. Airflow lab simulator and exercise pack — Claude, 2026-09-25
+## 0i. Airflow lab simulator and exercise pack — Claude, 2026-09-25
 
 Branch `content/airflow-lab-v1`. Airflow practice without Airflow, in the local runtime (no FastAPI Cloud, no separate service; `datapass-airflow-runner` stays empty).
 
@@ -492,7 +568,7 @@ Branch `content/airflow-lab-v1`. Airflow practice without Airflow, in the local 
 
 Checked: `npm run compile`; `npm test` (airflow brief, package boundary); `pip install ./runtime`; compileall; `runtime_smoke.py` (parser rejections, both timetables, catchup, a trigger-rule table, retries, sensor timeout, templates); `exercise_packs_smoke.py` → 186 references pass, 186 starters and 220 mutants rejected; `npm run test:host` (branch-join reference passes, starter fails, `import os` rejected). Not re-checked in a real F5 session.
 
-## 0i. Spark lab pack and simulated plan checks — Claude, 2026-09-25
+## 0j. Spark lab pack and simulated plan checks — Claude, 2026-09-25
 
 Merged as PR #7 (`58baba9`). Branch `content/spark-lab-v1`. Targeted Spark practice on the existing bounded SparkLab (no new engine, nothing distributed).
 
@@ -505,13 +581,13 @@ Checked: `npm run compile`; `npm test` (brief and SparkLab view assertions); `pi
 
 Related repositories reviewed on 2026-09-25 (on disk under `D:\PROJ`): `fastapispark` is an earlier stand-alone fake-Spark FastAPI service (regex parser, one DuckDB query); SparkLab here supersedes it. Its open PR #1 adds an optional real-Spark oracle on GitHub Actions (learner code runs on public runners with a server token), not integrated. `datapass-airflow-runner` is empty. `fastapi-fabric` is a v0.1 Data Factory pipeline simulator (in-memory; only `Succeeded` dependency conditions are honored). Decision with the user: the VS Code Workbench is the product; no FastAPI Cloud or web backend. Promote useful ideas into this runtime (next candidates: an Airflow simulator in the Python runtime with graded exercises; a Data Factory pipeline mode in Fabric Lab).
 
-## 0j. Data-engineering patterns pack — Claude, 2026-09-25
+## 0k. Data-engineering patterns pack — Claude, 2026-09-25
 
 Merged as PR #6 (`63e5f0b`). Branch `content/more-exercises`. New pack `content/exercise-packs/de-patterns-v1` (16 authored DuckDB SQL exercises, 5 easy / 8 medium / 3 hard). It fills the gap between `sql-lab-v1` (joins/grouping/windows) and real pipeline work: typing text columns after Mosaic **Import CSV**, latest-per-key CDC dedup with a tie-breaker, the `NOT IN` NULL trap, gaps and islands, 30-minute sessionization, `ASOF LEFT JOIN`, SCD2 validity ranges with `LEAD`, full-row upsert results, a UNION ALL data-quality rule report, a `generate_series` calendar spine, a user-level funnel, `MEDIAN`, monthly cohorts, `string_split`/`UNNEST` tag normalisation, strict `>` watermarks, and `COUNT(*) FILTER` vs the `COUNT(boolean)` trap.
 
 Every exercise has a visible, a hidden and an edge fixture designed around its pitfall, a runnable starter that fails, and 1-3 mutants (34 in total). Expected rows were computed by running the reference over the grader's own typed fixture CTEs, then reviewed by hand. Gate: `exercise_packs_smoke.py` → 173 references pass, 173 starters and 188 mutants rejected; `de-patterns-v1` joined `RUNNABLE_STARTER_PACKS`. The host E2E grades `de-not-in-null-trap` from the extension catalog (the reference passes; `NOT IN` fails only on the guest-order fixture).
 
-## 0k. Mosaic CSV import — Claude, 2026-09-25
+## 0l. Mosaic CSV import — Claude, 2026-09-25
 
 Merged as PR #4 (`aeb7aef`).
 
@@ -523,7 +599,7 @@ Branch `feature/mosaic-import-csv`. Gives learners a way to load their own data 
 
 Checked: `npm run compile`; `npm test` (new `csv_import_smoke.mjs`); `runtime_smoke.py` (new TestClient block: import, catalog, duplicate/non-bronze/injection-name/malformed/over-limit/extra-`path` refusals, CAST query); compileall; pack smoke; `npm run test:host` (new step, 17/17); browser harness render of the preview and the button → `importCsv` message. Not re-checked in a real F5 session (the native file picker and input box are only exercised through the host classes).
 
-## 0l. Polish tranche — Claude, 2026-09-25
+## 0m. Polish tranche — Claude, 2026-09-25
 
 Merged as PR #3 (`603babd`). Branch `polish/setup-progress-and-lockfile`. Closes the three "known, not fixed" items from the F5 pass below and the lockfile decision.
 
@@ -534,7 +610,7 @@ Merged as PR #3 (`603babd`). Branch `polish/setup-progress-and-lockfile`. Closes
 
 Checked: `npm run compile`, `npm test` (new parser assertions in `runtime_environment_smoke.mjs`), the Python gates, and the built webview in a browser harness with a stubbed VS Code API (setup-progress card, pipeline header, minimap computed colors in a dark theme). Not re-checked in a real F5 session.
 
-## 0m. Manual F5 pass — Claude, 2026-09-25
+## 0n. Manual F5 pass — Claude, 2026-09-25
 
 A real VS Code 1.139 Extension Development Host (fresh profile, disposable workspace, managed runtime set up through the UI) was driven over the Chrome DevTools Protocol: real webview buttons, the real modal dialog, real mouse drags, screenshots. This replaced the "NOT exercised" item from the earlier tranche.
 
@@ -554,7 +630,7 @@ Known, not fixed at the time (all three addressed in §0l): first **Setup runtim
 
 The driver lives outside the repo (Playwright over CDP); if you repeat it, launch Code with `--folder-uri`, `--disable-features=CalculateNativeWinOcclusion --disable-backgrounding-occluded-windows`, and `window.dialogStyle: custom`, and use DOM clicks inside webviews.
 
-## 0n. Content tranche — Claude, 2026-09-24
+## 0o. Content tranche — Claude, 2026-09-24
 
 | Commit | Change |
 | --- | --- |
@@ -746,13 +822,9 @@ Direct workflow implemented (2026-09-24 Claude tranche): `notebooks/sparklab.py`
 
 ### dbt Lab
 
-Implemented:
-
-- extracted local sample under `samples/dbt/retail-dbt`;
-- dbt CLI + dbt-duckdb probing;
-- static project lineage fallback;
-- real `dbt build` path when tooling is installed;
-- prefer real `target/manifest.json` after execution.
+Rebuilt on 2026-09-25 as the real-life lab (see §0): managed dbt Core + dbt-duckdb + dbt Charts installed on
+request, real commands typed in a VS Code terminal, the catalog handoff, the artifacts view, dbt Charts boards and
+the missions. No static lineage and no emulation here (the emulation is the BI Lab's dbt tab).
 
 Pipeline Lab accepts a dbt activity in the design grammar, but native pipeline dbt execution is deliberately **not wired**. `native_pipeline.py` fails that task once (no retries), states nothing was run, and skips downstream tasks; the graph labels it *Declared only · not executed*.
 
@@ -977,7 +1049,7 @@ Automated unit/smoke gates are green, but add/strengthen extension-host/E2E cove
 
 Either:
 
-- wire it to the existing real dbt Core adapter with strict project/resource validation, or
+- wire it to real dbt Core the way the dbt Lab runs it (managed tools, generated profile, catalog handoff), or
 - keep it disabled and make the UI/compiler state explicit.
 
 Do not fake successful dbt execution.
@@ -1037,7 +1109,7 @@ Manual test:
 9. Pipeline: create source, compile graph, run supported activities;
 10. Fabric Lab: create/repair retail demo, execute medallion flow;
 11. Airflow: step/run/reset;
-12. dbt: verify static lineage; if dbt Core + dbt-duckdb exist, run build and verify manifest-backed lineage.
+12. dbt Lab: Install dbt tools, run dbt build from the lab (terminal), see the artifacts and the Catalog view, render a board, check a mission.
 
 ## 10. Definition of done for the next Claude tranche
 
@@ -1064,7 +1136,7 @@ A tranche is done when:
 - Do not claim SparkLab is a real Spark cluster.
 - Do not claim Airflow simulation is real Airflow.
 - Do not claim Fabric Lab is connected to Microsoft Fabric unless a future explicit connector is added.
-- Do not make static dbt lineage look like a successful dbt run.
+- Do not present the BI Lab's dbt emulation as dbt Core, or anything but a real `dct` output as dbt Charts.
 - Do not import whole donor repos into the production VSIX.
 - Do not create competing app shells.
 
