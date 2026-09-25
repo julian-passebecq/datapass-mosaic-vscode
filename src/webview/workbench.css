@@ -794,6 +794,50 @@ h2 { margin-bottom: 8px; font-size: 28px; }
   overflow: hidden;
   text-overflow: ellipsis;
 }
+.catalog-row:has(> button) {
+  grid-template-columns: minmax(0, 1fr) auto auto auto;
+}
+.mosaic-plan {
+  display: grid;
+  gap: 6px;
+}
+.mosaic-plan pre {
+  margin: 0;
+  max-height: 360px;
+  overflow: auto;
+  padding: 8px;
+  background: var(--vscode-textCodeBlock-background);
+  color: var(--vscode-editor-foreground);
+  font-family: var(--vscode-editor-font-family);
+  font-size: 11px;
+  line-height: 1.35;
+}
+.query-history summary {
+  cursor: pointer;
+  font-size: 12px;
+}
+.query-history-row {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto auto;
+  align-items: center;
+  gap: 8px;
+  padding: 5px 0;
+  border-bottom: 1px solid var(--vscode-panel-border);
+}
+.query-history-text {
+  display: grid;
+  min-width: 0;
+}
+.query-history-text code {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 11px;
+}
+.query-history-text small {
+  font-size: 10px;
+  overflow-wrap: anywhere;
+}
 .mosaic-result-preview {
   display: grid;
   gap: 7px;

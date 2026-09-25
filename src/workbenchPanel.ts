@@ -6,6 +6,17 @@ import { loadExerciseCatalog } from "./exerciseCatalog";
 import { prepareExerciseWorkspace } from "./exerciseWorkspace";
 import { decodeCsvBytes, suggestBronzeAsset, validateBronzeAsset } from "./platform/csvImport";
 import {
+  FILE_IMPORT_MAX_BYTES,
+  IMPORT_FILTERS,
+  addQueryHistory,
+  importFormat,
+  restoreQueryHistory,
+  type QueryHistoryEntry
+} from "./platform/mosaicTools";
+
+/** Mosaic query history, per workspace; not a project file (it may contain ad-hoc SQL). */
+const QUERY_HISTORY_KEY = "datapass.mosaic.queryHistory";
+import {
   collectDatabricksFiles,
   collectFactoryFiles,
   copyFactorySamples,
@@ -36,6 +47,7 @@ import * as http from "node:http";
 import * as path from "node:path";
 import { MODULES, type ModuleId } from "./modules";
 import { writeMosaicLayout } from "./mosaicLayoutStore";
+import { openQueryPlan } from "./queryPlanDocuments";
 import { createDefaultProjectManifest, readProjectManifest, writeProjectManifest } from "./project/projectManifest";
 import type { PythonTrustController } from "./pythonTrustController";
 import type { RuntimeManager } from "./runtimeManager";
@@ -248,7 +260,25 @@ export class WorkbenchPanel {
         await this.setupRuntime();
         return;
       case "importCsv":
-        await this.importCsv();
+      case "importFile":
+        await this.importFile();
+        return;
+      case "profileTable":
+        await this.guarded("Profile", () => this.runtimeManager.profileTable(message.asset));
+        return;
+      case "explainActiveSql":
+        await this.explainActiveSql();
+        return;
+      case "openQueryPlan": {
+        const plan = this.runtimeManager.snapshot().queryPlan;
+        if (plan) await openQueryPlan(plan);
+        return;
+      }
+      case "rerunQuery":
+        await this.rerunQuery(message.id);
+        return;
+      case "openQueryFile":
+        await this.openQueryFile(message.id);
         return;
       case "showRuntimeLog":
         this.runtimeManager.showLog();
@@ -469,23 +499,33 @@ export class WorkbenchPanel {
   }
 
   /** Mosaic: read a user-picked CSV on the host and send its TEXT to a new bronze table. */
-  private async importCsv(): Promise<void> {
+  /** CSV, Parquet or JSON into a new bronze table. The file's CONTENT is sent, never its path. */
+  private async importFile(): Promise<void> {
     if (this.runtimeManager.snapshot().status !== "running") {
-      void vscode.window.showWarningMessage("Start the Datapass runtime before importing a CSV.");
+      void vscode.window.showWarningMessage("Start the Datapass runtime before importing a file.");
       return;
     }
     const picked = await vscode.window.showOpenDialog({
       canSelectMany: false,
       canSelectFolders: false,
       defaultUri: vscode.workspace.workspaceFolders?.[0]?.uri,
-      filters: { "CSV files": ["csv"] },
+      filters: IMPORT_FILTERS,
       openLabel: "Import into catalog",
-      title: "Import CSV into the local catalog (new bronze table)"
+      title: "Import a CSV, Parquet or JSON file into the local catalog (new bronze table)"
     });
     const uri = picked?.[0];
     if (!uri) return;
+    const fileName = uri.path.split("/").pop() ?? "data";
+    const format = importFormat(fileName);
+    if (!format) {
+      void vscode.window.showErrorMessage("Import a .csv, .parquet, .json, .jsonl or .ndjson file.");
+      return;
+    }
+    if (format !== "csv") {
+      await this.importTypedFile(uri, fileName, format);
+      return;
+    }
 
-    const fileName = uri.path.split("/").pop() ?? "data.csv";
     let text: string;
     try {
       text = decodeCsvBytes(await vscode.workspace.fs.readFile(uri));
@@ -511,6 +551,107 @@ export class WorkbenchPanel {
       );
     } catch (error) {
       void vscode.window.showErrorMessage(error instanceof Error ? error.message : String(error));
+    }
+    await this.refresh();
+  }
+
+  private async importTypedFile(uri: vscode.Uri, fileName: string, format: "parquet" | "json"): Promise<void> {
+    const bytes = await vscode.workspace.fs.readFile(uri);
+    if (!bytes.byteLength || bytes.byteLength > FILE_IMPORT_MAX_BYTES) {
+      void vscode.window.showErrorMessage(`Import files must be 1 byte to ${FILE_IMPORT_MAX_BYTES / 1_000_000} MB; ${fileName} is ${bytes.byteLength.toLocaleString()} bytes.`);
+      return;
+    }
+    const existing = (this.runtimeManager.snapshot().catalog ?? []).map(asset => asset.name);
+    const asset = await vscode.window.showInputBox({
+      title: `Import ${fileName}`,
+      prompt: `New bronze table name. Imports never overwrite; column types come from the ${format === "parquet" ? "Parquet file" : "JSON (DuckDB read_json_auto)"}.`,
+      value: suggestBronzeAsset(fileName, existing),
+      valueSelection: [7, Number.MAX_SAFE_INTEGER],
+      validateInput: value => validateBronzeAsset(value, existing)
+    });
+    if (!asset) return;
+    try {
+      const result = await this.runtimeManager.importFile(asset.trim(), format, Buffer.from(bytes).toString("base64"), fileName);
+      void vscode.window.showInformationMessage(`Imported ${result.rows_imported} rows into ${result.asset} with typed columns.`);
+    } catch (error) {
+      void vscode.window.showErrorMessage(error instanceof Error ? error.message : String(error));
+    }
+    await this.refresh();
+  }
+
+  /** EXPLAIN ANALYZE of the active SQL file, or of its selection when there is one. */
+  private async explainActiveSql(): Promise<void> {
+    const document = await activeSavedDocument(".sql", "SQL", this.lastDocuments.get(".sql"));
+    if (!document) return;
+    const editor = vscode.window.visibleTextEditors.find(candidate => candidate.document === document);
+    const selected = editor && !editor.selection.isEmpty ? document.getText(editor.selection) : undefined;
+    const sql = selected?.trim() ? selected : document.getText();
+    const file = vscode.workspace.asRelativePath(document.uri, false);
+    await this.recordQuery("explain", sql, file, async () => {
+      const plan = await this.runtimeManager.explainQuery(sql, selected ? `${file} (selection)` : file);
+      return { status: "success", elapsedMs: plan.elapsed_ms };
+    });
+    await this.refresh();
+  }
+
+  private async rerunQuery(id: string): Promise<void> {
+    const entry = this.queryHistory().find(item => item.id === id);
+    if (!entry) return;
+    await this.recordQuery(entry.kind, entry.sql, entry.file, async () => {
+      if (entry.kind === "explain") {
+        const plan = await this.runtimeManager.explainQuery(entry.sql, entry.file);
+        return { status: "success", elapsedMs: plan.elapsed_ms };
+      }
+      const run = await this.runtimeManager.runSql(entry.sql);
+      return { status: run.status, elapsedMs: run.elapsed_ms, rows: run.result?.rows.length, error: run.error?.message };
+    });
+    await this.refresh();
+  }
+
+  private async openQueryFile(id: string): Promise<void> {
+    const root = vscode.workspace.workspaceFolders?.[0]?.uri;
+    const entry = this.queryHistory().find(item => item.id === id);
+    if (!root || !entry?.file) return;
+    const uri = vscode.Uri.joinPath(root, ...entry.file.split("/"));
+    if (await exists(uri)) await this.openBeside(uri);
+    else void vscode.window.showWarningMessage(`${entry.file} no longer exists.`);
+  }
+
+  private queryHistory(): QueryHistoryEntry[] {
+    return restoreQueryHistory(this.context.workspaceState.get(QUERY_HISTORY_KEY));
+  }
+
+  /** Runs one Mosaic query action and keeps it in the workspace's query history, failures included. */
+  private async recordQuery(
+    kind: QueryHistoryEntry["kind"],
+    sql: string,
+    file: string | undefined,
+    action: () => Promise<{ status: "success" | "error"; elapsedMs: number; rows?: number; error?: string }>
+  ): Promise<void> {
+    let outcome: { status: "success" | "error"; elapsedMs: number; rows?: number; error?: string };
+    try {
+      outcome = await action();
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      outcome = { status: "error", elapsedMs: 0, error: message };
+      void vscode.window.showErrorMessage(message);
+    }
+    const entry: QueryHistoryEntry = {
+      id: `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`,
+      at: new Date().toISOString(),
+      kind,
+      file,
+      sql,
+      ...outcome
+    };
+    await this.context.workspaceState.update(QUERY_HISTORY_KEY, addQueryHistory(this.queryHistory(), entry));
+  }
+
+  private async guarded(what: string, action: () => Promise<void>): Promise<void> {
+    try {
+      await action();
+    } catch (error) {
+      void vscode.window.showErrorMessage(`${what}: ${error instanceof Error ? error.message : String(error)}`);
     }
     await this.refresh();
   }
@@ -608,13 +749,14 @@ export class WorkbenchPanel {
     const document = await activeSavedDocument(".sql", "SQL", this.lastDocuments.get(".sql"));
     if (!document) return;
 
-    try {
-      await this.runtimeManager.runSql(document.getText());
-    } catch (error) {
-      void vscode.window.showErrorMessage(
-        `SQL execution failed: ${error instanceof Error ? error.message : String(error)}`
-      );
-    }
+    await this.recordQuery("run", document.getText(), vscode.workspace.asRelativePath(document.uri, false), async () => {
+      try {
+        const run = await this.runtimeManager.runSql(document.getText());
+        return { status: run.status, elapsedMs: run.elapsed_ms, rows: run.result?.rows.length, error: run.error?.message };
+      } catch (error) {
+        throw new Error(`SQL execution failed: ${error instanceof Error ? error.message : String(error)}`);
+      }
+    });
     await this.refresh();
   }
 
@@ -1668,7 +1810,8 @@ export class WorkbenchPanel {
             ? { missions: await this.dbtLab.missions.list("dbt"), progress: (await this.dbtLab.missions.progress()).missions }
             : undefined
         },
-        practiceSolutions: Object.fromEntries(this.revealedSolutions)
+        practiceSolutions: Object.fromEntries(this.revealedSolutions),
+        queryHistory: this.selectedModule === "mosaic" ? this.queryHistory() : undefined
       }
     );
     if (seq !== this.refreshSeq) return;

@@ -157,6 +157,7 @@ export function WorkbenchApp({ vscode }: { vscode: VsCodeApi }) {
                 pythonTrust={state.pythonTrust}
                 projectLayout={state.mosaicLayout}
                 canPersist={state.workspace.manifestExists}
+                queryHistory={state.queryHistory}
               />
             ) : selected.id === "practice" ? (
               <PracticeSurface vscode={vscode} runtime={state.runtime}

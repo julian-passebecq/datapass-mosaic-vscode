@@ -112,6 +112,7 @@ def references(sql: str) -> list[str]:
 class Catalog:
     def __init__(self, directory: Path, mode: str = 'auto'):
         self.directory = directory
+        self.import_directory = directory / 'imports'
         directory.mkdir(parents=True, exist_ok=True)
         has_duckdb = importlib.util.find_spec('duckdb') is not None
         if mode not in {'auto', 'duckdb', 'ducklake', 'sqlite'}:
@@ -152,6 +153,12 @@ class Catalog:
                 }
             for layer in LAYERS:
                 self.db.execute(f'CREATE SCHEMA IF NOT EXISTS {layer}')
+            if self.kind == 'duckdb':
+                # Mosaic file imports (local_data.import_file) stage a copy of the learner's Parquet/JSON here for
+                # one import. Only this runtime-owned folder stays readable; cell SQL still cannot call file
+                # functions (validate_sql). DuckLake mode already allows its whole data folder (lakehouse.py).
+                staging = (self.import_directory.resolve().as_posix() + '/').replace("'", "''")
+                self.db.execute(f"SET allowed_directories=['{staging}']")
             # After controlled initialization, notebook SQL cannot read arbitrary files.
             self.db.execute('SET enable_external_access=false')
         self._seed()

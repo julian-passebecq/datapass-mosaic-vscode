@@ -63,6 +63,11 @@ host ── applyVerification() ──► .datapass/progress.json (manual ticks,
 - The runtime never marks a manual step as verified; the extension (`src/platform/projects.ts`) keeps ticks by hand
   (`manual`) apart from verifications (`verified`: the last run where every check passed; `last`: the latest run) and
   ignores a hand-edited `verified` record that does not pass.
+- Mosaic imports (`/api/local/import-csv`, `/api/local/import-file`) send file CONTENT. For Parquet and JSON, the
+  runtime writes a temporary copy in `.datapass/data/imports/`, the only folder DuckDB may read after
+  `enable_external_access=false` (`allowed_directories`). The copy is deleted after the import, and cell SQL still
+  cannot call file functions (`validate_sql`). `/api/local/profile` (SUMMARIZE) and `/api/local/explain`
+  (EXPLAIN ANALYZE of one read-only query) are read-only.
 - Each check result carries a truth: real, simulated, emulation, hybrid (simulated orchestration, local activities)
   or static (the BI Lab lineage).
 - Practice keeps its own section in the same file, `practice.exercises["<pack>/<exercise>/<language>"]`
