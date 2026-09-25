@@ -80,10 +80,10 @@ npm run test:host
 1. activation and every Workbench command; the Mosaic command opens the Workbench webview;
 2. `.datapass/project.json` creation with `trustedLocalPython: false`;
 3. trusted-Python resolution (manifest flag alone is not enough; confirmation required; disable resets); Mosaic layout round trip through `.datapass/mosaic.json`, rejected input and corrupt-file fallback;
-4. Airflow starter DAG validation; dbt sample static lineage (labeled static, not a run);
+4. Airflow starter DAG file under `airflow/dags`; dbt sample static lineage (labeled static, not a run);
 5. runtime start **with `DATAPASS_TRUSTED_PYTHON=1` injected into the host** — it must still report trusted Python off;
 6. Mosaic SQL scratch on real DuckDB; Python refused while untrusted;
-7. SparkLab scratch result + simulated stages; unsafe SparkLab source rejected;
+7. SparkLab scratch result + simulated stages; unsafe SparkLab source rejected; Airflow Lab simulates the starter DAG (states, retries, all_done cleanup) and rejects a bad import with its line;
 8. Practice `demo-sum` visible run and submission pass; a wrong answer fails;
 9. Pipeline starter compiles to a graph and its activities run;
 10. retail medallion demo;

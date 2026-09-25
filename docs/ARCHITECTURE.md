@@ -96,7 +96,9 @@ Prefer real dbt Core over a fake dbt engine. Datapass adds project scaffolding, 
 
 Airflow Lab simulates DAG scheduling concepts: dependencies, retries, trigger rules, task states, logical dates, logs and manual runs. It does not need a full Airflow installation for basic learning.
 
-Practice `airflow` exercises use the runtime simulator in `runtime/airflowlab` (see its README). The learner writes a real-looking Airflow DAG file; a whitelisted AST reader turns it into a DAG model and **never executes it**. The simulator then creates the DAG runs a scheduler would create (Airflow 3 timetables, catchup, `start_date`) and simulates task instances (trigger rules, retries, execution timeouts, sensors, branching, short-circuits) and rendered templates for each fixture's scenario. Grading compares the simulated outcome rows: runs, task instances, rendered templates, edges or tasks. The Airflow Lab surface still runs its own step-by-step simulator over `airflow/main.dag.json`.
+Practice `airflow` exercises use the runtime simulator in `runtime/airflowlab` (see its README). The learner writes a real-looking Airflow DAG file; a whitelisted AST reader turns it into a DAG model and **never executes it**. The simulator then creates the DAG runs a scheduler would create (Airflow 3 timetables, catchup, `start_date`) and simulates task instances (trigger rules, retries, execution timeouts, sensors, branching, short-circuits) and rendered templates for each fixture's scenario. Grading compares the simulated outcome rows: runs, task instances, rendered templates, edges or tasks.
+
+The Airflow Lab surface uses the same simulator through `POST /api/local/airflow/simulate` (`airflowlab/lab.py`): the host sends the active DAG file's TEXT and the learner's scenario, and gets back the parsed DAG, the runs (the latest 40 are simulated), task instances, timed events for the step-by-step replay and rendered templates. There is one Airflow implementation; the earlier webview simulator and its `main.dag.json` spec were removed.
 
 ## Pipeline Lab
 

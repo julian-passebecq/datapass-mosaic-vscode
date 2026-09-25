@@ -60,11 +60,11 @@ export const MODULES: readonly WorkbenchModule[] = [
   {
     id:"airflow",
     label:"Airflow Lab",
-    description:"DAG scheduling, retries, task states and logs as a local simulator.",
+    description:"Airflow 3 DAG files simulated locally: runs, task states, retries and logs.",
     command:"datapass.openAirflowLab",
     execution:"Simulated scheduler",
     mode:"simulated",
-    highlights:["DAG dependencies","Retries + trigger rules","Task state and log simulation"]
+    highlights:["Real Airflow 3 DAG files, parsed not run","Runs, catchup and timetables","Grid, replay, trigger rules and retries"]
   },
   {
     id:"pipeline",

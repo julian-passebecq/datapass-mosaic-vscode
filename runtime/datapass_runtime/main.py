@@ -1,10 +1,12 @@
 from contextlib import asynccontextmanager
 import os
 from pathlib import Path
-from typing import Literal
+from typing import Any, Literal
 
 from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel, ConfigDict, Field
+
+from airflowlab.lab import lab_view
 
 from .pipeline_compiler import compile_response
 from .kernels import KernelManager
@@ -53,6 +55,13 @@ def native_command(body: dict[str, object]) -> object:
 class PipelineCompileRequest(BaseModel):
     model_config = ConfigDict(extra="forbid", strict=True)
     source: str = Field(min_length=1, max_length=80000)
+
+
+class AirflowSimulateRequest(BaseModel):
+    """An Airflow DAG file's TEXT and a simulation scenario. The source is parsed, never executed."""
+    model_config = ConfigDict(extra="forbid", strict=True)
+    source: str = Field(min_length=1, max_length=60000)
+    scenario: dict[str, Any] = Field(default_factory=dict)
 
 
 class RetailDemoRequest(BaseModel):
@@ -216,6 +225,12 @@ def execute_pipeline(body: PipelineCompileRequest) -> dict[str, object]:
 def compile_pipeline(body: PipelineCompileRequest) -> dict[str, object]:
     """Compile the bounded pipeline DSL into design IR without executing source."""
     return compile_response(body.source)
+
+
+@app.post("/api/local/airflow/simulate")
+def simulate_airflow(body: AirflowSimulateRequest) -> dict[str, object]:
+    """Airflow Lab: parse the DAG file (never executed) and simulate the scenario deterministically."""
+    return lab_view(body.source, body.scenario)
 
 
 @app.post("/api/demo/retail/run")

@@ -312,6 +312,35 @@ with TemporaryDirectory(prefix="datapass-csv-import-smoke-") as temp:
             assert extra.status_code == 422, extra.text
             queried = client.post("/api/local/query", json={"query": "SELECT CAST(visits AS INTEGER) AS v FROM bronze.city_visits WHERE visits <> ''"})
             assert queried.json()["result"]["rows"] == [{"v": 3}], queried.text
+
+            # Airflow Lab: the DAG text is parsed and simulated, never executed.
+            lab_dag = AIRFLOW_HEAD + (
+                "from airflow.providers.standard.operators.python import BranchPythonOperator\n"
+                "def pick(**context):\n    return 'b'\n"
+                "with DAG('lab', schedule='@daily', start_date=datetime(2026, 3, 1), catchup=True):\n"
+                "    s = FileSensor(task_id='s', filepath='/in/{{ ds }}.csv', poke_interval=60, timeout=600, soft_fail=True)\n"
+                "    choose = BranchPythonOperator(task_id='choose', python_callable=pick)\n"
+                "    s >> choose >> [EmptyOperator(task_id='a'), EmptyOperator(task_id='b')]\n")
+            lab = client.post("/api/local/airflow/simulate", json={"source": lab_dag, "scenario": {"now": "2026-03-03T12:00:00Z"}}).json()
+            assert lab["status"] == "simulated" and lab["total_runs"] == 3, lab
+            final = {i["task_id"]: i["state"] for i in lab["runs"][-1]["instances"]}
+            assert final == {"s": "success", "choose": "success", "a": "skipped", "b": "success"}, final  # Lab default: file present
+            assert lab["runs"][-1]["rendered"] == [{"task_id": "s", "field": "filepath", "value": "/in/2026-03-03.csv"}], lab["runs"][-1]
+            assert all({"t", "task_id", "state", "try_number", "message"} <= set(e) for e in lab["runs"][-1]["events"])
+            never = client.post("/api/local/airflow/simulate", json={"source": lab_dag, "scenario": {
+                "now": "2026-03-03T12:00:00Z", "latest_run_only": True, "tasks": {"s": {"sensor_true_after_seconds": None}}}}).json()
+            assert [i["state"] for i in never["runs"][0]["instances"]] == ["skipped"] * 4, never
+            manual = client.post("/api/local/airflow/simulate", json={"source": lab_dag.replace("schedule='@daily'", "schedule=None"),
+                                 "scenario": {"now": "2026-03-03T12:00:00Z", "manual_runs": ["2026-03-03T09:15:00Z"]}}).json()
+            assert [(r["run_type"], r["logical_date"]) for r in manual["runs"]] == [("manual", "2026-03-03T09:15:00+00:00")], manual
+            broken = client.post("/api/local/airflow/simulate", json={"source": "from airflow.sdk import DAG\nimport os\n"}).json()
+            assert broken["status"] == "invalid" and broken["error"]["line"] == 2 and broken["dag"] is None, broken
+            unknown_branch = client.post("/api/local/airflow/simulate", json={"source": lab_dag.replace("return 'b'", "return context['x']"),
+                                         "scenario": {"now": "2026-03-01T12:00:00Z"}}).json()
+            assert unknown_branch["status"] == "simulation_error" and unknown_branch["dag"]["dag_id"] == "lab", unknown_branch
+            assert "scenario must say" in unknown_branch["error"]["message"], unknown_branch
+            too_long = client.post("/api/local/airflow/simulate", json={"source": "x" * 60001})
+            assert too_long.status_code == 422, too_long.status_code
     finally:
         if previous_workspace is None:
             os.environ.pop("DATAPASS_WORKSPACE_ROOT", None)
