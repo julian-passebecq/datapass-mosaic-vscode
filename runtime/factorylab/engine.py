@@ -49,6 +49,8 @@ class ActivityBehavior(BaseModel):
     # Fail only the iterations whose item() equals one of these (or contains it as a value).
     fail_on_items: list[Any] = Field(default_factory=list)
     output: dict[str, Any] | None = None
+    # Successive outputs: the n-th run of the activity gets outputs[n] (the last one repeats), for polling loops.
+    outputs: list[dict[str, Any]] | None = Field(default=None, min_length=1, max_length=100)
     error_message: str | None = None
     error_code: str | None = None
 
@@ -173,6 +175,7 @@ class Simulator:
         self.runs: list[ActivityRun] = []
         self.children: list[PipelineRunResult] = []
         self.return_value: Any = None
+        self.calls: dict[str, int] = {}  # runs per work activity, for scenario output sequences
         # System variables. DataFactory is the factory name (ADF) or the workspace name (Synapse, Fabric).
         manual = scenario.trigger_type == 'Manual'
         info = {'DataFactory': DATA_FACTORY_NAMES[pipeline.flavor], 'Pipeline': pipeline.name, 'RunId': self.run_id,
@@ -280,6 +283,11 @@ class Simulator:
                 run.end_s = max(run.end_s, begin)
             return run
         behavior = self.behavior(activity)
+        call = self.calls.get(activity.name, 0)
+        self.calls[activity.name] = call + 1
+        extra = behavior.output
+        if behavior.outputs:
+            extra = {**(extra or {}), **behavior.outputs[min(call, len(behavior.outputs) - 1)]}
         t = begin
         for attempt in range(1, activity.policy.retry + 2):
             run.attempts = attempt
@@ -303,8 +311,8 @@ class Simulator:
                 try:
                     output, truth, note = self.work(activity, resolved)
                     run.truth, run.note = truth, note
-                    if behavior.output is not None:
-                        output = {**(output or {}), **behavior.output}
+                    if extra is not None:
+                        output = {**(output or {}), **extra}
                         run.note = (run.note + '; ' if run.note else '') + 'output completed from the scenario'
                 except ActivityFailure as exc:
                     error = {'errorCode': exc.code, 'message': exc.message, 'failureType': 'UserError'}

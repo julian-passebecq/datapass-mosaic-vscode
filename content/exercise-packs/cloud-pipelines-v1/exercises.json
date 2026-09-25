@@ -1,0 +1,1675 @@
+[
+  {
+    "schema_version": 1,
+    "id": "cp-alert-on-failure",
+    "version": "1",
+    "title": "Email the team only when the copy fails",
+    "difficulty": "easy",
+    "topics": [
+      "dependency-conditions",
+      "error-handling"
+    ],
+    "tags": [
+      "cloud-lab",
+      "data-factory",
+      "fabric",
+      "simulated"
+    ],
+    "origin": "authored",
+    "language": "factory",
+    "runtime": "datapass-factory-sim-v1",
+    "prompt": "pl_orders_copy copies the day's orders to bronze, and the Email data team activity should warn the team when the copy fails. Today the email goes out after every successful copy instead. Fix the dependency so the email is sent only when Copy orders fails.",
+    "sections": [
+      {
+        "title": "Simulator",
+        "body": "Your pipeline JSON is validated with the design rules of Microsoft Fabric Data Factory and simulated by the Cloud Lab engine: dependency conditions, run status from the leaf activities, retries and timeouts, containers and the expression language. Nothing connects to Microsoft Fabric or Azure. Each check runs the pipeline in its own scenario (activity failures, durations, outputs, parameters, trigger time)."
+      },
+      {
+        "title": "Graded",
+        "body": "The status of each activity when the copy fails and when it succeeds, and the run status when the copy fails."
+      }
+    ],
+    "starter_source": "{\n  \"properties\": {\n    \"description\": \"Copy the day's orders to bronze and warn the data team when the copy fails.\",\n    \"activities\": [\n      {\n        \"name\": \"Copy orders\",\n        \"type\": \"Copy\",\n        \"dependsOn\": [],\n        \"policy\": {\n          \"timeout\": \"0.12:00:00\",\n          \"retry\": 0,\n          \"retryIntervalInSeconds\": 30,\n          \"secureOutput\": false,\n          \"secureInput\": false\n        },\n        \"typeProperties\": {\n          \"source\": {\n            \"type\": \"LakehouseTableSource\",\n            \"datasetSettings\": {\n              \"annotations\": [],\n              \"type\": \"LakehouseTable\",\n              \"schema\": [],\n              \"typeProperties\": {\n                \"schema\": \"source\",\n                \"table\": \"orders\"\n              },\n              \"linkedService\": {\n                \"name\": \"lh_retail\",\n                \"properties\": {\n                  \"annotations\": [],\n                  \"type\": \"Lakehouse\",\n                  \"typeProperties\": {\n                    \"workspaceId\": \"00000000-0000-0000-0000-000000000000\",\n                    \"artifactId\": \"00000000-0000-0000-0000-00000000001a\",\n                    \"rootFolder\": \"Tables\"\n                  }\n                }\n              }\n            }\n          },\n          \"sink\": {\n            \"type\": \"LakehouseTableSink\",\n            \"tableActionOption\": \"Overwrite\",\n            \"datasetSettings\": {\n              \"annotations\": [],\n              \"type\": \"LakehouseTable\",\n              \"schema\": [],\n              \"typeProperties\": {\n                \"schema\": \"bronze\",\n                \"table\": \"orders\"\n              },\n              \"linkedService\": {\n                \"name\": \"lh_retail\",\n                \"properties\": {\n                  \"annotations\": [],\n                  \"type\": \"Lakehouse\",\n                  \"typeProperties\": {\n                    \"workspaceId\": \"00000000-0000-0000-0000-000000000000\",\n                    \"artifactId\": \"00000000-0000-0000-0000-00000000001a\",\n                    \"rootFolder\": \"Tables\"\n                  }\n                }\n              }\n            }\n          },\n          \"enableStaging\": false\n        }\n      },\n      {\n        \"name\": \"Email data team\",\n        \"type\": \"Office365Outlook\",\n        \"dependsOn\": [\n          {\n            \"activity\": \"Copy orders\",\n            \"dependencyConditions\": [\n              \"Succeeded\"\n            ]\n          }\n        ],\n        \"typeProperties\": {\n          \"inputs\": {\n            \"body\": {\n              \"To\": \"data-team@example.com\",\n              \"Subject\": \"Daily orders copy failed\",\n              \"Body\": \"@concat('Run ', pipeline().RunId, ' failed: ', activity('Copy orders').error.message)\"\n            }\n          }\n        }\n      }\n    ],\n    \"annotations\": []\n  }\n}\n",
+    "fixtures": [
+      {
+        "id": "cp-alert-on-failure-fixtures",
+        "version": "1"
+      }
+    ],
+    "visible_checks": [
+      {
+        "id": "copy-fails",
+        "description": "Simulated pipeline outcome for the public scenario."
+      }
+    ],
+    "hidden_check_refs": [
+      "copy-succeeds"
+    ],
+    "edge_check_refs": [
+      "run-status-when-handled"
+    ],
+    "hints": [
+      "dependencyConditions lists the outcomes of the upstream activity that let this activity run.",
+      "Completed means Succeeded or Failed: the email would also go out on good days."
+    ],
+    "solution": {
+      "available": true,
+      "reveal": "explicit"
+    },
+    "explanation": "With dependencyConditions [\"Failed\"], the email runs only when the copy fails and is Skipped otherwise. The run then ends Succeeded even though the copy failed: the run status is decided by the leaf activities, and here the only leaf is the email, which succeeded. This is the try/catch pattern: the failure counts as handled.",
+    "follow_ups": [
+      "Add a Fail activity after the email so the run is still reported as failed once the team is warned."
+    ],
+    "canonical_placement": {
+      "domain": "cloud-pipelines",
+      "topic": "dependency-conditions"
+    },
+    "related_associations": [
+      "cloud-lab/pipelines"
+    ],
+    "recommendation": {
+      "rank": 1,
+      "reason": "Cloud Lab pipeline progression"
+    },
+    "validator_version": "rows-v2",
+    "validation": {
+      "kind": "rows",
+      "ordered": false,
+      "duplicate_sensitive": true,
+      "relative_tolerance": 1e-09,
+      "absolute_tolerance": 1e-06,
+      "required_columns": [],
+      "exact_schema": null,
+      "forbidden_extra_columns": true,
+      "null_semantics": "equal"
+    },
+    "runtime_requirements": [
+      "factory-simulator"
+    ],
+    "provenance": {
+      "source": "Authored for Datapass Workbench: Data Factory orchestration on the Cloud Lab simulator",
+      "fixtures": "Authored scenarios; expected rows computed by running the reference and reviewed"
+    },
+    "constraints": {
+      "truth": "Simulated orchestration for Microsoft Fabric Data Factory; every activity follows the check's scenario."
+    },
+    "truth": "simulated"
+  },
+  {
+    "schema_version": 1,
+    "id": "cp-cleanup-always",
+    "version": "1",
+    "title": "Drop the staging table in every case",
+    "difficulty": "easy",
+    "topics": [
+      "dependency-conditions",
+      "cleanup"
+    ],
+    "tags": [
+      "cloud-lab",
+      "data-factory",
+      "adf",
+      "simulated"
+    ],
+    "origin": "authored",
+    "language": "factory",
+    "runtime": "datapass-factory-sim-v1",
+    "prompt": "pl_stage_and_merge loads a staging table, merges it into silver, then drops the staging table. The drop must run in every case once the merge step is over: when the merge succeeds, when it fails, and when the merge never ran because the load failed.",
+    "sections": [
+      {
+        "title": "Simulator",
+        "body": "Your pipeline JSON is validated with the design rules of Azure Data Factory and simulated by the Cloud Lab engine: dependency conditions, run status from the leaf activities, retries and timeouts, containers and the expression language. Nothing connects to Microsoft Fabric or Azure. Each check runs the pipeline in its own scenario (activity failures, durations, outputs, parameters, trigger time)."
+      },
+      {
+        "title": "Graded",
+        "body": "The status of each activity when the merge fails, when the load fails, and on a normal day."
+      }
+    ],
+    "starter_source": "{\n  \"name\": \"pl_stage_and_merge\",\n  \"properties\": {\n    \"description\": \"Load a staging table, merge it into silver, then drop the staging table.\",\n    \"activities\": [\n      {\n        \"name\": \"Load staging\",\n        \"type\": \"Copy\",\n        \"dependsOn\": [],\n        \"policy\": {\n          \"timeout\": \"0.12:00:00\",\n          \"retry\": 0,\n          \"retryIntervalInSeconds\": 30,\n          \"secureOutput\": false,\n          \"secureInput\": false\n        },\n        \"outputs\": [\n          {\n            \"referenceName\": \"ds_staging_orders\",\n            \"type\": \"DatasetReference\"\n          }\n        ],\n        \"typeProperties\": {\n          \"source\": {\n            \"type\": \"AzureSqlSource\",\n            \"sqlReaderQuery\": \"SELECT * FROM source.orders\",\n            \"queryTimeout\": \"02:00:00\",\n            \"partitionOption\": \"None\"\n          },\n          \"sink\": {\n            \"type\": \"AzureSqlSink\",\n            \"writeBehavior\": \"insert\",\n            \"sqlWriterUseTableLock\": false,\n            \"tableOption\": \"autoCreate\"\n          },\n          \"enableStaging\": false\n        }\n      },\n      {\n        \"name\": \"Merge into target\",\n        \"type\": \"Script\",\n        \"dependsOn\": [\n          {\n            \"activity\": \"Load staging\",\n            \"dependencyConditions\": [\n              \"Succeeded\"\n            ]\n          }\n        ],\n        \"policy\": {\n          \"timeout\": \"0.12:00:00\",\n          \"retry\": 0,\n          \"retryIntervalInSeconds\": 30,\n          \"secureOutput\": false,\n          \"secureInput\": false\n        },\n        \"linkedServiceName\": {\n          \"referenceName\": \"ls_lab_sql\",\n          \"type\": \"LinkedServiceReference\"\n        },\n        \"typeProperties\": {\n          \"scripts\": [\n            {\n              \"type\": \"NonQuery\",\n              \"text\": \"MERGE INTO silver.orders AS t USING staging.orders AS s ON t.order_id = s.order_id WHEN MATCHED THEN UPDATE SET net_amount = s.net_amount WHEN NOT MATCHED THEN INSERT (order_id, net_amount) VALUES (s.order_id, s.net_amount);\"\n            }\n          ],\n          \"scriptBlockExecutionTimeout\": \"02:00:00\"\n        }\n      },\n      {\n        \"name\": \"Drop staging\",\n        \"type\": \"Script\",\n        \"dependsOn\": [\n          {\n            \"activity\": \"Merge into target\",\n            \"dependencyConditions\": [\n              \"Succeeded\"\n            ]\n          }\n        ],\n        \"policy\": {\n          \"timeout\": \"0.12:00:00\",\n          \"retry\": 0,\n          \"retryIntervalInSeconds\": 30,\n          \"secureOutput\": false,\n          \"secureInput\": false\n        },\n        \"linkedServiceName\": {\n          \"referenceName\": \"ls_lab_sql\",\n          \"type\": \"LinkedServiceReference\"\n        },\n        \"typeProperties\": {\n          \"scripts\": [\n            {\n              \"type\": \"NonQuery\",\n              \"text\": \"DROP TABLE IF EXISTS staging.orders;\"\n            }\n          ],\n          \"scriptBlockExecutionTimeout\": \"02:00:00\"\n        }\n      }\n    ],\n    \"annotations\": []\n  }\n}\n",
+    "fixtures": [
+      {
+        "id": "cp-cleanup-always-fixtures",
+        "version": "1"
+      }
+    ],
+    "visible_checks": [
+      {
+        "id": "merge-fails",
+        "description": "Simulated pipeline outcome for the public scenario."
+      }
+    ],
+    "hidden_check_refs": [
+      "load-fails"
+    ],
+    "edge_check_refs": [
+      "normal-day"
+    ],
+    "hints": [
+      "When Load staging fails, Merge into target does not fail: it is Skipped.",
+      "Several conditions on the same dependency are alternatives: any one of them is enough."
+    ],
+    "solution": {
+      "available": true,
+      "reveal": "explicit"
+    },
+    "explanation": "Completed covers Succeeded and Failed, but not Skipped. When the load fails, the merge is Skipped, so a drop that waits for Completed is Skipped too and the staging table stays behind. Listing [\"Completed\", \"Skipped\"] on the same dependency means \"once the merge step is over, whatever happened\".",
+    "follow_ups": [
+      "Why would a separate dependency on Load staging (with Failed) run the drop twice in some cases, and never in others?"
+    ],
+    "canonical_placement": {
+      "domain": "cloud-pipelines",
+      "topic": "dependency-conditions"
+    },
+    "related_associations": [
+      "cloud-lab/pipelines"
+    ],
+    "recommendation": {
+      "rank": 2,
+      "reason": "Cloud Lab pipeline progression"
+    },
+    "validator_version": "rows-v2",
+    "validation": {
+      "kind": "rows",
+      "ordered": false,
+      "duplicate_sensitive": true,
+      "relative_tolerance": 1e-09,
+      "absolute_tolerance": 1e-06,
+      "required_columns": [
+        "name",
+        "status"
+      ],
+      "exact_schema": [
+        "name",
+        "status"
+      ],
+      "forbidden_extra_columns": true,
+      "null_semantics": "equal"
+    },
+    "runtime_requirements": [
+      "factory-simulator"
+    ],
+    "provenance": {
+      "source": "Authored for Datapass Workbench: Data Factory orchestration on the Cloud Lab simulator",
+      "fixtures": "Authored scenarios; expected rows computed by running the reference and reviewed"
+    },
+    "constraints": {
+      "truth": "Simulated orchestration for Azure Data Factory; every activity follows the check's scenario."
+    },
+    "truth": "simulated"
+  },
+  {
+    "schema_version": 1,
+    "id": "cp-retry-flaky-api",
+    "version": "1",
+    "title": "Retry a flaky API call",
+    "difficulty": "easy",
+    "topics": [
+      "retry-policy",
+      "activity-policy"
+    ],
+    "tags": [
+      "cloud-lab",
+      "data-factory",
+      "adf",
+      "simulated"
+    ],
+    "origin": "authored",
+    "language": "factory",
+    "runtime": "datapass-factory-sim-v1",
+    "prompt": "Call rates API sometimes fails for a minute or two. Give it 2 retries, 60 seconds apart, so a short outage does not fail the pipeline. Load rates runs after it.",
+    "sections": [
+      {
+        "title": "Simulator",
+        "body": "Your pipeline JSON is validated with the design rules of Azure Data Factory and simulated by the Cloud Lab engine: dependency conditions, run status from the leaf activities, retries and timeouts, containers and the expression language. Nothing connects to Microsoft Fabric or Azure. Each check runs the pipeline in its own scenario (activity failures, durations, outputs, parameters, trigger time)."
+      },
+      {
+        "title": "Graded",
+        "body": "Status, attempts and end time (seconds after the run starts) of each activity when the API fails twice then answers, when it never recovers, and on a normal day. In these checks a call takes 10 seconds and the copy 30 seconds."
+      }
+    ],
+    "starter_source": "{\n  \"name\": \"pl_exchange_rates\",\n  \"properties\": {\n    \"description\": \"Fetch today's exchange rates from a partner API, then load them.\",\n    \"activities\": [\n      {\n        \"name\": \"Call rates API\",\n        \"type\": \"WebActivity\",\n        \"dependsOn\": [],\n        \"policy\": {\n          \"timeout\": \"0.00:10:00\",\n          \"retry\": 0,\n          \"retryIntervalInSeconds\": 30,\n          \"secureOutput\": false,\n          \"secureInput\": false\n        },\n        \"typeProperties\": {\n          \"url\": \"https://rates.example.invalid/v1/daily\",\n          \"method\": \"GET\"\n        }\n      },\n      {\n        \"name\": \"Load rates\",\n        \"type\": \"Copy\",\n        \"dependsOn\": [\n          {\n            \"activity\": \"Call rates API\",\n            \"dependencyConditions\": [\n              \"Succeeded\"\n            ]\n          }\n        ],\n        \"policy\": {\n          \"timeout\": \"0.12:00:00\",\n          \"retry\": 0,\n          \"retryIntervalInSeconds\": 30,\n          \"secureOutput\": false,\n          \"secureInput\": false\n        },\n        \"typeProperties\": {\n          \"source\": {\n            \"type\": \"RestSource\",\n            \"httpRequestTimeout\": \"00:01:40\"\n          },\n          \"sink\": {\n            \"type\": \"AzureSqlSink\",\n            \"writeBehavior\": \"insert\"\n          },\n          \"enableStaging\": false\n        }\n      }\n    ],\n    \"annotations\": []\n  }\n}\n",
+    "fixtures": [
+      {
+        "id": "cp-retry-flaky-api-fixtures",
+        "version": "1"
+      }
+    ],
+    "visible_checks": [
+      {
+        "id": "fails-twice",
+        "description": "Simulated pipeline outcome for the public scenario."
+      }
+    ],
+    "hidden_check_refs": [
+      "never-recovers"
+    ],
+    "edge_check_refs": [
+      "normal-day"
+    ],
+    "hints": [
+      "policy.retry counts retries, not attempts: 2 retries means up to 3 attempts.",
+      "policy.retryIntervalInSeconds is the pause between attempts (30 to 86400 seconds)."
+    ],
+    "solution": {
+      "available": true,
+      "reveal": "explicit"
+    },
+    "explanation": "With retry 2 and retryIntervalInSeconds 60, the third attempt starts at 10 + 60 + 10 + 60 = 140 s and ends at 150 s. When the API never recovers, the activity fails after its third attempt and Load rates is Skipped.",
+    "follow_ups": [
+      "Why not set retry to 10 just in case? Think about a partner API that is down for the whole morning."
+    ],
+    "canonical_placement": {
+      "domain": "cloud-pipelines",
+      "topic": "retry-policy"
+    },
+    "related_associations": [
+      "cloud-lab/pipelines"
+    ],
+    "recommendation": {
+      "rank": 3,
+      "reason": "Cloud Lab pipeline progression"
+    },
+    "validator_version": "rows-v2",
+    "validation": {
+      "kind": "rows",
+      "ordered": false,
+      "duplicate_sensitive": true,
+      "relative_tolerance": 1e-09,
+      "absolute_tolerance": 1e-06,
+      "required_columns": [
+        "name",
+        "status",
+        "attempts",
+        "end_s"
+      ],
+      "exact_schema": [
+        "name",
+        "status",
+        "attempts",
+        "end_s"
+      ],
+      "forbidden_extra_columns": true,
+      "null_semantics": "equal"
+    },
+    "runtime_requirements": [
+      "factory-simulator"
+    ],
+    "provenance": {
+      "source": "Authored for Datapass Workbench: Data Factory orchestration on the Cloud Lab simulator",
+      "fixtures": "Authored scenarios; expected rows computed by running the reference and reviewed"
+    },
+    "constraints": {
+      "truth": "Simulated orchestration for Azure Data Factory; every activity follows the check's scenario."
+    },
+    "truth": "simulated"
+  },
+  {
+    "schema_version": 1,
+    "id": "cp-timeout-stuck-notebook",
+    "version": "1",
+    "title": "Stop waiting for a stuck notebook",
+    "difficulty": "medium",
+    "topics": [
+      "activity-policy",
+      "timeout"
+    ],
+    "tags": [
+      "cloud-lab",
+      "data-factory",
+      "fabric",
+      "simulated"
+    ],
+    "origin": "authored",
+    "language": "factory",
+    "runtime": "datapass-factory-sim-v1",
+    "prompt": "The Silver orders notebook normally takes 20 minutes, but sometimes hangs for hours and blocks the morning load: the default activity timeout is 12 hours. Make it give up after 1 hour, without retrying, so the Teams alert (it already runs on failure) fires early.",
+    "sections": [
+      {
+        "title": "Simulator",
+        "body": "Your pipeline JSON is validated with the design rules of Microsoft Fabric Data Factory and simulated by the Cloud Lab engine: dependency conditions, run status from the leaf activities, retries and timeouts, containers and the expression language. Nothing connects to Microsoft Fabric or Azure. Each check runs the pipeline in its own scenario (activity failures, durations, outputs, parameters, trigger time)."
+      },
+      {
+        "title": "Graded",
+        "body": "Status and end time of each activity when the notebook hangs for 5 hours, on a normal 20-minute day, and on a slow day that still finishes within the hour."
+      }
+    ],
+    "starter_source": "{\n  \"properties\": {\n    \"description\": \"Clean orders in a notebook, build gold with a stored procedure, alert on notebook failure.\",\n    \"activities\": [\n      {\n        \"name\": \"Silver orders\",\n        \"type\": \"TridentNotebook\",\n        \"dependsOn\": [],\n        \"policy\": {\n          \"timeout\": \"0.12:00:00\",\n          \"retry\": 0,\n          \"retryIntervalInSeconds\": 30,\n          \"secureOutput\": false,\n          \"secureInput\": false\n        },\n        \"typeProperties\": {\n          \"notebookId\": \"nb_silver_orders\",\n          \"workspaceId\": \"00000000-0000-0000-0000-000000000000\"\n        }\n      },\n      {\n        \"name\": \"Gold revenue\",\n        \"type\": \"SqlServerStoredProcedure\",\n        \"dependsOn\": [\n          {\n            \"activity\": \"Silver orders\",\n            \"dependencyConditions\": [\n              \"Succeeded\"\n            ]\n          }\n        ],\n        \"policy\": {\n          \"timeout\": \"0.00:30:00\",\n          \"retry\": 0,\n          \"retryIntervalInSeconds\": 30,\n          \"secureOutput\": false,\n          \"secureInput\": false\n        },\n        \"typeProperties\": {\n          \"storedProcedureName\": \"[warehouse].[usp_load_gold_revenue]\"\n        }\n      },\n      {\n        \"name\": \"Alert on-call\",\n        \"type\": \"Teams\",\n        \"dependsOn\": [\n          {\n            \"activity\": \"Silver orders\",\n            \"dependencyConditions\": [\n              \"Failed\"\n            ]\n          }\n        ],\n        \"typeProperties\": {\n          \"inputs\": {\n            \"body\": {\n              \"messageBody\": \"@concat('Silver orders failed: ', activity('Silver orders').error.message)\"\n            }\n          }\n        }\n      }\n    ],\n    \"annotations\": []\n  }\n}\n",
+    "fixtures": [
+      {
+        "id": "cp-timeout-stuck-notebook-fixtures",
+        "version": "1"
+      }
+    ],
+    "visible_checks": [
+      {
+        "id": "notebook-hangs",
+        "description": "Simulated pipeline outcome for the public scenario."
+      }
+    ],
+    "hidden_check_refs": [
+      "normal-day"
+    ],
+    "edge_check_refs": [
+      "slow-but-in-time"
+    ],
+    "hints": [
+      "policy.timeout is a timespan: d.hh:mm:ss, so 12 hours is 0.12:00:00.",
+      "A timeout counts as a failure: the activities that run on Failed start right after it."
+    ],
+    "solution": {
+      "available": true,
+      "reveal": "explicit"
+    },
+    "explanation": "With timeout 0.01:00:00 the notebook fails at 3600 s instead of running for 5 hours; Gold revenue is Skipped and Alert on-call runs at once. A slow but healthy run of 58 minutes is not cut.",
+    "follow_ups": [
+      "What would a retry add here, and what would it cost on a day the notebook really hangs?"
+    ],
+    "canonical_placement": {
+      "domain": "cloud-pipelines",
+      "topic": "activity-policy"
+    },
+    "related_associations": [
+      "cloud-lab/pipelines"
+    ],
+    "recommendation": {
+      "rank": 4,
+      "reason": "Cloud Lab pipeline progression"
+    },
+    "validator_version": "rows-v2",
+    "validation": {
+      "kind": "rows",
+      "ordered": false,
+      "duplicate_sensitive": true,
+      "relative_tolerance": 1e-09,
+      "absolute_tolerance": 1e-06,
+      "required_columns": [
+        "name",
+        "status",
+        "end_s"
+      ],
+      "exact_schema": [
+        "name",
+        "status",
+        "end_s"
+      ],
+      "forbidden_extra_columns": true,
+      "null_semantics": "equal"
+    },
+    "runtime_requirements": [
+      "factory-simulator"
+    ],
+    "provenance": {
+      "source": "Authored for Datapass Workbench: Data Factory orchestration on the Cloud Lab simulator",
+      "fixtures": "Authored scenarios; expected rows computed by running the reference and reviewed"
+    },
+    "constraints": {
+      "truth": "Simulated orchestration for Microsoft Fabric Data Factory; every activity follows the check's scenario."
+    },
+    "truth": "simulated"
+  },
+  {
+    "schema_version": 1,
+    "id": "cp-foreach-batch",
+    "version": "1",
+    "title": "Copy tables two at a time",
+    "difficulty": "medium",
+    "topics": [
+      "foreach",
+      "parallelism",
+      "parameters"
+    ],
+    "tags": [
+      "cloud-lab",
+      "data-factory",
+      "adf",
+      "simulated"
+    ],
+    "origin": "authored",
+    "language": "factory",
+    "runtime": "datapass-factory-sim-v1",
+    "prompt": "pl_copy_tables copies every table in a hard-coded list, one after the other. Read the list from the tables pipeline parameter instead, and copy the tables in parallel, at most 2 at the same time: the source database accepts 2 connections.",
+    "sections": [
+      {
+        "title": "Simulator",
+        "body": "Your pipeline JSON is validated with the design rules of Azure Data Factory and simulated by the Cloud Lab engine: dependency conditions, run status from the leaf activities, retries and timeouts, containers and the expression language. Nothing connects to Microsoft Fabric or Azure. Each check runs the pipeline in its own scenario (activity failures, durations, outputs, parameters, trigger time)."
+      },
+      {
+        "title": "Graded",
+        "body": "Run status and duration (each copy takes 30 seconds) with the default tables, with five tables passed as a parameter, and when one table fails."
+      }
+    ],
+    "starter_source": "{\n  \"name\": \"pl_copy_tables\",\n  \"properties\": {\n    \"description\": \"Copy every table named in the tables parameter to bronze.\",\n    \"activities\": [\n      {\n        \"name\": \"Copy each table\",\n        \"type\": \"ForEach\",\n        \"dependsOn\": [],\n        \"typeProperties\": {\n          \"items\": {\n            \"value\": \"@createArray('customers', 'orders', 'products', 'stores')\",\n            \"type\": \"Expression\"\n          },\n          \"isSequential\": true,\n          \"activities\": [\n            {\n              \"name\": \"Copy table\",\n              \"type\": \"Copy\",\n              \"dependsOn\": [],\n              \"policy\": {\n                \"timeout\": \"0.12:00:00\",\n                \"retry\": 0,\n                \"retryIntervalInSeconds\": 30,\n                \"secureOutput\": false,\n                \"secureInput\": false\n              },\n              \"outputs\": [\n                {\n                  \"referenceName\": \"ds_bronze_table\",\n                  \"type\": \"DatasetReference\",\n                  \"parameters\": {\n                    \"table\": {\n                      \"value\": \"@item()\",\n                      \"type\": \"Expression\"\n                    }\n                  }\n                }\n              ],\n              \"typeProperties\": {\n                \"source\": {\n                  \"type\": \"AzureSqlSource\",\n                  \"sqlReaderQuery\": {\n                    \"value\": \"@concat('SELECT * FROM source.', item())\",\n                    \"type\": \"Expression\"\n                  }\n                },\n                \"sink\": {\n                  \"type\": \"ParquetSink\"\n                },\n                \"enableStaging\": false\n              }\n            }\n          ]\n        }\n      }\n    ],\n    \"parameters\": {\n      \"tables\": {\n        \"type\": \"array\",\n        \"defaultValue\": [\n          \"customers\",\n          \"orders\",\n          \"products\",\n          \"stores\"\n        ]\n      }\n    },\n    \"annotations\": []\n  }\n}\n",
+    "fixtures": [
+      {
+        "id": "cp-foreach-batch-fixtures",
+        "version": "1"
+      }
+    ],
+    "visible_checks": [
+      {
+        "id": "default-tables",
+        "description": "Simulated pipeline outcome for the public scenario."
+      }
+    ],
+    "hidden_check_refs": [
+      "five-tables"
+    ],
+    "edge_check_refs": [
+      "one-table-fails"
+    ],
+    "hints": [
+      "ForEach runs its iterations in parallel unless isSequential is true; batchCount caps how many run at once.",
+      "item() is the current element; the list itself comes from items."
+    ],
+    "solution": {
+      "available": true,
+      "reveal": "explicit"
+    },
+    "explanation": "With isSequential false and batchCount 2, four 30-second copies take 60 seconds and five take 90. When one iteration fails, the others still run, and the ForEach, and so the run, ends Failed.",
+    "follow_ups": [
+      "What changes if one table takes 10 minutes and the others 30 seconds?"
+    ],
+    "canonical_placement": {
+      "domain": "cloud-pipelines",
+      "topic": "foreach"
+    },
+    "related_associations": [
+      "cloud-lab/pipelines"
+    ],
+    "recommendation": {
+      "rank": 5,
+      "reason": "Cloud Lab pipeline progression"
+    },
+    "validator_version": "rows-v2",
+    "validation": {
+      "kind": "rows",
+      "ordered": false,
+      "duplicate_sensitive": true,
+      "relative_tolerance": 1e-09,
+      "absolute_tolerance": 1e-06,
+      "required_columns": [
+        "status",
+        "duration_s"
+      ],
+      "exact_schema": [
+        "status",
+        "duration_s"
+      ],
+      "forbidden_extra_columns": true,
+      "null_semantics": "equal"
+    },
+    "runtime_requirements": [
+      "factory-simulator"
+    ],
+    "provenance": {
+      "source": "Authored for Datapass Workbench: Data Factory orchestration on the Cloud Lab simulator",
+      "fixtures": "Authored scenarios; expected rows computed by running the reference and reviewed"
+    },
+    "constraints": {
+      "truth": "Simulated orchestration for Azure Data Factory; every activity follows the check's scenario."
+    },
+    "truth": "simulated"
+  },
+  {
+    "schema_version": 1,
+    "id": "cp-if-new-rows",
+    "version": "1",
+    "title": "Refresh gold only when new rows arrived",
+    "difficulty": "medium",
+    "topics": [
+      "if-condition",
+      "lookup",
+      "expressions"
+    ],
+    "tags": [
+      "cloud-lab",
+      "data-factory",
+      "fabric",
+      "simulated"
+    ],
+    "origin": "authored",
+    "language": "factory",
+    "runtime": "datapass-factory-sim-v1",
+    "prompt": "Count new orders returns one row with a new_orders column. Make Any new orders run Refresh gold only when at least one new order arrived; when nothing is new, the pipeline just skips the refresh.",
+    "sections": [
+      {
+        "title": "Simulator",
+        "body": "Your pipeline JSON is validated with the design rules of Microsoft Fabric Data Factory and simulated by the Cloud Lab engine: dependency conditions, run status from the leaf activities, retries and timeouts, containers and the expression language. Nothing connects to Microsoft Fabric or Azure. Each check runs the pipeline in its own scenario (activity failures, durations, outputs, parameters, trigger time)."
+      },
+      {
+        "title": "Graded",
+        "body": "The status of each activity when the Lookup counts 3 new orders, none, and exactly one. In the checks the Lookup output comes from the scenario."
+      }
+    ],
+    "starter_source": "{\n  \"properties\": {\n    \"description\": \"Refresh gold only when new orders arrived.\",\n    \"activities\": [\n      {\n        \"name\": \"Count new orders\",\n        \"type\": \"Lookup\",\n        \"dependsOn\": [],\n        \"policy\": {\n          \"timeout\": \"0.00:10:00\",\n          \"retry\": 0,\n          \"retryIntervalInSeconds\": 30,\n          \"secureOutput\": false,\n          \"secureInput\": false\n        },\n        \"typeProperties\": {\n          \"source\": {\n            \"type\": \"DataWarehouseSource\",\n            \"sqlReaderQuery\": \"SELECT COUNT(*) AS new_orders FROM bronze.orders_increment\",\n            \"partitionOption\": \"None\",\n            \"queryTimeout\": \"02:00:00\"\n          },\n          \"firstRowOnly\": true\n        }\n      },\n      {\n        \"name\": \"Any new orders\",\n        \"type\": \"IfCondition\",\n        \"dependsOn\": [\n          {\n            \"activity\": \"Count new orders\",\n            \"dependencyConditions\": [\n              \"Succeeded\"\n            ]\n          }\n        ],\n        \"typeProperties\": {\n          \"expression\": {\n            \"value\": \"@activity('Count new orders').output.firstRow.new_orders\",\n            \"type\": \"Expression\"\n          },\n          \"ifTrueActivities\": [\n            {\n              \"name\": \"Refresh gold\",\n              \"type\": \"SqlServerStoredProcedure\",\n              \"dependsOn\": [],\n              \"policy\": {\n                \"timeout\": \"0.00:30:00\",\n                \"retry\": 0,\n                \"retryIntervalInSeconds\": 30,\n                \"secureOutput\": false,\n                \"secureInput\": false\n              },\n              \"typeProperties\": {\n                \"storedProcedureName\": \"[gold].[usp_refresh_daily_sales]\"\n              }\n            }\n          ],\n          \"ifFalseActivities\": []\n        }\n      }\n    ],\n    \"annotations\": []\n  }\n}\n",
+    "fixtures": [
+      {
+        "id": "cp-if-new-rows-fixtures",
+        "version": "1"
+      }
+    ],
+    "visible_checks": [
+      {
+        "id": "three-new",
+        "description": "Simulated pipeline outcome for the public scenario."
+      }
+    ],
+    "hidden_check_refs": [
+      "none-new"
+    ],
+    "edge_check_refs": [
+      "exactly-one"
+    ],
+    "hints": [
+      "An If Condition needs a Boolean: a number is not true or false.",
+      "A Lookup with firstRowOnly exposes its row as output.firstRow."
+    ],
+    "solution": {
+      "available": true,
+      "reveal": "explicit"
+    },
+    "explanation": "@greater(activity('Count new orders').output.firstRow.new_orders, 0) is true from one new order. Activities of the branch that does not run do not appear in the run at all, and the If Condition itself succeeds.",
+    "follow_ups": [
+      "How would you also refresh gold on the first day of the month, whatever the count?"
+    ],
+    "canonical_placement": {
+      "domain": "cloud-pipelines",
+      "topic": "if-condition"
+    },
+    "related_associations": [
+      "cloud-lab/pipelines"
+    ],
+    "recommendation": {
+      "rank": 6,
+      "reason": "Cloud Lab pipeline progression"
+    },
+    "validator_version": "rows-v2",
+    "validation": {
+      "kind": "rows",
+      "ordered": false,
+      "duplicate_sensitive": true,
+      "relative_tolerance": 1e-09,
+      "absolute_tolerance": 1e-06,
+      "required_columns": [
+        "name",
+        "status"
+      ],
+      "exact_schema": [
+        "name",
+        "status"
+      ],
+      "forbidden_extra_columns": true,
+      "null_semantics": "equal"
+    },
+    "runtime_requirements": [
+      "factory-simulator"
+    ],
+    "provenance": {
+      "source": "Authored for Datapass Workbench: Data Factory orchestration on the Cloud Lab simulator",
+      "fixtures": "Authored scenarios; expected rows computed by running the reference and reviewed"
+    },
+    "constraints": {
+      "truth": "Simulated orchestration for Microsoft Fabric Data Factory; every activity follows the check's scenario."
+    },
+    "truth": "simulated"
+  },
+  {
+    "schema_version": 1,
+    "id": "cp-notebook-exit-value",
+    "version": "1",
+    "title": "Use the notebook's exit value",
+    "difficulty": "medium",
+    "topics": [
+      "notebook-activity",
+      "variables",
+      "expressions"
+    ],
+    "tags": [
+      "cloud-lab",
+      "data-factory",
+      "fabric",
+      "simulated"
+    ],
+    "origin": "authored",
+    "language": "factory",
+    "runtime": "datapass-factory-sim-v1",
+    "prompt": "The Silver orders notebook ends with notebookutils.notebook.exit(str(row_count)). Keep that value in the silver_rows variable (String) right after the notebook. The If Condition after it must stop the run with the Fail activity when the notebook wrote no rows. The Set variable was copied from an Azure Data Factory pipeline; fix it for Fabric.",
+    "sections": [
+      {
+        "title": "Simulator",
+        "body": "Your pipeline JSON is validated with the design rules of Microsoft Fabric Data Factory and simulated by the Cloud Lab engine: dependency conditions, run status from the leaf activities, retries and timeouts, containers and the expression language. Nothing connects to Microsoft Fabric or Azure. Each check runs the pipeline in its own scenario (activity failures, durations, outputs, parameters, trigger time)."
+      },
+      {
+        "title": "Graded",
+        "body": "The variables after a run where the notebook returns \"42\", and the run status when it returns \"0\" and \"7\". The notebook's exit value comes from the scenario."
+      }
+    ],
+    "starter_source": "{\n  \"properties\": {\n    \"description\": \"Run the silver notebook, keep its row count, and stop when it wrote nothing.\",\n    \"activities\": [\n      {\n        \"name\": \"Silver orders\",\n        \"type\": \"TridentNotebook\",\n        \"dependsOn\": [],\n        \"policy\": {\n          \"timeout\": \"0.12:00:00\",\n          \"retry\": 0,\n          \"retryIntervalInSeconds\": 30,\n          \"secureOutput\": false,\n          \"secureInput\": false\n        },\n        \"typeProperties\": {\n          \"notebookId\": \"nb_silver_orders\",\n          \"workspaceId\": \"00000000-0000-0000-0000-000000000000\",\n          \"parameters\": {\n            \"run_date\": {\n              \"value\": {\n                \"value\": \"@pipeline().parameters.run_date\",\n                \"type\": \"Expression\"\n              },\n              \"type\": \"string\"\n            }\n          }\n        }\n      },\n      {\n        \"name\": \"Keep silver rows\",\n        \"type\": \"SetVariable\",\n        \"dependsOn\": [\n          {\n            \"activity\": \"Silver orders\",\n            \"dependencyConditions\": [\n              \"Succeeded\"\n            ]\n          }\n        ],\n        \"typeProperties\": {\n          \"variableName\": \"silver_rows\",\n          \"value\": \"@activity('Silver orders').output.runOutput\"\n        }\n      },\n      {\n        \"name\": \"No silver rows\",\n        \"type\": \"IfCondition\",\n        \"dependsOn\": [\n          {\n            \"activity\": \"Keep silver rows\",\n            \"dependencyConditions\": [\n              \"Succeeded\"\n            ]\n          }\n        ],\n        \"typeProperties\": {\n          \"expression\": {\n            \"value\": \"@equals(variables('silver_rows'), '0')\",\n            \"type\": \"Expression\"\n          },\n          \"ifTrueActivities\": [\n            {\n              \"name\": \"Stop empty load\",\n              \"type\": \"Fail\",\n              \"dependsOn\": [],\n              \"typeProperties\": {\n                \"message\": \"The silver notebook wrote no rows\",\n                \"errorCode\": \"SILVER_EMPTY\"\n              }\n            }\n          ],\n          \"ifFalseActivities\": []\n        }\n      }\n    ],\n    \"parameters\": {\n      \"run_date\": {\n        \"type\": \"string\",\n        \"defaultValue\": \"2026-03-05\"\n      }\n    },\n    \"variables\": {\n      \"silver_rows\": {\n        \"type\": \"String\"\n      }\n    },\n    \"annotations\": []\n  }\n}\n",
+    "fixtures": [
+      {
+        "id": "cp-notebook-exit-value-fixtures",
+        "version": "1"
+      }
+    ],
+    "visible_checks": [
+      {
+        "id": "rows-written",
+        "description": "Simulated pipeline outcome for the public scenario."
+      }
+    ],
+    "hidden_check_refs": [
+      "no-rows"
+    ],
+    "edge_check_refs": [
+      "some-rows"
+    ],
+    "hints": [
+      "A Fabric Notebook activity returns the exit value as output.result.exitValue; runOutput is the Azure Databricks activity's field.",
+      "The exit value is text: \"0\" is not the number 0 for equals()."
+    ],
+    "solution": {
+      "available": true,
+      "reveal": "explicit"
+    },
+    "explanation": "In Fabric the value passed to notebookutils.notebook.exit reaches the pipeline as activity('Silver orders').output.result.exitValue, always as text. equals(variables('silver_rows'), '0') compares text with text; comparing it with the number 0 is always false, so the empty-load guard would never fire.",
+    "follow_ups": [
+      "Return JSON from the notebook and read one of its fields with json(...) in the pipeline."
+    ],
+    "canonical_placement": {
+      "domain": "cloud-pipelines",
+      "topic": "notebook-activity"
+    },
+    "related_associations": [
+      "cloud-lab/pipelines"
+    ],
+    "recommendation": {
+      "rank": 7,
+      "reason": "Cloud Lab pipeline progression"
+    },
+    "validator_version": "rows-v2",
+    "validation": {
+      "kind": "rows",
+      "ordered": false,
+      "duplicate_sensitive": true,
+      "relative_tolerance": 1e-09,
+      "absolute_tolerance": 1e-06,
+      "required_columns": [],
+      "exact_schema": null,
+      "forbidden_extra_columns": true,
+      "null_semantics": "equal"
+    },
+    "runtime_requirements": [
+      "factory-simulator"
+    ],
+    "provenance": {
+      "source": "Authored for Datapass Workbench: Data Factory orchestration on the Cloud Lab simulator",
+      "fixtures": "Authored scenarios; expected rows computed by running the reference and reviewed"
+    },
+    "constraints": {
+      "truth": "Simulated orchestration for Microsoft Fabric Data Factory; every activity follows the check's scenario."
+    },
+    "truth": "simulated"
+  },
+  {
+    "schema_version": 1,
+    "id": "cp-date-folder-path",
+    "version": "1",
+    "title": "Build a date-partitioned folder path",
+    "difficulty": "medium",
+    "topics": [
+      "expressions",
+      "dates",
+      "variables"
+    ],
+    "tags": [
+      "cloud-lab",
+      "data-factory",
+      "adf",
+      "simulated"
+    ],
+    "origin": "authored",
+    "language": "factory",
+    "runtime": "datapass-factory-sim-v1",
+    "prompt": "Set the target_folder variable to the folder of the run's day, for example raw/orders/2026/03/05 for a run triggered on 5 March 2026. Use the trigger time of the run (UTC).",
+    "sections": [
+      {
+        "title": "Simulator",
+        "body": "Your pipeline JSON is validated with the design rules of Azure Data Factory and simulated by the Cloud Lab engine: dependency conditions, run status from the leaf activities, retries and timeouts, containers and the expression language. Nothing connects to Microsoft Fabric or Azure. Each check runs the pipeline in its own scenario (activity failures, durations, outputs, parameters, trigger time)."
+      },
+      {
+        "title": "Graded",
+        "body": "The variables for runs triggered at different times, including a month change and a year change."
+      }
+    ],
+    "starter_source": "{\n  \"name\": \"pl_orders_to_raw\",\n  \"properties\": {\n    \"description\": \"Copy the orders to a date-partitioned folder of the raw zone.\",\n    \"activities\": [\n      {\n        \"name\": \"Set target folder\",\n        \"type\": \"SetVariable\",\n        \"dependsOn\": [],\n        \"typeProperties\": {\n          \"variableName\": \"target_folder\",\n          \"value\": \"raw/orders/\"\n        }\n      },\n      {\n        \"name\": \"Copy orders to raw\",\n        \"type\": \"Copy\",\n        \"dependsOn\": [\n          {\n            \"activity\": \"Set target folder\",\n            \"dependencyConditions\": [\n              \"Succeeded\"\n            ]\n          }\n        ],\n        \"policy\": {\n          \"timeout\": \"0.12:00:00\",\n          \"retry\": 0,\n          \"retryIntervalInSeconds\": 30,\n          \"secureOutput\": false,\n          \"secureInput\": false\n        },\n        \"outputs\": [\n          {\n            \"referenceName\": \"ds_raw_folder\",\n            \"type\": \"DatasetReference\",\n            \"parameters\": {\n              \"folder\": {\n                \"value\": \"@variables('target_folder')\",\n                \"type\": \"Expression\"\n              }\n            }\n          }\n        ],\n        \"typeProperties\": {\n          \"source\": {\n            \"type\": \"AzureSqlSource\",\n            \"sqlReaderQuery\": \"SELECT * FROM source.orders\"\n          },\n          \"sink\": {\n            \"type\": \"ParquetSink\"\n          },\n          \"enableStaging\": false\n        }\n      }\n    ],\n    \"variables\": {\n      \"target_folder\": {\n        \"type\": \"String\"\n      }\n    },\n    \"annotations\": []\n  }\n}\n",
+    "fixtures": [
+      {
+        "id": "cp-date-folder-path-fixtures",
+        "version": "1"
+      }
+    ],
+    "visible_checks": [
+      {
+        "id": "march-fifth",
+        "description": "Simulated pipeline outcome for the public scenario."
+      }
+    ],
+    "hidden_check_refs": [
+      "late-evening"
+    ],
+    "edge_check_refs": [
+      "new-year"
+    ],
+    "hints": [
+      "formatDateTime uses .NET format strings: MM is the month, mm the minutes.",
+      "String interpolation also works: raw/orders/@{formatDateTime(...)}."
+    ],
+    "solution": {
+      "available": true,
+      "reveal": "explicit"
+    },
+    "explanation": "formatDateTime(pipeline().TriggerTime, 'yyyy/MM/dd') gives 2026/03/05. In .NET formats mm means minutes, M drops the leading zero, and YYYY or DD are not format letters at all: they are copied as they are.",
+    "follow_ups": [
+      "Use a pipeline parameter to reload an older day, and fall back to the trigger time when it is empty."
+    ],
+    "canonical_placement": {
+      "domain": "cloud-pipelines",
+      "topic": "expressions"
+    },
+    "related_associations": [
+      "cloud-lab/pipelines"
+    ],
+    "recommendation": {
+      "rank": 8,
+      "reason": "Cloud Lab pipeline progression"
+    },
+    "validator_version": "rows-v2",
+    "validation": {
+      "kind": "rows",
+      "ordered": false,
+      "duplicate_sensitive": true,
+      "relative_tolerance": 1e-09,
+      "absolute_tolerance": 1e-06,
+      "required_columns": [],
+      "exact_schema": null,
+      "forbidden_extra_columns": true,
+      "null_semantics": "equal"
+    },
+    "runtime_requirements": [
+      "factory-simulator"
+    ],
+    "provenance": {
+      "source": "Authored for Datapass Workbench: Data Factory orchestration on the Cloud Lab simulator",
+      "fixtures": "Authored scenarios; expected rows computed by running the reference and reviewed"
+    },
+    "constraints": {
+      "truth": "Simulated orchestration for Azure Data Factory; every activity follows the check's scenario."
+    },
+    "truth": "simulated"
+  },
+  {
+    "schema_version": 1,
+    "id": "cp-until-export-ready",
+    "version": "1",
+    "title": "Poll until the export is ready",
+    "difficulty": "hard",
+    "topics": [
+      "until",
+      "if-condition",
+      "variables"
+    ],
+    "tags": [
+      "cloud-lab",
+      "data-factory",
+      "synapse",
+      "simulated"
+    ],
+    "origin": "authored",
+    "language": "factory",
+    "runtime": "datapass-factory-sim-v1",
+    "prompt": "Check export answers {\"status\": \"RUNNING\"} until the partner's export is ready, then {\"status\": \"READY\"}. The Until loop checks, keeps the status in a variable and waits a minute. Change it so it waits only when the export is not ready yet: after the READY answer the pipeline must go on at once.",
+    "sections": [
+      {
+        "title": "Simulator",
+        "body": "Your pipeline JSON is validated with the design rules of Azure Synapse pipelines and simulated by the Cloud Lab engine: dependency conditions, run status from the leaf activities, retries and timeouts, containers and the expression language. Nothing connects to Microsoft Fabric or Azure. Each check runs the pipeline in its own scenario (activity failures, durations, outputs, parameters, trigger time)."
+      },
+      {
+        "title": "Graded",
+        "body": "Every Check export and Wait a minute run, with its loop iteration, when the export is ready at the third check, at the fifth, and at once. Check export's answers come from the scenario."
+      },
+      {
+        "title": "Loop rules",
+        "body": "Until evaluates its expression after each iteration. A Set variable cannot reference the variable it sets, and ForEach or Until cannot be nested in ForEach or Until, but an If Condition can run inside an Until."
+      }
+    ],
+    "starter_source": "{\n  \"name\": \"pl_partner_export\",\n  \"properties\": {\n    \"description\": \"Ask a partner for an export, poll until it is ready, then load it.\",\n    \"activities\": [\n      {\n        \"name\": \"Request export\",\n        \"type\": \"WebActivity\",\n        \"dependsOn\": [],\n        \"policy\": {\n          \"timeout\": \"0.00:05:00\",\n          \"retry\": 0,\n          \"retryIntervalInSeconds\": 30,\n          \"secureOutput\": false,\n          \"secureInput\": false\n        },\n        \"typeProperties\": {\n          \"url\": \"https://partner.example.invalid/exports/daily\",\n          \"method\": \"POST\",\n          \"body\": \"{}\"\n        }\n      },\n      {\n        \"name\": \"Wait for export\",\n        \"type\": \"Until\",\n        \"dependsOn\": [\n          {\n            \"activity\": \"Request export\",\n            \"dependencyConditions\": [\n              \"Succeeded\"\n            ]\n          }\n        ],\n        \"typeProperties\": {\n          \"expression\": {\n            \"value\": \"@equals(variables('export_status'), 'READY')\",\n            \"type\": \"Expression\"\n          },\n          \"timeout\": \"0.02:00:00\",\n          \"activities\": [\n            {\n              \"name\": \"Check export\",\n              \"type\": \"WebActivity\",\n              \"dependsOn\": [],\n              \"policy\": {\n                \"timeout\": \"0.00:05:00\",\n                \"retry\": 0,\n                \"retryIntervalInSeconds\": 30,\n                \"secureOutput\": false,\n                \"secureInput\": false\n              },\n              \"typeProperties\": {\n                \"url\": \"https://partner.example.invalid/exports/daily/status\",\n                \"method\": \"GET\"\n              }\n            },\n            {\n              \"name\": \"Keep status\",\n              \"type\": \"SetVariable\",\n              \"dependsOn\": [\n                {\n                  \"activity\": \"Check export\",\n                  \"dependencyConditions\": [\n                    \"Succeeded\"\n                  ]\n                }\n              ],\n              \"typeProperties\": {\n                \"variableName\": \"export_status\",\n                \"value\": \"@activity('Check export').output.status\"\n              }\n            },\n            {\n              \"name\": \"Wait a minute\",\n              \"type\": \"Wait\",\n              \"dependsOn\": [\n                {\n                  \"activity\": \"Keep status\",\n                  \"dependencyConditions\": [\n                    \"Succeeded\"\n                  ]\n                }\n              ],\n              \"typeProperties\": {\n                \"waitTimeInSeconds\": 60\n              }\n            }\n          ]\n        }\n      },\n      {\n        \"name\": \"Load export\",\n        \"type\": \"Copy\",\n        \"dependsOn\": [\n          {\n            \"activity\": \"Wait for export\",\n            \"dependencyConditions\": [\n              \"Succeeded\"\n            ]\n          }\n        ],\n        \"policy\": {\n          \"timeout\": \"0.12:00:00\",\n          \"retry\": 0,\n          \"retryIntervalInSeconds\": 30,\n          \"secureOutput\": false,\n          \"secureInput\": false\n        },\n        \"typeProperties\": {\n          \"source\": {\n            \"type\": \"RestSource\"\n          },\n          \"sink\": {\n            \"type\": \"SqlPoolSink\"\n          },\n          \"enableStaging\": false\n        }\n      }\n    ],\n    \"variables\": {\n      \"export_status\": {\n        \"type\": \"String\",\n        \"defaultValue\": \"PENDING\"\n      }\n    },\n    \"annotations\": []\n  }\n}\n",
+    "fixtures": [
+      {
+        "id": "cp-until-export-ready-fixtures",
+        "version": "1"
+      }
+    ],
+    "visible_checks": [
+      {
+        "id": "ready-on-third-check",
+        "description": "Simulated pipeline outcome for the public scenario."
+      }
+    ],
+    "hidden_check_refs": [
+      "ready-on-fifth-check"
+    ],
+    "edge_check_refs": [
+      "ready-at-once"
+    ],
+    "hints": [
+      "Put the Wait inside an If Condition that tests the status you just kept.",
+      "Activities of the branch that does not run do not appear in the run."
+    ],
+    "solution": {
+      "available": true,
+      "reveal": "explicit"
+    },
+    "explanation": "Checking, keeping the status, then waiting only when it is not READY makes the loop end right after the READY answer: three checks and two waits when the export is ready at the third check. The Until timeout (here 2 hours) is the safety net if the partner never finishes.",
+    "follow_ups": [
+      "Count the checks in a second variable and fail the pipeline after 10 checks."
+    ],
+    "canonical_placement": {
+      "domain": "cloud-pipelines",
+      "topic": "until"
+    },
+    "related_associations": [
+      "cloud-lab/pipelines"
+    ],
+    "recommendation": {
+      "rank": 9,
+      "reason": "Cloud Lab pipeline progression"
+    },
+    "validator_version": "rows-v2",
+    "validation": {
+      "kind": "rows",
+      "ordered": false,
+      "duplicate_sensitive": true,
+      "relative_tolerance": 1e-09,
+      "absolute_tolerance": 1e-06,
+      "required_columns": [
+        "name",
+        "status",
+        "iteration"
+      ],
+      "exact_schema": [
+        "name",
+        "status",
+        "iteration"
+      ],
+      "forbidden_extra_columns": true,
+      "null_semantics": "equal"
+    },
+    "runtime_requirements": [
+      "factory-simulator"
+    ],
+    "provenance": {
+      "source": "Authored for Datapass Workbench: Data Factory orchestration on the Cloud Lab simulator",
+      "fixtures": "Authored scenarios; expected rows computed by running the reference and reviewed"
+    },
+    "constraints": {
+      "truth": "Simulated orchestration for Azure Synapse pipelines; every activity follows the check's scenario."
+    },
+    "truth": "simulated"
+  },
+  {
+    "schema_version": 1,
+    "id": "cp-try-catch-proceed",
+    "version": "1",
+    "title": "Handle a failed copy without failing the run",
+    "difficulty": "hard",
+    "topics": [
+      "run-status",
+      "dependency-conditions",
+      "error-handling"
+    ],
+    "tags": [
+      "cloud-lab",
+      "data-factory",
+      "fabric",
+      "simulated"
+    ],
+    "origin": "authored",
+    "language": "factory",
+    "runtime": "datapass-factory-sim-v1",
+    "prompt": "When Copy orders fails, Log failure records it, and the run must end Succeeded so the pipelines scheduled after it are not blocked. Transform must still run only after a successful copy, and a real failure of Transform must still fail the run. Today a failed copy fails the whole run. Add what is needed.",
+    "sections": [
+      {
+        "title": "Simulator",
+        "body": "Your pipeline JSON is validated with the design rules of Microsoft Fabric Data Factory and simulated by the Cloud Lab engine: dependency conditions, run status from the leaf activities, retries and timeouts, containers and the expression language. Nothing connects to Microsoft Fabric or Azure. Each check runs the pipeline in its own scenario (activity failures, durations, outputs, parameters, trigger time)."
+      },
+      {
+        "title": "Graded",
+        "body": "The run status when the copy fails and when Transform fails, and the status of Copy orders, Log failure and Transform when the copy fails and on a normal day."
+      },
+      {
+        "title": "Run status",
+        "body": "A run is evaluated from its leaf activities (those nothing depends on). A skipped leaf is replaced by its parents. The run succeeds only if every evaluated activity succeeded."
+      }
+    ],
+    "starter_source": "{\n  \"properties\": {\n    \"description\": \"Copy and transform the orders; log a failed copy without failing the run.\",\n    \"activities\": [\n      {\n        \"name\": \"Copy orders\",\n        \"type\": \"Copy\",\n        \"dependsOn\": [],\n        \"policy\": {\n          \"timeout\": \"0.12:00:00\",\n          \"retry\": 0,\n          \"retryIntervalInSeconds\": 30,\n          \"secureOutput\": false,\n          \"secureInput\": false\n        },\n        \"typeProperties\": {\n          \"source\": {\n            \"type\": \"LakehouseTableSource\",\n            \"datasetSettings\": {\n              \"annotations\": [],\n              \"type\": \"LakehouseTable\",\n              \"schema\": [],\n              \"typeProperties\": {\n                \"schema\": \"source\",\n                \"table\": \"orders\"\n              },\n              \"linkedService\": {\n                \"name\": \"lh_retail\",\n                \"properties\": {\n                  \"annotations\": [],\n                  \"type\": \"Lakehouse\",\n                  \"typeProperties\": {\n                    \"workspaceId\": \"00000000-0000-0000-0000-000000000000\",\n                    \"artifactId\": \"00000000-0000-0000-0000-00000000001a\",\n                    \"rootFolder\": \"Tables\"\n                  }\n                }\n              }\n            }\n          },\n          \"sink\": {\n            \"type\": \"LakehouseTableSink\",\n            \"tableActionOption\": \"Overwrite\",\n            \"datasetSettings\": {\n              \"annotations\": [],\n              \"type\": \"LakehouseTable\",\n              \"schema\": [],\n              \"typeProperties\": {\n                \"schema\": \"bronze\",\n                \"table\": \"orders\"\n              },\n              \"linkedService\": {\n                \"name\": \"lh_retail\",\n                \"properties\": {\n                  \"annotations\": [],\n                  \"type\": \"Lakehouse\",\n                  \"typeProperties\": {\n                    \"workspaceId\": \"00000000-0000-0000-0000-000000000000\",\n                    \"artifactId\": \"00000000-0000-0000-0000-00000000001a\",\n                    \"rootFolder\": \"Tables\"\n                  }\n                }\n              }\n            }\n          },\n          \"enableStaging\": false\n        }\n      },\n      {\n        \"name\": \"Transform\",\n        \"type\": \"TridentNotebook\",\n        \"dependsOn\": [\n          {\n            \"activity\": \"Copy orders\",\n            \"dependencyConditions\": [\n              \"Succeeded\"\n            ]\n          }\n        ],\n        \"policy\": {\n          \"timeout\": \"0.12:00:00\",\n          \"retry\": 0,\n          \"retryIntervalInSeconds\": 30,\n          \"secureOutput\": false,\n          \"secureInput\": false\n        },\n        \"typeProperties\": {\n          \"notebookId\": \"nb_silver_orders\",\n          \"workspaceId\": \"00000000-0000-0000-0000-000000000000\"\n        }\n      },\n      {\n        \"name\": \"Log failure\",\n        \"type\": \"Script\",\n        \"dependsOn\": [\n          {\n            \"activity\": \"Copy orders\",\n            \"dependencyConditions\": [\n              \"Failed\"\n            ]\n          }\n        ],\n        \"policy\": {\n          \"timeout\": \"0.12:00:00\",\n          \"retry\": 0,\n          \"retryIntervalInSeconds\": 30,\n          \"secureOutput\": false,\n          \"secureInput\": false\n        },\n        \"typeProperties\": {\n          \"scripts\": [\n            {\n              \"type\": \"NonQuery\",\n              \"text\": {\n                \"value\": \"@concat('INSERT INTO warehouse.load_errors VALUES (''', pipeline().RunId, ''', ''Copy orders'')')\",\n                \"type\": \"Expression\"\n              }\n            }\n          ]\n        }\n      }\n    ],\n    \"annotations\": []\n  }\n}\n",
+    "fixtures": [
+      {
+        "id": "cp-try-catch-proceed-fixtures",
+        "version": "1"
+      }
+    ],
+    "visible_checks": [
+      {
+        "id": "copy-fails",
+        "description": "Simulated pipeline outcome for the public scenario."
+      }
+    ],
+    "hidden_check_refs": [
+      "transform-fails",
+      "normal-day-steps"
+    ],
+    "edge_check_refs": [
+      "copy-fails-steps"
+    ],
+    "hints": [
+      "When the copy fails, Transform is a skipped leaf: it is replaced by Copy orders, which failed.",
+      "Give Transform a successor that runs when Transform succeeded or was skipped, but not when it failed."
+    ],
+    "solution": {
+      "available": true,
+      "reveal": "explicit"
+    },
+    "explanation": "Adding an activity after Transform with the conditions Succeeded or Skipped changes the leaves. When the copy fails, Transform is Skipped, the new activity runs, and the evaluated leaves (it and Log failure) both succeeded: the run is Succeeded. When Transform fails, the new activity is Skipped, so Transform is evaluated and the run fails.",
+    "follow_ups": [
+      "Why does moving Log failure to Completed not help, and what does it change on a normal day?"
+    ],
+    "canonical_placement": {
+      "domain": "cloud-pipelines",
+      "topic": "run-status"
+    },
+    "related_associations": [
+      "cloud-lab/pipelines"
+    ],
+    "recommendation": {
+      "rank": 10,
+      "reason": "Cloud Lab pipeline progression"
+    },
+    "validator_version": "rows-v2",
+    "validation": {
+      "kind": "rows",
+      "ordered": false,
+      "duplicate_sensitive": true,
+      "relative_tolerance": 1e-09,
+      "absolute_tolerance": 1e-06,
+      "required_columns": [],
+      "exact_schema": null,
+      "forbidden_extra_columns": true,
+      "null_semantics": "equal"
+    },
+    "runtime_requirements": [
+      "factory-simulator"
+    ],
+    "provenance": {
+      "source": "Authored for Datapass Workbench: Data Factory orchestration on the Cloud Lab simulator",
+      "fixtures": "Authored scenarios; expected rows computed by running the reference and reviewed"
+    },
+    "constraints": {
+      "truth": "Simulated orchestration for Microsoft Fabric Data Factory; every activity follows the check's scenario."
+    },
+    "truth": "simulated"
+  },
+  {
+    "schema_version": 1,
+    "id": "cp-port-adf-to-fabric",
+    "version": "1",
+    "title": "Port an Azure Data Factory pipeline to Fabric",
+    "difficulty": "hard",
+    "topics": [
+      "fabric-vs-adf",
+      "notebook-activity",
+      "migration"
+    ],
+    "tags": [
+      "cloud-lab",
+      "data-factory",
+      "fabric",
+      "simulated"
+    ],
+    "origin": "authored",
+    "language": "factory",
+    "runtime": "datapass-factory-sim-v1",
+    "prompt": "The starter is pl_daily_orders from Azure Data Factory. Port it to Fabric Data Factory: the Databricks notebook becomes the Fabric notebook nb_silver_orders (Notebook activity, parameters in Fabric's format), the silver_rows variable must receive the notebook's exit value the Fabric way, and the webhook becomes a Teams activity. Keep the activity names.",
+    "sections": [
+      {
+        "title": "Simulator",
+        "body": "Your pipeline JSON is validated with the design rules of Microsoft Fabric Data Factory and simulated by the Cloud Lab engine: dependency conditions, run status from the leaf activities, retries and timeouts, containers and the expression language. Nothing connects to Microsoft Fabric or Azure. Each check runs the pipeline in its own scenario (activity failures, durations, outputs, parameters, trigger time)."
+      },
+      {
+        "title": "Graded",
+        "body": "The type and status of each activity, the variables after the run, and the parameters the Notebook activity passes (for a run with another run_date). The notebook's exit value comes from the scenario."
+      },
+      {
+        "title": "Fabric vs Azure Data Factory",
+        "body": "Notebook: TridentNotebook with notebookId and parameters {name: {value, type}}, result in output.result.exitValue. Azure Databricks: DatabricksNotebook with notebookPath and baseParameters {name: value}, result in output.runOutput. Notifications: Teams and Office365Outlook activities in Fabric, a Web activity to a webhook or Logic App in Azure Data Factory."
+      }
+    ],
+    "starter_source": "{\n  \"name\": \"pl_daily_orders\",\n  \"properties\": {\n    \"description\": \"Ported from Azure Data Factory: clean orders in a notebook, keep its row count, notify the team.\",\n    \"activities\": [\n      {\n        \"name\": \"Silver orders\",\n        \"type\": \"DatabricksNotebook\",\n        \"dependsOn\": [],\n        \"policy\": {\n          \"timeout\": \"0.12:00:00\",\n          \"retry\": 0,\n          \"retryIntervalInSeconds\": 30,\n          \"secureOutput\": false,\n          \"secureInput\": false\n        },\n        \"linkedServiceName\": {\n          \"referenceName\": \"ls_lab_databricks\",\n          \"type\": \"LinkedServiceReference\"\n        },\n        \"typeProperties\": {\n          \"notebookPath\": \"/Shared/nb_silver_orders_dbx\",\n          \"baseParameters\": {\n            \"run_date\": {\n              \"value\": \"@pipeline().parameters.run_date\",\n              \"type\": \"Expression\"\n            }\n          }\n        }\n      },\n      {\n        \"name\": \"Keep silver rows\",\n        \"type\": \"SetVariable\",\n        \"dependsOn\": [\n          {\n            \"activity\": \"Silver orders\",\n            \"dependencyConditions\": [\n              \"Succeeded\"\n            ]\n          }\n        ],\n        \"typeProperties\": {\n          \"variableName\": \"silver_rows\",\n          \"value\": \"@activity('Silver orders').output.runOutput\"\n        }\n      },\n      {\n        \"name\": \"Notify team\",\n        \"type\": \"WebActivity\",\n        \"dependsOn\": [\n          {\n            \"activity\": \"Keep silver rows\",\n            \"dependencyConditions\": [\n              \"Succeeded\"\n            ]\n          }\n        ],\n        \"policy\": {\n          \"timeout\": \"0.12:00:00\",\n          \"retry\": 0,\n          \"retryIntervalInSeconds\": 30,\n          \"secureOutput\": false,\n          \"secureInput\": false\n        },\n        \"typeProperties\": {\n          \"url\": \"https://hooks.example.invalid/retail\",\n          \"method\": \"POST\",\n          \"body\": {\n            \"value\": \"@concat('Silver rows: ', variables('silver_rows'))\",\n            \"type\": \"Expression\"\n          }\n        }\n      }\n    ],\n    \"parameters\": {\n      \"run_date\": {\n        \"type\": \"string\",\n        \"defaultValue\": \"2026-03-05\"\n      }\n    },\n    \"variables\": {\n      \"silver_rows\": {\n        \"type\": \"String\"\n      }\n    },\n    \"annotations\": []\n  }\n}\n",
+    "fixtures": [
+      {
+        "id": "cp-port-adf-to-fabric-fixtures",
+        "version": "1"
+      }
+    ],
+    "visible_checks": [
+      {
+        "id": "activity-types",
+        "description": "Simulated pipeline outcome for the public scenario."
+      }
+    ],
+    "hidden_check_refs": [
+      "exit-value"
+    ],
+    "edge_check_refs": [
+      "notebook-parameters"
+    ],
+    "hints": [
+      "Fabric's Notebook activity type is TridentNotebook; its parameters are objects with a value and a type.",
+      "The exit value moves from output.runOutput to output.result.exitValue."
+    ],
+    "solution": {
+      "available": true,
+      "reveal": "explicit"
+    },
+    "explanation": "The orchestration model is the same in both products; what changes is the activities and their settings. Fabric runs its own notebooks with TridentNotebook (notebookId, parameters as {\"value\": ..., \"type\": \"string\"}) and returns the exit value in output.result.exitValue; Teams and Outlook activities replace webhook calls.",
+    "follow_ups": [
+      "Port the Copy activity too: Azure Data Factory datasets become Fabric connections and inline dataset settings."
+    ],
+    "canonical_placement": {
+      "domain": "cloud-pipelines",
+      "topic": "fabric-vs-adf"
+    },
+    "related_associations": [
+      "cloud-lab/pipelines"
+    ],
+    "recommendation": {
+      "rank": 11,
+      "reason": "Cloud Lab pipeline progression"
+    },
+    "validator_version": "rows-v2",
+    "validation": {
+      "kind": "rows",
+      "ordered": false,
+      "duplicate_sensitive": true,
+      "relative_tolerance": 1e-09,
+      "absolute_tolerance": 1e-06,
+      "required_columns": [],
+      "exact_schema": null,
+      "forbidden_extra_columns": true,
+      "null_semantics": "equal"
+    },
+    "runtime_requirements": [
+      "factory-simulator"
+    ],
+    "provenance": {
+      "source": "Authored for Datapass Workbench: Data Factory orchestration on the Cloud Lab simulator",
+      "fixtures": "Authored scenarios; expected rows computed by running the reference and reviewed"
+    },
+    "constraints": {
+      "truth": "Simulated orchestration for Microsoft Fabric Data Factory; every activity follows the check's scenario."
+    },
+    "truth": "simulated"
+  },
+  {
+    "schema_version": 1,
+    "id": "cp-incremental-watermark",
+    "version": "1",
+    "title": "Load only new rows with a watermark",
+    "difficulty": "hard",
+    "topics": [
+      "incremental-load",
+      "lookup",
+      "expressions"
+    ],
+    "tags": [
+      "cloud-lab",
+      "data-factory",
+      "adf",
+      "simulated",
+      "local-data"
+    ],
+    "origin": "authored",
+    "language": "factory",
+    "runtime": "datapass-factory-sim-v1",
+    "prompt": "pl_orders_incremental must copy only the orders changed since the last load. Get watermark reads the last loaded updated_at from warehouse.watermarks. Make Copy new orders copy only the newer rows, and add a Script activity after the copy that moves the watermark to the newest updated_at now in bronze.orders. The pipeline runs twice in a row in every check: the second run must not duplicate anything.",
+    "sections": [
+      {
+        "title": "Simulator",
+        "body": "Your pipeline JSON is validated with the design rules of Azure Data Factory and simulated by the Cloud Lab engine: dependency conditions, run status from the leaf activities, retries and timeouts, containers and the expression language. Nothing connects to Microsoft Fabric or Azure. Each check runs the pipeline in its own scenario (activity failures, durations, outputs, parameters, trigger time)."
+      },
+      {
+        "title": "Local data",
+        "body": "Copy, Lookup, Script, stored procedures and notebooks really run, on an isolated DuckDB catalog built for each check from the tables below. Your workspace lakehouse is never read or written."
+      },
+      {
+        "title": "Tables",
+        "body": "source.orders and bronze.orders: order_id VARCHAR, amount DOUBLE, updated_at VARCHAR ('YYYY-MM-DD HH:MM:SS'). warehouse.watermarks: table_name VARCHAR, watermark VARCHAR. The copy appends to bronze.orders (writeBehavior insert)."
+      },
+      {
+        "title": "Graded",
+        "body": "The rows of bronze.orders (order_id, amount) after two runs: with new orders, with an order whose updated_at equals the watermark, and with nothing new."
+      }
+    ],
+    "starter_source": "{\n  \"name\": \"pl_orders_incremental\",\n  \"properties\": {\n    \"description\": \"Copy only the orders changed since the last load, then move the watermark.\",\n    \"activities\": [\n      {\n        \"name\": \"Get watermark\",\n        \"type\": \"Lookup\",\n        \"dependsOn\": [],\n        \"policy\": {\n          \"timeout\": \"0.00:10:00\",\n          \"retry\": 0,\n          \"retryIntervalInSeconds\": 30,\n          \"secureOutput\": false,\n          \"secureInput\": false\n        },\n        \"typeProperties\": {\n          \"source\": {\n            \"type\": \"AzureSqlSource\",\n            \"sqlReaderQuery\": \"SELECT watermark FROM warehouse.watermarks WHERE table_name = 'orders'\"\n          },\n          \"dataset\": {\n            \"referenceName\": \"ds_watermarks\",\n            \"type\": \"DatasetReference\"\n          },\n          \"firstRowOnly\": true\n        }\n      },\n      {\n        \"name\": \"Copy new orders\",\n        \"type\": \"Copy\",\n        \"dependsOn\": [\n          {\n            \"activity\": \"Get watermark\",\n            \"dependencyConditions\": [\n              \"Succeeded\"\n            ]\n          }\n        ],\n        \"policy\": {\n          \"timeout\": \"0.12:00:00\",\n          \"retry\": 0,\n          \"retryIntervalInSeconds\": 30,\n          \"secureOutput\": false,\n          \"secureInput\": false\n        },\n        \"outputs\": [\n          {\n            \"referenceName\": \"ds_bronze_orders\",\n            \"type\": \"DatasetReference\"\n          }\n        ],\n        \"typeProperties\": {\n          \"source\": {\n            \"type\": \"AzureSqlSource\",\n            \"sqlReaderQuery\": \"SELECT * FROM source.orders\",\n            \"queryTimeout\": \"02:00:00\",\n            \"partitionOption\": \"None\"\n          },\n          \"sink\": {\n            \"type\": \"AzureSqlSink\",\n            \"writeBehavior\": \"insert\",\n            \"sqlWriterUseTableLock\": false,\n            \"tableOption\": \"autoCreate\"\n          },\n          \"enableStaging\": false\n        }\n      }\n    ],\n    \"annotations\": []\n  }\n}\n",
+    "fixtures": [
+      {
+        "id": "cp-incremental-watermark-fixtures",
+        "version": "1"
+      }
+    ],
+    "visible_checks": [
+      {
+        "id": "two-runs",
+        "description": "Simulated pipeline outcome for the public scenario."
+      }
+    ],
+    "hidden_check_refs": [
+      "boundary-row"
+    ],
+    "edge_check_refs": [
+      "nothing-new"
+    ],
+    "hints": [
+      "Put the watermark into the query with string interpolation: '@{activity('Get watermark').output.firstRow.watermark}'.",
+      "Strictly newer (>) rows only: the row at the watermark was loaded last time."
+    ],
+    "solution": {
+      "available": true,
+      "reveal": "explicit"
+    },
+    "explanation": "The copy reads only rows newer than the stored watermark, and the Script moves the watermark to the newest loaded row. The second run then finds nothing new. With >= the row at the watermark is copied again on every run; without the update the new rows come back on the next run.",
+    "follow_ups": [
+      "What happens if two orders share the same updated_at and only one of them was there during the last load?"
+    ],
+    "canonical_placement": {
+      "domain": "cloud-pipelines",
+      "topic": "incremental-load"
+    },
+    "related_associations": [
+      "cloud-lab/pipelines"
+    ],
+    "recommendation": {
+      "rank": 12,
+      "reason": "Cloud Lab pipeline progression"
+    },
+    "validator_version": "rows-v2",
+    "validation": {
+      "kind": "rows",
+      "ordered": false,
+      "duplicate_sensitive": true,
+      "relative_tolerance": 1e-09,
+      "absolute_tolerance": 1e-06,
+      "required_columns": [
+        "order_id",
+        "amount"
+      ],
+      "exact_schema": [
+        "order_id",
+        "amount"
+      ],
+      "forbidden_extra_columns": true,
+      "null_semantics": "equal"
+    },
+    "runtime_requirements": [
+      "factory-simulator"
+    ],
+    "provenance": {
+      "source": "Authored for Datapass Workbench: Data Factory orchestration on the Cloud Lab simulator",
+      "fixtures": "Authored scenarios; expected rows computed by running the reference and reviewed"
+    },
+    "constraints": {
+      "truth": "Simulated orchestration for Azure Data Factory; Copy, Lookup, Script, stored procedures and notebooks run on an isolated local DuckDB catalog."
+    },
+    "truth": "simulated"
+  },
+  {
+    "schema_version": 1,
+    "id": "cp-upsert-idempotent",
+    "version": "1",
+    "title": "Make the customer load safe to rerun",
+    "difficulty": "medium",
+    "topics": [
+      "copy-activity",
+      "upsert",
+      "idempotence"
+    ],
+    "tags": [
+      "cloud-lab",
+      "data-factory",
+      "adf",
+      "simulated",
+      "local-data"
+    ],
+    "origin": "authored",
+    "language": "factory",
+    "runtime": "datapass-factory-sim-v1",
+    "prompt": "Upsert customers inserts every source row into bronze.customers, so a rerun duplicates customers. Make the copy update existing customers and insert new ones, matching on customer_id. Customers already in bronze but no longer in the source must be kept.",
+    "sections": [
+      {
+        "title": "Simulator",
+        "body": "Your pipeline JSON is validated with the design rules of Azure Data Factory and simulated by the Cloud Lab engine: dependency conditions, run status from the leaf activities, retries and timeouts, containers and the expression language. Nothing connects to Microsoft Fabric or Azure. Each check runs the pipeline in its own scenario (activity failures, durations, outputs, parameters, trigger time)."
+      },
+      {
+        "title": "Local data",
+        "body": "Copy, Lookup, Script, stored procedures and notebooks really run, on an isolated DuckDB catalog built for each check from the tables below. Your workspace lakehouse is never read or written."
+      },
+      {
+        "title": "Tables",
+        "body": "source.customers and bronze.customers: customer_id, name, city (text)."
+      },
+      {
+        "title": "Graded",
+        "body": "The rows of bronze.customers after two runs: starting empty, with a customer whose city changed, and with an old customer that is no longer in the source."
+      }
+    ],
+    "starter_source": "{\n  \"name\": \"pl_customers_upsert\",\n  \"properties\": {\n    \"description\": \"Keep bronze.customers in line with the source, rerun-safe.\",\n    \"activities\": [\n      {\n        \"name\": \"Upsert customers\",\n        \"type\": \"Copy\",\n        \"dependsOn\": [],\n        \"policy\": {\n          \"timeout\": \"0.12:00:00\",\n          \"retry\": 0,\n          \"retryIntervalInSeconds\": 30,\n          \"secureOutput\": false,\n          \"secureInput\": false\n        },\n        \"outputs\": [\n          {\n            \"referenceName\": \"ds_bronze_customers\",\n            \"type\": \"DatasetReference\"\n          }\n        ],\n        \"typeProperties\": {\n          \"source\": {\n            \"type\": \"AzureSqlSource\",\n            \"sqlReaderQuery\": \"SELECT customer_id, name, city FROM source.customers\",\n            \"queryTimeout\": \"02:00:00\",\n            \"partitionOption\": \"None\"\n          },\n          \"sink\": {\n            \"type\": \"AzureSqlSink\",\n            \"writeBehavior\": \"insert\",\n            \"sqlWriterUseTableLock\": false,\n            \"tableOption\": \"autoCreate\"\n          },\n          \"enableStaging\": false\n        }\n      }\n    ],\n    \"annotations\": []\n  }\n}\n",
+    "fixtures": [
+      {
+        "id": "cp-upsert-idempotent-fixtures",
+        "version": "1"
+      }
+    ],
+    "visible_checks": [
+      {
+        "id": "rerun-no-duplicates",
+        "description": "Simulated pipeline outcome for the public scenario."
+      }
+    ],
+    "hidden_check_refs": [
+      "city-changed"
+    ],
+    "edge_check_refs": [
+      "keeps-old-customers"
+    ],
+    "hints": [
+      "An Azure SQL sink has writeBehavior insert or upsert; upsertSettings.keys names the matching columns.",
+      "Deleting the table before inserting also avoids duplicates, but it loses the customers the source no longer has."
+    ],
+    "solution": {
+      "available": true,
+      "reveal": "explicit"
+    },
+    "explanation": "writeBehavior upsert with upsertSettings.keys [\"customer_id\"] updates a customer that is already there and inserts the others, so running the pipeline twice gives the same table. Unlike a full overwrite, it keeps target rows that the source no longer sends.",
+    "follow_ups": [
+      "How would you also mark customers that disappeared from the source as inactive?"
+    ],
+    "canonical_placement": {
+      "domain": "cloud-pipelines",
+      "topic": "copy-activity"
+    },
+    "related_associations": [
+      "cloud-lab/pipelines"
+    ],
+    "recommendation": {
+      "rank": 13,
+      "reason": "Cloud Lab pipeline progression"
+    },
+    "validator_version": "rows-v2",
+    "validation": {
+      "kind": "rows",
+      "ordered": false,
+      "duplicate_sensitive": true,
+      "relative_tolerance": 1e-09,
+      "absolute_tolerance": 1e-06,
+      "required_columns": [],
+      "exact_schema": null,
+      "forbidden_extra_columns": true,
+      "null_semantics": "equal"
+    },
+    "runtime_requirements": [
+      "factory-simulator"
+    ],
+    "provenance": {
+      "source": "Authored for Datapass Workbench: Data Factory orchestration on the Cloud Lab simulator",
+      "fixtures": "Authored scenarios; expected rows computed by running the reference and reviewed"
+    },
+    "constraints": {
+      "truth": "Simulated orchestration for Azure Data Factory; Copy, Lookup, Script, stored procedures and notebooks run on an isolated local DuckDB catalog."
+    },
+    "truth": "simulated"
+  },
+  {
+    "schema_version": 1,
+    "id": "cp-sqlpool-proc-params",
+    "version": "1",
+    "title": "Call a SQL pool procedure with typed parameters",
+    "difficulty": "medium",
+    "topics": [
+      "stored-procedure",
+      "parameters",
+      "sql-pool"
+    ],
+    "tags": [
+      "cloud-lab",
+      "data-factory",
+      "synapse",
+      "simulated",
+      "local-data"
+    ],
+    "origin": "authored",
+    "language": "factory",
+    "runtime": "datapass-factory-sim-v1",
+    "prompt": "warehouse.usp_load_daily_revenue rebuilds one day of gold.daily_revenue. Its header declares @load_date VARCHAR(10) and @min_amount DECIMAL(10, 2). Make Load daily revenue pass the pipeline's run_date and min_amount parameters to it, with the right types. Today it passes a fixed date and forgets min_amount.",
+    "sections": [
+      {
+        "title": "Simulator",
+        "body": "Your pipeline JSON is validated with the design rules of Azure Synapse pipelines and simulated by the Cloud Lab engine: dependency conditions, run status from the leaf activities, retries and timeouts, containers and the expression language. Nothing connects to Microsoft Fabric or Azure. Each check runs the pipeline in its own scenario (activity failures, durations, outputs, parameters, trigger time)."
+      },
+      {
+        "title": "Local data",
+        "body": "Copy, Lookup, Script, stored procedures and notebooks really run, on an isolated DuckDB catalog built for each check from the tables below. Your workspace lakehouse is never read or written."
+      },
+      {
+        "title": "The procedure",
+        "body": "```sql\n-- Rebuilds one day of gold.daily_revenue: rerunning a day replaces it.\nCREATE PROCEDURE warehouse.usp_load_daily_revenue\n    @load_date VARCHAR(10),\n    @min_amount DECIMAL(10, 2)\nAS\nBEGIN\n    DELETE FROM gold.daily_revenue WHERE load_date = @load_date;\n    INSERT INTO gold.daily_revenue\n    SELECT @load_date AS load_date, COUNT(*) AS orders, SUM(net_amount) AS revenue\n    FROM silver.orders\n    WHERE order_date = @load_date AND net_amount >= @min_amount;\nEND\n```"
+      },
+      {
+        "title": "Tables",
+        "body": "silver.orders: order_id, order_date ('YYYY-MM-DD'), net_amount DOUBLE. gold.daily_revenue: load_date VARCHAR, orders BIGINT, revenue DOUBLE."
+      },
+      {
+        "title": "Graded",
+        "body": "The rows of gold.daily_revenue after a run: for the default parameters, when the day already has a stale row, and for another day with a minimum amount."
+      }
+    ],
+    "starter_source": "{\n  \"name\": \"pl_daily_revenue\",\n  \"properties\": {\n    \"description\": \"Rebuild one day of gold revenue in the dedicated SQL pool.\",\n    \"activities\": [\n      {\n        \"name\": \"Load daily revenue\",\n        \"type\": \"SqlPoolStoredProcedure\",\n        \"dependsOn\": [],\n        \"policy\": {\n          \"timeout\": \"0.00:30:00\",\n          \"retry\": 0,\n          \"retryIntervalInSeconds\": 30,\n          \"secureOutput\": false,\n          \"secureInput\": false\n        },\n        \"sqlPool\": {\n          \"referenceName\": \"sqlpool01\",\n          \"type\": \"SqlPoolReference\"\n        },\n        \"typeProperties\": {\n          \"storedProcedureName\": \"[warehouse].[usp_load_daily_revenue]\",\n          \"storedProcedureParameters\": {\n            \"load_date\": {\n              \"value\": \"2026-03-05\",\n              \"type\": \"String\"\n            }\n          }\n        }\n      }\n    ],\n    \"parameters\": {\n      \"run_date\": {\n        \"type\": \"string\",\n        \"defaultValue\": \"2026-03-05\"\n      },\n      \"min_amount\": {\n        \"type\": \"float\",\n        \"defaultValue\": 0\n      }\n    },\n    \"annotations\": []\n  }\n}\n",
+    "fixtures": [
+      {
+        "id": "cp-sqlpool-proc-params-fixtures",
+        "version": "1"
+      }
+    ],
+    "visible_checks": [
+      {
+        "id": "default-day",
+        "description": "Simulated pipeline outcome for the public scenario."
+      }
+    ],
+    "hidden_check_refs": [
+      "stale-day-replaced"
+    ],
+    "edge_check_refs": [
+      "other-day-min-amount"
+    ],
+    "hints": [
+      "storedProcedureParameters is keyed by the parameter name without @; each entry has a value and a type.",
+      "A value can be dynamic content: {\"value\": \"@pipeline().parameters.run_date\", \"type\": \"Expression\"}."
+    ],
+    "solution": {
+      "available": true,
+      "reveal": "explicit"
+    },
+    "explanation": "Each procedure parameter is passed by name with a type (String, Decimal, Int32, ...), and its value can come from a pipeline parameter. The procedure deletes the day before inserting it, so rerunning a day replaces its row instead of adding a second one.",
+    "follow_ups": [
+      "What error do you get when the pipeline passes a parameter the procedure does not declare?"
+    ],
+    "canonical_placement": {
+      "domain": "cloud-pipelines",
+      "topic": "stored-procedure"
+    },
+    "related_associations": [
+      "cloud-lab/pipelines"
+    ],
+    "recommendation": {
+      "rank": 14,
+      "reason": "Cloud Lab pipeline progression"
+    },
+    "validator_version": "rows-v2",
+    "validation": {
+      "kind": "rows",
+      "ordered": false,
+      "duplicate_sensitive": true,
+      "relative_tolerance": 1e-09,
+      "absolute_tolerance": 1e-06,
+      "required_columns": [],
+      "exact_schema": null,
+      "forbidden_extra_columns": true,
+      "null_semantics": "equal"
+    },
+    "runtime_requirements": [
+      "factory-simulator"
+    ],
+    "provenance": {
+      "source": "Authored for Datapass Workbench: Data Factory orchestration on the Cloud Lab simulator",
+      "fixtures": "Authored scenarios; expected rows computed by running the reference and reviewed"
+    },
+    "constraints": {
+      "truth": "Simulated orchestration for Azure Synapse pipelines; Copy, Lookup, Script, stored procedures and notebooks run on an isolated local DuckDB catalog."
+    },
+    "truth": "simulated"
+  },
+  {
+    "schema_version": 1,
+    "id": "nb-fabric-parameters-cell",
+    "version": "1",
+    "title": "Let the pipeline set the notebook's parameters",
+    "difficulty": "easy",
+    "topics": [
+      "notebook-parameters",
+      "notebook-activity"
+    ],
+    "tags": [
+      "cloud-lab",
+      "data-factory",
+      "fabric",
+      "simulated",
+      "local-data"
+    ],
+    "origin": "authored",
+    "language": "factory-notebook",
+    "runtime": "datapass-factory-sim-v1",
+    "prompt": "The pipeline pl_silver_orders runs this notebook with run_date and min_amount, but the notebook always uses its own values (2026-01-01 and 0). Make it take the values the pipeline passes, and keep its own values as defaults for interactive runs.",
+    "sections": [
+      {
+        "title": "Simulator",
+        "body": "Your notebook runs inside a given Microsoft Fabric Data Factory pipeline. The pipeline is simulated by the Cloud Lab engine and the notebook runs on SparkLab, the bounded fake Spark, statement by statement: it is never executed as Python. Each check is its own pipeline run."
+      },
+      {
+        "title": "Local data",
+        "body": "Copy, Lookup, Script, stored procedures and notebooks really run, on an isolated DuckDB catalog built for each check from the tables below. Your workspace lakehouse is never read or written."
+      },
+      {
+        "title": "The pipeline",
+        "body": "The Notebook activity passes run_date = @pipeline().parameters.run_date and min_amount = @pipeline().parameters.min_amount (int), then keeps the exit value in silver_rows."
+      },
+      {
+        "title": "Tables",
+        "body": "bronze.orders: order_id VARCHAR, net_amount DOUBLE."
+      },
+      {
+        "title": "Graded",
+        "body": "The rows of silver.orders (order_id, load_date) after pipeline runs with different run_date and min_amount values. The notebook runs on SparkLab, statement by statement, on an isolated local catalog; it is never executed as Python."
+      }
+    ],
+    "starter_source": "# Fabric notebook source\n\n# METADATA ********************\n\n# META {\n# META   \"kernel_info\": {\n# META     \"name\": \"synapse_pyspark\"\n# META   }\n# META }\n\n# CELL ********************\n\nrun_date = \"2026-01-01\"\nmin_amount = 0\n\n# CELL ********************\n\nfrom pyspark.sql import functions as F\n\norders = spark.table(\"bronze.orders\")\nsilver = orders.filter(F.col(\"net_amount\") > min_amount).withColumn(\"load_date\", F.lit(run_date))\nsilver.write.mode(\"overwrite\").saveAsTable(\"silver.orders\")\nnotebookutils.notebook.exit(str(silver.count()))\n",
+    "fixtures": [
+      {
+        "id": "nb-fabric-parameters-cell-fixtures",
+        "version": "1"
+      }
+    ],
+    "visible_checks": [
+      {
+        "id": "run-date-passed",
+        "description": "Simulated pipeline outcome for the public scenario."
+      }
+    ],
+    "hidden_check_refs": [
+      "min-amount-passed"
+    ],
+    "edge_check_refs": [
+      "both-changed"
+    ],
+    "hints": [
+      "Fabric injects the pipeline's parameters right after the cell marked as the parameters cell.",
+      "In the notebook source, a cell marker reads # CELL ********************; the parameters cell uses # PARAMETERS CELL ********************."
+    ],
+    "solution": {
+      "available": true,
+      "reveal": "explicit"
+    },
+    "explanation": "Without a parameters cell, Fabric injects the pipeline's values at the top of the notebook, and the notebook's own assignments then overwrite them. Marking the first cell as the parameters cell makes the injected values come after it: the pipeline wins, and the cell keeps the defaults for interactive runs.",
+    "follow_ups": [
+      "Which parameter types can a Fabric Notebook activity pass, and what does the notebook receive?"
+    ],
+    "canonical_placement": {
+      "domain": "cloud-pipelines",
+      "topic": "notebook-parameters"
+    },
+    "related_associations": [
+      "cloud-lab/pipelines"
+    ],
+    "recommendation": {
+      "rank": 15,
+      "reason": "Cloud Lab pipeline progression"
+    },
+    "validator_version": "rows-v2",
+    "validation": {
+      "kind": "rows",
+      "ordered": false,
+      "duplicate_sensitive": true,
+      "relative_tolerance": 1e-09,
+      "absolute_tolerance": 1e-06,
+      "required_columns": [
+        "order_id",
+        "load_date"
+      ],
+      "exact_schema": [
+        "order_id",
+        "load_date"
+      ],
+      "forbidden_extra_columns": true,
+      "null_semantics": "equal"
+    },
+    "runtime_requirements": [
+      "factory-simulator"
+    ],
+    "provenance": {
+      "source": "Authored for Datapass Workbench: Data Factory orchestration on the Cloud Lab simulator",
+      "fixtures": "Authored scenarios; expected rows computed by running the reference and reviewed"
+    },
+    "constraints": {
+      "truth": "Simulated orchestration for Microsoft Fabric Data Factory; Copy, Lookup, Script, stored procedures and notebooks run on an isolated local DuckDB catalog."
+    },
+    "truth": "simulated"
+  },
+  {
+    "schema_version": 1,
+    "id": "nb-databricks-widgets",
+    "version": "1",
+    "title": "Parameterize a Databricks notebook run by Data Factory",
+    "difficulty": "medium",
+    "topics": [
+      "notebook-parameters",
+      "databricks",
+      "save-modes"
+    ],
+    "tags": [
+      "cloud-lab",
+      "data-factory",
+      "adf",
+      "simulated",
+      "local-data"
+    ],
+    "origin": "authored",
+    "language": "factory-notebook",
+    "runtime": "datapass-factory-sim-v1",
+    "prompt": "The Azure Data Factory pipeline pl_top_customers runs this Azure Databricks notebook every day with the baseParameters min_orders and target_table, and keeps the notebook's runOutput in top_count. Read both parameters with widgets (defaults 2 and gold.top_customers), replace the table on every run, and return the number of top customers with dbutils.notebook.exit.",
+    "sections": [
+      {
+        "title": "Simulator",
+        "body": "Your notebook runs inside a given Azure Data Factory pipeline. The pipeline is simulated by the Cloud Lab engine and the notebook runs on SparkLab, the bounded fake Spark, statement by statement: it is never executed as Python. Each check is its own pipeline run."
+      },
+      {
+        "title": "Local data",
+        "body": "Copy, Lookup, Script, stored procedures and notebooks really run, on an isolated DuckDB catalog built for each check from the tables below. Your workspace lakehouse is never read or written."
+      },
+      {
+        "title": "The pipeline",
+        "body": "The Azure Databricks notebook activity passes baseParameters min_orders = @string(pipeline().parameters.min_orders) and target_table = gold.top_customers, then Set variable keeps @activity('Top customers').output.runOutput in top_count."
+      },
+      {
+        "title": "Tables",
+        "body": "silver.orders: order_id VARCHAR, customer_id VARCHAR, net_amount DOUBLE."
+      },
+      {
+        "title": "Graded",
+        "body": "top_count after the second of two daily runs, for two min_orders values, and the rows of the target table (customer_id, orders). The notebook runs on SparkLab on an isolated local catalog; it is never executed as Python."
+      }
+    ],
+    "starter_source": "# Databricks notebook source\nfrom pyspark.sql import functions as F\n\nmin_orders = 2\ntarget_table = \"gold.top_customers\"\n\norders = spark.table(\"silver.orders\")\ntop = (\n    orders.groupBy(\"customer_id\")\n    .agg(F.count(\"order_id\").alias(\"orders\"), F.sum(\"net_amount\").alias(\"revenue\"))\n    .filter(F.col(\"orders\") >= min_orders)\n)\ntop.write.saveAsTable(target_table)\n",
+    "fixtures": [
+      {
+        "id": "nb-databricks-widgets-fixtures",
+        "version": "1"
+      }
+    ],
+    "visible_checks": [
+      {
+        "id": "count-returned",
+        "description": "Simulated pipeline outcome for the public scenario."
+      }
+    ],
+    "hidden_check_refs": [
+      "min-orders-three"
+    ],
+    "edge_check_refs": [
+      "table-after-two-runs"
+    ],
+    "hints": [
+      "dbutils.widgets.get returns text: convert min_orders with int(...) before comparing.",
+      "Spark's default save mode is errorifexists: the second daily run fails unless you choose a mode."
+    ],
+    "solution": {
+      "available": true,
+      "reveal": "explicit"
+    },
+    "explanation": "Data Factory passes baseParameters as widget values, always as text, so the notebook declares them with dbutils.widgets.text (the defaults serve interactive runs) and reads them with dbutils.widgets.get. mode(\"overwrite\") makes the daily run replace the table instead of failing with TABLE_OR_VIEW_ALREADY_EXISTS, and dbutils.notebook.exit sends the count back as runOutput.",
+    "follow_ups": [
+      "Return a JSON string with the count and the total revenue, and read both in the pipeline."
+    ],
+    "canonical_placement": {
+      "domain": "cloud-pipelines",
+      "topic": "notebook-parameters"
+    },
+    "related_associations": [
+      "cloud-lab/pipelines"
+    ],
+    "recommendation": {
+      "rank": 16,
+      "reason": "Cloud Lab pipeline progression"
+    },
+    "validator_version": "rows-v2",
+    "validation": {
+      "kind": "rows",
+      "ordered": false,
+      "duplicate_sensitive": true,
+      "relative_tolerance": 1e-09,
+      "absolute_tolerance": 1e-06,
+      "required_columns": [],
+      "exact_schema": null,
+      "forbidden_extra_columns": true,
+      "null_semantics": "equal"
+    },
+    "runtime_requirements": [
+      "factory-simulator"
+    ],
+    "provenance": {
+      "source": "Authored for Datapass Workbench: Data Factory orchestration on the Cloud Lab simulator",
+      "fixtures": "Authored scenarios; expected rows computed by running the reference and reviewed"
+    },
+    "constraints": {
+      "truth": "Simulated orchestration for Azure Data Factory; Copy, Lookup, Script, stored procedures and notebooks run on an isolated local DuckDB catalog."
+    },
+    "truth": "simulated"
+  }
+]

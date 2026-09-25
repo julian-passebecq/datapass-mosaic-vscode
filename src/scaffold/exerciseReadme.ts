@@ -74,8 +74,12 @@ export function exerciseReadme(exercise: ExerciseSummary): string {
     exercise.language === "airflow"
       ? "**Run visible** simulates the public scenario. **Submit** also simulates hidden and edge-case scenarios " +
         "that are not shown here. The DAG file is parsed, never executed."
-      : "**Run visible** checks the public example above. **Submit** also runs hidden and edge-case fixtures that are not shown here." +
-        (plan ? " Both also grade the simulated Spark plan checks listed above." : ""),
+      : exercise.language === "factory" || exercise.language === "factory-notebook"
+        ? "**Run visible** runs the pipeline in the public scenario. **Submit** also runs hidden and edge-case " +
+          "scenarios that are not shown here. The pipeline is simulated; notebooks run on SparkLab and are never " +
+          "executed as Python; local data activities use an isolated catalog, never your workspace lakehouse."
+        : "**Run visible** checks the public example above. **Submit** also runs hidden and edge-case fixtures that are not shown here." +
+          (plan ? " Both also grade the simulated Spark plan checks listed above." : ""),
     "",
     "## Workspace rule",
     "",

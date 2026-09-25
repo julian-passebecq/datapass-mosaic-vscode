@@ -26,7 +26,7 @@ class Fixture(Contract):
     # Named fixture tables for multi-table SQL exercises. When present, the
     # public data_context declares one entry per table and input_rows is empty.
     tables: dict[str, list[dict[str, Any]]] | None = None
-    # Airflow Lab fixtures: a simulation scenario instead of input rows.
+    # Airflow Lab and Cloud Lab pipeline fixtures: a simulation scenario instead of input rows.
     scenario: dict[str, Any] | None = None
 
 
@@ -38,6 +38,25 @@ RESERVED_TABLES = {'source', 'bronze', 'silver', 'gold', 'warehouse', 'features'
                    'input_rows', 'tables', 'display', 'query', 'publish'}
 NAMED_TABLE_LANGUAGES = {'sql', 'python', 'polars', 'sparklab'}
 CLUSTER_PROFILES = set(json.loads((Path(__file__).resolve().parents[1] / 'sparklab' / 'cluster_profiles.json').read_text(encoding='utf-8')))
+# Languages graded on simulation scenarios, with the runtime adapter that grades them.
+SCENARIO_LANGUAGES = {'airflow': 'datapass-airflow-sim-v1', 'factory': 'datapass-factory-sim-v1',
+                      'factory-notebook': 'datapass-factory-sim-v1'}
+
+
+def _check_factory_scenario(definition, raw):
+    from factorylab.exercise import ExerciseScenario
+    scenario = ExerciseScenario.model_validate(raw)
+    notebook = definition.language == 'factory-notebook'
+    if notebook != (scenario.notebook is not None):
+        raise ValueError('factory-notebook fixtures, and only they, name the learner notebook: '+definition.id)
+    if notebook and scenario.pipeline not in scenario.files.pipelines:
+        raise ValueError('factory-notebook fixtures need the pipeline to run in files.pipelines: '+definition.id)
+    if any(not COLUMN_TYPE.fullmatch(t) for table in scenario.tables for t in table.types.values()):
+        raise ValueError('Unsupported fixture column type in '+definition.id)
+    for table in scenario.tables:
+        if any(not isinstance(v,(str,int,float,bool,type(None))) or isinstance(v,float) and not math.isfinite(v)
+               for row in table.rows for v in row.values()):
+            raise ValueError('Fixture values must be finite JSON scalars: '+definition.id)
 
 
 class GradingDefinition(Contract):
@@ -65,7 +84,7 @@ class PackRegistry:
                 raise ValueError('Exercise identity must fit a shared notebook ID')
             if definition.canonical_placement.topic not in definition.topics:
                 raise ValueError('Canonical topic must belong to exercise topics')
-            if definition.language not in {'sql','python','polars','sparklab','dbt','airflow'}:
+            if definition.language not in {'sql','python','polars','sparklab','dbt','airflow','factory','factory-notebook'}:
                 raise ValueError('No grading adapter for '+definition.language)
             private = GradingDefinition.model_validate(grading[definition.id])
             refs = {'visible': [c.id for c in definition.visible_checks], 'hidden': definition.hidden_check_refs, 'edge': definition.edge_check_refs}
@@ -93,6 +112,8 @@ class PackRegistry:
                     for context in definition.data_context:
                         if any(set(row) != set(context.columns) for row in fixture.tables[context.name]):
                             raise ValueError('Fixture table schema disagrees with data_context: '+definition.id+'.'+context.name)
+            if definition.language in SCENARIO_LANGUAGES and definition.runtime != SCENARIO_LANGUAGES[definition.language]:
+                raise ValueError('Runtime '+definition.runtime+' does not grade '+definition.language+': '+definition.id)
             if definition.spark_plan is not None:
                 plan = definition.spark_plan
                 if definition.language != 'sparklab':
@@ -105,13 +126,16 @@ class PackRegistry:
                 if plan.profile not in CLUSTER_PROFILES:
                     raise ValueError('Unknown SparkLab cluster profile in '+definition.id)
             for fixture in private.fixtures:
-                if (fixture.scenario is not None) != (definition.language == 'airflow'):
-                    raise ValueError('Airflow fixtures, and only they, need a simulation scenario: '+definition.id)
+                if (fixture.scenario is not None) != (definition.language in SCENARIO_LANGUAGES):
+                    raise ValueError('Airflow and pipeline fixtures, and only they, need a simulation scenario: '+definition.id)
                 if fixture.scenario is not None:
-                    from airflowlab.simulate import Scenario
-                    Scenario.model_validate(fixture.scenario)
                     if fixture.input_rows or fixture.tables is not None:
-                        raise ValueError('Airflow fixtures take a scenario, not input rows: '+definition.id)
+                        raise ValueError('Scenario fixtures take a scenario, not input rows: '+definition.id)
+                    if definition.language == 'airflow':
+                        from airflowlab.simulate import Scenario
+                        Scenario.model_validate(fixture.scenario)
+                    else:
+                        _check_factory_scenario(definition, fixture.scenario)
             for fixture in private.fixtures:
                 for rows in (fixture.input_rows,fixture.expected,*(fixture.tables or {}).values()):
                     if rows and any(set(row)!=set(rows[0]) for row in rows):

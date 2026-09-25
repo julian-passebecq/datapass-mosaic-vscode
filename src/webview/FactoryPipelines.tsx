@@ -88,7 +88,12 @@ export function FactoryPipelines({
           datasets, notebooks (Fabric, Databricks) and stored procedures in <code>sql/procedures</code>. The same daily
           retail load is written for each product so you can compare them.
         </p>
-        <Button appearance="primary" onClick={() => vscode.postMessage({ type: "createFactoryLab" })}>Create lab files</Button>
+        <div className="button-row">
+          <Button appearance="primary" onClick={() => vscode.postMessage({ type: "createFactoryLab" })}>Create lab files</Button>
+          <Button appearance="secondary" onClick={() => vscode.postMessage({ type: "selectModule", moduleId: "practice" })}>
+            Pipeline exercises
+          </Button>
+        </div>
       </div>
     );
   }
@@ -124,6 +129,9 @@ export function FactoryPipelines({
           )}
           <Button size="small" appearance="secondary" onClick={() => vscode.postMessage({ type: "createFactoryLab" })}>
             Restore sample files
+          </Button>
+          <Button size="small" appearance="secondary" onClick={() => vscode.postMessage({ type: "selectModule", moduleId: "practice" })}>
+            Pipeline exercises
           </Button>
           <Button size="small" appearance="secondary" disabled={!running || !design || !!design.error} onClick={() => run("simulated")}>
             Dry run

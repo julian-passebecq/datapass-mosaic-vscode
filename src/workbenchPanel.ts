@@ -936,7 +936,10 @@ function extensionFor(language: string): string {
     case "sparklab":
     case "pyspark":
     case "airflow":
+    case "factory-notebook":
       return "py";
+    case "factory":
+      return "json";
     case "powershell":
       return "ps1";
     case "yaml":

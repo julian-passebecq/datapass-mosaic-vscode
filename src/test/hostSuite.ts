@@ -369,6 +369,34 @@ export async function run(): Promise<void> {
       const rejected = await submit(branchJoin, "import os\n");
       assert.equal(rejected.status, "failed");
       assert.match(rejected.checks[0].message, /Unsupported import/);
+
+      // Cloud Lab pipelines: pipeline JSON and pipeline notebooks, graded on simulated runs; local data
+      // activities use an isolated catalog, so the workspace catalog must not change.
+      const cloud = catalog.filter(item => item.packId === "cloud-pipelines-v1");
+      assert.equal(cloud.length, 16);
+      assert.ok(cloud.every(item => ["factory", "factory-notebook"].includes(item.language) && item.truth === "simulated"));
+      const cloudGrading = JSON.parse(new TextDecoder().decode(await vscode.workspace.fs.readFile(
+        vscode.Uri.joinPath(extension.extensionUri, "content", "exercise-packs", "cloud-pipelines-v1", "grading.server.json")
+      ))) as Record<string, { solution: string }>;
+      await runtime!.refreshCatalog();
+      const catalogBefore = JSON.stringify(runtime!.snapshot().catalog?.map(item => [item.name, item.row_count]));
+      const watermark = cloud.find(item => item.id === "cp-incremental-watermark")!;
+      const loaded = await submit(watermark, cloudGrading[watermark.id].solution);
+      assert.equal(loaded.status, "passed", JSON.stringify(loaded.checks));
+      assert.equal(loaded.truth, "simulated");
+      const duplicated = await submit(watermark, watermark.starterSource);
+      assert.equal(duplicated.status, "failed", "a full reload must duplicate rows on the second run");
+      const broken = await submit(watermark, "{ \"properties\": { \"activities\": [ ] ");
+      assert.equal(broken.status, "failed");
+      assert.match(broken.checks[0].message, /Pipeline rejected: Invalid JSON/);
+      const parametersCell = cloud.find(item => item.id === "nb-fabric-parameters-cell")!;
+      assert.equal(parametersCell.language, "factory-notebook");
+      const injected = await submit(parametersCell, cloudGrading[parametersCell.id].solution);
+      assert.equal(injected.status, "passed", JSON.stringify(injected.checks));
+      assert.equal((await submit(parametersCell, parametersCell.starterSource)).status, "failed");
+      await runtime!.refreshCatalog();
+      assert.equal(JSON.stringify(runtime!.snapshot().catalog?.map(item => [item.name, item.row_count])), catalogBefore,
+        "exercise grading must not touch the workspace catalog");
     }],
     ["Pipeline starter compiles into a graph and runs its activities", async () => {
       await vscode.workspace.fs.createDirectory(vscode.Uri.joinPath(root, "pipelines"));

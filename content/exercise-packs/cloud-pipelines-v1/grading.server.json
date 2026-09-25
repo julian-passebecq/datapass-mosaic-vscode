@@ -1,0 +1,2975 @@
+{
+  "cp-alert-on-failure": {
+    "solution": "{\n  \"properties\": {\n    \"description\": \"Copy the day's orders to bronze and warn the data team when the copy fails.\",\n    \"activities\": [\n      {\n        \"name\": \"Copy orders\",\n        \"type\": \"Copy\",\n        \"dependsOn\": [],\n        \"policy\": {\n          \"timeout\": \"0.12:00:00\",\n          \"retry\": 0,\n          \"retryIntervalInSeconds\": 30,\n          \"secureOutput\": false,\n          \"secureInput\": false\n        },\n        \"typeProperties\": {\n          \"source\": {\n            \"type\": \"LakehouseTableSource\",\n            \"datasetSettings\": {\n              \"annotations\": [],\n              \"type\": \"LakehouseTable\",\n              \"schema\": [],\n              \"typeProperties\": {\n                \"schema\": \"source\",\n                \"table\": \"orders\"\n              },\n              \"linkedService\": {\n                \"name\": \"lh_retail\",\n                \"properties\": {\n                  \"annotations\": [],\n                  \"type\": \"Lakehouse\",\n                  \"typeProperties\": {\n                    \"workspaceId\": \"00000000-0000-0000-0000-000000000000\",\n                    \"artifactId\": \"00000000-0000-0000-0000-00000000001a\",\n                    \"rootFolder\": \"Tables\"\n                  }\n                }\n              }\n            }\n          },\n          \"sink\": {\n            \"type\": \"LakehouseTableSink\",\n            \"tableActionOption\": \"Overwrite\",\n            \"datasetSettings\": {\n              \"annotations\": [],\n              \"type\": \"LakehouseTable\",\n              \"schema\": [],\n              \"typeProperties\": {\n                \"schema\": \"bronze\",\n                \"table\": \"orders\"\n              },\n              \"linkedService\": {\n                \"name\": \"lh_retail\",\n                \"properties\": {\n                  \"annotations\": [],\n                  \"type\": \"Lakehouse\",\n                  \"typeProperties\": {\n                    \"workspaceId\": \"00000000-0000-0000-0000-000000000000\",\n                    \"artifactId\": \"00000000-0000-0000-0000-00000000001a\",\n                    \"rootFolder\": \"Tables\"\n                  }\n                }\n              }\n            }\n          },\n          \"enableStaging\": false\n        }\n      },\n      {\n        \"name\": \"Email data team\",\n        \"type\": \"Office365Outlook\",\n        \"dependsOn\": [\n          {\n            \"activity\": \"Copy orders\",\n            \"dependencyConditions\": [\n              \"Failed\"\n            ]\n          }\n        ],\n        \"typeProperties\": {\n          \"inputs\": {\n            \"body\": {\n              \"To\": \"data-team@example.com\",\n              \"Subject\": \"Daily orders copy failed\",\n              \"Body\": \"@concat('Run ', pipeline().RunId, ' failed: ', activity('Copy orders').error.message)\"\n            }\n          }\n        }\n      }\n    ],\n    \"annotations\": []\n  }\n}\n",
+    "fixtures": [
+      {
+        "id": "copy-fails",
+        "visibility": "visible",
+        "input_rows": [],
+        "scenario": {
+          "flavor": "fabric",
+          "pipeline": "pl_orders_copy",
+          "outcome": "activity_runs",
+          "columns": [
+            "name",
+            "status"
+          ],
+          "activities": {
+            "Copy orders": {
+              "fail_attempts": "all",
+              "error_message": "Lakehouse unavailable"
+            }
+          }
+        },
+        "expected": [
+          {
+            "name": "Copy orders",
+            "status": "Failed"
+          },
+          {
+            "name": "Email data team",
+            "status": "Succeeded"
+          }
+        ]
+      },
+      {
+        "id": "copy-succeeds",
+        "visibility": "hidden",
+        "input_rows": [],
+        "scenario": {
+          "flavor": "fabric",
+          "pipeline": "pl_orders_copy",
+          "outcome": "activity_runs",
+          "columns": [
+            "name",
+            "status"
+          ]
+        },
+        "expected": [
+          {
+            "name": "Copy orders",
+            "status": "Succeeded"
+          },
+          {
+            "name": "Email data team",
+            "status": "Skipped"
+          }
+        ]
+      },
+      {
+        "id": "run-status-when-handled",
+        "visibility": "edge",
+        "input_rows": [],
+        "scenario": {
+          "flavor": "fabric",
+          "pipeline": "pl_orders_copy",
+          "outcome": "run",
+          "columns": [
+            "status"
+          ],
+          "activities": {
+            "Copy orders": {
+              "fail_attempts": "all",
+              "error_message": "Lakehouse unavailable"
+            }
+          }
+        },
+        "expected": [
+          {
+            "status": "Succeeded"
+          }
+        ]
+      }
+    ]
+  },
+  "cp-cleanup-always": {
+    "solution": "{\n  \"name\": \"pl_stage_and_merge\",\n  \"properties\": {\n    \"description\": \"Load a staging table, merge it into silver, then drop the staging table.\",\n    \"activities\": [\n      {\n        \"name\": \"Load staging\",\n        \"type\": \"Copy\",\n        \"dependsOn\": [],\n        \"policy\": {\n          \"timeout\": \"0.12:00:00\",\n          \"retry\": 0,\n          \"retryIntervalInSeconds\": 30,\n          \"secureOutput\": false,\n          \"secureInput\": false\n        },\n        \"outputs\": [\n          {\n            \"referenceName\": \"ds_staging_orders\",\n            \"type\": \"DatasetReference\"\n          }\n        ],\n        \"typeProperties\": {\n          \"source\": {\n            \"type\": \"AzureSqlSource\",\n            \"sqlReaderQuery\": \"SELECT * FROM source.orders\",\n            \"queryTimeout\": \"02:00:00\",\n            \"partitionOption\": \"None\"\n          },\n          \"sink\": {\n            \"type\": \"AzureSqlSink\",\n            \"writeBehavior\": \"insert\",\n            \"sqlWriterUseTableLock\": false,\n            \"tableOption\": \"autoCreate\"\n          },\n          \"enableStaging\": false\n        }\n      },\n      {\n        \"name\": \"Merge into target\",\n        \"type\": \"Script\",\n        \"dependsOn\": [\n          {\n            \"activity\": \"Load staging\",\n            \"dependencyConditions\": [\n              \"Succeeded\"\n            ]\n          }\n        ],\n        \"policy\": {\n          \"timeout\": \"0.12:00:00\",\n          \"retry\": 0,\n          \"retryIntervalInSeconds\": 30,\n          \"secureOutput\": false,\n          \"secureInput\": false\n        },\n        \"linkedServiceName\": {\n          \"referenceName\": \"ls_lab_sql\",\n          \"type\": \"LinkedServiceReference\"\n        },\n        \"typeProperties\": {\n          \"scripts\": [\n            {\n              \"type\": \"NonQuery\",\n              \"text\": \"MERGE INTO silver.orders AS t USING staging.orders AS s ON t.order_id = s.order_id WHEN MATCHED THEN UPDATE SET net_amount = s.net_amount WHEN NOT MATCHED THEN INSERT (order_id, net_amount) VALUES (s.order_id, s.net_amount);\"\n            }\n          ],\n          \"scriptBlockExecutionTimeout\": \"02:00:00\"\n        }\n      },\n      {\n        \"name\": \"Drop staging\",\n        \"type\": \"Script\",\n        \"dependsOn\": [\n          {\n            \"activity\": \"Merge into target\",\n            \"dependencyConditions\": [\n              \"Completed\",\n              \"Skipped\"\n            ]\n          }\n        ],\n        \"policy\": {\n          \"timeout\": \"0.12:00:00\",\n          \"retry\": 0,\n          \"retryIntervalInSeconds\": 30,\n          \"secureOutput\": false,\n          \"secureInput\": false\n        },\n        \"linkedServiceName\": {\n          \"referenceName\": \"ls_lab_sql\",\n          \"type\": \"LinkedServiceReference\"\n        },\n        \"typeProperties\": {\n          \"scripts\": [\n            {\n              \"type\": \"NonQuery\",\n              \"text\": \"DROP TABLE IF EXISTS staging.orders;\"\n            }\n          ],\n          \"scriptBlockExecutionTimeout\": \"02:00:00\"\n        }\n      }\n    ],\n    \"annotations\": []\n  }\n}\n",
+    "fixtures": [
+      {
+        "id": "merge-fails",
+        "visibility": "visible",
+        "input_rows": [],
+        "scenario": {
+          "flavor": "adf",
+          "pipeline": "pl_stage_and_merge",
+          "files": {
+            "datasets": {
+              "ds_staging_orders": {
+                "name": "ds_staging_orders",
+                "properties": {
+                  "linkedServiceName": {
+                    "referenceName": "ls_lab_sql",
+                    "type": "LinkedServiceReference"
+                  },
+                  "annotations": [],
+                  "type": "AzureSqlTable",
+                  "schema": [],
+                  "typeProperties": {
+                    "schema": "staging",
+                    "table": "orders"
+                  }
+                }
+              }
+            }
+          },
+          "columns": [
+            "name",
+            "status"
+          ],
+          "activities": {
+            "Merge into target": {
+              "fail_attempts": "all"
+            }
+          }
+        },
+        "expected": [
+          {
+            "name": "Load staging",
+            "status": "Succeeded"
+          },
+          {
+            "name": "Merge into target",
+            "status": "Failed"
+          },
+          {
+            "name": "Drop staging",
+            "status": "Succeeded"
+          }
+        ]
+      },
+      {
+        "id": "load-fails",
+        "visibility": "hidden",
+        "input_rows": [],
+        "scenario": {
+          "flavor": "adf",
+          "pipeline": "pl_stage_and_merge",
+          "files": {
+            "datasets": {
+              "ds_staging_orders": {
+                "name": "ds_staging_orders",
+                "properties": {
+                  "linkedServiceName": {
+                    "referenceName": "ls_lab_sql",
+                    "type": "LinkedServiceReference"
+                  },
+                  "annotations": [],
+                  "type": "AzureSqlTable",
+                  "schema": [],
+                  "typeProperties": {
+                    "schema": "staging",
+                    "table": "orders"
+                  }
+                }
+              }
+            }
+          },
+          "columns": [
+            "name",
+            "status"
+          ],
+          "activities": {
+            "Load staging": {
+              "fail_attempts": "all"
+            }
+          }
+        },
+        "expected": [
+          {
+            "name": "Load staging",
+            "status": "Failed"
+          },
+          {
+            "name": "Merge into target",
+            "status": "Skipped"
+          },
+          {
+            "name": "Drop staging",
+            "status": "Succeeded"
+          }
+        ]
+      },
+      {
+        "id": "normal-day",
+        "visibility": "edge",
+        "input_rows": [],
+        "scenario": {
+          "flavor": "adf",
+          "pipeline": "pl_stage_and_merge",
+          "files": {
+            "datasets": {
+              "ds_staging_orders": {
+                "name": "ds_staging_orders",
+                "properties": {
+                  "linkedServiceName": {
+                    "referenceName": "ls_lab_sql",
+                    "type": "LinkedServiceReference"
+                  },
+                  "annotations": [],
+                  "type": "AzureSqlTable",
+                  "schema": [],
+                  "typeProperties": {
+                    "schema": "staging",
+                    "table": "orders"
+                  }
+                }
+              }
+            }
+          },
+          "columns": [
+            "name",
+            "status"
+          ]
+        },
+        "expected": [
+          {
+            "name": "Load staging",
+            "status": "Succeeded"
+          },
+          {
+            "name": "Merge into target",
+            "status": "Succeeded"
+          },
+          {
+            "name": "Drop staging",
+            "status": "Succeeded"
+          }
+        ]
+      }
+    ]
+  },
+  "cp-retry-flaky-api": {
+    "solution": "{\n  \"name\": \"pl_exchange_rates\",\n  \"properties\": {\n    \"description\": \"Fetch today's exchange rates from a partner API, then load them.\",\n    \"activities\": [\n      {\n        \"name\": \"Call rates API\",\n        \"type\": \"WebActivity\",\n        \"dependsOn\": [],\n        \"policy\": {\n          \"timeout\": \"0.00:10:00\",\n          \"retry\": 2,\n          \"retryIntervalInSeconds\": 60,\n          \"secureOutput\": false,\n          \"secureInput\": false\n        },\n        \"typeProperties\": {\n          \"url\": \"https://rates.example.invalid/v1/daily\",\n          \"method\": \"GET\"\n        }\n      },\n      {\n        \"name\": \"Load rates\",\n        \"type\": \"Copy\",\n        \"dependsOn\": [\n          {\n            \"activity\": \"Call rates API\",\n            \"dependencyConditions\": [\n              \"Succeeded\"\n            ]\n          }\n        ],\n        \"policy\": {\n          \"timeout\": \"0.12:00:00\",\n          \"retry\": 0,\n          \"retryIntervalInSeconds\": 30,\n          \"secureOutput\": false,\n          \"secureInput\": false\n        },\n        \"typeProperties\": {\n          \"source\": {\n            \"type\": \"RestSource\",\n            \"httpRequestTimeout\": \"00:01:40\"\n          },\n          \"sink\": {\n            \"type\": \"AzureSqlSink\",\n            \"writeBehavior\": \"insert\"\n          },\n          \"enableStaging\": false\n        }\n      }\n    ],\n    \"annotations\": []\n  }\n}\n",
+    "fixtures": [
+      {
+        "id": "fails-twice",
+        "visibility": "visible",
+        "input_rows": [],
+        "scenario": {
+          "flavor": "adf",
+          "pipeline": "pl_exchange_rates",
+          "columns": [
+            "name",
+            "status",
+            "attempts",
+            "end_s"
+          ],
+          "activities": {
+            "Call rates API": {
+              "fail_attempts": [
+                1,
+                2
+              ],
+              "duration_seconds": 10
+            }
+          }
+        },
+        "expected": [
+          {
+            "name": "Call rates API",
+            "status": "Succeeded",
+            "attempts": 3,
+            "end_s": 150.0
+          },
+          {
+            "name": "Load rates",
+            "status": "Succeeded",
+            "attempts": 1,
+            "end_s": 180.0
+          }
+        ]
+      },
+      {
+        "id": "never-recovers",
+        "visibility": "hidden",
+        "input_rows": [],
+        "scenario": {
+          "flavor": "adf",
+          "pipeline": "pl_exchange_rates",
+          "columns": [
+            "name",
+            "status",
+            "attempts",
+            "end_s"
+          ],
+          "activities": {
+            "Call rates API": {
+              "fail_attempts": "all",
+              "duration_seconds": 10
+            }
+          }
+        },
+        "expected": [
+          {
+            "name": "Call rates API",
+            "status": "Failed",
+            "attempts": 3,
+            "end_s": 150.0
+          },
+          {
+            "name": "Load rates",
+            "status": "Skipped",
+            "attempts": 0,
+            "end_s": 150.0
+          }
+        ]
+      },
+      {
+        "id": "normal-day",
+        "visibility": "edge",
+        "input_rows": [],
+        "scenario": {
+          "flavor": "adf",
+          "pipeline": "pl_exchange_rates",
+          "columns": [
+            "name",
+            "status",
+            "attempts",
+            "end_s"
+          ],
+          "activities": {
+            "Call rates API": {
+              "duration_seconds": 10
+            }
+          }
+        },
+        "expected": [
+          {
+            "name": "Call rates API",
+            "status": "Succeeded",
+            "attempts": 1,
+            "end_s": 10.0
+          },
+          {
+            "name": "Load rates",
+            "status": "Succeeded",
+            "attempts": 1,
+            "end_s": 40.0
+          }
+        ]
+      }
+    ]
+  },
+  "cp-timeout-stuck-notebook": {
+    "solution": "{\n  \"properties\": {\n    \"description\": \"Clean orders in a notebook, build gold with a stored procedure, alert on notebook failure.\",\n    \"activities\": [\n      {\n        \"name\": \"Silver orders\",\n        \"type\": \"TridentNotebook\",\n        \"dependsOn\": [],\n        \"policy\": {\n          \"timeout\": \"0.01:00:00\",\n          \"retry\": 0,\n          \"retryIntervalInSeconds\": 30,\n          \"secureOutput\": false,\n          \"secureInput\": false\n        },\n        \"typeProperties\": {\n          \"notebookId\": \"nb_silver_orders\",\n          \"workspaceId\": \"00000000-0000-0000-0000-000000000000\"\n        }\n      },\n      {\n        \"name\": \"Gold revenue\",\n        \"type\": \"SqlServerStoredProcedure\",\n        \"dependsOn\": [\n          {\n            \"activity\": \"Silver orders\",\n            \"dependencyConditions\": [\n              \"Succeeded\"\n            ]\n          }\n        ],\n        \"policy\": {\n          \"timeout\": \"0.00:30:00\",\n          \"retry\": 0,\n          \"retryIntervalInSeconds\": 30,\n          \"secureOutput\": false,\n          \"secureInput\": false\n        },\n        \"typeProperties\": {\n          \"storedProcedureName\": \"[warehouse].[usp_load_gold_revenue]\"\n        }\n      },\n      {\n        \"name\": \"Alert on-call\",\n        \"type\": \"Teams\",\n        \"dependsOn\": [\n          {\n            \"activity\": \"Silver orders\",\n            \"dependencyConditions\": [\n              \"Failed\"\n            ]\n          }\n        ],\n        \"typeProperties\": {\n          \"inputs\": {\n            \"body\": {\n              \"messageBody\": \"@concat('Silver orders failed: ', activity('Silver orders').error.message)\"\n            }\n          }\n        }\n      }\n    ],\n    \"annotations\": []\n  }\n}\n",
+    "fixtures": [
+      {
+        "id": "notebook-hangs",
+        "visibility": "visible",
+        "input_rows": [],
+        "scenario": {
+          "flavor": "fabric",
+          "pipeline": "pl_morning_load",
+          "columns": [
+            "name",
+            "status",
+            "end_s"
+          ],
+          "activities": {
+            "Silver orders": {
+              "duration_seconds": 18000
+            }
+          }
+        },
+        "expected": [
+          {
+            "name": "Silver orders",
+            "status": "Failed",
+            "end_s": 3600.0
+          },
+          {
+            "name": "Gold revenue",
+            "status": "Skipped",
+            "end_s": 3600.0
+          },
+          {
+            "name": "Alert on-call",
+            "status": "Succeeded",
+            "end_s": 3602.0
+          }
+        ]
+      },
+      {
+        "id": "normal-day",
+        "visibility": "hidden",
+        "input_rows": [],
+        "scenario": {
+          "flavor": "fabric",
+          "pipeline": "pl_morning_load",
+          "columns": [
+            "name",
+            "status",
+            "end_s"
+          ],
+          "activities": {
+            "Silver orders": {
+              "duration_seconds": 1200
+            }
+          }
+        },
+        "expected": [
+          {
+            "name": "Silver orders",
+            "status": "Succeeded",
+            "end_s": 1200.0
+          },
+          {
+            "name": "Gold revenue",
+            "status": "Succeeded",
+            "end_s": 1210.0
+          },
+          {
+            "name": "Alert on-call",
+            "status": "Skipped",
+            "end_s": 1200.0
+          }
+        ]
+      },
+      {
+        "id": "slow-but-in-time",
+        "visibility": "edge",
+        "input_rows": [],
+        "scenario": {
+          "flavor": "fabric",
+          "pipeline": "pl_morning_load",
+          "columns": [
+            "name",
+            "status",
+            "end_s"
+          ],
+          "activities": {
+            "Silver orders": {
+              "duration_seconds": 3500
+            }
+          }
+        },
+        "expected": [
+          {
+            "name": "Silver orders",
+            "status": "Succeeded",
+            "end_s": 3500.0
+          },
+          {
+            "name": "Gold revenue",
+            "status": "Succeeded",
+            "end_s": 3510.0
+          },
+          {
+            "name": "Alert on-call",
+            "status": "Skipped",
+            "end_s": 3500.0
+          }
+        ]
+      }
+    ]
+  },
+  "cp-foreach-batch": {
+    "solution": "{\n  \"name\": \"pl_copy_tables\",\n  \"properties\": {\n    \"description\": \"Copy every table named in the tables parameter to bronze.\",\n    \"activities\": [\n      {\n        \"name\": \"Copy each table\",\n        \"type\": \"ForEach\",\n        \"dependsOn\": [],\n        \"typeProperties\": {\n          \"items\": {\n            \"value\": \"@pipeline().parameters.tables\",\n            \"type\": \"Expression\"\n          },\n          \"isSequential\": false,\n          \"activities\": [\n            {\n              \"name\": \"Copy table\",\n              \"type\": \"Copy\",\n              \"dependsOn\": [],\n              \"policy\": {\n                \"timeout\": \"0.12:00:00\",\n                \"retry\": 0,\n                \"retryIntervalInSeconds\": 30,\n                \"secureOutput\": false,\n                \"secureInput\": false\n              },\n              \"outputs\": [\n                {\n                  \"referenceName\": \"ds_bronze_table\",\n                  \"type\": \"DatasetReference\",\n                  \"parameters\": {\n                    \"table\": {\n                      \"value\": \"@item()\",\n                      \"type\": \"Expression\"\n                    }\n                  }\n                }\n              ],\n              \"typeProperties\": {\n                \"source\": {\n                  \"type\": \"AzureSqlSource\",\n                  \"sqlReaderQuery\": {\n                    \"value\": \"@concat('SELECT * FROM source.', item())\",\n                    \"type\": \"Expression\"\n                  }\n                },\n                \"sink\": {\n                  \"type\": \"ParquetSink\"\n                },\n                \"enableStaging\": false\n              }\n            }\n          ],\n          \"batchCount\": 2\n        }\n      }\n    ],\n    \"parameters\": {\n      \"tables\": {\n        \"type\": \"array\",\n        \"defaultValue\": [\n          \"customers\",\n          \"orders\",\n          \"products\",\n          \"stores\"\n        ]\n      }\n    },\n    \"annotations\": []\n  }\n}\n",
+    "fixtures": [
+      {
+        "id": "default-tables",
+        "visibility": "visible",
+        "input_rows": [],
+        "scenario": {
+          "flavor": "adf",
+          "pipeline": "pl_copy_tables",
+          "outcome": "run",
+          "columns": [
+            "status",
+            "duration_s"
+          ]
+        },
+        "expected": [
+          {
+            "status": "Succeeded",
+            "duration_s": 60.0
+          }
+        ]
+      },
+      {
+        "id": "five-tables",
+        "visibility": "hidden",
+        "input_rows": [],
+        "scenario": {
+          "flavor": "adf",
+          "pipeline": "pl_copy_tables",
+          "outcome": "run",
+          "columns": [
+            "status",
+            "duration_s"
+          ],
+          "parameters": {
+            "tables": [
+              "customers",
+              "orders",
+              "products",
+              "stores",
+              "returns"
+            ]
+          }
+        },
+        "expected": [
+          {
+            "status": "Succeeded",
+            "duration_s": 90.0
+          }
+        ]
+      },
+      {
+        "id": "one-table-fails",
+        "visibility": "edge",
+        "input_rows": [],
+        "scenario": {
+          "flavor": "adf",
+          "pipeline": "pl_copy_tables",
+          "outcome": "run",
+          "columns": [
+            "status",
+            "duration_s"
+          ],
+          "activities": {
+            "Copy table": {
+              "fail_on_items": [
+                "orders"
+              ]
+            }
+          }
+        },
+        "expected": [
+          {
+            "status": "Failed",
+            "duration_s": 60.0
+          }
+        ]
+      }
+    ]
+  },
+  "cp-if-new-rows": {
+    "solution": "{\n  \"properties\": {\n    \"description\": \"Refresh gold only when new orders arrived.\",\n    \"activities\": [\n      {\n        \"name\": \"Count new orders\",\n        \"type\": \"Lookup\",\n        \"dependsOn\": [],\n        \"policy\": {\n          \"timeout\": \"0.00:10:00\",\n          \"retry\": 0,\n          \"retryIntervalInSeconds\": 30,\n          \"secureOutput\": false,\n          \"secureInput\": false\n        },\n        \"typeProperties\": {\n          \"source\": {\n            \"type\": \"DataWarehouseSource\",\n            \"sqlReaderQuery\": \"SELECT COUNT(*) AS new_orders FROM bronze.orders_increment\",\n            \"partitionOption\": \"None\",\n            \"queryTimeout\": \"02:00:00\"\n          },\n          \"firstRowOnly\": true\n        }\n      },\n      {\n        \"name\": \"Any new orders\",\n        \"type\": \"IfCondition\",\n        \"dependsOn\": [\n          {\n            \"activity\": \"Count new orders\",\n            \"dependencyConditions\": [\n              \"Succeeded\"\n            ]\n          }\n        ],\n        \"typeProperties\": {\n          \"expression\": {\n            \"value\": \"@greater(activity('Count new orders').output.firstRow.new_orders, 0)\",\n            \"type\": \"Expression\"\n          },\n          \"ifTrueActivities\": [\n            {\n              \"name\": \"Refresh gold\",\n              \"type\": \"SqlServerStoredProcedure\",\n              \"dependsOn\": [],\n              \"policy\": {\n                \"timeout\": \"0.00:30:00\",\n                \"retry\": 0,\n                \"retryIntervalInSeconds\": 30,\n                \"secureOutput\": false,\n                \"secureInput\": false\n              },\n              \"typeProperties\": {\n                \"storedProcedureName\": \"[gold].[usp_refresh_daily_sales]\"\n              }\n            }\n          ],\n          \"ifFalseActivities\": []\n        }\n      }\n    ],\n    \"annotations\": []\n  }\n}\n",
+    "fixtures": [
+      {
+        "id": "three-new",
+        "visibility": "visible",
+        "input_rows": [],
+        "scenario": {
+          "flavor": "fabric",
+          "pipeline": "pl_refresh_gold",
+          "columns": [
+            "name",
+            "status"
+          ],
+          "activities": {
+            "Count new orders": {
+              "output": {
+                "firstRow": {
+                  "new_orders": 3
+                }
+              }
+            }
+          }
+        },
+        "expected": [
+          {
+            "name": "Count new orders",
+            "status": "Succeeded"
+          },
+          {
+            "name": "Any new orders",
+            "status": "Succeeded"
+          },
+          {
+            "name": "Refresh gold",
+            "status": "Succeeded"
+          }
+        ]
+      },
+      {
+        "id": "none-new",
+        "visibility": "hidden",
+        "input_rows": [],
+        "scenario": {
+          "flavor": "fabric",
+          "pipeline": "pl_refresh_gold",
+          "columns": [
+            "name",
+            "status"
+          ],
+          "activities": {
+            "Count new orders": {
+              "output": {
+                "firstRow": {
+                  "new_orders": 0
+                }
+              }
+            }
+          }
+        },
+        "expected": [
+          {
+            "name": "Count new orders",
+            "status": "Succeeded"
+          },
+          {
+            "name": "Any new orders",
+            "status": "Succeeded"
+          }
+        ]
+      },
+      {
+        "id": "exactly-one",
+        "visibility": "edge",
+        "input_rows": [],
+        "scenario": {
+          "flavor": "fabric",
+          "pipeline": "pl_refresh_gold",
+          "columns": [
+            "name",
+            "status"
+          ],
+          "activities": {
+            "Count new orders": {
+              "output": {
+                "firstRow": {
+                  "new_orders": 1
+                }
+              }
+            }
+          }
+        },
+        "expected": [
+          {
+            "name": "Count new orders",
+            "status": "Succeeded"
+          },
+          {
+            "name": "Any new orders",
+            "status": "Succeeded"
+          },
+          {
+            "name": "Refresh gold",
+            "status": "Succeeded"
+          }
+        ]
+      }
+    ]
+  },
+  "cp-notebook-exit-value": {
+    "solution": "{\n  \"properties\": {\n    \"description\": \"Run the silver notebook, keep its row count, and stop when it wrote nothing.\",\n    \"activities\": [\n      {\n        \"name\": \"Silver orders\",\n        \"type\": \"TridentNotebook\",\n        \"dependsOn\": [],\n        \"policy\": {\n          \"timeout\": \"0.12:00:00\",\n          \"retry\": 0,\n          \"retryIntervalInSeconds\": 30,\n          \"secureOutput\": false,\n          \"secureInput\": false\n        },\n        \"typeProperties\": {\n          \"notebookId\": \"nb_silver_orders\",\n          \"workspaceId\": \"00000000-0000-0000-0000-000000000000\",\n          \"parameters\": {\n            \"run_date\": {\n              \"value\": {\n                \"value\": \"@pipeline().parameters.run_date\",\n                \"type\": \"Expression\"\n              },\n              \"type\": \"string\"\n            }\n          }\n        }\n      },\n      {\n        \"name\": \"Keep silver rows\",\n        \"type\": \"SetVariable\",\n        \"dependsOn\": [\n          {\n            \"activity\": \"Silver orders\",\n            \"dependencyConditions\": [\n              \"Succeeded\"\n            ]\n          }\n        ],\n        \"typeProperties\": {\n          \"variableName\": \"silver_rows\",\n          \"value\": \"@activity('Silver orders').output.result.exitValue\"\n        }\n      },\n      {\n        \"name\": \"No silver rows\",\n        \"type\": \"IfCondition\",\n        \"dependsOn\": [\n          {\n            \"activity\": \"Keep silver rows\",\n            \"dependencyConditions\": [\n              \"Succeeded\"\n            ]\n          }\n        ],\n        \"typeProperties\": {\n          \"expression\": {\n            \"value\": \"@equals(variables('silver_rows'), '0')\",\n            \"type\": \"Expression\"\n          },\n          \"ifTrueActivities\": [\n            {\n              \"name\": \"Stop empty load\",\n              \"type\": \"Fail\",\n              \"dependsOn\": [],\n              \"typeProperties\": {\n                \"message\": \"The silver notebook wrote no rows\",\n                \"errorCode\": \"SILVER_EMPTY\"\n              }\n            }\n          ],\n          \"ifFalseActivities\": []\n        }\n      }\n    ],\n    \"parameters\": {\n      \"run_date\": {\n        \"type\": \"string\",\n        \"defaultValue\": \"2026-03-05\"\n      }\n    },\n    \"variables\": {\n      \"silver_rows\": {\n        \"type\": \"String\"\n      }\n    },\n    \"annotations\": []\n  }\n}\n",
+    "fixtures": [
+      {
+        "id": "rows-written",
+        "visibility": "visible",
+        "input_rows": [],
+        "scenario": {
+          "flavor": "fabric",
+          "pipeline": "pl_silver_check",
+          "activities": {
+            "Silver orders": {
+              "output": {
+                "result": {
+                  "exitValue": "42"
+                }
+              }
+            }
+          },
+          "outcome": "variables"
+        },
+        "expected": [
+          {
+            "name": "silver_rows",
+            "value": "42"
+          }
+        ]
+      },
+      {
+        "id": "no-rows",
+        "visibility": "hidden",
+        "input_rows": [],
+        "scenario": {
+          "flavor": "fabric",
+          "pipeline": "pl_silver_check",
+          "activities": {
+            "Silver orders": {
+              "output": {
+                "result": {
+                  "exitValue": "0"
+                }
+              }
+            }
+          },
+          "outcome": "run",
+          "columns": [
+            "status"
+          ]
+        },
+        "expected": [
+          {
+            "status": "Failed"
+          }
+        ]
+      },
+      {
+        "id": "some-rows",
+        "visibility": "edge",
+        "input_rows": [],
+        "scenario": {
+          "flavor": "fabric",
+          "pipeline": "pl_silver_check",
+          "activities": {
+            "Silver orders": {
+              "output": {
+                "result": {
+                  "exitValue": "7"
+                }
+              }
+            }
+          },
+          "outcome": "run",
+          "columns": [
+            "status"
+          ]
+        },
+        "expected": [
+          {
+            "status": "Succeeded"
+          }
+        ]
+      }
+    ]
+  },
+  "cp-date-folder-path": {
+    "solution": "{\n  \"name\": \"pl_orders_to_raw\",\n  \"properties\": {\n    \"description\": \"Copy the orders to a date-partitioned folder of the raw zone.\",\n    \"activities\": [\n      {\n        \"name\": \"Set target folder\",\n        \"type\": \"SetVariable\",\n        \"dependsOn\": [],\n        \"typeProperties\": {\n          \"variableName\": \"target_folder\",\n          \"value\": \"@concat('raw/orders/', formatDateTime(pipeline().TriggerTime, 'yyyy/MM/dd'))\"\n        }\n      },\n      {\n        \"name\": \"Copy orders to raw\",\n        \"type\": \"Copy\",\n        \"dependsOn\": [\n          {\n            \"activity\": \"Set target folder\",\n            \"dependencyConditions\": [\n              \"Succeeded\"\n            ]\n          }\n        ],\n        \"policy\": {\n          \"timeout\": \"0.12:00:00\",\n          \"retry\": 0,\n          \"retryIntervalInSeconds\": 30,\n          \"secureOutput\": false,\n          \"secureInput\": false\n        },\n        \"outputs\": [\n          {\n            \"referenceName\": \"ds_raw_folder\",\n            \"type\": \"DatasetReference\",\n            \"parameters\": {\n              \"folder\": {\n                \"value\": \"@variables('target_folder')\",\n                \"type\": \"Expression\"\n              }\n            }\n          }\n        ],\n        \"typeProperties\": {\n          \"source\": {\n            \"type\": \"AzureSqlSource\",\n            \"sqlReaderQuery\": \"SELECT * FROM source.orders\"\n          },\n          \"sink\": {\n            \"type\": \"ParquetSink\"\n          },\n          \"enableStaging\": false\n        }\n      }\n    ],\n    \"variables\": {\n      \"target_folder\": {\n        \"type\": \"String\"\n      }\n    },\n    \"annotations\": []\n  }\n}\n",
+    "fixtures": [
+      {
+        "id": "march-fifth",
+        "visibility": "visible",
+        "input_rows": [],
+        "scenario": {
+          "flavor": "adf",
+          "pipeline": "pl_orders_to_raw",
+          "outcome": "variables",
+          "now": "2026-03-05T12:00:00Z"
+        },
+        "expected": [
+          {
+            "name": "target_folder",
+            "value": "raw/orders/2026/03/05"
+          }
+        ]
+      },
+      {
+        "id": "late-evening",
+        "visibility": "hidden",
+        "input_rows": [],
+        "scenario": {
+          "flavor": "adf",
+          "pipeline": "pl_orders_to_raw",
+          "outcome": "variables",
+          "now": "2026-11-23T23:59:00Z",
+          "trigger_type": "ScheduleTrigger"
+        },
+        "expected": [
+          {
+            "name": "target_folder",
+            "value": "raw/orders/2026/11/23"
+          }
+        ]
+      },
+      {
+        "id": "new-year",
+        "visibility": "edge",
+        "input_rows": [],
+        "scenario": {
+          "flavor": "adf",
+          "pipeline": "pl_orders_to_raw",
+          "outcome": "variables",
+          "now": "2027-01-01T00:30:00Z",
+          "trigger_type": "ScheduleTrigger"
+        },
+        "expected": [
+          {
+            "name": "target_folder",
+            "value": "raw/orders/2027/01/01"
+          }
+        ]
+      }
+    ]
+  },
+  "cp-until-export-ready": {
+    "solution": "{\n  \"name\": \"pl_partner_export\",\n  \"properties\": {\n    \"description\": \"Ask a partner for an export, poll until it is ready, then load it.\",\n    \"activities\": [\n      {\n        \"name\": \"Request export\",\n        \"type\": \"WebActivity\",\n        \"dependsOn\": [],\n        \"policy\": {\n          \"timeout\": \"0.00:05:00\",\n          \"retry\": 0,\n          \"retryIntervalInSeconds\": 30,\n          \"secureOutput\": false,\n          \"secureInput\": false\n        },\n        \"typeProperties\": {\n          \"url\": \"https://partner.example.invalid/exports/daily\",\n          \"method\": \"POST\",\n          \"body\": \"{}\"\n        }\n      },\n      {\n        \"name\": \"Wait for export\",\n        \"type\": \"Until\",\n        \"dependsOn\": [\n          {\n            \"activity\": \"Request export\",\n            \"dependencyConditions\": [\n              \"Succeeded\"\n            ]\n          }\n        ],\n        \"typeProperties\": {\n          \"expression\": {\n            \"value\": \"@equals(variables('export_status'), 'READY')\",\n            \"type\": \"Expression\"\n          },\n          \"timeout\": \"0.02:00:00\",\n          \"activities\": [\n            {\n              \"name\": \"Check export\",\n              \"type\": \"WebActivity\",\n              \"dependsOn\": [],\n              \"policy\": {\n                \"timeout\": \"0.00:05:00\",\n                \"retry\": 0,\n                \"retryIntervalInSeconds\": 30,\n                \"secureOutput\": false,\n                \"secureInput\": false\n              },\n              \"typeProperties\": {\n                \"url\": \"https://partner.example.invalid/exports/daily/status\",\n                \"method\": \"GET\"\n              }\n            },\n            {\n              \"name\": \"Keep status\",\n              \"type\": \"SetVariable\",\n              \"dependsOn\": [\n                {\n                  \"activity\": \"Check export\",\n                  \"dependencyConditions\": [\n                    \"Succeeded\"\n                  ]\n                }\n              ],\n              \"typeProperties\": {\n                \"variableName\": \"export_status\",\n                \"value\": \"@activity('Check export').output.status\"\n              }\n            },\n            {\n              \"name\": \"Not ready yet\",\n              \"type\": \"IfCondition\",\n              \"dependsOn\": [\n                {\n                  \"activity\": \"Keep status\",\n                  \"dependencyConditions\": [\n                    \"Succeeded\"\n                  ]\n                }\n              ],\n              \"typeProperties\": {\n                \"expression\": {\n                  \"value\": \"@not(equals(variables('export_status'), 'READY'))\",\n                  \"type\": \"Expression\"\n                },\n                \"ifTrueActivities\": [\n                  {\n                    \"name\": \"Wait a minute\",\n                    \"type\": \"Wait\",\n                    \"dependsOn\": [],\n                    \"typeProperties\": {\n                      \"waitTimeInSeconds\": 60\n                    }\n                  }\n                ],\n                \"ifFalseActivities\": []\n              }\n            }\n          ]\n        }\n      },\n      {\n        \"name\": \"Load export\",\n        \"type\": \"Copy\",\n        \"dependsOn\": [\n          {\n            \"activity\": \"Wait for export\",\n            \"dependencyConditions\": [\n              \"Succeeded\"\n            ]\n          }\n        ],\n        \"policy\": {\n          \"timeout\": \"0.12:00:00\",\n          \"retry\": 0,\n          \"retryIntervalInSeconds\": 30,\n          \"secureOutput\": false,\n          \"secureInput\": false\n        },\n        \"typeProperties\": {\n          \"source\": {\n            \"type\": \"RestSource\"\n          },\n          \"sink\": {\n            \"type\": \"SqlPoolSink\"\n          },\n          \"enableStaging\": false\n        }\n      }\n    ],\n    \"variables\": {\n      \"export_status\": {\n        \"type\": \"String\",\n        \"defaultValue\": \"PENDING\"\n      }\n    },\n    \"annotations\": []\n  }\n}\n",
+    "fixtures": [
+      {
+        "id": "ready-on-third-check",
+        "visibility": "visible",
+        "input_rows": [],
+        "scenario": {
+          "flavor": "synapse",
+          "pipeline": "pl_partner_export",
+          "only": [
+            "Check export",
+            "Wait a minute"
+          ],
+          "columns": [
+            "name",
+            "status",
+            "iteration"
+          ],
+          "activities": {
+            "Check export": {
+              "outputs": [
+                {
+                  "status": "RUNNING"
+                },
+                {
+                  "status": "RUNNING"
+                },
+                {
+                  "status": "READY"
+                }
+              ]
+            }
+          }
+        },
+        "expected": [
+          {
+            "name": "Check export",
+            "status": "Succeeded",
+            "iteration": "Wait for export #1"
+          },
+          {
+            "name": "Wait a minute",
+            "status": "Succeeded",
+            "iteration": "Wait for export #1"
+          },
+          {
+            "name": "Check export",
+            "status": "Succeeded",
+            "iteration": "Wait for export #2"
+          },
+          {
+            "name": "Wait a minute",
+            "status": "Succeeded",
+            "iteration": "Wait for export #2"
+          },
+          {
+            "name": "Check export",
+            "status": "Succeeded",
+            "iteration": "Wait for export #3"
+          }
+        ]
+      },
+      {
+        "id": "ready-on-fifth-check",
+        "visibility": "hidden",
+        "input_rows": [],
+        "scenario": {
+          "flavor": "synapse",
+          "pipeline": "pl_partner_export",
+          "only": [
+            "Check export",
+            "Wait a minute"
+          ],
+          "columns": [
+            "name",
+            "status",
+            "iteration"
+          ],
+          "activities": {
+            "Check export": {
+              "outputs": [
+                {
+                  "status": "RUNNING"
+                },
+                {
+                  "status": "RUNNING"
+                },
+                {
+                  "status": "RUNNING"
+                },
+                {
+                  "status": "RUNNING"
+                },
+                {
+                  "status": "READY"
+                }
+              ]
+            }
+          }
+        },
+        "expected": [
+          {
+            "name": "Check export",
+            "status": "Succeeded",
+            "iteration": "Wait for export #1"
+          },
+          {
+            "name": "Wait a minute",
+            "status": "Succeeded",
+            "iteration": "Wait for export #1"
+          },
+          {
+            "name": "Check export",
+            "status": "Succeeded",
+            "iteration": "Wait for export #2"
+          },
+          {
+            "name": "Wait a minute",
+            "status": "Succeeded",
+            "iteration": "Wait for export #2"
+          },
+          {
+            "name": "Check export",
+            "status": "Succeeded",
+            "iteration": "Wait for export #3"
+          },
+          {
+            "name": "Wait a minute",
+            "status": "Succeeded",
+            "iteration": "Wait for export #3"
+          },
+          {
+            "name": "Check export",
+            "status": "Succeeded",
+            "iteration": "Wait for export #4"
+          },
+          {
+            "name": "Wait a minute",
+            "status": "Succeeded",
+            "iteration": "Wait for export #4"
+          },
+          {
+            "name": "Check export",
+            "status": "Succeeded",
+            "iteration": "Wait for export #5"
+          }
+        ]
+      },
+      {
+        "id": "ready-at-once",
+        "visibility": "edge",
+        "input_rows": [],
+        "scenario": {
+          "flavor": "synapse",
+          "pipeline": "pl_partner_export",
+          "only": [
+            "Check export",
+            "Wait a minute"
+          ],
+          "columns": [
+            "name",
+            "status",
+            "iteration"
+          ],
+          "activities": {
+            "Check export": {
+              "outputs": [
+                {
+                  "status": "READY"
+                }
+              ]
+            }
+          }
+        },
+        "expected": [
+          {
+            "name": "Check export",
+            "status": "Succeeded",
+            "iteration": "Wait for export #1"
+          }
+        ]
+      }
+    ]
+  },
+  "cp-try-catch-proceed": {
+    "solution": "{\n  \"properties\": {\n    \"description\": \"Copy and transform the orders; log a failed copy without failing the run.\",\n    \"activities\": [\n      {\n        \"name\": \"Copy orders\",\n        \"type\": \"Copy\",\n        \"dependsOn\": [],\n        \"policy\": {\n          \"timeout\": \"0.12:00:00\",\n          \"retry\": 0,\n          \"retryIntervalInSeconds\": 30,\n          \"secureOutput\": false,\n          \"secureInput\": false\n        },\n        \"typeProperties\": {\n          \"source\": {\n            \"type\": \"LakehouseTableSource\",\n            \"datasetSettings\": {\n              \"annotations\": [],\n              \"type\": \"LakehouseTable\",\n              \"schema\": [],\n              \"typeProperties\": {\n                \"schema\": \"source\",\n                \"table\": \"orders\"\n              },\n              \"linkedService\": {\n                \"name\": \"lh_retail\",\n                \"properties\": {\n                  \"annotations\": [],\n                  \"type\": \"Lakehouse\",\n                  \"typeProperties\": {\n                    \"workspaceId\": \"00000000-0000-0000-0000-000000000000\",\n                    \"artifactId\": \"00000000-0000-0000-0000-00000000001a\",\n                    \"rootFolder\": \"Tables\"\n                  }\n                }\n              }\n            }\n          },\n          \"sink\": {\n            \"type\": \"LakehouseTableSink\",\n            \"tableActionOption\": \"Overwrite\",\n            \"datasetSettings\": {\n              \"annotations\": [],\n              \"type\": \"LakehouseTable\",\n              \"schema\": [],\n              \"typeProperties\": {\n                \"schema\": \"bronze\",\n                \"table\": \"orders\"\n              },\n              \"linkedService\": {\n                \"name\": \"lh_retail\",\n                \"properties\": {\n                  \"annotations\": [],\n                  \"type\": \"Lakehouse\",\n                  \"typeProperties\": {\n                    \"workspaceId\": \"00000000-0000-0000-0000-000000000000\",\n                    \"artifactId\": \"00000000-0000-0000-0000-00000000001a\",\n                    \"rootFolder\": \"Tables\"\n                  }\n                }\n              }\n            }\n          },\n          \"enableStaging\": false\n        }\n      },\n      {\n        \"name\": \"Transform\",\n        \"type\": \"TridentNotebook\",\n        \"dependsOn\": [\n          {\n            \"activity\": \"Copy orders\",\n            \"dependencyConditions\": [\n              \"Succeeded\"\n            ]\n          }\n        ],\n        \"policy\": {\n          \"timeout\": \"0.12:00:00\",\n          \"retry\": 0,\n          \"retryIntervalInSeconds\": 30,\n          \"secureOutput\": false,\n          \"secureInput\": false\n        },\n        \"typeProperties\": {\n          \"notebookId\": \"nb_silver_orders\",\n          \"workspaceId\": \"00000000-0000-0000-0000-000000000000\"\n        }\n      },\n      {\n        \"name\": \"Log failure\",\n        \"type\": \"Script\",\n        \"dependsOn\": [\n          {\n            \"activity\": \"Copy orders\",\n            \"dependencyConditions\": [\n              \"Failed\"\n            ]\n          }\n        ],\n        \"policy\": {\n          \"timeout\": \"0.12:00:00\",\n          \"retry\": 0,\n          \"retryIntervalInSeconds\": 30,\n          \"secureOutput\": false,\n          \"secureInput\": false\n        },\n        \"typeProperties\": {\n          \"scripts\": [\n            {\n              \"type\": \"NonQuery\",\n              \"text\": {\n                \"value\": \"@concat('INSERT INTO warehouse.load_errors VALUES (''', pipeline().RunId, ''', ''Copy orders'')')\",\n                \"type\": \"Expression\"\n              }\n            }\n          ]\n        }\n      },\n      {\n        \"name\": \"Done\",\n        \"type\": \"Wait\",\n        \"dependsOn\": [\n          {\n            \"activity\": \"Transform\",\n            \"dependencyConditions\": [\n              \"Succeeded\",\n              \"Skipped\"\n            ]\n          }\n        ],\n        \"typeProperties\": {\n          \"waitTimeInSeconds\": 1\n        }\n      }\n    ],\n    \"annotations\": []\n  }\n}\n",
+    "fixtures": [
+      {
+        "id": "copy-fails",
+        "visibility": "visible",
+        "input_rows": [],
+        "scenario": {
+          "flavor": "fabric",
+          "pipeline": "pl_orders_guarded",
+          "activities": {
+            "Copy orders": {
+              "fail_attempts": "all"
+            }
+          },
+          "outcome": "run",
+          "columns": [
+            "status"
+          ]
+        },
+        "expected": [
+          {
+            "status": "Succeeded"
+          }
+        ]
+      },
+      {
+        "id": "transform-fails",
+        "visibility": "hidden",
+        "input_rows": [],
+        "scenario": {
+          "flavor": "fabric",
+          "pipeline": "pl_orders_guarded",
+          "activities": {
+            "Transform": {
+              "fail_attempts": "all"
+            }
+          },
+          "outcome": "run",
+          "columns": [
+            "status"
+          ]
+        },
+        "expected": [
+          {
+            "status": "Failed"
+          }
+        ]
+      },
+      {
+        "id": "normal-day-steps",
+        "visibility": "hidden",
+        "input_rows": [],
+        "scenario": {
+          "flavor": "fabric",
+          "pipeline": "pl_orders_guarded",
+          "only": [
+            "Copy orders",
+            "Log failure",
+            "Transform"
+          ],
+          "columns": [
+            "name",
+            "status"
+          ]
+        },
+        "expected": [
+          {
+            "name": "Copy orders",
+            "status": "Succeeded"
+          },
+          {
+            "name": "Transform",
+            "status": "Succeeded"
+          },
+          {
+            "name": "Log failure",
+            "status": "Skipped"
+          }
+        ]
+      },
+      {
+        "id": "copy-fails-steps",
+        "visibility": "edge",
+        "input_rows": [],
+        "scenario": {
+          "flavor": "fabric",
+          "pipeline": "pl_orders_guarded",
+          "activities": {
+            "Copy orders": {
+              "fail_attempts": "all"
+            }
+          },
+          "only": [
+            "Copy orders",
+            "Log failure",
+            "Transform"
+          ],
+          "columns": [
+            "name",
+            "status"
+          ]
+        },
+        "expected": [
+          {
+            "name": "Copy orders",
+            "status": "Failed"
+          },
+          {
+            "name": "Transform",
+            "status": "Skipped"
+          },
+          {
+            "name": "Log failure",
+            "status": "Succeeded"
+          }
+        ]
+      }
+    ]
+  },
+  "cp-port-adf-to-fabric": {
+    "solution": "{\n  \"properties\": {\n    \"description\": \"Clean orders in a notebook, keep its row count, notify the team.\",\n    \"activities\": [\n      {\n        \"name\": \"Silver orders\",\n        \"type\": \"TridentNotebook\",\n        \"dependsOn\": [],\n        \"policy\": {\n          \"timeout\": \"0.12:00:00\",\n          \"retry\": 0,\n          \"retryIntervalInSeconds\": 30,\n          \"secureOutput\": false,\n          \"secureInput\": false\n        },\n        \"typeProperties\": {\n          \"notebookId\": \"nb_silver_orders\",\n          \"workspaceId\": \"00000000-0000-0000-0000-000000000000\",\n          \"parameters\": {\n            \"run_date\": {\n              \"value\": {\n                \"value\": \"@pipeline().parameters.run_date\",\n                \"type\": \"Expression\"\n              },\n              \"type\": \"string\"\n            }\n          }\n        }\n      },\n      {\n        \"name\": \"Keep silver rows\",\n        \"type\": \"SetVariable\",\n        \"dependsOn\": [\n          {\n            \"activity\": \"Silver orders\",\n            \"dependencyConditions\": [\n              \"Succeeded\"\n            ]\n          }\n        ],\n        \"typeProperties\": {\n          \"variableName\": \"silver_rows\",\n          \"value\": \"@activity('Silver orders').output.result.exitValue\"\n        }\n      },\n      {\n        \"name\": \"Notify team\",\n        \"type\": \"Teams\",\n        \"dependsOn\": [\n          {\n            \"activity\": \"Keep silver rows\",\n            \"dependencyConditions\": [\n              \"Succeeded\"\n            ]\n          }\n        ],\n        \"typeProperties\": {\n          \"inputs\": {\n            \"body\": {\n              \"messageBody\": \"@concat('Silver rows: ', variables('silver_rows'))\"\n            }\n          }\n        }\n      }\n    ],\n    \"parameters\": {\n      \"run_date\": {\n        \"type\": \"string\",\n        \"defaultValue\": \"2026-03-05\"\n      }\n    },\n    \"variables\": {\n      \"silver_rows\": {\n        \"type\": \"String\"\n      }\n    },\n    \"annotations\": []\n  }\n}\n",
+    "fixtures": [
+      {
+        "id": "activity-types",
+        "visibility": "visible",
+        "input_rows": [],
+        "scenario": {
+          "flavor": "fabric",
+          "pipeline": "pl_daily_orders",
+          "activities": {
+            "Silver orders": {
+              "output": {
+                "result": {
+                  "exitValue": "12"
+                }
+              }
+            }
+          },
+          "columns": [
+            "name",
+            "type",
+            "status"
+          ]
+        },
+        "expected": [
+          {
+            "name": "Silver orders",
+            "type": "TridentNotebook",
+            "status": "Succeeded"
+          },
+          {
+            "name": "Keep silver rows",
+            "type": "SetVariable",
+            "status": "Succeeded"
+          },
+          {
+            "name": "Notify team",
+            "type": "Teams",
+            "status": "Succeeded"
+          }
+        ]
+      },
+      {
+        "id": "exit-value",
+        "visibility": "hidden",
+        "input_rows": [],
+        "scenario": {
+          "flavor": "fabric",
+          "pipeline": "pl_daily_orders",
+          "activities": {
+            "Silver orders": {
+              "output": {
+                "result": {
+                  "exitValue": "12"
+                }
+              }
+            }
+          },
+          "outcome": "variables"
+        },
+        "expected": [
+          {
+            "name": "silver_rows",
+            "value": "12"
+          }
+        ]
+      },
+      {
+        "id": "notebook-parameters",
+        "visibility": "edge",
+        "input_rows": [],
+        "scenario": {
+          "flavor": "fabric",
+          "pipeline": "pl_daily_orders",
+          "activities": {
+            "Silver orders": {
+              "output": {
+                "result": {
+                  "exitValue": "12"
+                }
+              }
+            }
+          },
+          "parameters": {
+            "run_date": "2026-03-07"
+          },
+          "outcome": "inputs",
+          "only": [
+            "Silver orders"
+          ],
+          "fields": [
+            "parameters.run_date.value"
+          ],
+          "columns": [
+            "name",
+            "field",
+            "value"
+          ]
+        },
+        "expected": [
+          {
+            "name": "Silver orders",
+            "field": "parameters.run_date.value",
+            "value": "2026-03-07"
+          }
+        ]
+      }
+    ]
+  },
+  "cp-incremental-watermark": {
+    "solution": "{\n  \"name\": \"pl_orders_incremental\",\n  \"properties\": {\n    \"description\": \"Copy only the orders changed since the last load, then move the watermark.\",\n    \"activities\": [\n      {\n        \"name\": \"Get watermark\",\n        \"type\": \"Lookup\",\n        \"dependsOn\": [],\n        \"policy\": {\n          \"timeout\": \"0.00:10:00\",\n          \"retry\": 0,\n          \"retryIntervalInSeconds\": 30,\n          \"secureOutput\": false,\n          \"secureInput\": false\n        },\n        \"typeProperties\": {\n          \"source\": {\n            \"type\": \"AzureSqlSource\",\n            \"sqlReaderQuery\": \"SELECT watermark FROM warehouse.watermarks WHERE table_name = 'orders'\"\n          },\n          \"dataset\": {\n            \"referenceName\": \"ds_watermarks\",\n            \"type\": \"DatasetReference\"\n          },\n          \"firstRowOnly\": true\n        }\n      },\n      {\n        \"name\": \"Copy new orders\",\n        \"type\": \"Copy\",\n        \"dependsOn\": [\n          {\n            \"activity\": \"Get watermark\",\n            \"dependencyConditions\": [\n              \"Succeeded\"\n            ]\n          }\n        ],\n        \"policy\": {\n          \"timeout\": \"0.12:00:00\",\n          \"retry\": 0,\n          \"retryIntervalInSeconds\": 30,\n          \"secureOutput\": false,\n          \"secureInput\": false\n        },\n        \"outputs\": [\n          {\n            \"referenceName\": \"ds_bronze_orders\",\n            \"type\": \"DatasetReference\"\n          }\n        ],\n        \"typeProperties\": {\n          \"source\": {\n            \"type\": \"AzureSqlSource\",\n            \"sqlReaderQuery\": {\n              \"value\": \"SELECT * FROM source.orders WHERE updated_at > '@{activity('Get watermark').output.firstRow.watermark}'\",\n              \"type\": \"Expression\"\n            },\n            \"queryTimeout\": \"02:00:00\",\n            \"partitionOption\": \"None\"\n          },\n          \"sink\": {\n            \"type\": \"AzureSqlSink\",\n            \"writeBehavior\": \"insert\",\n            \"sqlWriterUseTableLock\": false,\n            \"tableOption\": \"autoCreate\"\n          },\n          \"enableStaging\": false\n        }\n      },\n      {\n        \"name\": \"Update watermark\",\n        \"type\": \"Script\",\n        \"dependsOn\": [\n          {\n            \"activity\": \"Copy new orders\",\n            \"dependencyConditions\": [\n              \"Succeeded\"\n            ]\n          }\n        ],\n        \"policy\": {\n          \"timeout\": \"0.12:00:00\",\n          \"retry\": 0,\n          \"retryIntervalInSeconds\": 30,\n          \"secureOutput\": false,\n          \"secureInput\": false\n        },\n        \"linkedServiceName\": {\n          \"referenceName\": \"ls_lab_sql\",\n          \"type\": \"LinkedServiceReference\"\n        },\n        \"typeProperties\": {\n          \"scripts\": [\n            {\n              \"type\": \"NonQuery\",\n              \"text\": \"UPDATE warehouse.watermarks SET watermark = (SELECT MAX(updated_at) FROM bronze.orders) WHERE table_name = 'orders'\"\n            }\n          ],\n          \"scriptBlockExecutionTimeout\": \"02:00:00\"\n        }\n      }\n    ],\n    \"annotations\": []\n  }\n}\n",
+    "fixtures": [
+      {
+        "id": "two-runs",
+        "visibility": "visible",
+        "input_rows": [],
+        "scenario": {
+          "flavor": "adf",
+          "pipeline": "pl_orders_incremental",
+          "data_plane": "local",
+          "files": {
+            "datasets": {
+              "ds_bronze_orders": {
+                "name": "ds_bronze_orders",
+                "properties": {
+                  "linkedServiceName": {
+                    "referenceName": "ls_lab_sql",
+                    "type": "LinkedServiceReference"
+                  },
+                  "annotations": [],
+                  "type": "AzureSqlTable",
+                  "schema": [],
+                  "typeProperties": {
+                    "schema": "bronze",
+                    "table": "orders"
+                  }
+                }
+              },
+              "ds_watermarks": {
+                "name": "ds_watermarks",
+                "properties": {
+                  "linkedServiceName": {
+                    "referenceName": "ls_lab_sql",
+                    "type": "LinkedServiceReference"
+                  },
+                  "annotations": [],
+                  "type": "AzureSqlTable",
+                  "schema": [],
+                  "typeProperties": {
+                    "schema": "warehouse",
+                    "table": "watermarks"
+                  }
+                }
+              }
+            }
+          },
+          "runs": 2,
+          "tables": [
+            {
+              "name": "source.orders",
+              "rows": [
+                {
+                  "order_id": "O1",
+                  "amount": 10.0,
+                  "updated_at": "2026-03-04 09:00:00"
+                },
+                {
+                  "order_id": "O2",
+                  "amount": 20.0,
+                  "updated_at": "2026-03-04 18:00:00"
+                },
+                {
+                  "order_id": "O3",
+                  "amount": 30.0,
+                  "updated_at": "2026-03-05 08:00:00"
+                },
+                {
+                  "order_id": "O4",
+                  "amount": 40.0,
+                  "updated_at": "2026-03-05 10:00:00"
+                },
+                {
+                  "order_id": "O5",
+                  "amount": 50.0,
+                  "updated_at": "2026-03-05 11:30:00"
+                }
+              ]
+            },
+            {
+              "name": "bronze.orders",
+              "rows": [
+                {
+                  "order_id": "O1",
+                  "amount": 10.0,
+                  "updated_at": "2026-03-04 09:00:00"
+                },
+                {
+                  "order_id": "O2",
+                  "amount": 20.0,
+                  "updated_at": "2026-03-04 18:00:00"
+                }
+              ],
+              "columns": [
+                "order_id",
+                "amount",
+                "updated_at"
+              ],
+              "types": {
+                "order_id": "VARCHAR",
+                "amount": "DOUBLE",
+                "updated_at": "VARCHAR"
+              }
+            },
+            {
+              "name": "warehouse.watermarks",
+              "rows": [
+                {
+                  "table_name": "orders",
+                  "watermark": "2026-03-04 18:00:00"
+                }
+              ]
+            }
+          ],
+          "outcome": "table",
+          "table": "bronze.orders",
+          "columns": [
+            "order_id",
+            "amount"
+          ]
+        },
+        "expected": [
+          {
+            "order_id": "O1",
+            "amount": 10.0
+          },
+          {
+            "order_id": "O2",
+            "amount": 20.0
+          },
+          {
+            "order_id": "O3",
+            "amount": 30.0
+          },
+          {
+            "order_id": "O4",
+            "amount": 40.0
+          },
+          {
+            "order_id": "O5",
+            "amount": 50.0
+          }
+        ]
+      },
+      {
+        "id": "boundary-row",
+        "visibility": "hidden",
+        "input_rows": [],
+        "scenario": {
+          "flavor": "adf",
+          "pipeline": "pl_orders_incremental",
+          "data_plane": "local",
+          "files": {
+            "datasets": {
+              "ds_bronze_orders": {
+                "name": "ds_bronze_orders",
+                "properties": {
+                  "linkedServiceName": {
+                    "referenceName": "ls_lab_sql",
+                    "type": "LinkedServiceReference"
+                  },
+                  "annotations": [],
+                  "type": "AzureSqlTable",
+                  "schema": [],
+                  "typeProperties": {
+                    "schema": "bronze",
+                    "table": "orders"
+                  }
+                }
+              },
+              "ds_watermarks": {
+                "name": "ds_watermarks",
+                "properties": {
+                  "linkedServiceName": {
+                    "referenceName": "ls_lab_sql",
+                    "type": "LinkedServiceReference"
+                  },
+                  "annotations": [],
+                  "type": "AzureSqlTable",
+                  "schema": [],
+                  "typeProperties": {
+                    "schema": "warehouse",
+                    "table": "watermarks"
+                  }
+                }
+              }
+            }
+          },
+          "runs": 2,
+          "tables": [
+            {
+              "name": "source.orders",
+              "rows": [
+                {
+                  "order_id": "O1",
+                  "amount": 10.0,
+                  "updated_at": "2026-03-04 09:00:00"
+                },
+                {
+                  "order_id": "O2",
+                  "amount": 20.0,
+                  "updated_at": "2026-03-04 18:00:00"
+                },
+                {
+                  "order_id": "O6",
+                  "amount": 60.0,
+                  "updated_at": "2026-03-06 07:00:00"
+                }
+              ]
+            },
+            {
+              "name": "bronze.orders",
+              "rows": [
+                {
+                  "order_id": "O1",
+                  "amount": 10.0,
+                  "updated_at": "2026-03-04 09:00:00"
+                },
+                {
+                  "order_id": "O2",
+                  "amount": 20.0,
+                  "updated_at": "2026-03-04 18:00:00"
+                }
+              ],
+              "columns": [
+                "order_id",
+                "amount",
+                "updated_at"
+              ],
+              "types": {
+                "order_id": "VARCHAR",
+                "amount": "DOUBLE",
+                "updated_at": "VARCHAR"
+              }
+            },
+            {
+              "name": "warehouse.watermarks",
+              "rows": [
+                {
+                  "table_name": "orders",
+                  "watermark": "2026-03-04 18:00:00"
+                }
+              ]
+            }
+          ],
+          "outcome": "table",
+          "table": "bronze.orders",
+          "columns": [
+            "order_id",
+            "amount"
+          ]
+        },
+        "expected": [
+          {
+            "order_id": "O1",
+            "amount": 10.0
+          },
+          {
+            "order_id": "O2",
+            "amount": 20.0
+          },
+          {
+            "order_id": "O6",
+            "amount": 60.0
+          }
+        ]
+      },
+      {
+        "id": "nothing-new",
+        "visibility": "edge",
+        "input_rows": [],
+        "scenario": {
+          "flavor": "adf",
+          "pipeline": "pl_orders_incremental",
+          "data_plane": "local",
+          "files": {
+            "datasets": {
+              "ds_bronze_orders": {
+                "name": "ds_bronze_orders",
+                "properties": {
+                  "linkedServiceName": {
+                    "referenceName": "ls_lab_sql",
+                    "type": "LinkedServiceReference"
+                  },
+                  "annotations": [],
+                  "type": "AzureSqlTable",
+                  "schema": [],
+                  "typeProperties": {
+                    "schema": "bronze",
+                    "table": "orders"
+                  }
+                }
+              },
+              "ds_watermarks": {
+                "name": "ds_watermarks",
+                "properties": {
+                  "linkedServiceName": {
+                    "referenceName": "ls_lab_sql",
+                    "type": "LinkedServiceReference"
+                  },
+                  "annotations": [],
+                  "type": "AzureSqlTable",
+                  "schema": [],
+                  "typeProperties": {
+                    "schema": "warehouse",
+                    "table": "watermarks"
+                  }
+                }
+              }
+            }
+          },
+          "runs": 2,
+          "tables": [
+            {
+              "name": "source.orders",
+              "rows": [
+                {
+                  "order_id": "O1",
+                  "amount": 10.0,
+                  "updated_at": "2026-03-04 09:00:00"
+                },
+                {
+                  "order_id": "O2",
+                  "amount": 20.0,
+                  "updated_at": "2026-03-04 18:00:00"
+                }
+              ]
+            },
+            {
+              "name": "bronze.orders",
+              "rows": [
+                {
+                  "order_id": "O1",
+                  "amount": 10.0,
+                  "updated_at": "2026-03-04 09:00:00"
+                },
+                {
+                  "order_id": "O2",
+                  "amount": 20.0,
+                  "updated_at": "2026-03-04 18:00:00"
+                }
+              ],
+              "columns": [
+                "order_id",
+                "amount",
+                "updated_at"
+              ],
+              "types": {
+                "order_id": "VARCHAR",
+                "amount": "DOUBLE",
+                "updated_at": "VARCHAR"
+              }
+            },
+            {
+              "name": "warehouse.watermarks",
+              "rows": [
+                {
+                  "table_name": "orders",
+                  "watermark": "2026-03-04 18:00:00"
+                }
+              ]
+            }
+          ],
+          "outcome": "table",
+          "table": "bronze.orders",
+          "columns": [
+            "order_id",
+            "amount"
+          ]
+        },
+        "expected": [
+          {
+            "order_id": "O1",
+            "amount": 10.0
+          },
+          {
+            "order_id": "O2",
+            "amount": 20.0
+          }
+        ]
+      }
+    ]
+  },
+  "cp-upsert-idempotent": {
+    "solution": "{\n  \"name\": \"pl_customers_upsert\",\n  \"properties\": {\n    \"description\": \"Keep bronze.customers in line with the source, rerun-safe.\",\n    \"activities\": [\n      {\n        \"name\": \"Upsert customers\",\n        \"type\": \"Copy\",\n        \"dependsOn\": [],\n        \"policy\": {\n          \"timeout\": \"0.12:00:00\",\n          \"retry\": 0,\n          \"retryIntervalInSeconds\": 30,\n          \"secureOutput\": false,\n          \"secureInput\": false\n        },\n        \"outputs\": [\n          {\n            \"referenceName\": \"ds_bronze_customers\",\n            \"type\": \"DatasetReference\"\n          }\n        ],\n        \"typeProperties\": {\n          \"source\": {\n            \"type\": \"AzureSqlSource\",\n            \"sqlReaderQuery\": \"SELECT customer_id, name, city FROM source.customers\",\n            \"queryTimeout\": \"02:00:00\",\n            \"partitionOption\": \"None\"\n          },\n          \"sink\": {\n            \"type\": \"AzureSqlSink\",\n            \"writeBehavior\": \"upsert\",\n            \"sqlWriterUseTableLock\": false,\n            \"tableOption\": \"autoCreate\",\n            \"upsertSettings\": {\n              \"useTempDB\": true,\n              \"keys\": [\n                \"customer_id\"\n              ]\n            }\n          },\n          \"enableStaging\": false\n        }\n      }\n    ],\n    \"annotations\": []\n  }\n}\n",
+    "fixtures": [
+      {
+        "id": "rerun-no-duplicates",
+        "visibility": "visible",
+        "input_rows": [],
+        "scenario": {
+          "flavor": "adf",
+          "pipeline": "pl_customers_upsert",
+          "data_plane": "local",
+          "files": {
+            "datasets": {
+              "ds_bronze_customers": {
+                "name": "ds_bronze_customers",
+                "properties": {
+                  "linkedServiceName": {
+                    "referenceName": "ls_lab_sql",
+                    "type": "LinkedServiceReference"
+                  },
+                  "annotations": [],
+                  "type": "AzureSqlTable",
+                  "schema": [],
+                  "typeProperties": {
+                    "schema": "bronze",
+                    "table": "customers"
+                  }
+                }
+              }
+            }
+          },
+          "runs": 2,
+          "tables": [
+            {
+              "name": "source.customers",
+              "rows": [
+                {
+                  "customer_id": "C1",
+                  "name": "Ada",
+                  "city": "Paris"
+                },
+                {
+                  "customer_id": "C2",
+                  "name": "Ben",
+                  "city": "Lyon"
+                },
+                {
+                  "customer_id": "C3",
+                  "name": "Chloe",
+                  "city": "Paris"
+                }
+              ]
+            },
+            {
+              "name": "bronze.customers",
+              "rows": [],
+              "columns": [
+                "customer_id",
+                "name",
+                "city"
+              ]
+            }
+          ],
+          "outcome": "table",
+          "table": "bronze.customers"
+        },
+        "expected": [
+          {
+            "customer_id": "C1",
+            "name": "Ada",
+            "city": "Paris"
+          },
+          {
+            "customer_id": "C2",
+            "name": "Ben",
+            "city": "Lyon"
+          },
+          {
+            "customer_id": "C3",
+            "name": "Chloe",
+            "city": "Paris"
+          }
+        ]
+      },
+      {
+        "id": "city-changed",
+        "visibility": "hidden",
+        "input_rows": [],
+        "scenario": {
+          "flavor": "adf",
+          "pipeline": "pl_customers_upsert",
+          "data_plane": "local",
+          "files": {
+            "datasets": {
+              "ds_bronze_customers": {
+                "name": "ds_bronze_customers",
+                "properties": {
+                  "linkedServiceName": {
+                    "referenceName": "ls_lab_sql",
+                    "type": "LinkedServiceReference"
+                  },
+                  "annotations": [],
+                  "type": "AzureSqlTable",
+                  "schema": [],
+                  "typeProperties": {
+                    "schema": "bronze",
+                    "table": "customers"
+                  }
+                }
+              }
+            }
+          },
+          "runs": 2,
+          "tables": [
+            {
+              "name": "source.customers",
+              "rows": [
+                {
+                  "customer_id": "C1",
+                  "name": "Ada",
+                  "city": "Paris"
+                },
+                {
+                  "customer_id": "C2",
+                  "name": "Ben",
+                  "city": "Lyon"
+                },
+                {
+                  "customer_id": "C3",
+                  "name": "Chloe",
+                  "city": "Paris"
+                }
+              ]
+            },
+            {
+              "name": "bronze.customers",
+              "rows": [
+                {
+                  "customer_id": "C2",
+                  "name": "Ben",
+                  "city": "Nice"
+                }
+              ],
+              "columns": [
+                "customer_id",
+                "name",
+                "city"
+              ]
+            }
+          ],
+          "outcome": "table",
+          "table": "bronze.customers"
+        },
+        "expected": [
+          {
+            "customer_id": "C2",
+            "name": "Ben",
+            "city": "Lyon"
+          },
+          {
+            "customer_id": "C1",
+            "name": "Ada",
+            "city": "Paris"
+          },
+          {
+            "customer_id": "C3",
+            "name": "Chloe",
+            "city": "Paris"
+          }
+        ]
+      },
+      {
+        "id": "keeps-old-customers",
+        "visibility": "edge",
+        "input_rows": [],
+        "scenario": {
+          "flavor": "adf",
+          "pipeline": "pl_customers_upsert",
+          "data_plane": "local",
+          "files": {
+            "datasets": {
+              "ds_bronze_customers": {
+                "name": "ds_bronze_customers",
+                "properties": {
+                  "linkedServiceName": {
+                    "referenceName": "ls_lab_sql",
+                    "type": "LinkedServiceReference"
+                  },
+                  "annotations": [],
+                  "type": "AzureSqlTable",
+                  "schema": [],
+                  "typeProperties": {
+                    "schema": "bronze",
+                    "table": "customers"
+                  }
+                }
+              }
+            }
+          },
+          "runs": 2,
+          "tables": [
+            {
+              "name": "source.customers",
+              "rows": [
+                {
+                  "customer_id": "C1",
+                  "name": "Ada",
+                  "city": "Paris"
+                },
+                {
+                  "customer_id": "C2",
+                  "name": "Ben",
+                  "city": "Lyon"
+                },
+                {
+                  "customer_id": "C3",
+                  "name": "Chloe",
+                  "city": "Paris"
+                }
+              ]
+            },
+            {
+              "name": "bronze.customers",
+              "rows": [
+                {
+                  "customer_id": "C9",
+                  "name": "Zoe",
+                  "city": "Lille"
+                }
+              ],
+              "columns": [
+                "customer_id",
+                "name",
+                "city"
+              ]
+            }
+          ],
+          "outcome": "table",
+          "table": "bronze.customers"
+        },
+        "expected": [
+          {
+            "customer_id": "C9",
+            "name": "Zoe",
+            "city": "Lille"
+          },
+          {
+            "customer_id": "C1",
+            "name": "Ada",
+            "city": "Paris"
+          },
+          {
+            "customer_id": "C2",
+            "name": "Ben",
+            "city": "Lyon"
+          },
+          {
+            "customer_id": "C3",
+            "name": "Chloe",
+            "city": "Paris"
+          }
+        ]
+      }
+    ]
+  },
+  "cp-sqlpool-proc-params": {
+    "solution": "{\n  \"name\": \"pl_daily_revenue\",\n  \"properties\": {\n    \"description\": \"Rebuild one day of gold revenue in the dedicated SQL pool.\",\n    \"activities\": [\n      {\n        \"name\": \"Load daily revenue\",\n        \"type\": \"SqlPoolStoredProcedure\",\n        \"dependsOn\": [],\n        \"policy\": {\n          \"timeout\": \"0.00:30:00\",\n          \"retry\": 0,\n          \"retryIntervalInSeconds\": 30,\n          \"secureOutput\": false,\n          \"secureInput\": false\n        },\n        \"sqlPool\": {\n          \"referenceName\": \"sqlpool01\",\n          \"type\": \"SqlPoolReference\"\n        },\n        \"typeProperties\": {\n          \"storedProcedureName\": \"[warehouse].[usp_load_daily_revenue]\",\n          \"storedProcedureParameters\": {\n            \"load_date\": {\n              \"value\": {\n                \"value\": \"@pipeline().parameters.run_date\",\n                \"type\": \"Expression\"\n              },\n              \"type\": \"String\"\n            },\n            \"min_amount\": {\n              \"value\": {\n                \"value\": \"@pipeline().parameters.min_amount\",\n                \"type\": \"Expression\"\n              },\n              \"type\": \"Decimal\"\n            }\n          }\n        }\n      }\n    ],\n    \"parameters\": {\n      \"run_date\": {\n        \"type\": \"string\",\n        \"defaultValue\": \"2026-03-05\"\n      },\n      \"min_amount\": {\n        \"type\": \"float\",\n        \"defaultValue\": 0\n      }\n    },\n    \"annotations\": []\n  }\n}\n",
+    "fixtures": [
+      {
+        "id": "default-day",
+        "visibility": "visible",
+        "input_rows": [],
+        "scenario": {
+          "flavor": "synapse",
+          "pipeline": "pl_daily_revenue",
+          "data_plane": "local",
+          "parameters": {},
+          "files": {
+            "procedures": {
+              "warehouse.usp_load_daily_revenue": "-- Rebuilds one day of gold.daily_revenue: rerunning a day replaces it.\nCREATE PROCEDURE warehouse.usp_load_daily_revenue\n    @load_date VARCHAR(10),\n    @min_amount DECIMAL(10, 2)\nAS\nBEGIN\n    DELETE FROM gold.daily_revenue WHERE load_date = @load_date;\n    INSERT INTO gold.daily_revenue\n    SELECT @load_date AS load_date, COUNT(*) AS orders, SUM(net_amount) AS revenue\n    FROM silver.orders\n    WHERE order_date = @load_date AND net_amount >= @min_amount;\nEND\n"
+            }
+          },
+          "tables": [
+            {
+              "name": "silver.orders",
+              "rows": [
+                {
+                  "order_id": "O1",
+                  "order_date": "2026-03-05",
+                  "net_amount": 25.0
+                },
+                {
+                  "order_id": "O2",
+                  "order_date": "2026-03-05",
+                  "net_amount": 150.0
+                },
+                {
+                  "order_id": "O3",
+                  "order_date": "2026-03-05",
+                  "net_amount": 80.0
+                },
+                {
+                  "order_id": "O4",
+                  "order_date": "2026-03-06",
+                  "net_amount": 120.0
+                },
+                {
+                  "order_id": "O5",
+                  "order_date": "2026-03-06",
+                  "net_amount": 60.0
+                },
+                {
+                  "order_id": "O6",
+                  "order_date": "2026-03-06",
+                  "net_amount": 300.0
+                },
+                {
+                  "order_id": "O7",
+                  "order_date": "2026-03-04",
+                  "net_amount": 40.0
+                }
+              ]
+            },
+            {
+              "name": "gold.daily_revenue",
+              "rows": [],
+              "columns": [
+                "load_date",
+                "orders",
+                "revenue"
+              ],
+              "types": {
+                "load_date": "VARCHAR",
+                "orders": "BIGINT",
+                "revenue": "DOUBLE"
+              }
+            }
+          ],
+          "outcome": "table",
+          "table": "gold.daily_revenue"
+        },
+        "expected": [
+          {
+            "load_date": "2026-03-05",
+            "orders": 3,
+            "revenue": 255.0
+          }
+        ]
+      },
+      {
+        "id": "stale-day-replaced",
+        "visibility": "hidden",
+        "input_rows": [],
+        "scenario": {
+          "flavor": "synapse",
+          "pipeline": "pl_daily_revenue",
+          "data_plane": "local",
+          "parameters": {
+            "run_date": "2026-03-05"
+          },
+          "files": {
+            "procedures": {
+              "warehouse.usp_load_daily_revenue": "-- Rebuilds one day of gold.daily_revenue: rerunning a day replaces it.\nCREATE PROCEDURE warehouse.usp_load_daily_revenue\n    @load_date VARCHAR(10),\n    @min_amount DECIMAL(10, 2)\nAS\nBEGIN\n    DELETE FROM gold.daily_revenue WHERE load_date = @load_date;\n    INSERT INTO gold.daily_revenue\n    SELECT @load_date AS load_date, COUNT(*) AS orders, SUM(net_amount) AS revenue\n    FROM silver.orders\n    WHERE order_date = @load_date AND net_amount >= @min_amount;\nEND\n"
+            }
+          },
+          "tables": [
+            {
+              "name": "silver.orders",
+              "rows": [
+                {
+                  "order_id": "O1",
+                  "order_date": "2026-03-05",
+                  "net_amount": 25.0
+                },
+                {
+                  "order_id": "O2",
+                  "order_date": "2026-03-05",
+                  "net_amount": 150.0
+                },
+                {
+                  "order_id": "O3",
+                  "order_date": "2026-03-05",
+                  "net_amount": 80.0
+                },
+                {
+                  "order_id": "O4",
+                  "order_date": "2026-03-06",
+                  "net_amount": 120.0
+                },
+                {
+                  "order_id": "O5",
+                  "order_date": "2026-03-06",
+                  "net_amount": 60.0
+                },
+                {
+                  "order_id": "O6",
+                  "order_date": "2026-03-06",
+                  "net_amount": 300.0
+                },
+                {
+                  "order_id": "O7",
+                  "order_date": "2026-03-04",
+                  "net_amount": 40.0
+                }
+              ]
+            },
+            {
+              "name": "gold.daily_revenue",
+              "rows": [
+                {
+                  "load_date": "2026-03-04",
+                  "orders": 1,
+                  "revenue": 40.0
+                },
+                {
+                  "load_date": "2026-03-05",
+                  "orders": 9,
+                  "revenue": 999.0
+                }
+              ],
+              "columns": [
+                "load_date",
+                "orders",
+                "revenue"
+              ],
+              "types": {
+                "load_date": "VARCHAR",
+                "orders": "BIGINT",
+                "revenue": "DOUBLE"
+              }
+            }
+          ],
+          "outcome": "table",
+          "table": "gold.daily_revenue"
+        },
+        "expected": [
+          {
+            "load_date": "2026-03-04",
+            "orders": 1,
+            "revenue": 40.0
+          },
+          {
+            "load_date": "2026-03-05",
+            "orders": 3,
+            "revenue": 255.0
+          }
+        ]
+      },
+      {
+        "id": "other-day-min-amount",
+        "visibility": "edge",
+        "input_rows": [],
+        "scenario": {
+          "flavor": "synapse",
+          "pipeline": "pl_daily_revenue",
+          "data_plane": "local",
+          "parameters": {
+            "run_date": "2026-03-06",
+            "min_amount": 100
+          },
+          "files": {
+            "procedures": {
+              "warehouse.usp_load_daily_revenue": "-- Rebuilds one day of gold.daily_revenue: rerunning a day replaces it.\nCREATE PROCEDURE warehouse.usp_load_daily_revenue\n    @load_date VARCHAR(10),\n    @min_amount DECIMAL(10, 2)\nAS\nBEGIN\n    DELETE FROM gold.daily_revenue WHERE load_date = @load_date;\n    INSERT INTO gold.daily_revenue\n    SELECT @load_date AS load_date, COUNT(*) AS orders, SUM(net_amount) AS revenue\n    FROM silver.orders\n    WHERE order_date = @load_date AND net_amount >= @min_amount;\nEND\n"
+            }
+          },
+          "tables": [
+            {
+              "name": "silver.orders",
+              "rows": [
+                {
+                  "order_id": "O1",
+                  "order_date": "2026-03-05",
+                  "net_amount": 25.0
+                },
+                {
+                  "order_id": "O2",
+                  "order_date": "2026-03-05",
+                  "net_amount": 150.0
+                },
+                {
+                  "order_id": "O3",
+                  "order_date": "2026-03-05",
+                  "net_amount": 80.0
+                },
+                {
+                  "order_id": "O4",
+                  "order_date": "2026-03-06",
+                  "net_amount": 120.0
+                },
+                {
+                  "order_id": "O5",
+                  "order_date": "2026-03-06",
+                  "net_amount": 60.0
+                },
+                {
+                  "order_id": "O6",
+                  "order_date": "2026-03-06",
+                  "net_amount": 300.0
+                },
+                {
+                  "order_id": "O7",
+                  "order_date": "2026-03-04",
+                  "net_amount": 40.0
+                }
+              ]
+            },
+            {
+              "name": "gold.daily_revenue",
+              "rows": [],
+              "columns": [
+                "load_date",
+                "orders",
+                "revenue"
+              ],
+              "types": {
+                "load_date": "VARCHAR",
+                "orders": "BIGINT",
+                "revenue": "DOUBLE"
+              }
+            }
+          ],
+          "outcome": "table",
+          "table": "gold.daily_revenue"
+        },
+        "expected": [
+          {
+            "load_date": "2026-03-06",
+            "orders": 2,
+            "revenue": 420.0
+          }
+        ]
+      }
+    ]
+  },
+  "nb-fabric-parameters-cell": {
+    "solution": "# Fabric notebook source\n\n# METADATA ********************\n\n# META {\n# META   \"kernel_info\": {\n# META     \"name\": \"synapse_pyspark\"\n# META   }\n# META }\n\n# PARAMETERS CELL ********************\n\nrun_date = \"2026-01-01\"\nmin_amount = 0\n\n# CELL ********************\n\nfrom pyspark.sql import functions as F\n\norders = spark.table(\"bronze.orders\")\nsilver = orders.filter(F.col(\"net_amount\") > min_amount).withColumn(\"load_date\", F.lit(run_date))\nsilver.write.mode(\"overwrite\").saveAsTable(\"silver.orders\")\nnotebookutils.notebook.exit(str(silver.count()))\n",
+    "fixtures": [
+      {
+        "id": "run-date-passed",
+        "visibility": "visible",
+        "input_rows": [],
+        "scenario": {
+          "flavor": "fabric",
+          "pipeline": "pl_silver_orders",
+          "notebook": "fabric:nb_silver_orders",
+          "data_plane": "local",
+          "parameters": {
+            "run_date": "2026-03-05",
+            "min_amount": 0
+          },
+          "files": {
+            "pipelines": {
+              "pl_silver_orders": {
+                "properties": {
+                  "activities": [
+                    {
+                      "name": "Silver orders",
+                      "type": "TridentNotebook",
+                      "dependsOn": [],
+                      "policy": {
+                        "timeout": "0.12:00:00",
+                        "retry": 0,
+                        "retryIntervalInSeconds": 30,
+                        "secureOutput": false,
+                        "secureInput": false
+                      },
+                      "typeProperties": {
+                        "notebookId": "nb_silver_orders",
+                        "workspaceId": "00000000-0000-0000-0000-000000000000",
+                        "parameters": {
+                          "run_date": {
+                            "value": {
+                              "value": "@pipeline().parameters.run_date",
+                              "type": "Expression"
+                            },
+                            "type": "string"
+                          },
+                          "min_amount": {
+                            "value": {
+                              "value": "@pipeline().parameters.min_amount",
+                              "type": "Expression"
+                            },
+                            "type": "int"
+                          }
+                        }
+                      }
+                    },
+                    {
+                      "name": "Keep silver rows",
+                      "type": "SetVariable",
+                      "dependsOn": [
+                        {
+                          "activity": "Silver orders",
+                          "dependencyConditions": [
+                            "Succeeded"
+                          ]
+                        }
+                      ],
+                      "typeProperties": {
+                        "variableName": "silver_rows",
+                        "value": "@activity('Silver orders').output.result.exitValue"
+                      }
+                    }
+                  ],
+                  "parameters": {
+                    "run_date": {
+                      "type": "string",
+                      "defaultValue": "2026-03-05"
+                    },
+                    "min_amount": {
+                      "type": "int",
+                      "defaultValue": 0
+                    }
+                  },
+                  "variables": {
+                    "silver_rows": {
+                      "type": "String"
+                    }
+                  },
+                  "annotations": []
+                }
+              }
+            }
+          },
+          "tables": [
+            {
+              "name": "bronze.orders",
+              "rows": [
+                {
+                  "order_id": "O1",
+                  "net_amount": 10.0
+                },
+                {
+                  "order_id": "O2",
+                  "net_amount": 150.0
+                },
+                {
+                  "order_id": "O3",
+                  "net_amount": 0.0
+                },
+                {
+                  "order_id": "O4",
+                  "net_amount": 45.0
+                },
+                {
+                  "order_id": "O5",
+                  "net_amount": 220.0
+                },
+                {
+                  "order_id": "O6",
+                  "net_amount": -5.0
+                }
+              ]
+            }
+          ],
+          "outcome": "table",
+          "table": "silver.orders",
+          "columns": [
+            "order_id",
+            "load_date"
+          ]
+        },
+        "expected": [
+          {
+            "order_id": "O1",
+            "load_date": "2026-03-05"
+          },
+          {
+            "order_id": "O2",
+            "load_date": "2026-03-05"
+          },
+          {
+            "order_id": "O4",
+            "load_date": "2026-03-05"
+          },
+          {
+            "order_id": "O5",
+            "load_date": "2026-03-05"
+          }
+        ]
+      },
+      {
+        "id": "min-amount-passed",
+        "visibility": "hidden",
+        "input_rows": [],
+        "scenario": {
+          "flavor": "fabric",
+          "pipeline": "pl_silver_orders",
+          "notebook": "fabric:nb_silver_orders",
+          "data_plane": "local",
+          "parameters": {
+            "run_date": "2026-03-06",
+            "min_amount": 100
+          },
+          "files": {
+            "pipelines": {
+              "pl_silver_orders": {
+                "properties": {
+                  "activities": [
+                    {
+                      "name": "Silver orders",
+                      "type": "TridentNotebook",
+                      "dependsOn": [],
+                      "policy": {
+                        "timeout": "0.12:00:00",
+                        "retry": 0,
+                        "retryIntervalInSeconds": 30,
+                        "secureOutput": false,
+                        "secureInput": false
+                      },
+                      "typeProperties": {
+                        "notebookId": "nb_silver_orders",
+                        "workspaceId": "00000000-0000-0000-0000-000000000000",
+                        "parameters": {
+                          "run_date": {
+                            "value": {
+                              "value": "@pipeline().parameters.run_date",
+                              "type": "Expression"
+                            },
+                            "type": "string"
+                          },
+                          "min_amount": {
+                            "value": {
+                              "value": "@pipeline().parameters.min_amount",
+                              "type": "Expression"
+                            },
+                            "type": "int"
+                          }
+                        }
+                      }
+                    },
+                    {
+                      "name": "Keep silver rows",
+                      "type": "SetVariable",
+                      "dependsOn": [
+                        {
+                          "activity": "Silver orders",
+                          "dependencyConditions": [
+                            "Succeeded"
+                          ]
+                        }
+                      ],
+                      "typeProperties": {
+                        "variableName": "silver_rows",
+                        "value": "@activity('Silver orders').output.result.exitValue"
+                      }
+                    }
+                  ],
+                  "parameters": {
+                    "run_date": {
+                      "type": "string",
+                      "defaultValue": "2026-03-05"
+                    },
+                    "min_amount": {
+                      "type": "int",
+                      "defaultValue": 0
+                    }
+                  },
+                  "variables": {
+                    "silver_rows": {
+                      "type": "String"
+                    }
+                  },
+                  "annotations": []
+                }
+              }
+            }
+          },
+          "tables": [
+            {
+              "name": "bronze.orders",
+              "rows": [
+                {
+                  "order_id": "O1",
+                  "net_amount": 10.0
+                },
+                {
+                  "order_id": "O2",
+                  "net_amount": 150.0
+                },
+                {
+                  "order_id": "O3",
+                  "net_amount": 0.0
+                },
+                {
+                  "order_id": "O4",
+                  "net_amount": 45.0
+                },
+                {
+                  "order_id": "O5",
+                  "net_amount": 220.0
+                },
+                {
+                  "order_id": "O6",
+                  "net_amount": -5.0
+                }
+              ]
+            }
+          ],
+          "outcome": "table",
+          "table": "silver.orders",
+          "columns": [
+            "order_id",
+            "load_date"
+          ]
+        },
+        "expected": [
+          {
+            "order_id": "O2",
+            "load_date": "2026-03-06"
+          },
+          {
+            "order_id": "O5",
+            "load_date": "2026-03-06"
+          }
+        ]
+      },
+      {
+        "id": "both-changed",
+        "visibility": "edge",
+        "input_rows": [],
+        "scenario": {
+          "flavor": "fabric",
+          "pipeline": "pl_silver_orders",
+          "notebook": "fabric:nb_silver_orders",
+          "data_plane": "local",
+          "parameters": {
+            "run_date": "2026-12-31",
+            "min_amount": 20
+          },
+          "files": {
+            "pipelines": {
+              "pl_silver_orders": {
+                "properties": {
+                  "activities": [
+                    {
+                      "name": "Silver orders",
+                      "type": "TridentNotebook",
+                      "dependsOn": [],
+                      "policy": {
+                        "timeout": "0.12:00:00",
+                        "retry": 0,
+                        "retryIntervalInSeconds": 30,
+                        "secureOutput": false,
+                        "secureInput": false
+                      },
+                      "typeProperties": {
+                        "notebookId": "nb_silver_orders",
+                        "workspaceId": "00000000-0000-0000-0000-000000000000",
+                        "parameters": {
+                          "run_date": {
+                            "value": {
+                              "value": "@pipeline().parameters.run_date",
+                              "type": "Expression"
+                            },
+                            "type": "string"
+                          },
+                          "min_amount": {
+                            "value": {
+                              "value": "@pipeline().parameters.min_amount",
+                              "type": "Expression"
+                            },
+                            "type": "int"
+                          }
+                        }
+                      }
+                    },
+                    {
+                      "name": "Keep silver rows",
+                      "type": "SetVariable",
+                      "dependsOn": [
+                        {
+                          "activity": "Silver orders",
+                          "dependencyConditions": [
+                            "Succeeded"
+                          ]
+                        }
+                      ],
+                      "typeProperties": {
+                        "variableName": "silver_rows",
+                        "value": "@activity('Silver orders').output.result.exitValue"
+                      }
+                    }
+                  ],
+                  "parameters": {
+                    "run_date": {
+                      "type": "string",
+                      "defaultValue": "2026-03-05"
+                    },
+                    "min_amount": {
+                      "type": "int",
+                      "defaultValue": 0
+                    }
+                  },
+                  "variables": {
+                    "silver_rows": {
+                      "type": "String"
+                    }
+                  },
+                  "annotations": []
+                }
+              }
+            }
+          },
+          "tables": [
+            {
+              "name": "bronze.orders",
+              "rows": [
+                {
+                  "order_id": "O1",
+                  "net_amount": 10.0
+                },
+                {
+                  "order_id": "O2",
+                  "net_amount": 150.0
+                },
+                {
+                  "order_id": "O3",
+                  "net_amount": 0.0
+                },
+                {
+                  "order_id": "O4",
+                  "net_amount": 45.0
+                },
+                {
+                  "order_id": "O5",
+                  "net_amount": 220.0
+                },
+                {
+                  "order_id": "O6",
+                  "net_amount": -5.0
+                }
+              ]
+            }
+          ],
+          "outcome": "table",
+          "table": "silver.orders",
+          "columns": [
+            "order_id",
+            "load_date"
+          ]
+        },
+        "expected": [
+          {
+            "order_id": "O2",
+            "load_date": "2026-12-31"
+          },
+          {
+            "order_id": "O4",
+            "load_date": "2026-12-31"
+          },
+          {
+            "order_id": "O5",
+            "load_date": "2026-12-31"
+          }
+        ]
+      }
+    ]
+  },
+  "nb-databricks-widgets": {
+    "solution": "# Databricks notebook source\ndbutils.widgets.text(\"min_orders\", \"2\")\ndbutils.widgets.text(\"target_table\", \"gold.top_customers\")\n\n# COMMAND ----------\n\nfrom pyspark.sql import functions as F\n\nmin_orders = int(dbutils.widgets.get(\"min_orders\"))\ntarget_table = dbutils.widgets.get(\"target_table\")\n\norders = spark.table(\"silver.orders\")\ntop = (\n    orders.groupBy(\"customer_id\")\n    .agg(F.count(\"order_id\").alias(\"orders\"), F.sum(\"net_amount\").alias(\"revenue\"))\n    .filter(F.col(\"orders\") >= min_orders)\n)\ntop.write.mode(\"overwrite\").saveAsTable(target_table)\n\n# COMMAND ----------\n\ndbutils.notebook.exit(str(top.count()))\n",
+    "fixtures": [
+      {
+        "id": "count-returned",
+        "visibility": "visible",
+        "input_rows": [],
+        "scenario": {
+          "flavor": "adf",
+          "pipeline": "pl_top_customers",
+          "notebook": "databricks:/Shared/nb_top_customers",
+          "data_plane": "local",
+          "parameters": {
+            "min_orders": 2
+          },
+          "runs": 2,
+          "files": {
+            "pipelines": {
+              "pl_top_customers": {
+                "name": "pl_top_customers",
+                "properties": {
+                  "activities": [
+                    {
+                      "name": "Top customers",
+                      "type": "DatabricksNotebook",
+                      "dependsOn": [],
+                      "policy": {
+                        "timeout": "0.12:00:00",
+                        "retry": 0,
+                        "retryIntervalInSeconds": 30,
+                        "secureOutput": false,
+                        "secureInput": false
+                      },
+                      "linkedServiceName": {
+                        "referenceName": "ls_lab_databricks",
+                        "type": "LinkedServiceReference"
+                      },
+                      "typeProperties": {
+                        "notebookPath": "/Shared/nb_top_customers",
+                        "baseParameters": {
+                          "min_orders": {
+                            "value": "@string(pipeline().parameters.min_orders)",
+                            "type": "Expression"
+                          },
+                          "target_table": "gold.top_customers"
+                        }
+                      }
+                    },
+                    {
+                      "name": "Keep top count",
+                      "type": "SetVariable",
+                      "dependsOn": [
+                        {
+                          "activity": "Top customers",
+                          "dependencyConditions": [
+                            "Succeeded"
+                          ]
+                        }
+                      ],
+                      "typeProperties": {
+                        "variableName": "top_count",
+                        "value": "@activity('Top customers').output.runOutput"
+                      }
+                    }
+                  ],
+                  "parameters": {
+                    "min_orders": {
+                      "type": "int",
+                      "defaultValue": 2
+                    }
+                  },
+                  "variables": {
+                    "top_count": {
+                      "type": "String"
+                    }
+                  },
+                  "annotations": []
+                }
+              }
+            }
+          },
+          "tables": [
+            {
+              "name": "silver.orders",
+              "rows": [
+                {
+                  "order_id": "O1",
+                  "customer_id": "C1",
+                  "net_amount": 10.0
+                },
+                {
+                  "order_id": "O2",
+                  "customer_id": "C1",
+                  "net_amount": 20.0
+                },
+                {
+                  "order_id": "O3",
+                  "customer_id": "C2",
+                  "net_amount": 5.0
+                },
+                {
+                  "order_id": "O4",
+                  "customer_id": "C3",
+                  "net_amount": 7.0
+                },
+                {
+                  "order_id": "O5",
+                  "customer_id": "C3",
+                  "net_amount": 8.0
+                },
+                {
+                  "order_id": "O6",
+                  "customer_id": "C3",
+                  "net_amount": 9.0
+                },
+                {
+                  "order_id": "O7",
+                  "customer_id": "C4",
+                  "net_amount": 30.0
+                },
+                {
+                  "order_id": "O8",
+                  "customer_id": "C4",
+                  "net_amount": 1.0
+                }
+              ]
+            }
+          ],
+          "outcome": "variables"
+        },
+        "expected": [
+          {
+            "name": "top_count",
+            "value": "3"
+          }
+        ]
+      },
+      {
+        "id": "min-orders-three",
+        "visibility": "hidden",
+        "input_rows": [],
+        "scenario": {
+          "flavor": "adf",
+          "pipeline": "pl_top_customers",
+          "notebook": "databricks:/Shared/nb_top_customers",
+          "data_plane": "local",
+          "parameters": {
+            "min_orders": 3
+          },
+          "runs": 2,
+          "files": {
+            "pipelines": {
+              "pl_top_customers": {
+                "name": "pl_top_customers",
+                "properties": {
+                  "activities": [
+                    {
+                      "name": "Top customers",
+                      "type": "DatabricksNotebook",
+                      "dependsOn": [],
+                      "policy": {
+                        "timeout": "0.12:00:00",
+                        "retry": 0,
+                        "retryIntervalInSeconds": 30,
+                        "secureOutput": false,
+                        "secureInput": false
+                      },
+                      "linkedServiceName": {
+                        "referenceName": "ls_lab_databricks",
+                        "type": "LinkedServiceReference"
+                      },
+                      "typeProperties": {
+                        "notebookPath": "/Shared/nb_top_customers",
+                        "baseParameters": {
+                          "min_orders": {
+                            "value": "@string(pipeline().parameters.min_orders)",
+                            "type": "Expression"
+                          },
+                          "target_table": "gold.top_customers"
+                        }
+                      }
+                    },
+                    {
+                      "name": "Keep top count",
+                      "type": "SetVariable",
+                      "dependsOn": [
+                        {
+                          "activity": "Top customers",
+                          "dependencyConditions": [
+                            "Succeeded"
+                          ]
+                        }
+                      ],
+                      "typeProperties": {
+                        "variableName": "top_count",
+                        "value": "@activity('Top customers').output.runOutput"
+                      }
+                    }
+                  ],
+                  "parameters": {
+                    "min_orders": {
+                      "type": "int",
+                      "defaultValue": 2
+                    }
+                  },
+                  "variables": {
+                    "top_count": {
+                      "type": "String"
+                    }
+                  },
+                  "annotations": []
+                }
+              }
+            }
+          },
+          "tables": [
+            {
+              "name": "silver.orders",
+              "rows": [
+                {
+                  "order_id": "O1",
+                  "customer_id": "C1",
+                  "net_amount": 10.0
+                },
+                {
+                  "order_id": "O2",
+                  "customer_id": "C1",
+                  "net_amount": 20.0
+                },
+                {
+                  "order_id": "O3",
+                  "customer_id": "C2",
+                  "net_amount": 5.0
+                },
+                {
+                  "order_id": "O4",
+                  "customer_id": "C3",
+                  "net_amount": 7.0
+                },
+                {
+                  "order_id": "O5",
+                  "customer_id": "C3",
+                  "net_amount": 8.0
+                },
+                {
+                  "order_id": "O6",
+                  "customer_id": "C3",
+                  "net_amount": 9.0
+                },
+                {
+                  "order_id": "O7",
+                  "customer_id": "C4",
+                  "net_amount": 30.0
+                },
+                {
+                  "order_id": "O8",
+                  "customer_id": "C4",
+                  "net_amount": 1.0
+                }
+              ]
+            }
+          ],
+          "outcome": "variables"
+        },
+        "expected": [
+          {
+            "name": "top_count",
+            "value": "1"
+          }
+        ]
+      },
+      {
+        "id": "table-after-two-runs",
+        "visibility": "edge",
+        "input_rows": [],
+        "scenario": {
+          "flavor": "adf",
+          "pipeline": "pl_top_customers",
+          "notebook": "databricks:/Shared/nb_top_customers",
+          "data_plane": "local",
+          "parameters": {
+            "min_orders": 2
+          },
+          "runs": 2,
+          "files": {
+            "pipelines": {
+              "pl_top_customers": {
+                "name": "pl_top_customers",
+                "properties": {
+                  "activities": [
+                    {
+                      "name": "Top customers",
+                      "type": "DatabricksNotebook",
+                      "dependsOn": [],
+                      "policy": {
+                        "timeout": "0.12:00:00",
+                        "retry": 0,
+                        "retryIntervalInSeconds": 30,
+                        "secureOutput": false,
+                        "secureInput": false
+                      },
+                      "linkedServiceName": {
+                        "referenceName": "ls_lab_databricks",
+                        "type": "LinkedServiceReference"
+                      },
+                      "typeProperties": {
+                        "notebookPath": "/Shared/nb_top_customers",
+                        "baseParameters": {
+                          "min_orders": {
+                            "value": "@string(pipeline().parameters.min_orders)",
+                            "type": "Expression"
+                          },
+                          "target_table": "gold.top_customers"
+                        }
+                      }
+                    },
+                    {
+                      "name": "Keep top count",
+                      "type": "SetVariable",
+                      "dependsOn": [
+                        {
+                          "activity": "Top customers",
+                          "dependencyConditions": [
+                            "Succeeded"
+                          ]
+                        }
+                      ],
+                      "typeProperties": {
+                        "variableName": "top_count",
+                        "value": "@activity('Top customers').output.runOutput"
+                      }
+                    }
+                  ],
+                  "parameters": {
+                    "min_orders": {
+                      "type": "int",
+                      "defaultValue": 2
+                    }
+                  },
+                  "variables": {
+                    "top_count": {
+                      "type": "String"
+                    }
+                  },
+                  "annotations": []
+                }
+              }
+            }
+          },
+          "tables": [
+            {
+              "name": "silver.orders",
+              "rows": [
+                {
+                  "order_id": "O1",
+                  "customer_id": "C1",
+                  "net_amount": 10.0
+                },
+                {
+                  "order_id": "O2",
+                  "customer_id": "C1",
+                  "net_amount": 20.0
+                },
+                {
+                  "order_id": "O3",
+                  "customer_id": "C2",
+                  "net_amount": 5.0
+                },
+                {
+                  "order_id": "O4",
+                  "customer_id": "C3",
+                  "net_amount": 7.0
+                },
+                {
+                  "order_id": "O5",
+                  "customer_id": "C3",
+                  "net_amount": 8.0
+                },
+                {
+                  "order_id": "O6",
+                  "customer_id": "C3",
+                  "net_amount": 9.0
+                },
+                {
+                  "order_id": "O7",
+                  "customer_id": "C4",
+                  "net_amount": 30.0
+                },
+                {
+                  "order_id": "O8",
+                  "customer_id": "C4",
+                  "net_amount": 1.0
+                }
+              ]
+            }
+          ],
+          "outcome": "table",
+          "table": "gold.top_customers",
+          "columns": [
+            "customer_id",
+            "orders"
+          ]
+        },
+        "expected": [
+          {
+            "customer_id": "C3",
+            "orders": 3
+          },
+          {
+            "customer_id": "C4",
+            "orders": 2
+          },
+          {
+            "customer_id": "C1",
+            "orders": 2
+          }
+        ]
+      }
+    ]
+  }
+}
