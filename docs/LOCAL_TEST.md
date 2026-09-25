@@ -125,6 +125,6 @@ Results and one screenshot per step land in `test-results/vscode-ui/` (`results.
 | `DATAPASS_UI_OUT` | results and screenshots folder |
 | `DATAPASS_UI_PYTHON` | base Python for **Setup runtime**, written to the manifest's `runtime.pythonCommand` |
 | `VSCODE_TEST_VERSION` / `DATAPASS_UI_CODE` | VS Code build to download (default stable) / an installed Code executable instead |
-| `DATAPASS_UI_KEEP=1` | keep the profile, so a rerun skips **Setup runtime** |
+| `DATAPASS_UI_KEEP=1` | keep the profile, so a rerun skips **Setup runtime**; the kept managed venv still holds the runtime of the VSIX that set it up, so run without it after a runtime change |
 
 The VSIX declares an extension pack, so the install also fetches the Python and Jupyter extensions from the Marketplace. On Linux, give the virtual display a real screen: `xvfb-run -a --server-args="-screen 0 1600x1000x24" npm run test:ui`.

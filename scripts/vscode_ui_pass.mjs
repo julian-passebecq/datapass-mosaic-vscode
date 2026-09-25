@@ -19,7 +19,8 @@
 //   DATAPASS_UI_PYTHON     base Python for Setup runtime, written to the manifest's runtime.pythonCommand
 //                          (default: the manifest's own default, `python` on PATH)
 //   VSCODE_TEST_VERSION    VS Code build to download (default stable); DATAPASS_UI_CODE uses an installed Code instead
-//   DATAPASS_UI_KEEP=1     keep the profile, so a rerun skips Setup runtime
+//   DATAPASS_UI_KEEP=1     keep the profile, so a rerun skips Setup runtime. The kept managed venv still holds the
+//                          runtime of the VSIX that set it up: after a runtime change, run without it.
 //
 // On Linux run under a virtual display with a real screen size:
 //   xvfb-run -a --server-args="-screen 0 1600x1000x24" npm run test:ui
@@ -314,7 +315,9 @@ try {
   await button("Submit").first().click();
   const graded = await web().locator(".practice-result").first().innerText({ timeout: 90000 }).catch(() => "");
   const status = /^Submission[\s\S]*?\b(passed|failed|error)\b/.exec(graded.trim());
-  step("Practice Submit graded by the runtime", Boolean(status), status ? `status ${status[1]}` : graded.slice(0, 200) || "no result");
+  const errors = status ? [] : await web().locator(".error-text").allInnerTexts().catch(() => []);
+  step("Practice Submit graded by the runtime", Boolean(status),
+    status ? `status ${status[1]}` : (graded.slice(0, 200) || errors.join(" | ").slice(0, 300) || "no result"));
   await shot("practice-submit");
 
   // --- Layout at a narrow width ---------------------------------------------------------------------------------
