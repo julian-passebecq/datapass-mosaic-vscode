@@ -8,9 +8,10 @@ from __future__ import annotations
 
 import copy
 import json
-import tempfile
 import textwrap
 from pathlib import Path
+
+from pack_quality import write_mutants
 
 ROOT = Path.cwd()
 PACK = ROOT / "content" / "exercise-packs" / "databricks-v1"
@@ -848,8 +849,7 @@ def main() -> None:
     for name, data in (("manifest.json", manifest), ("exercises.json", definitions), ("grading.server.json", grading)):
         (PACK / name).write_text(json.dumps(data, indent=2, ensure_ascii=False, default=str) + "\n", encoding="utf-8",
                                  newline="\n")
-    (Path(tempfile.gettempdir()) / "databricks_mutants.json").write_text(
-        json.dumps({spec["id"]: spec["mutants"] for spec in EXERCISES}, indent=2), encoding="utf-8")
+    write_mutants(PACK, {spec["id"]: spec["mutants"] for spec in EXERCISES})
     for spec in EXERCISES:
         print(f"== {spec['id']}")
         for fixture in grading[spec["id"]]["fixtures"]:

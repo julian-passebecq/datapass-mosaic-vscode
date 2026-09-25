@@ -1,0 +1,43 @@
+{
+  "flags": {
+    "runnable_starters": true
+  },
+  "mutants": {
+    "py-load-mode": [
+      "result = []\nfor row in table_stats:\n    if row[\"row_count\"] == 0:\n        mode = \"full\"\n    elif row[\"row_count\"] >= 1_000_000:\n        mode = \"large_incremental\"\n    else:\n        mode = \"incremental\"\n    result.append({\"table_name\": row[\"table_name\"], \"row_count\": row[\"row_count\"], \"mode\": mode})\ndisplay(result)"
+    ],
+    "py-safe-int": [
+      "result = []\nfor row in raw_values:\n    try:\n        parsed = int(float(row[\"raw_value\"]))\n    except ValueError:\n        parsed = None\n    result.append({\"raw_value\": row[\"raw_value\"], \"parsed\": parsed})\ndisplay(result)"
+    ],
+    "py-set-validate": [
+      "allowed_status = {\"NEW\", \"READY\", \"DONE\"}\ndisplay([{\"status\": row[\"status\"], \"is_valid\": row[\"status\"].upper() in allowed_status} for row in statuses])"
+    ],
+    "py-frequency": [
+      "display([{\"status\": status, \"count\": 1} for status in {row[\"status\"] for row in events}])"
+    ],
+    "py-dedupe-order": [
+      "display([{\"id\": value} for value in sorted({row[\"id\"] for row in ids})])"
+    ],
+    "py-batching": [
+      "values = [row[\"id\"] for row in ids]\nresult = []\nfor number, start in enumerate(range(0, len(values) - 3 + 1, 3), start=1):\n    batch = values[start:start + 3]\n    result.append({\"batch_number\": number, \"first_id\": batch[0], \"last_id\": batch[-1], \"size\": len(batch)})\ndisplay(result)"
+    ],
+    "py-binary-search": [
+      "from bisect import bisect_right\nvalues = [row[\"value\"] for row in sorted_values]\nresult = []\nfor row in targets:\n    position = bisect_right(values, row[\"target\"])\n    result.append({\"target\": row[\"target\"], \"position\": position, \"found\": row[\"target\"] in values})\ndisplay(result)"
+    ],
+    "py-hash-join": [
+      "names = {c[\"customer_id\"]: c[\"name\"] for c in customers}\ndisplay([{\"order_id\": o[\"order_id\"], \"customer_id\": o[\"customer_id\"], \"customer_name\": names.get(o[\"customer_id\"], \"\")} for o in orders])"
+    ],
+    "py-prefix-filter": [
+      "display([{\"table_name\": row[\"table_name\"]} for row in tables_list if \"dim_\" in row[\"table_name\"].lower()], columns=[\"table_name\"])"
+    ],
+    "py-sort-key": [
+      "display([{\"name\": j[\"name\"], \"priority\": j[\"priority\"]} for j in sorted(jobs, key=lambda job: (job[\"priority\"], job[\"name\"]))])"
+    ],
+    "py-parse-timestamp": [
+      "from datetime import datetime\nresult = []\nfor row in raw_times:\n    ts = datetime.strptime(row[\"raw\"], \"%Y-%m-%d %H:%M:%S\")\n    result.append({\"raw\": row[\"raw\"], \"date\": ts.date().isoformat(), \"hour\": ts.hour, \"weekday\": ts.isoweekday()})\ndisplay(result)"
+    ],
+    "py-numpy-vectorize": [
+      "import numpy as np\nvalues = np.array([row[\"amount\"] for row in amounts], dtype=float)\ndisplay([{\"amount\": float(a), \"net_amount\": float(a * 0.2)} for a in values])"
+    ]
+  }
+}
