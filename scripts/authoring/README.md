@@ -14,7 +14,9 @@ registry, and writes `content/exercise-packs/<pack>/`.
 | `gen_databricks.py` | `databricks-v1` | `datapass_runtime/databricks_grading.py` |
 | `gen_dwh.py` | `dwh-v1` | `datapass_runtime/warehouse_grading.py` (BI Lab) |
 | `gen_dbt.py` | `dbt-v1` | `datapass_runtime/dbt_project_grading.py` (BI Lab dbt emulation; cross-checked with dbt Core when `DATAPASS_DBT_PYTHON` is set) |
+| `gen_zilla.py` | `zilla-v1` | Every language's grader through `datapass_runtime.exercises.grade` (SQL, Snowflake, pandas, Polars, SparkLab, dbt emulation); reads CodeDELeet's normalized ZillaCode import (`CODEDELEET`, default `D:/PROJ/CodeDELeet`); specs in `scripts/authoring/zilla/`; writes the pack's LICENSE and NOTICE and the zilla-v1 block of `MUTANTS` itself; `--only 1,2` checks some problems without writing |
 | `gen_spark_lab.py` | `spark-lab-v1` | SparkLab grader; the pack and its grading changes come with PR #7, which is not in this branch's history |
+| `gen_pylance_stubs.py` | `content/pylance-stubs/` (not a pack) | the SparkLab and Airflow Lab readers' import tables; CI runs it with `--check` |
 
 Run from the repository root, against the repository's runtime:
 

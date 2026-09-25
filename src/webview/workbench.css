@@ -204,6 +204,28 @@ h2 { margin-bottom: 8px; font-size: 28px; }
   gap: 16px;
   margin-bottom: 14px;
 }
+.practice-progress {
+  display: flex;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: 4px 12px;
+  margin-top: 4px;
+  font-size: 12px;
+}
+.practice-progress-solved {
+  color: var(--vscode-testing-iconPassed, var(--vscode-charts-green));
+  font-weight: 600;
+}
+.practice-filters {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+.practice-filters select {
+  max-width: 220px;
+}
 .practice-list {
   display: grid;
   gap: 10px;

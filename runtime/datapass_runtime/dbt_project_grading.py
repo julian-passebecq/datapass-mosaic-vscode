@@ -28,15 +28,22 @@ class Rejected(Exception):
 
 
 def run_fixture(code: str, scenario: DbtScenario) -> list[dict[str, Any]]:
+    return run_fixture_columns(code, scenario)[0]
+
+
+def run_fixture_columns(code: str, scenario: DbtScenario) -> tuple[list[dict[str, Any]], list[str] | None]:
+    """Rows and, for table and result outcomes, the relation's columns (an empty table still has them)."""
     with tempfile.TemporaryDirectory(prefix='datapass-dbt-exercise-', ignore_cleanup_errors=True) as folder:
         catalog = Catalog(Path(folder), 'duckdb')
         try:
-            return _rows(catalog, code, scenario)
+            columns: list[str] = []
+            rows = _rows(catalog, code, scenario, columns)
+            return rows, columns or None
         finally:
             catalog.close()
 
 
-def _rows(catalog: Catalog, code: str, scenario: DbtScenario) -> list[dict[str, Any]]:
+def _rows(catalog: Catalog, code: str, scenario: DbtScenario, columns: list[str] | None = None) -> list[dict[str, Any]]:
     files = {**scenario.files, scenario.file: code}
     for table in scenario.tables:
         _seed(catalog, table)
@@ -68,10 +75,16 @@ def _rows(catalog: Catalog, code: str, scenario: DbtScenario) -> list[dict[str, 
     if kind == 'table':
         if not catalog.exists(scenario.table):
             raise Rejected(f'{scenario.table} does not exist after dbt {scenario.runs[-1].command}.')
-        return catalog.query(f'SELECT * FROM {scenario.table}')['rows']
+        result = catalog.query(f'SELECT * FROM {scenario.table}')
+        if columns is not None:
+            columns.extend(result['columns'])
+        return result['rows']
     if kind == 'result':
         try:
-            return catalog.query(scenario.query)['rows']
+            result = catalog.query(scenario.query)
+            if columns is not None:
+                columns.extend(result['columns'])
+            return result['rows']
         except Exception as error:
             raise Rejected(f'The graded query failed on your tables: {str(error).splitlines()[0]}') from error
     view = lineage_of(catalog, runner.project, runner)
@@ -94,13 +107,17 @@ def grade_dbt_project(engine, request, spec, private):
             continue
         scenario = DbtScenario.model_validate(fixture.scenario)
         rows: list[dict[str, Any]] = []
+        relation_columns: list[str] | None = None
         message = None
         try:
-            raw = run_fixture(request['code'], scenario)
+            raw, relation_columns = run_fixture_columns(request['code'], scenario)
             rows = project_rows(raw, graded_columns(scenario, raw))
         except (Rejected, RenderError) as exc:
             message = str(exc)
-        result = {'rows': rows, 'columns': graded_columns(scenario, rows), 'truncated': len(rows) > 200}
+        columns = graded_columns(scenario, rows)
+        if not rows and not scenario.columns and relation_columns:
+            columns = relation_columns
+        result = {'rows': rows, 'columns': columns, 'truncated': len(rows) > 200}
         passed = message is None and validate_result(result, fixture.expected, spec.validation,
                                                      request['code'], spec.language)
         check = dict(id=fixture.id, visibility=fixture.visibility, passed=passed,

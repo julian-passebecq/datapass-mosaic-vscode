@@ -1,0 +1,13 @@
+{
+  "schema_version": 1,
+  "id": "zilla-v1",
+  "version": "1",
+  "title": "ZillaCode problems: one result contract in DuckDB SQL, Snowflake SQL, pandas, Polars, SparkLab and dbt",
+  "enabled": true,
+  "provenance": {
+    "source": "ZillaCode (https://github.com/davidzajac1/zillacode), Apache-2.0, through CodeDELeet's normalized import v3-zilla.json",
+    "source_sha256": "d3fd4f4cfc852b1056afc36c1e58b940a32ce22a810fa0a327d671b6bede7803",
+    "ledger_sha256": "97bb00ac7d408980ae088af5bef2ff4e2930314c0f475de1c6d44f60edbbbbe9",
+    "license": "Apache-2.0 (LICENSE, NOTICE)"
+  }
+}

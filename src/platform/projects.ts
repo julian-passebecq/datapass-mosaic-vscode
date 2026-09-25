@@ -3,10 +3,11 @@
  * schema in runtime/datapass_runtime/projects.py). Pure functions only, tested by scripts/projects_ui_smoke.mjs.
  *
  * Truth model: a step is "verified" only when the runtime verified every one of its checks; a learner's tick is
- * "manual" (coché à la main) and never becomes verified. Progress is a native workspace file,
+ * "manual" (ticked by hand) and never becomes verified. Progress is a native workspace file,
  * .datapass/progress.json, next to the project manifest (which it never touches).
  */
 import type { ModuleId } from "../modules";
+import { parsePracticeProgress, type PracticeProgress } from "./practiceProgress";
 
 export const PROGRESS_PATH = ".datapass/progress.json";
 export const PROJECT_SCAFFOLDS = ["project", "factory", "bi", "retail_demo", "airflow", "pipeline", "sparklab"] as const;
@@ -21,16 +22,16 @@ const ID = /^[a-z0-9][a-z0-9-]{0,63}$/;
 const EXERCISE_KEY = /^[A-Za-z0-9_-]+\/[A-Za-z0-9_-]+\/[a-z0-9-]+$/;
 
 export const TRUTH_LABELS: Record<ProjectTruth, string> = {
-  real: "réel",
-  simulated: "simulé",
-  emulation: "émulé",
-  hybrid: "hybride",
-  static: "analyse statique"
+  real: "real",
+  simulated: "simulated",
+  emulation: "emulated",
+  hybrid: "hybrid",
+  static: "static analysis"
 };
 export const LEVEL_LABELS: Record<ProjectLevel, string> = {
-  beginner: "débutant",
-  intermediate: "intermédiaire",
-  advanced: "avancé"
+  beginner: "beginner",
+  intermediate: "intermediate",
+  advanced: "advanced"
 };
 
 export interface ProjectCheckSpec { kind: string; label: string }
@@ -73,7 +74,7 @@ export interface CheckResultRecord {
 }
 export interface VerificationRecord { at: string; status: "passed" | "failed"; checks: CheckResultRecord[] }
 export interface StepProgress {
-  /** The learner's own tick: a declaration, shown as "coché à la main", never as verified. */
+  /** The learner's own tick: a declaration, shown as "ticked by hand", never as verified. */
   manual?: { checked: boolean; at: string };
   /** The last verification where every check passed. Kept when a later verification fails. */
   verified?: VerificationRecord;
@@ -81,7 +82,8 @@ export interface StepProgress {
   last?: VerificationRecord;
 }
 export interface ProjectProgress { version: string; steps: Record<string, StepProgress> }
-export interface ProgressDocument { schema_version: 1; projects: Record<string, ProjectProgress> }
+/** .datapass/progress.json. `practice` belongs to Practice (platform/practiceProgress.ts); both sections survive every write. */
+export interface ProgressDocument { schema_version: 1; projects: Record<string, ProjectProgress>; practice?: PracticeProgress }
 
 export interface ProjectStepView extends ProjectStepContent {
   moduleLabel: string;
@@ -91,7 +93,7 @@ export interface ProjectStepView extends ProjectStepContent {
   last?: VerificationRecord;
   /** Verified earlier, but the latest verification failed (a later step or project changed shared tables). */
   regressed: boolean;
-  /** Truths of the step's checks as last seen, for the badges ("simulé", "émulé"...). */
+  /** Truths of the step's checks as last seen, for the badges ("simulated", "emulated"...). */
   truths: ProjectTruth[];
 }
 export interface ProjectSummary {
@@ -251,6 +253,7 @@ export function parseProgress(content: string | undefined): { document: Progress
     }
     document.projects[projectId] = { version: str(p.version) ?? "1", steps };
   }
+  if (value.practice !== undefined) document.practice = parsePracticeProgress(value.practice);
   return { document };
 }
 

@@ -50,7 +50,7 @@ story, goals and 8 to 12 steps. Each step names its lab, an open action (lab tab
 the scaffolds that create the files it needs) and its checks.
 
 ```text
-Projects UI ── "Vérifier" ──► POST /api/local/projects/check {project_id, steps}
+Projects UI ── "Verify" ────► POST /api/local/projects/check {project_id, steps}
                                    │  checks come from shipped content only
                                    ├─ kernel op project_state_checks: tables, read-only SQL, SQL pool designs, MLflow models
                                    └─ run journal (.datapass/data/run_journal.json)
@@ -64,6 +64,11 @@ host ── applyVerification() ──► .datapass/progress.json (manual ticks,
   ignores a hand-edited `verified` record that does not pass.
 - Each check result carries a truth: real, simulated, emulation, hybrid (simulated orchestration, local activities)
   or static (the BI Lab lineage).
+- Practice keeps its own section in the same file, `practice.exercises["<pack>/<exercise>/<language>"]`
+  (`src/platform/practiceProgress.ts`): `openedAt`, `attempts`, `last` (mode, status, version) and `solved` (the first
+  Submit that passed). Run visible never solves, and a later failure never unsolves. Both modules write through
+  `updateProgress()` (`src/projectState.ts`), one read-modify-write at a time; a file that does not parse is never
+  overwritten.
 - `.datapass/project.json` stays the single project manifest; progress is a separate native file.
 - A future lab adds steps by recording its runs (`record_run` + a summarizer in `run_journal.py`) and using the generic
   `run` check; see `docs/PROJECT_AUTHORING.md`.

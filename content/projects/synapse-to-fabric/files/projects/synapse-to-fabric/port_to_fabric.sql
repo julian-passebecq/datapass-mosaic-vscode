@@ -1,9 +1,9 @@
 -- flavor: fabric
--- Projet « Entrepôt Synapse vers Fabric Warehouse » : porter une table du pool dédié vers Fabric Warehouse.
+-- Project "Synapse warehouse to Fabric Warehouse": port a dedicated pool table to Fabric Warehouse.
 --
--- Ce script vient du pool Synapse. Exécutez-le avec le produit Fabric Warehouse (Cloud Lab > SQL pool,
--- choisissez Fabric Warehouse, puis Run active .sql) : Fabric refuse les options qu'il gère lui-même et
--- certains types. Corrigez le script jusqu'à ce qu'il passe, sans changer les données produites.
+-- This script comes from the Synapse pool. Run it with the Fabric Warehouse product (Cloud Lab > SQL pool,
+-- choose Fabric Warehouse, then Run active .sql): Fabric refuses the options it manages itself and some
+-- types. Fix the script until it runs, without changing the data it produces.
 
 IF OBJECT_ID('dbo.fact_daily_revenue_fw') IS NOT NULL DROP TABLE dbo.fact_daily_revenue_fw;
 

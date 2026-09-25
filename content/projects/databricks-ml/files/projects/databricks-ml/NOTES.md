@@ -1,18 +1,18 @@
-# Revue du lakehouse éolien
+# Wind farm lakehouse review
 
-Notez vos réponses en quelques lignes. Les chiffres de calcul et de coût du labo sont illustratifs (DBU de
-labo) : comparez-les entre eux, pas avec une facture Azure.
+Write your answers in a few lines. The lab's compute and cost figures are illustrative (lab DBUs):
+compare them with each other, not with an Azure invoice.
 
-## Calcul et coût
+## Compute and cost
 
-- Quel calcul (job cluster, cluster partagé, serverless, SQL warehouse) chaque job utilise-t-il ?
-- Combien de DBU de labo coûte un run de `turbine_features`, et combien de plus quand la première tentative échoue ?
+- Which compute (job cluster, all-purpose cluster, serverless, SQL warehouse) does each job use?
+- How many lab DBUs does a run of `turbine_features` cost, and how many more when the first attempt fails?
 
 ## Unity Catalog
 
-- Quels droits minimaux `sp-feature-eng` a-t-il reçus, et pourquoi pas `ALL PRIVILEGES` sur le catalogue ?
-- Qui possède `main.silver.turbine_features` et `main.ml.power_model` ?
+- Which minimal privileges did `sp-feature-eng` get, and why not `ALL PRIVILEGES` on the catalog?
+- Who owns `main.silver.turbine_features` and `main.ml.power_model`?
 
 ## MLflow
 
-- Quelle version du modèle porte l'alias `champion`, et pourquoi le scoring n'a-t-il pas besoin de changer de code ?
+- Which model version holds the `champion` alias, and why does the scoring not need a code change?

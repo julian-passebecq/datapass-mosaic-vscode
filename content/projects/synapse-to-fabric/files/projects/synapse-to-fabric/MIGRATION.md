@@ -1,22 +1,22 @@
-# Migration du pool dédié Synapse vers Fabric Warehouse
+# Migrating the Synapse dedicated pool to Fabric Warehouse
 
-Complétez cette check-list pour l'équipe. Une ou deux lignes par point.
+Complete this checklist for the team. One or two lines per item.
 
-## Conception physique
+## Physical design
 
-- Quelles tables étaient `REPLICATE`, lesquelles `HASH` et sur quelle colonne ? Que devient ce choix dans Fabric ?
-- Quelles tables étaient partitionnées ? Par quoi Fabric remplace-t-il la partition et l'élimination de partitions ?
+- Which tables were `REPLICATE`, which were `HASH` and on which column? What becomes of that choice in Fabric?
+- Which tables were partitioned? What replaces partitions and partition elimination in Fabric?
 
-## Types et contraintes
+## Types and constraints
 
-- Quels types avez-vous dû changer (`nvarchar`, `money`, ...) et par quoi ?
-- Clés primaires et étrangères : que garantissent-elles dans Synapse, et dans Fabric ?
+- Which types did you have to change (`nvarchar`, `money`, ...) and to what?
+- Primary and foreign keys: what do they guarantee in Synapse, and in Fabric?
 
-## Chargement
+## Loading
 
-- Quelle procédure stockée le pipeline appelle-t-il, avec quels paramètres typés ?
-- Qu'est-ce qui changerait pour ce pipeline dans Fabric Data Factory ?
+- Which stored procedure does the pipeline call, with which typed parameters?
+- What would change for this pipeline in Fabric Data Factory?
 
-## Gouvernance
+## Governance
 
-- D'où vient `margin_amount` de `gold.fct_sales` (lignage), et quel contrôle du modèle en étoile vous rassure sur son grain ?
+- Where does `margin_amount` of `gold.fct_sales` come from (lineage), and which star model check reassures you about its grain?

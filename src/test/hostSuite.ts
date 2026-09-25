@@ -23,13 +23,15 @@ import { DbtTerminalSession, writeDbtProfiles } from "../dbtLab";
 import { findDbtProjects, loadDbtState } from "../dbtState";
 import { buildDctCommand } from "../platform/dbtTools";
 import { loadExerciseCatalog } from "../exerciseCatalog";
+import { prepareExerciseWorkspace } from "../exerciseWorkspace";
 import { collectDatabricksFiles, collectFactoryFiles, copyFactorySamples, loadFactoryState, readPoolScript } from "../factoryState";
 import { MODULES } from "../modules";
 import { decodeCsvBytes, suggestBronzeAsset, validateBronzeAsset } from "../platform/csvImport";
 import { readMosaicLayout, writeMosaicLayout } from "../mosaicLayoutStore";
 import { loadPipelineState } from "../pipelineState";
 import { applyVerification, setManual } from "../platform/projects";
-import { copyProjectFiles, loadProjectContents, loadProjectsState, readProgress, writeProgress } from "../projectState";
+import { copyProjectFiles, loadProjectContents, loadProjectsState, readProgress, updateProgress, writeProgress } from "../projectState";
+import { practiceStatus, recordGrade, recordOpened } from "../platform/practiceProgress";
 import {
   createDefaultProjectManifest,
   readProjectManifest,
@@ -150,6 +152,30 @@ export async function run(): Promise<void> {
       assert.equal(airflow.starterExists, true);
       assert.equal(airflow.legacySpecPath, undefined);
     }],
+    ["opening an exercise labels its tab and declares the runtime's names for Pylance", async () => {
+      const labels = () => vscode.workspace.getConfiguration("workbench.editor", root)
+        .inspect<Record<string, string>>("customLabels.patterns")?.workspaceValue ?? {};
+      await vscode.workspace.getConfiguration("workbench.editor", root)
+        .update("customLabels.patterns", { "**/*.test.ts": "test ${filename}" }, vscode.ConfigurationTarget.Workspace);
+      const catalog = await loadExerciseCatalog(extension.extensionUri);
+      const spark = catalog.find(item => item.language === "sparklab" && item.packId === "spark-lab-v1");
+      assert.ok(spark, "a SparkLab exercise is in the catalog");
+      const directory = vscode.Uri.joinPath(root, "exercises", "spark-e2e", "sparklab");
+      const logged: string[] = [];
+      await prepareExerciseWorkspace(extension.extensionUri, root, ["exercises"], directory, spark, m => logged.push(m));
+      await prepareExerciseWorkspace(extension.extensionUri, root, ["exercises"], directory, spark, m => logged.push(m));
+      assert.deepEqual(logged, [], logged.join("; "));
+      assert.deepEqual(labels(), {
+        "**/*.test.ts": "test ${filename}",
+        "**/exercises/*/*/solution.*": "${dirname(1)} · ${dirname}",
+        "**/exercises/*/*/README.md": "${dirname(1)} · brief"
+      }, "the learner's pattern is kept and ours added once");
+      const builtins = new TextDecoder().decode(await vscode.workspace.fs.readFile(vscode.Uri.joinPath(directory, "__builtins__.pyi")));
+      assert.match(builtins, /^spark: Any$/m);
+      const excludes = vscode.workspace.getConfiguration("files", root).get<Record<string, boolean>>("exclude") ?? {};
+      assert.equal(excludes["**/exercises/*/*/__builtins__.pyi"], true, "the generated stub is hidden from the Explorer");
+      await vscode.workspace.fs.stat(vscode.Uri.joinPath(root, ".datapass", "pylance-stubs", "pyspark", "sql", "functions.py"));
+    }],
     ["dbt Lab finds the workspace's dbt projects and claims no run before target/ exists", async () => {
       await copyDirectory(
         vscode.Uri.joinPath(extension.extensionUri, "samples", "dbt", "retail-dbt"),
@@ -193,6 +219,24 @@ export async function run(): Promise<void> {
       assert.equal(state.projects[0].progress.manual, 1);
       assert.equal(state.projects[0].nextStepId, "import-web-orders");
       await vscode.commands.executeCommand("datapass.openProjects");
+    }],
+    ["Practice progress shares progress.json with Projects; concurrent saves both land", async () => {
+      const catalog = await loadExerciseCatalog(extension.extensionUri);
+      const [first, second] = catalog.filter(item => item.packId === "sql-lab-v1");
+      const retail = (await loadProjectContents(extension.extensionUri)).projects[0];
+      const at = new Date().toISOString();
+      await Promise.all([
+        updateProgress(doc => ({ ...doc, practice: recordOpened(doc.practice, first.key, at) })),
+        updateProgress(doc => ({ ...doc, practice: recordGrade(doc.practice, second.key, second.version, "submit", "passed", at) })),
+        // Re-tick the step the previous test ticked (later steps rely on it); the new timestamp proves the write.
+        updateProgress(doc => setManual(doc, retail, "runbook", true, at))
+      ]);
+      const saved = await readProgress();
+      assert.equal(saved.error, undefined);
+      assert.equal(practiceStatus(saved.document.practice?.exercises[first.key]), "attempted");
+      assert.equal(practiceStatus(saved.document.practice?.exercises[second.key]), "solved");
+      assert.deepEqual(saved.document.projects["retail-fabric"].steps.runbook.manual, { checked: true, at }, "the Projects write landed too");
+      await vscode.commands.executeCommand("datapass.openPractice");
     }],
     ["runtime starts untrusted even with DATAPASS_TRUSTED_PYTHON=1 inherited", async () => {
       assert.equal(process.env.DATAPASS_TRUSTED_PYTHON, "1", "runner must inject the hostile variable");
@@ -865,6 +909,45 @@ export async function run(): Promise<void> {
       assert.equal(run?.status, "success", run?.error?.message);
       assert.match(run?.stdout ?? "", /\(3, 1\)/);
       assert.deepEqual(run?.result?.columns, ["value"]);
+    }],
+    ["ZillaCode pack grades one exercise in every language, Snowflake SQL translated to DuckDB", async () => {
+      const catalog = await loadExerciseCatalog(extension.extensionUri);
+      const zilla = catalog.filter(item => item.packId === "zilla-v1");
+      assert.equal(new Set(zilla.map(item => item.id.replace(/-(sql|snowflake|python|polars|sparklab|dbt-sql)$/, ""))).size, 52);
+      const grading = JSON.parse(new TextDecoder().decode(await vscode.workspace.fs.readFile(
+        vscode.Uri.joinPath(extension.extensionUri, "content", "exercise-packs", "zilla-v1", "grading.server.json")
+      ))) as Record<string, { solutions: Record<string, string> }>;
+      const submit = async (exercise: (typeof zilla)[number], code: string) => {
+        await runtime!.gradeExercise(exercise.key, {
+          exercise_id: exercise.id, exercise_version: exercise.version, language: exercise.language,
+          code, mode: "submit", notebook_id: "e2e-zilla", cell_id: "solution", source_revision: 1
+        });
+        return runtime!.snapshot().practiceResult!;
+      };
+      const expectedTruth: Record<string, string> = {
+        sql: "real", python: "real", polars: "real", snowflake: "semantic-emulation", sparklab: "semantic-emulation",
+        "dbt-sql": "semantic-emulation"
+      };
+      for (const language of ["sql", "snowflake", "python", "polars", "sparklab", "dbt-sql"]) {
+        const exercise = zilla.find(item => item.id === `zilla-001-popular-videos-${language}`);
+        assert.ok(exercise, `zilla-001 has a ${language} variant`);
+        const passed = await submit(exercise, grading["zilla-001-popular-videos"].solutions[language]);
+        assert.equal(passed.status, "passed", `${language}: ${JSON.stringify(passed.checks)}`);
+        assert.equal(passed.truth, expectedTruth[language], language);
+        assert.deepEqual(passed.checks.map(check => check.visibility), ["visible", "hidden", "edge"], language);
+        assert.equal((await submit(exercise, exercise.starterSource)).status, "failed", `${language} starter must fail`);
+      }
+      // Snowflake sorts NULLs first in a descending order: without NULLS LAST, the unscored page wins.
+      const pages = zilla.find(item => item.id === "zilla-015-best-pages-snowflake")!;
+      const reference = grading["zilla-015-best-pages"].solutions.snowflake;
+      assert.equal((await submit(pages, reference)).status, "passed");
+      const nullsFirst = await submit(pages, reference.replaceAll(" NULLS LAST", ""));
+      assert.equal(nullsFirst.status, "failed", "Snowflake's default NULL order must fail the edge check");
+      assert.deepEqual(nullsFirst.checks.map(check => check.passed), [true, true, false]);
+      // Functions outside the subset are refused by name, never approximated.
+      const refused = await submit(pages, "SELECT domain, HASH(url) AS h FROM pages");
+      assert.equal(refused.status, "failed");
+      assert.match(refused.checks[0].message, /HASH is not in the supported Snowflake subset.*not Snowflake/);
     }]
   ];
 

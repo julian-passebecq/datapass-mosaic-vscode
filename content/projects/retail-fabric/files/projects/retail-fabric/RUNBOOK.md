@@ -1,21 +1,21 @@
-# Runbook : chargement retail quotidien
+# Runbook: daily retail load
 
-Complétez ce runbook pour l'équipe d'astreinte. Répondez en quelques lignes par question.
+Complete this runbook for the on-call team. Answer each question in a few lines.
 
-## Ordonnancement
+## Schedule
 
-- À quelle heure le DAG `retail_daily_load` démarre-t-il, et que fait-il si le fichier web n'arrive pas ?
-- Combien de fois le déclenchement du pipeline Fabric est-il retenté, et avec quel délai ?
+- When does the `retail_daily_load` DAG start, and what does it do if the web file does not arrive?
+- How many times is the Fabric pipeline trigger retried, and how far apart?
 
-## Pipeline Fabric `pl_retail_daily`
+## Fabric pipeline `pl_retail_daily`
 
-- Quelle activité échoue si `silver.orders` est vide, et qui est prévenu quand le notebook échoue ?
-- Relancer le pipeline le même jour est-il sans risque ? Pourquoi (ou pourquoi pas) ?
+- Which activity fails when `silver.orders` is empty, and who is told when the notebook fails?
+- Is it safe to run the pipeline again the same day? Why (or why not)?
 
-## Qualité
+## Data quality
 
-- Quels contrôles protègent `silver.web_orders` (Pipeline Lab) et que se passe-t-il s'ils trouvent des lignes ?
+- Which checks protect `silver.web_orders` (Pipeline Lab), and what happens when they find rows?
 
-## Entrepôt
+## Warehouse
 
-- Comment retrouver la ville d'un client au moment d'une vente passée (SCD de type 2) ?
+- How do you find a customer's city at the time of a past sale (type 2 SCD)?

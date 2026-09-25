@@ -61,6 +61,22 @@ export async function writeProgress(document: ProgressDocument): Promise<void> {
   await vscode.workspace.fs.writeFile(uri, new TextEncoder().encode(serializeProgress(document)));
 }
 
+let progressQueue: Promise<unknown> = Promise.resolve();
+
+/**
+ * Read-modify-write of .datapass/progress.json, one at a time: Projects and Practice both write it, and a grading
+ * can finish while a project verification is saving. A file that does not parse is never overwritten.
+ */
+export function updateProgress(update: (document: ProgressDocument) => ProgressDocument): Promise<void> {
+  const next = progressQueue.then(async () => {
+    const progress = await readProgress();
+    if (progress.error) throw new Error(progress.error);
+    await writeProgress(update(progress.document));
+  });
+  progressQueue = next.catch(() => undefined);
+  return next;
+}
+
 export async function loadProjectsState(extensionUri: vscode.Uri): Promise<ProjectsViewState> {
   const { projects, errors } = await loadProjectContents(extensionUri);
   const progress = await readProgress();

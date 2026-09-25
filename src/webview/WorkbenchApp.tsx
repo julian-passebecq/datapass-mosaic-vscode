@@ -159,7 +159,8 @@ export function WorkbenchApp({ vscode }: { vscode: VsCodeApi }) {
                 canPersist={state.workspace.manifestExists}
               />
             ) : selected.id === "practice" ? (
-              <PracticeSurface vscode={vscode} exercises={state.practice?.exercises ?? []} runtime={state.runtime}
+              <PracticeSurface vscode={vscode} runtime={state.runtime}
+                practice={state.practice ?? { exercises: [], progress: { exercises: {} }, canSaveProgress: false }}
                 focus={state.focus?.module === "practice" ? state.focus : undefined} />
             ) : selected.id === "fabric" ? (
               <FabricSurface vscode={vscode} runtime={state.runtime} factory={state.factory}
@@ -284,11 +285,12 @@ function SetupProgress({ progress, onShowLog }: { progress: RuntimeSetupProgress
         <strong>Step {progress.step} of {progress.totalSteps}: {progress.label}</strong>
         <span className="muted">{formatElapsed(now - progress.startedAt)}</span>
       </div>
-      {/* pip reports no overall percentage, so the bar only shows that work is ongoing. */}
+      {/* pip and uv report no overall percentage, so the bar only shows that work is ongoing. */}
       <ProgressBar thickness="medium" />
       {progress.activity && <div className="muted setup-activity" title={progress.activity}>{progress.activity}</div>}
       <div className="muted">
-        The first setup downloads DuckDB, Polars and pandas and can take several minutes, longer while antivirus scans new files.
+        The first setup downloads DuckDB, Polars and pandas. With uv installed it takes well under a minute; with
+        pip it can take several minutes, longer while antivirus scans new files.
       </div>
       <Button appearance="subtle" size="small" onClick={onShowLog}>Show setup log</Button>
     </div>

@@ -27,7 +27,7 @@ The Workbench panel should show:
 
 ## First smoke path
 
-The first **Setup runtime** creates a managed venv and installs FastAPI, DuckDB, Polars and pandas; on Windows with real-time antivirus scanning this can take well over ten minutes. The Local runtime card and a VS Code notification show the current step, the latest pip activity and the elapsed time; **Show setup log** opens the full **Datapass Runtime** output channel. Later starts take seconds.
+The first **Setup runtime** creates a managed venv and installs FastAPI, DuckDB, Polars and pandas. When `uv` is found (PATH, `~/.local/bin`, `~/.cargo/bin`) it creates the venv (`uv venv --seed`, from the same base Python) and installs the runtime (`uv pip install`); if uv fails, Setup falls back to `python -m venv` and pip. Measured on the maintainer's Windows machine (Python 3.14, antivirus on): 16 s for `python -m venv` and 130 s for pip (91 s with a warm pip cache), against 2 s for `uv venv` and 12 s for uv (7 s with a warm uv cache). With pip and real-time antivirus scanning, a first setup can still take well over ten minutes on a slow disk. The Local runtime card and a VS Code notification show the current step, the latest pip activity and the elapsed time; **Show setup log** opens the full **Datapass Runtime** output channel. Later starts take seconds.
 
 Scratch files, exercise solutions and other files opened from the Workbench open in the column beside it, so the webview and the file stay visible together; **Run active …** also works when both share one tab group.
 
