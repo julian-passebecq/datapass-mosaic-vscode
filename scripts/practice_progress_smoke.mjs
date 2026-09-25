@@ -39,6 +39,16 @@ try {
   progress = mod.recordGrade(progress, key, "2", "submit", "failed", "2026-09-27T00:00:00Z");
   assert.equal(mod.practiceStatus(progress.exercises[key]), "solved", "a later failure never unsolves");
   assert.equal(progress.exercises[key].attempts, 4);
+  assert.equal(progress.exercises[key].failures, 2, "failed gradings are counted (they unlock the reference solution)");
+  progress = mod.revealHint(progress, key, 2);
+  progress = mod.revealHint(progress, key, 2);
+  progress = mod.revealHint(progress, key, 2);
+  assert.equal(progress.exercises[key].hintsRevealed, 2, "never beyond the exercise's hints");
+  progress = mod.recordSolutionViewed(progress, key, now);
+  progress = mod.recordSolutionViewed(progress, key, "2026-09-28T00:00:00Z");
+  assert.equal(progress.exercises[key].solutionViewedAt, now);
+  const hintOnly = mod.parsePracticeProgress({ exercises: { "p/h/sql": { attempts: 0, hintsRevealed: 1 } } });
+  assert.equal(hintOnly.exercises["p/h/sql"].hintsRevealed, 1, "a record with only a revealed hint is kept");
   assert.deepEqual(progress.exercises[key].last, { mode: "submit", status: "failed", at: "2026-09-27T00:00:00Z", version: "2" });
   assert.throws(() => mod.recordOpened(progress, "../escape", now), /Invalid exercise key/);
 

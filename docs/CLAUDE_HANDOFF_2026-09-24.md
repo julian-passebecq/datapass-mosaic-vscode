@@ -22,7 +22,17 @@ Workflow from here: branch from `main` for each tranche, keep CI green, merge th
 - **Bug found.** The Cloud Lab sub-tabs and the execution badge overflowed a narrow Workbench. Fixed in PR #17.
 - **Stacked PRs.** Retarget the next PR to `main` before merging its base with `--delete-branch`. Otherwise GitHub closes it.
 
-## 0. dbt Lab rebuild: real dbt Core, dbt Charts, missions — Claude, 2026-09-25 (newest)
+## 0. Runtime loopback authentication (audit D-2, D-9) — Claude, 2026-09-25 (newest)
+
+Audit finding: the runtime declared no middleware, so any local process or a DNS-rebinding web page could call it, including `POST /api/local/execute` with trusted Python on.
+
+- **Token.** `RuntimeManager.start` generates a token per launch (`newRuntimeToken`, `src/platform/runtimeClient.ts`, 32 random bytes), keeps it in memory, and passes it with the port as `DATAPASS_RUNTIME_TOKEN` / `DATAPASS_RUNTIME_PORT` (`runtimeProcessEnv` drops inherited values). All HTTP helpers moved to `runtimeClient.ts` and send `X-Datapass-Token`; the class routes every call through `postJson` / `getJson`.
+- **Runtime.** `runtime/datapass_runtime/auth.py` (pure ASGI middleware): Host must be `127.0.0.1:<port>` or `localhost:<port>` (400), token must match (401, `hmac.compare_digest`), no token or port configured → 503 on everything. Decision: `/api/health` is not exempt (the extension always has the token; the refusal leaks nothing).
+- **Callers.** TestClient smokes use `scripts/runtime_test_auth.py` (`client_kwargs()`); the host E2E injects a hostile inherited `DATAPASS_RUNTIME_TOKEN`. The kernel worker drops `*TOKEN*` variables; dbt/dct terminals take the extension host's environment, so neither sees the token.
+- **D-9.** `makeNonce` uses `crypto.randomBytes` (unbiased); the webview CSP `img-src` is `webview.cspSource data:` (no `https:`). The only webview image is the dct PNG render, inlined as a data URL.
+- **Tests.** `scripts/runtime_auth_smoke.mjs` (client header on every helper, env, nonce, CSP); `runtime_smoke.py` (401 without/with a wrong token, 400 for a rebound or other-port Host, `localhost:<port>` accepted).
+
+## 0. dbt Lab rebuild: real dbt Core, dbt Charts, missions — Claude, 2026-09-25
 
 The user approved a lab map on 2026-09-25: the BI Lab stays the guided place to learn data warehousing (with the dbt
 emulation, labelled "not dbt Core"), and the **dbt Lab** is rebuilt as the real-life lab. Terminal Lab (real shells)
@@ -121,6 +131,21 @@ holds the code-debt audit of 2026-09-25). One PR per item, merged on green CI.
   attempted = opened or graded. Toolbar counts, filters by difficulty, topic, language and status (kept in the webview
   state; a Projects focus clears them). Checked in a real VS Code window: submit → solved, starter run → "attempted ·
   1 run", counts 1/1/270, status and language filters, progress.json content.
+- **V1-1** (`feature/practice-feedback`): on a failed visible check, expected vs actual rows diffed with the exercise's
+  `validation` (`src/platform/practiceFeedback.ts`, the grader's rules incl. bipartite matching and tolerances); hidden
+  and edge rows never leave the runtime (host E2E asserts it). Hints one at a time (`hintsRevealed` in progress.json;
+  the brief no longer lists them). Reference solution + explanation after a pass or 3 failed gradings (`failures`),
+  served by a `datapass-reference:` read-only document provider for **Compare with my solution** (VS Code diff).
+  Real VS Code: wrong cross join → 4 matching · 12 missing; hint 1 of 2; locked at 1 failure, unlocked at 3; diff tab.
+- **Fix** (`fix/first-catalog-timeout`): the first catalog listing after Start runtime takes ~4 s on Windows (kernel
+  start + DuckDB seeding) and hit the 3 s client timeout; now 30 s.
+- **V1-6** (`feature/mosaic-data-tools`): Mosaic **Profile** (DuckDB SUMMARIZE, `/api/local/profile`), **Explain
+  active SQL** (EXPLAIN ANALYZE of the file or its selection, `/api/local/explain`; **Open in editor** shows it in a
+  read-only `datapass-plan:` tab), **Import file…** for CSV (text,
+  unchanged), Parquet (file types) and JSON (read_json_auto types) via `/api/local/import-file` (base64 content,
+  10 MB / 100,000 rows, new bronze tables only, journaled as `file_import`), and a query history (last 30, workspace
+  state). The catalog connection now sets `allowed_directories` to `.datapass/data/imports/` before disabling
+  external access; runtime_smoke checks that cell SQL still cannot read files there or anywhere else.
 
 ## 0a. ZillaCode pack (`zilla-v1`) and the Snowflake SQL dialect — Claude, 2026-09-25
 

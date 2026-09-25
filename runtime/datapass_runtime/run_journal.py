@@ -104,6 +104,13 @@ def _csv_import(request, response):
             'facts': {'rows': response.get('rows_imported')}}
 
 
+def _file_import(request, response):
+    if not response.get('asset'):
+        return None
+    return {'lab': 'file_import', 'subject': response['asset'], 'ok': True, 'status': 'imported', 'truth': 'real',
+            'facts': {'rows': response.get('rows_imported'), 'format': response.get('format')}}
+
+
 def _execute(request, response):
     language = request['language']
     ok = response.get('status') == 'success'
@@ -226,7 +233,7 @@ def _retail_demo(request, response):
 
 
 SUMMARIZERS = {
-    'exercise': _exercise, 'csv_import': _csv_import, 'execute': _execute, 'factory': _factory,
+    'exercise': _exercise, 'csv_import': _csv_import, 'file_import': _file_import, 'execute': _execute, 'factory': _factory,
     'sqlpool': _sqlpool, 'databricks': _databricks, 'bi': _bi, 'dbt': _dbt, 'airflow': _airflow,
     'pipeline': _pipeline, 'lakehouse': _retail_demo,
 }

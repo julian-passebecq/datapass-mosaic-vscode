@@ -8,6 +8,7 @@ import "react-resizable/css/styles.css";
 import { Badge, Button, Text } from "@fluentui/react-components";
 import { useEffect, useRef, useState } from "react";
 import { MOSAIC_DEFAULT_LAYOUT, type MosaicLayoutItem } from "../platform/mosaicLayout";
+import { querySummary, type QueryHistoryEntry } from "../platform/mosaicTools";
 import type { PythonTrustView, RuntimeViewState } from "./contracts";
 import { ResultTable } from "./ResultTable";
 import { TrustedPythonControl } from "./TrustedPythonControl";
@@ -24,14 +25,17 @@ export function MosaicSurface({
   runtime,
   pythonTrust,
   projectLayout,
-  canPersist
+  canPersist,
+  queryHistory = []
 }: {
   vscode: VsCodeApi;
   runtime: RuntimeViewState;
   pythonTrust: PythonTrustView;
   projectLayout?: readonly MosaicLayoutItem[];
   canPersist: boolean;
+  queryHistory?: readonly QueryHistoryEntry[];
 }) {
+  const running = runtime.status === "running";
   const { width, containerRef, mounted } = useContainerWidth();
   // Precedence: project file (.datapass/mosaic.json) > webview cache > default.
   const [layout, setLayout] = useState<Layout>(
@@ -109,13 +113,67 @@ export function MosaicSurface({
                   <Button
                     appearance="secondary"
                     size="small"
-                    disabled={runtime.status !== "running"}
+                    disabled={!running}
                     onClick={() => vscode.postMessage({ type: "runActiveSql" })}
                   >
                     Run active SQL
                   </Button>
+                  <Button
+                    appearance="secondary"
+                    size="small"
+                    disabled={!running}
+                    title="Real DuckDB EXPLAIN ANALYZE of the active SQL file, or of its selection: the query runs once and each operator is timed."
+                    onClick={() => vscode.postMessage({ type: "explainActiveSql" })}
+                  >
+                    Explain active SQL
+                  </Button>
                 </div>
                 {lastRun && lastRun.language === "sql" && <RunSummary run={lastRun} />}
+                {runtime.queryPlan && (
+                  <div className="mosaic-plan">
+                    <div className="mosaic-result-title">
+                      <strong>Query plan</strong>
+                      <span>{runtime.queryPlan.elapsed_ms.toFixed(1)} ms{runtime.queryPlan.source ? ` · ${runtime.queryPlan.source}` : ""}</span>
+                      <Button appearance="subtle" size="small" onClick={() => vscode.postMessage({ type: "openQueryPlan" })}>
+                        Open in editor
+                      </Button>
+                    </div>
+                    <small className="muted">{runtime.queryPlan.truth}. Read it bottom-up: scans feed joins and aggregates.</small>
+                    <pre>{runtime.queryPlan.plan}</pre>
+                  </div>
+                )}
+                {queryHistory.length > 0 && (
+                  <details className="query-history">
+                    <summary>Query history ({queryHistory.length})</summary>
+                    {queryHistory.map(entry => (
+                      <div className="query-history-row" key={entry.id}>
+                        <Badge appearance="outline" color={entry.status === "success" ? "success" : "danger"}>
+                          {entry.kind === "explain" ? "plan" : entry.status}
+                        </Badge>
+                        <div className="query-history-text">
+                          <code title={entry.sql}>{querySummary(entry.sql)}</code>
+                          <small className="muted">
+                            {new Date(entry.at).toLocaleString()}
+                            {entry.file ? ` · ${entry.file}` : ""}
+                            {entry.status === "success"
+                              ? ` · ${entry.elapsedMs.toFixed(1)} ms${entry.rows !== undefined ? ` · ${entry.rows} rows` : ""}`
+                              : entry.error ? ` · ${entry.error}` : ""}
+                          </small>
+                        </div>
+                        <Button appearance="subtle" size="small" disabled={!running}
+                          onClick={() => vscode.postMessage({ type: "rerunQuery", id: entry.id })}>
+                          {entry.kind === "explain" ? "Explain again" : "Run again"}
+                        </Button>
+                        {entry.file && (
+                          <Button appearance="subtle" size="small"
+                            onClick={() => vscode.postMessage({ type: "openQueryFile", id: entry.id })}>
+                            Open file
+                          </Button>
+                        )}
+                      </div>
+                    ))}
+                  </details>
+                )}
               </MosaicBlock>
             </div>
 
@@ -161,21 +219,26 @@ export function MosaicSurface({
                     size="small"
                     disabled={runtime.status !== "running"}
                     title={runtime.status === "running"
-                      ? "Create a new bronze table from a CSV file (up to 1 MB / 5,000 rows; never overwrites)"
-                      : "Start the runtime to import a CSV."}
-                    onClick={() => vscode.postMessage({ type: "importCsv" })}
+                      ? "Create a new bronze table (never overwrites): CSV up to 1 MB / 5,000 rows as text, Parquet or JSON up to 10 MB / 100,000 rows with types"
+                      : "Start the runtime to import a file."}
+                    onClick={() => vscode.postMessage({ type: "importFile" })}
                   >
-                    Import CSV…
+                    Import file…
                   </Button>
                 </div>
                 {runtime.csvImport && (
                   <div className="mosaic-result-preview">
                     <div className="mosaic-result-title">
                       <strong>Imported {runtime.csvImport.fileName} → {runtime.csvImport.asset}</strong>
-                      <span>{runtime.csvImport.rows_imported} rows · {runtime.csvImport.schema.length} text columns</span>
+                      <span>
+                        {runtime.csvImport.rows_imported} rows · {runtime.csvImport.schema.length}
+                        {(runtime.csvImport.format ?? "csv") === "csv" ? " text columns" : " typed columns"}
+                      </span>
                     </div>
                     <small className="muted" title={`sha256 ${runtime.csvImport.sha256}`}>
-                      Real local import. Every column is text; CAST in SQL, e.g. <code>CAST(amount AS DOUBLE)</code>.
+                      {(runtime.csvImport.format ?? "csv") === "csv"
+                        ? <>Real local import. Every column is text; CAST in SQL, e.g. <code>CAST(amount AS DOUBLE)</code>.</>
+                        : <>{runtime.csvImport.truth}: {runtime.csvImport.schema.map(column => `${column.name} ${column.type}`).join(", ")}.</>}
                     </small>
                     <ResultTable result={runtime.csvImport.result} />
                   </div>
@@ -190,6 +253,16 @@ export function MosaicSurface({
                     {lastRun.result && <ResultTable result={lastRun.result} />}
                   </div>
                 )}
+                {runtime.tableProfile && (
+                  <div className="mosaic-result-preview">
+                    <div className="mosaic-result-title">
+                      <strong>Profile of {runtime.tableProfile.asset}</strong>
+                      <span>{runtime.tableProfile.result.rows.length} columns · {runtime.tableProfile.elapsed_ms.toFixed(1)} ms</span>
+                    </div>
+                    <small className="muted">{runtime.tableProfile.truth}.</small>
+                    <ResultTable result={runtime.tableProfile.result} maxRows={100} />
+                  </div>
+                )}
                 {runtime.catalog && runtime.catalog.length > 0 ? (
                   <div className="catalog-list">
                     {runtime.catalog.map(asset => (
@@ -202,6 +275,11 @@ export function MosaicSurface({
                         <Badge appearance="outline" color={asset.fresh ? "success" : "informative"}>
                           {asset.fresh ? "fresh" : "untracked"}
                         </Badge>
+                        <Button appearance="subtle" size="small" disabled={!running}
+                          title={`DuckDB SUMMARIZE ${asset.name}: min, max, distinct values, quantiles and NULLs per column`}
+                          onClick={() => vscode.postMessage({ type: "profileTable", asset: asset.name })}>
+                          Profile
+                        </Button>
                       </div>
                     ))}
                   </div>

@@ -512,6 +512,16 @@ class Engine:
         if op == 'import_csv':
             from .local_data import import_csv
             return {**import_csv(self.catalog,request['asset'],request['text']),'session_generation':self.generation}
+        if op == 'profile_table':
+            from .local_data import profile_table
+            return profile_table(self.catalog, request['asset'])
+        if op == 'explain_query':
+            from .local_data import explain_query
+            return explain_query(self.catalog, request['query'])
+        if op == 'import_file':
+            from .local_data import import_file
+            return {**import_file(self.catalog, request['asset'], request['format'], request['data']),
+                    'session_generation': self.generation}
         if op == 'catalog_preview':
             from .catalog import asset_name
             name=asset_name(request['asset'])

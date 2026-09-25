@@ -46,6 +46,8 @@ try {
     extensionTestsEnv: {
       // Hostile on purpose: the runtime must still start with trusted Python off.
       DATAPASS_TRUSTED_PYTHON: "1",
+      // Also hostile: the extension must replace an inherited runtime token with its own launch token.
+      DATAPASS_RUNTIME_TOKEN: "inherited-token",
       DATAPASS_E2E_PYTHON: process.env.DATAPASS_E2E_PYTHON ?? "",
       // A Python with dbt-core + dbt-duckdb: enables the real dbt Core steps (terminal and catalog handoff).
       DATAPASS_DBT_PYTHON: process.env.DATAPASS_DBT_PYTHON ?? ""

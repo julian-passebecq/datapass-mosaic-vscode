@@ -63,6 +63,11 @@ host ── applyVerification() ──► .datapass/progress.json (manual ticks,
 - The runtime never marks a manual step as verified; the extension (`src/platform/projects.ts`) keeps ticks by hand
   (`manual`) apart from verifications (`verified`: the last run where every check passed; `last`: the latest run) and
   ignores a hand-edited `verified` record that does not pass.
+- Mosaic imports (`/api/local/import-csv`, `/api/local/import-file`) send file CONTENT. For Parquet and JSON, the
+  runtime writes a temporary copy in `.datapass/data/imports/`, the only folder DuckDB may read after
+  `enable_external_access=false` (`allowed_directories`). The copy is deleted after the import, and cell SQL still
+  cannot call file functions (`validate_sql`). `/api/local/profile` (SUMMARIZE) and `/api/local/explain`
+  (EXPLAIN ANALYZE of one read-only query) are read-only.
 - Each check result carries a truth: real, simulated, emulation, hybrid (simulated orchestration, local activities)
   or static (the BI Lab lineage).
 - Practice keeps its own section in the same file, `practice.exercises["<pack>/<exercise>/<language>"]`
@@ -186,6 +191,18 @@ Direct workflow: the learner edits a native `.py` file (e.g. `notebooks/sparklab
 Unsupported syntax (SQL-string filters, arbitrary imports, file access, ...) is rejected with a `SparkLabSyntaxError`.
 
 Shuffle exchanges are placed by Spark's planning rules (`runtime/sparklab/physical.py`, model `plan-driven-v2`): an operator whose required clustering is already satisfied by an existing hash partitioning adds no exchange, a broadcast join keeps the streamed side's partitioning, a broadcast above 8 GB is refused, and Catalyst's EliminateSorts drops a sort under a join or an order-insensitive aggregate. The resulting `plan_facts` (exchanges and their reasons, join strategies, windows without `partitionBy`, output partitions) feed the SparkLab panel and Practice **plan checks**: a SparkLab exercise can declare `spark_plan` limits that are graded on the modeled plan at authored input sizes, next to the real result-row checks. Plan checks are labeled as the SparkLab model, not Apache Spark.
+
+## Runtime authentication (loopback)
+
+The runtime binds `127.0.0.1` on a free port, but a loopback port is reachable by any local process and, through DNS rebinding, by a web page. Each launch is therefore authenticated:
+
+- The extension generates a random token per launch (`crypto.randomBytes(32)`, `src/platform/runtimeClient.ts`), keeps it in memory only (never persisted, never logged) and passes it with the port in the child environment (`DATAPASS_RUNTIME_TOKEN`, `DATAPASS_RUNTIME_PORT`, built by `runtimeProcessEnv`, which drops any inherited value).
+- Every client call (`requestJson`, `requestGetJson`, the health probe, the dbt Lab catalog release/reattach, missions) sends it in the `X-Datapass-Token` header.
+- The runtime's ASGI middleware (`runtime/datapass_runtime/auth.py`) answers 400 unless the Host header is exactly `127.0.0.1:<port>` or `localhost:<port>`, 401 unless the token matches (constant-time comparison), and 503 when the runtime was started without a token or port (it fails closed). `/api/health` is not exempt: the extension always has the token, and a refusal says nothing about the runtime.
+- The kernel worker never sees the token: its environment drops every `*TOKEN*` variable. dbt and dct run in a VS Code terminal whose environment comes from the extension host, not from the runtime, so they never see it either.
+- TestClient smokes configure the same variables through `scripts/runtime_test_auth.py` and pass `base_url` and the header.
+
+Webviews: CSP nonces come from `crypto.randomBytes` (`src/webview/security.ts`), and `img-src` allows only `webview.cspSource` and `data:` (dct PNG renders are inlined as data URLs); no webview surface loads remote images.
 
 ## Trusted local Python
 

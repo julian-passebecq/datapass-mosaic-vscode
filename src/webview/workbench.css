@@ -794,6 +794,50 @@ h2 { margin-bottom: 8px; font-size: 28px; }
   overflow: hidden;
   text-overflow: ellipsis;
 }
+.catalog-row:has(> button) {
+  grid-template-columns: minmax(0, 1fr) auto auto auto;
+}
+.mosaic-plan {
+  display: grid;
+  gap: 6px;
+}
+.mosaic-plan pre {
+  margin: 0;
+  max-height: 360px;
+  overflow: auto;
+  padding: 8px;
+  background: var(--vscode-textCodeBlock-background);
+  color: var(--vscode-editor-foreground);
+  font-family: var(--vscode-editor-font-family);
+  font-size: 11px;
+  line-height: 1.35;
+}
+.query-history summary {
+  cursor: pointer;
+  font-size: 12px;
+}
+.query-history-row {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto auto;
+  align-items: center;
+  gap: 8px;
+  padding: 5px 0;
+  border-bottom: 1px solid var(--vscode-panel-border);
+}
+.query-history-text {
+  display: grid;
+  min-width: 0;
+}
+.query-history-text code {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 11px;
+}
+.query-history-text small {
+  font-size: 10px;
+  overflow-wrap: anywhere;
+}
 .mosaic-result-preview {
   display: grid;
   gap: 7px;
@@ -895,6 +939,111 @@ h2 { margin-bottom: 8px; font-size: 28px; }
 .practice-checks {
   display: grid;
   gap: 5px;
+}
+.row-diff {
+  display: grid;
+  gap: 6px;
+  margin-top: 6px;
+  min-width: 0;
+}
+.row-diff-summary {
+  display: flex;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: 4px 10px;
+  font-size: 12px;
+}
+.row-diff-note {
+  font-size: 11px;
+  color: var(--vscode-editorWarning-foreground);
+}
+.row-diff-scroll {
+  max-height: 320px;
+  overflow: auto;
+  border: 1px solid var(--vscode-panel-border);
+  border-radius: 4px;
+}
+.row-diff table {
+  width: 100%;
+  border-collapse: collapse;
+  font-family: var(--vscode-editor-font-family);
+  font-size: 11px;
+}
+.row-diff th,
+.row-diff td {
+  padding: 3px 7px;
+  border-bottom: 1px solid var(--vscode-panel-border);
+  text-align: left;
+  white-space: nowrap;
+}
+.row-diff th {
+  position: sticky;
+  top: 0;
+  background: var(--vscode-editorWidget-background);
+  font-weight: 600;
+}
+.row-diff-col-bad {
+  color: var(--vscode-editorError-foreground);
+}
+.row-diff-mark {
+  width: 1.5em;
+  text-align: center;
+  font-weight: 700;
+}
+.row-diff-match td {
+  color: var(--vscode-descriptionForeground);
+}
+.row-diff-missing td,
+.row-diff-cell-expected {
+  background: var(--vscode-diffEditor-removedTextBackground, rgba(255, 0, 0, 0.15));
+}
+.row-diff-unexpected td,
+.row-diff-cell-actual {
+  background: var(--vscode-diffEditor-insertedTextBackground, rgba(0, 200, 0, 0.15));
+}
+.row-diff-expected td {
+  border-bottom-style: dashed;
+}
+.practice-hints ol {
+  margin: 0 0 4px;
+  padding-left: 20px;
+  font-size: 12px;
+  line-height: 1.5;
+}
+.practice-solution {
+  display: grid;
+  gap: 6px;
+  padding: 10px;
+  border: 1px solid var(--vscode-panel-border);
+  border-radius: 6px;
+}
+.practice-solution .status-row {
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px 10px;
+  border-top: 0;
+  padding-top: 0;
+}
+.practice-solution pre {
+  margin: 0;
+  padding: 8px;
+  color: var(--vscode-editor-foreground);
+  max-height: 320px;
+  overflow: auto;
+  background: var(--vscode-textCodeBlock-background);
+  font-family: var(--vscode-editor-font-family);
+  font-size: 12px;
+}
+.practice-explanation {
+  margin: 0;
+  font-size: 12px;
+  line-height: 1.5;
+}
+.practice-solution-locked {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 4px 10px;
 }
 .practice-check {
   padding-top: 6px;

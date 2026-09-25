@@ -283,6 +283,17 @@ When adding an exercise: design the hidden and edge fixtures around the pitfall,
 
 For a SparkLab plan lesson whose starter already returns the right rows, add the exercise to `PLAN_ONLY_STARTERS`: the gate then requires the starter to pass every result check and fail at least one plan check, so the lesson stays about the plan.
 
+## Feedback in Practice (hints, diff, reference solution)
+
+- `hints` are shown in Practice one at a time (**Show a hint**); the brief only says how many there are. Order them from
+  a nudge to the near-answer.
+- On a failed **visible** fixture, Practice diffs `expected` against the learner's rows with the exercise's own
+  `validation` (`ordered`, `duplicate_sensitive`, tolerances, `forbidden_extra_columns`, `exact_schema`), the rules
+  `exercise_validation.py` grades with. Graders attach rows to visible checks only; keep it that way.
+- `solution.available: true` lets the learner open the reference solution from the pack's `grading.server.json`
+  (`solution`, or `solutions[language]` in a scenario pack) with `explanation`, after a pass or three failed gradings.
+  `scripts/practice_feedback_smoke.mjs` fails when an exercise offers a solution its pack does not ship.
+
 ## Editor support (tab labels and Pylance)
 
 Opening an exercise (src/exerciseWorkspace.ts) also prepares the learner's VS Code, never the grading:

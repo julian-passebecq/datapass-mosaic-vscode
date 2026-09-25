@@ -91,7 +91,8 @@ try {
   assert.ok(brief.includes("| 1 | a\\|b |"), "pipes inside cells are escaped");
   assert.match(brief, /\| 2 \| _NULL_ \|/, "NULL is shown explicitly");
   assert.match(brief, /_Empty in the public example\._/);
-  assert.match(brief, /<details><summary>Hint 1<\/summary>/);
+  assert.match(brief, /1 hint is available in Practice: \*\*Show a hint\*\*/);
+  assert.ok(!brief.includes("Put the preserved table on the left."), "the hint text stays in Practice");
   assert.match(brief, /## Common pitfall/);
   assert.match(brief, /hidden and edge-case fixtures that are not shown/);
   assert.ok(!brief.includes("Spark plan checks"), "no plan section without spark_plan");

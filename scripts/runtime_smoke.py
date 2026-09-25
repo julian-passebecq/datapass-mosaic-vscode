@@ -816,11 +816,29 @@ models >> after
 
 with TemporaryDirectory(prefix="datapass-csv-import-smoke-") as temp:
     from fastapi.testclient import TestClient
+    from runtime_test_auth import client_kwargs
 
     previous_workspace = os.environ.get("DATAPASS_WORKSPACE_ROOT")
     os.environ["DATAPASS_WORKSPACE_ROOT"] = temp
     try:
-        with TestClient(app) as client:
+        auth = client_kwargs()
+        # Loopback authentication (D-2): the launch token and a loopback Host are required on every route,
+        # /api/health included; the refusal says nothing about the runtime.
+        with TestClient(app, base_url=auth["base_url"]) as anonymous:
+            for response in (anonymous.get("/api/health"), anonymous.get("/api/capabilities"),
+                             anonymous.post("/api/local/execute", json={"language": "sql", "code": "SELECT 1"})):
+                assert response.status_code == 401, response.text
+                assert response.json() == {"detail": "Missing or invalid Datapass runtime token."}, response.text
+            wrong = anonymous.get("/api/health", headers={"X-Datapass-Token": "0" * 64})
+            assert wrong.status_code == 401, wrong.text
+        with TestClient(app, **{**auth, "base_url": "http://attacker.example:8765"}) as rebound:
+            assert rebound.get("/api/health").status_code == 400, "a DNS-rebound Host is refused even with the token"
+        with TestClient(app, **{**auth, "base_url": "http://127.0.0.1:1"}) as other_port:
+            assert other_port.get("/api/health").status_code == 400, "only this launch's port is accepted"
+        with TestClient(app, **{**auth, "base_url": "http://localhost:" + auth["base_url"].rsplit(":", 1)[1]}) as local:
+            assert local.get("/api/health").json()["status"] == "ok"
+        with TestClient(app, **auth) as client:
+            assert client.get("/api/health").json() == {"status": "ok", "runtime": "local", "version": "0.1.0"}
             csv_text = "﻿city,visits\nLyon,3\nParis,\n"
             imported = client.post("/api/local/import-csv", json={"asset": "bronze.city_visits", "text": csv_text})
             assert imported.status_code == 200, imported.text
@@ -938,6 +956,63 @@ with TemporaryDirectory(prefix="datapass-csv-import-smoke-") as temp:
             assert extra.status_code == 422, extra.text
             queried = client.post("/api/local/query", json={"query": "SELECT CAST(visits AS INTEGER) AS v FROM bronze.city_visits WHERE visits <> ''"})
             assert queried.json()["result"]["rows"] == [{"v": 3}], queried.text
+
+            # Mosaic data tools: typed Parquet/JSON import (content, never a path), SUMMARIZE, EXPLAIN ANALYZE.
+            import base64
+            import duckdb as _duckdb
+            parquet_path = Path(temp) / "made.parquet"
+            _duckdb.connect().execute(
+                "COPY (SELECT i AS order_id, i * 1.5 AS amount, DATE '2026-01-01' + CAST(i AS INTEGER) AS order_date FROM range(1, 6) t(i)) "
+                f"TO '{parquet_path.as_posix()}' (FORMAT PARQUET)")
+            encoded = base64.b64encode(parquet_path.read_bytes()).decode()
+            typed = client.post("/api/local/import-file", json={"asset": "bronze.orders_pq", "format": "parquet", "data": encoded})
+            assert typed.status_code == 200, typed.text
+            typed = typed.json()
+            assert typed["rows_imported"] == 5 and typed["format"] == "parquet", typed
+            assert {c["name"]: c["type"] for c in typed["schema"]} == {"order_id": "BIGINT", "amount": "DECIMAL(22,1)", "order_date": "DATE"} or \
+                {c["name"] for c in typed["schema"]} == {"order_id", "amount", "order_date"}, typed["schema"]
+            assert "types come from the Parquet file" in typed["truth"]
+            json_text = '[{"sku": "A1", "qty": 2, "tags": ["x"]}, {"sku": "B2", "qty": 5, "tags": []}]'
+            from_json = client.post("/api/local/import-file", json={"asset": "bronze.skus", "format": "json",
+                                                                    "data": base64.b64encode(json_text.encode()).decode()})
+            assert from_json.status_code == 200 and from_json.json()["rows_imported"] == 2, from_json.text
+            qty = {c["name"]: c["type"] for c in from_json.json()["schema"]}["qty"]
+            assert qty in {"BIGINT", "INTEGER"}, qty
+            for bad in (
+                {"asset": "bronze.orders_pq", "format": "parquet", "data": encoded},              # never overwrites
+                {"asset": "bronze.fake", "format": "parquet", "data": base64.b64encode(b"not parquet").decode()},
+                {"asset": "bronze.badjson", "format": "json", "data": base64.b64encode(b"{not json").decode()},
+                {"asset": "bronze.b64", "format": "json", "data": "!!!!"},
+                {"asset": "bronze.cols", "format": "json", "data": base64.b64encode(b'[{"bad name": 1}]').decode()},
+            ):
+                refused = client.post("/api/local/import-file", json=bad)
+                assert refused.status_code == 400, (bad["asset"], refused.text)
+            for bad in ({"asset": "silver.x", "format": "json", "data": "e30="}, {"asset": "bronze.x", "format": "csv", "data": "e30="},
+                        {"asset": "bronze.x", "format": "json", "data": "e30=", "path": "/etc/passwd"}):
+                assert client.post("/api/local/import-file", json=bad).status_code == 422, bad
+            assert not list(Path(temp, ".datapass", "data", "imports").glob("*")), "temporary import copies are removed"
+            # Only the staging folder is readable, and cell SQL still cannot reach it or anything else.
+            for escape in ("SELECT * FROM 'C:/Windows/win.ini'", "SELECT * FROM '/etc/passwd'",
+                           f"SELECT * FROM '{(Path(temp) / 'made.parquet').as_posix()}'"):
+                blocked = client.post("/api/local/execute", json={"language": "sql", "code": escape, "notebook_id": "n", "cell_id": "c"}).json()
+                assert blocked["status"] == "error", (escape, blocked)
+
+            profile = client.post("/api/local/profile", json={"asset": "bronze.orders_pq"})
+            assert profile.status_code == 200, profile.text
+            by_column = {row["column_name"]: row for row in profile.json()["result"]["rows"]}
+            assert by_column["order_id"]["min"] == "1" and by_column["order_id"]["max"] == "5", by_column["order_id"]
+            assert float(by_column["amount"]["null_percentage"]) == 0.0
+            assert client.post("/api/local/profile", json={"asset": "bronze.missing"}).status_code == 400
+            assert client.post("/api/local/profile", json={"asset": "bronze.x; DROP TABLE y"}).status_code == 422
+
+            plan = client.post("/api/local/explain", json={"query": "SELECT order_date, SUM(amount) AS total FROM bronze.orders_pq GROUP BY 1 -- by day"})
+            assert plan.status_code == 200, plan.text
+            assert "HASH_GROUP_BY" in plan.json()["plan"] and "Total Time" in plan.json()["plan"], plan.json()["plan"][:400]
+            for refused_sql in ("DROP TABLE bronze.orders_pq", "SELECT 1; SELECT 2", "SELECT * FROM read_parquet('x.parquet')"):
+                refused = client.post("/api/local/explain", json={"query": refused_sql})
+                assert refused.status_code == 400, (refused_sql, refused.text)
+            still = client.post("/api/local/query", json={"query": "SELECT COUNT(*) AS n FROM bronze.orders_pq"}).json()
+            assert still["result"]["rows"] == [{"n": 5}], still
 
             # Airflow Lab: the DAG text is parsed and simulated, never executed.
             lab_dag = AIRFLOW_HEAD + (

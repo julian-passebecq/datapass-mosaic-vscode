@@ -25,6 +25,7 @@ import { MissionsService } from "../missions";
 import { buildDctCommand } from "../platform/dbtTools";
 import { loadExerciseCatalog } from "../exerciseCatalog";
 import { prepareExerciseWorkspace } from "../exerciseWorkspace";
+import { loadReferenceSolution, referenceUri } from "../referenceSolutions";
 import { collectDatabricksFiles, collectFactoryFiles, copyFactorySamples, loadFactoryState, readPoolScript } from "../factoryState";
 import { MODULES } from "../modules";
 import { decodeCsvBytes, suggestBronzeAsset, validateBronzeAsset } from "../platform/csvImport";
@@ -666,6 +667,18 @@ export async function run(): Promise<void> {
         source_revision: 2
       });
       assert.equal(runtime!.snapshot().practiceResult?.status, "failed", "a wrong answer must fail");
+      const failed = runtime!.snapshot().practiceResult!.checks.find(check => check.visibility === "visible");
+      assert.ok(Array.isArray(failed?.expected) && Array.isArray(failed?.actual), "visible checks carry their rows for the diff");
+      assert.ok(runtime!.snapshot().practiceResult!.checks.filter(check => check.visibility !== "visible")
+        .every(check => check.expected === undefined && check.actual === undefined), "hidden and edge rows never leave the runtime");
+
+      // The reference solution opens as a read-only document for VS Code's diff editor.
+      const code = await loadReferenceSolution(extension.extensionUri, exercise);
+      assert.equal(code, "SELECT COALESCE(SUM(value), 0) AS total FROM input");
+      const document = await vscode.workspace.openTextDocument(referenceUri(exercise, "sql"));
+      assert.equal(document.getText(), `${code}
+`, "the extension's provider serves the pack's solution");
+      assert.equal(document.uri.scheme, "datapass-reference");
     }],
     ["SQL lab multi-table and semantic-variant exercises grade from the catalog", async () => {
       const catalog = await loadExerciseCatalog(extension.extensionUri);
@@ -921,6 +934,23 @@ export async function run(): Promise<void> {
       const sum = runtime!.snapshot();
       assert.deepEqual(sum.lastRun?.result?.rows, [{ visits: 8 }], sum.lastRun?.error?.message);
       assert.equal(sum.csvImport, undefined, "a newer SQL run replaces the import preview");
+    }],
+    ["Mosaic data tools: typed JSON import, SUMMARIZE profile, EXPLAIN ANALYZE", async () => {
+      const json = JSON.stringify([{ sku: "A1", qty: 2, price: 9.5 }, { sku: "B2", qty: 5, price: 3.25 }]);
+      const imported = await runtime!.importFile("bronze.skus_e2e", "json", Buffer.from(json).toString("base64"), "skus.json");
+      assert.equal(imported.rows_imported, 2);
+      assert.equal(imported.format, "json");
+      assert.ok(imported.schema.some(column => column.name === "qty" && /INT/.test(column.type)), JSON.stringify(imported.schema));
+      await assert.rejects(runtime!.importFile("bronze.skus_e2e", "json", Buffer.from(json).toString("base64"), "again.json"),
+        /JSON import refused: .*already exists/);
+      await runtime!.profileTable("bronze.skus_e2e");
+      const profile = runtime!.snapshot().tableProfile!;
+      assert.equal(profile.asset, "bronze.skus_e2e");
+      assert.deepEqual(profile.result.rows.map(row => row.column_name), ["sku", "qty", "price"]);
+      const plan = await runtime!.explainQuery("SELECT sku, SUM(qty * price) AS revenue FROM bronze.skus_e2e GROUP BY sku", "e2e.sql");
+      assert.match(plan.plan, /HASH_GROUP_BY/);
+      assert.equal(runtime!.snapshot().queryPlan?.source, "e2e.sql");
+      await assert.rejects(runtime!.explainQuery("DROP TABLE bronze.skus_e2e"), /EXPLAIN ANALYZE refused/);
     }],
     ["Projects: the runtime verifies steps on the workspace and progress.json keeps them", async () => {
       const retail = (await loadProjectContents(extension.extensionUri)).projects[0];
