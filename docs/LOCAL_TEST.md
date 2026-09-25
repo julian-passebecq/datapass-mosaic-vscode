@@ -20,7 +20,7 @@ DuckDB, Polars and the runtime package from this repository.
 
 The Workbench panel should show:
 
-- module tabs for Mosaic, Practice, Fabric Lab, SparkLab, dbt Lab, Airflow Lab and Pipeline Lab;
+- module tabs for Mosaic, Practice, Cloud Lab, SparkLab, dbt Lab, Airflow Lab and Pipeline Lab;
 - workspace manifest status;
 - local runtime status;
 - a draggable/resizable Mosaic surface.

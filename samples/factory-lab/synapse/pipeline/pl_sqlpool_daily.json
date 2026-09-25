@@ -1,0 +1,129 @@
+{
+  "name": "pl_sqlpool_daily",
+  "properties": {
+    "description": "Synapse SQL pool load: stage with CTAS in a Script activity, build gold with a SQL pool stored procedure, then check the result.",
+    "activities": [
+      {
+        "name": "Stage orders (CTAS)",
+        "type": "Script",
+        "dependsOn": [],
+        "policy": {
+          "timeout": "0.00:30:00",
+          "retry": 0,
+          "retryIntervalInSeconds": 30,
+          "secureOutput": false,
+          "secureInput": false
+        },
+        "userProperties": [],
+        "linkedServiceName": {
+          "referenceName": "ls_sqlpool",
+          "type": "LinkedServiceReference"
+        },
+        "typeProperties": {
+          "scripts": [
+            {
+              "type": "NonQuery",
+              "text": "DROP TABLE IF EXISTS warehouse.stg_orders; CREATE TABLE warehouse.stg_orders AS SELECT * FROM bronze.orders WHERE net_amount > 0"
+            }
+          ],
+          "scriptBlockExecutionTimeout": "02:00:00"
+        }
+      },
+      {
+        "name": "Rebuild silver from stage",
+        "type": "Script",
+        "dependsOn": [
+          { "activity": "Stage orders (CTAS)", "dependencyConditions": ["Succeeded"] }
+        ],
+        "policy": {
+          "timeout": "0.00:30:00",
+          "retry": 0,
+          "retryIntervalInSeconds": 30,
+          "secureOutput": false,
+          "secureInput": false
+        },
+        "userProperties": [],
+        "linkedServiceName": {
+          "referenceName": "ls_sqlpool",
+          "type": "LinkedServiceReference"
+        },
+        "typeProperties": {
+          "scripts": [
+            {
+              "type": "NonQuery",
+              "text": {
+                "value": "DROP TABLE IF EXISTS silver.orders; CREATE TABLE silver.orders AS SELECT *, '@{pipeline().parameters.run_date}' AS load_date FROM warehouse.stg_orders",
+                "type": "Expression"
+              }
+            }
+          ]
+        }
+      },
+      {
+        "name": "Gold revenue",
+        "type": "SqlPoolStoredProcedure",
+        "dependsOn": [
+          { "activity": "Rebuild silver from stage", "dependencyConditions": ["Succeeded"] }
+        ],
+        "policy": {
+          "timeout": "0.00:30:00",
+          "retry": 0,
+          "retryIntervalInSeconds": 30,
+          "secureOutput": false,
+          "secureInput": false
+        },
+        "userProperties": [],
+        "sqlPool": {
+          "referenceName": "sqlpool01",
+          "type": "SqlPoolReference"
+        },
+        "typeProperties": {
+          "storedProcedureName": "[warehouse].[usp_load_gold_revenue]",
+          "storedProcedureParameters": {
+            "run_date": {
+              "value": {
+                "value": "@pipeline().parameters.run_date",
+                "type": "Expression"
+              },
+              "type": "String"
+            },
+            "min_orders": {
+              "value": "2",
+              "type": "Int32"
+            }
+          }
+        }
+      },
+      {
+        "name": "Check gold",
+        "type": "Lookup",
+        "dependsOn": [
+          { "activity": "Gold revenue", "dependencyConditions": ["Succeeded"] }
+        ],
+        "policy": {
+          "timeout": "0.00:10:00",
+          "retry": 0,
+          "retryIntervalInSeconds": 30,
+          "secureOutput": false,
+          "secureInput": false
+        },
+        "userProperties": [],
+        "typeProperties": {
+          "source": {
+            "type": "SqlPoolSource",
+            "sqlReaderQuery": "SELECT segment_name, orders, revenue FROM gold.revenue_by_segment ORDER BY revenue DESC"
+          },
+          "dataset": {
+            "referenceName": "ds_sqlpool_gold",
+            "type": "DatasetReference"
+          },
+          "firstRowOnly": false
+        }
+      }
+    ],
+    "parameters": {
+      "run_date": { "type": "string", "defaultValue": "2026-03-05" }
+    },
+    "annotations": []
+  }
+}

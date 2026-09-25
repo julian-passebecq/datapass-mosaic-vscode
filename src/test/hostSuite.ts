@@ -17,6 +17,7 @@ import * as vscode from "vscode";
 import { loadAirflowState } from "../airflowState";
 import { loadDbtState } from "../dbtState";
 import { loadExerciseCatalog } from "../exerciseCatalog";
+import { collectFactoryFiles, copyFactorySamples, loadFactoryState } from "../factoryState";
 import { MODULES } from "../modules";
 import { decodeCsvBytes, suggestBronzeAsset, validateBronzeAsset } from "../platform/csvImport";
 import { readMosaicLayout, writeMosaicLayout } from "../mosaicLayoutStore";
@@ -100,6 +101,21 @@ export async function run(): Promise<void> {
       assert.deepEqual(await readMosaicLayout(), custom, "rejected input must not overwrite the file");
       await write(".datapass/mosaic.json", "{corrupt");
       assert.equal(await readMosaicLayout(), undefined, "corrupt file falls back to defaults");
+    }],
+    ["Cloud Lab samples land in factory/ and every pipeline is read for the canvas", async () => {
+      assert.equal((await loadFactoryState()).exists, false);
+      await copyFactorySamples(extension.extensionUri);
+      const factory = await loadFactoryState();
+      assert.deepEqual(factory.warnings, []);
+      assert.deepEqual(factory.pipelines.map(p => `${p.flavor}:${p.name}`),
+        ["fabric:pl_retail_daily", "adf:pl_retail_daily_adf", "synapse:pl_sqlpool_daily"]);
+      assert.ok(factory.pipelines.every(p => !p.error && p.activities.length >= 4));
+      const { files, warnings } = await collectFactoryFiles("adf");
+      assert.deepEqual(warnings, []);
+      assert.deepEqual(Object.keys(files.pipelines), ["pl_retail_daily_adf"]);
+      assert.deepEqual(Object.keys(files.datasets).sort(), ["ds_bronze_orders", "ds_source_orders"]);
+      assert.deepEqual(Object.keys(files.procedures), ["warehouse.usp_load_gold_revenue"]);
+      assert.deepEqual(Object.keys(files.notebooks).sort(), ["databricks:/Shared/nb_silver_orders_dbx", "fabric:nb_silver_orders"]);
     }],
     ["Airflow starter is a Python DAG file under airflow/dags", async () => {
       assert.equal((await loadAirflowState()).starterExists, false);
@@ -187,6 +203,38 @@ export async function run(): Promise<void> {
       const broken = runtime!.snapshot().airflowRun!;
       assert.equal(broken.status, "invalid");
       assert.equal(broken.error?.line, 2);
+    }],
+    ["Cloud Lab runs the Fabric and ADF sample pipelines on the local lakehouse", async () => {
+      const scenario = { dataPlane: "local" as const, parameters: { run_date: "2026-03-06" }, activities: {}, triggerType: "Manual" as const };
+      for (const [flavor, name] of [["fabric", "pl_retail_daily"], ["adf", "pl_retail_daily_adf"]] as const) {
+        const { files, warnings } = await collectFactoryFiles(flavor);
+        await runtime!.simulateFactory({ flavor, name, path: name, document: files.pipelines[name], files, scenario, warnings });
+        const lab = runtime!.snapshot().factoryRun!;
+        assert.equal(lab.status, "simulated", JSON.stringify(lab.issues));
+        assert.equal(lab.run?.status, "Succeeded", lab.run?.explanation);
+        const silver = lab.run!.activityRuns.find(run => run.name === "Silver orders")!;
+        assert.equal(silver.truth, "local", silver.note);
+        assert.ok(lab.tablesChanged.some(table => table.name === "gold.revenue_by_segment" && table.rows === 4));
+      }
+      assert.ok(runtime!.snapshot().catalog?.some(item => item.name === "silver.orders"));
+
+      const { files } = await collectFactoryFiles("fabric");
+      await runtime!.simulateFactory({
+        flavor: "fabric", name: "pl_retail_daily", path: "p", document: files.pipelines.pl_retail_daily, files, warnings: [],
+        scenario: { ...scenario, dataPlane: "simulated", activities: { "Silver orders": { behavior: "fail_always" } } }
+      });
+      const failed = runtime!.snapshot().factoryRun!;
+      assert.equal(failed.dataPlane, "simulated");
+      assert.equal(failed.run?.status, "Failed");
+      assert.ok(failed.run?.activityRuns.some(run => run.name === "Email on notebook failure" && run.status === "Succeeded"));
+      assert.deepEqual(failed.tablesChanged, []);
+
+      await runtime!.simulateFactory({
+        flavor: "adf", name: "pl_retail_daily", path: "p", document: files.pipelines.pl_retail_daily, files, warnings: [], scenario
+      });
+      const wrongProduct = runtime!.snapshot().factoryRun!;
+      assert.equal(wrongProduct.status, "invalid");
+      assert.ok(wrongProduct.issues.some(issue => issue.message.includes("DatabricksNotebook")));
     }],
     ["Practice exercise: visible run and submission grade for real", async () => {
       const catalog = await loadExerciseCatalog(extension.extensionUri);

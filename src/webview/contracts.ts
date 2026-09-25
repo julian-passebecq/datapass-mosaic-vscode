@@ -170,6 +170,7 @@ export interface RuntimeViewState {
   trustedPython?: boolean;
   sparkRun?: SparkLabRunView;
   airflowRun?: AirflowLabView;
+  factoryRun?: FactoryLabView;
   retailDemo?: RetailDemoRunView;
   catalog?: readonly LocalCatalogAssetView[];
   lastRun?: LocalCellRunView;
@@ -276,6 +277,8 @@ export interface GraphEdgeView {
   source: string;
   target: string;
   label: string;
+  /** Optional CSS class (Factory Lab colors dependency conditions). */
+  className?: string;
 }
 
 export interface GraphView {
@@ -395,6 +398,114 @@ export interface AirflowLabView {
   scenario: AirflowScenarioInput;
 }
 
+/** Cloud Lab › Pipelines (Factory Lab): Fabric, Azure Data Factory and Synapse pipelines, simulated locally. */
+export type FactoryFlavor = "fabric" | "adf" | "synapse";
+
+export interface FactoryParameterView {
+  name: string;
+  type: string;
+  defaultValue: unknown;
+}
+
+export interface FactoryDesignActivityView {
+  name: string;
+  type: string;
+  /** Container path, for example "Loop/Copy table". */
+  path: string;
+  state: string;
+  dependsOn: { activity: string; conditions: string[] }[];
+  children: { key: string; activities: FactoryDesignActivityView[] }[];
+}
+
+/** A pipeline file as the host reads it for the canvas; the runtime validates it when it runs. */
+export interface FactoryDesignView {
+  flavor: FactoryFlavor;
+  name: string;
+  /** Workspace-relative path of the pipeline file. */
+  path: string;
+  description: string;
+  parameters: FactoryParameterView[];
+  variables: FactoryParameterView[];
+  activities: FactoryDesignActivityView[];
+  error?: string;
+}
+
+export interface FactoryViewState {
+  folder: string;
+  exists: boolean;
+  pipelines: FactoryDesignView[];
+  warnings: string[];
+}
+
+export type FactoryActivityBehavior = "success" | "fail_once" | "fail_twice" | "fail_always";
+
+export interface FactoryActivityScenarioInput {
+  behavior: FactoryActivityBehavior;
+  durationSeconds?: number;
+  /** JSON object text merged into the activity output (for example a Lookup's firstRow). */
+  output?: string;
+}
+
+export type FactoryTriggerType = "Manual" | "ScheduleTrigger" | "TumblingWindowTrigger" | "BlobEventsTrigger";
+
+export interface FactoryScenarioInput {
+  /** local: Copy, Lookup, Script, procedures and notebooks act on the local catalog; simulated: dry run. */
+  dataPlane: "local" | "simulated";
+  /** Text as typed; the runtime converts it to each parameter's type. Blank keeps the default. */
+  parameters: Record<string, string>;
+  activities: Record<string, FactoryActivityScenarioInput>;
+  triggerType: FactoryTriggerType;
+  /** UTC "YYYY-MM-DDTHH:MM"; pipeline().TriggerTime and utcNow(). */
+  now?: string;
+}
+
+export interface FactoryActivityRunView {
+  name: string;
+  type: string;
+  path: string;
+  status: string;
+  startS: number;
+  endS: number;
+  attempts: number;
+  input: unknown;
+  output: unknown;
+  error?: { code: string; message: string; failureType: string };
+  iteration?: string;
+  truth: "local" | "simulated";
+  note: string;
+  parent?: string;
+}
+
+export interface FactoryRunView {
+  pipeline: string;
+  runId: string;
+  status: string;
+  evaluated: string[];
+  durationS: number;
+  parameters: Record<string, unknown>;
+  variables: Record<string, unknown>;
+  returnValue: unknown;
+  activityRuns: FactoryActivityRunView[];
+  children: FactoryRunView[];
+  explanation: string;
+}
+
+export interface FactoryLabView {
+  flavor: FactoryFlavor;
+  flavorLabel: string;
+  pipelineName: string;
+  path: string;
+  status: "simulated" | "invalid" | "error";
+  truth: string;
+  dataPlane: "local" | "simulated";
+  issues: { path: string; message: string; severity: string }[];
+  hints: string[];
+  warnings: string[];
+  run?: FactoryRunView;
+  tablesChanged: { name: string; rows: number; producer?: string }[];
+  scenario: FactoryScenarioInput;
+}
+
 export interface DbtCliView {
   available: boolean;
   adapterAvailable: boolean;
@@ -427,6 +538,7 @@ export interface WorkbenchViewState {
   practice?: PracticeViewState;
   pipeline?: PipelineViewState;
   airflow?: AirflowViewState;
+  factory?: FactoryViewState;
   dbt?: DbtViewState;
 }
 
@@ -464,6 +576,11 @@ export type WebviewToHostMessage =
   | { type: "refreshAirflow" }
   | { type: "simulateAirflow"; scenario: AirflowScenarioInput }
   | { type: "revealAirflowLine"; line: number }
+  | { type: "createFactoryLab" }
+  | { type: "refreshFactory" }
+  | { type: "openFactoryFile"; path: string }
+  | { type: "revealFactoryActivity"; path: string; activity: string }
+  | { type: "simulateFactory"; flavor: FactoryFlavor; name: string; scenario: FactoryScenarioInput }
   | { type: "openDbtProject" }
   | { type: "refreshDbt" }
   | { type: "runDbtBuild" };

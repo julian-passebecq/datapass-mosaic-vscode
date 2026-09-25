@@ -86,7 +86,7 @@ def validate_sql(sql: str, *, read_only: bool = False) -> list[str]:
         clean = sql_tokens(statement).strip()
         first = re.match(r'[A-Za-z]+', clean)
         first = first.group().upper() if first else ''
-        allowed = {'SELECT', 'WITH'} if read_only else {'SELECT', 'WITH', 'CREATE', 'INSERT', 'UPDATE', 'DELETE', 'DROP'}
+        allowed = {'SELECT', 'WITH'} if read_only else {'SELECT', 'WITH', 'CREATE', 'INSERT', 'UPDATE', 'DELETE', 'DROP', 'MERGE'}
         if first not in allowed:
             raise ValueError(f'{first or "This statement"} is outside the local SQL teaching contract.')
         # External I/O is intentionally not exposed through arbitrary SQL.

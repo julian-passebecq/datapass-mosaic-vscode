@@ -1,0 +1,209 @@
+{
+  "properties": {
+    "description": "Daily retail load: copy to bronze, clean to silver in a notebook, aggregate to gold with a stored procedure, then check and notify.",
+    "activities": [
+      {
+        "name": "Copy orders to bronze",
+        "type": "Copy",
+        "dependsOn": [],
+        "policy": {
+          "timeout": "0.01:00:00",
+          "retry": 1,
+          "retryIntervalInSeconds": 60,
+          "secureOutput": false,
+          "secureInput": false
+        },
+        "typeProperties": {
+          "source": {
+            "type": "LakehouseTableSource",
+            "datasetSettings": {
+              "annotations": [],
+              "type": "LakehouseTable",
+              "schema": [],
+              "typeProperties": { "schema": "source", "table": "orders" },
+              "linkedService": {
+                "name": "lh_retail",
+                "properties": {
+                  "annotations": [],
+                  "type": "Lakehouse",
+                  "typeProperties": {
+                    "workspaceId": "00000000-0000-0000-0000-000000000000",
+                    "artifactId": "00000000-0000-0000-0000-00000000001a",
+                    "rootFolder": "Tables"
+                  }
+                }
+              }
+            }
+          },
+          "sink": {
+            "type": "LakehouseTableSink",
+            "tableActionOption": "Overwrite",
+            "datasetSettings": {
+              "annotations": [],
+              "type": "LakehouseTable",
+              "schema": [],
+              "typeProperties": { "schema": "bronze", "table": "orders" },
+              "linkedService": {
+                "name": "lh_retail",
+                "properties": {
+                  "annotations": [],
+                  "type": "Lakehouse",
+                  "typeProperties": {
+                    "workspaceId": "00000000-0000-0000-0000-000000000000",
+                    "artifactId": "00000000-0000-0000-0000-00000000001a",
+                    "rootFolder": "Tables"
+                  }
+                }
+              }
+            }
+          },
+          "enableStaging": false,
+          "translator": { "type": "TabularTranslator", "typeConversion": true }
+        }
+      },
+      {
+        "name": "Silver orders",
+        "type": "TridentNotebook",
+        "dependsOn": [
+          { "activity": "Copy orders to bronze", "dependencyConditions": ["Succeeded"] }
+        ],
+        "policy": {
+          "timeout": "0.02:00:00",
+          "retry": 0,
+          "retryIntervalInSeconds": 30,
+          "secureOutput": false,
+          "secureInput": false
+        },
+        "typeProperties": {
+          "notebookId": "nb_silver_orders",
+          "workspaceId": "00000000-0000-0000-0000-000000000000",
+          "parameters": {
+            "run_date": {
+              "value": { "value": "@pipeline().parameters.run_date", "type": "Expression" },
+              "type": "string"
+            },
+            "min_amount": {
+              "value": { "value": "@pipeline().parameters.min_amount", "type": "Expression" },
+              "type": "int"
+            }
+          }
+        }
+      },
+      {
+        "name": "Gold revenue",
+        "type": "SqlServerStoredProcedure",
+        "dependsOn": [
+          { "activity": "Silver orders", "dependencyConditions": ["Succeeded"] }
+        ],
+        "policy": {
+          "timeout": "0.00:30:00",
+          "retry": 0,
+          "retryIntervalInSeconds": 30,
+          "secureOutput": false,
+          "secureInput": false
+        },
+        "typeProperties": {
+          "storedProcedureName": "[warehouse].[usp_load_gold_revenue]",
+          "storedProcedureParameters": {
+            "run_date": {
+              "value": { "value": "@pipeline().parameters.run_date", "type": "Expression" },
+              "type": "String"
+            }
+          }
+        },
+        "linkedService": {
+          "name": "wh_retail",
+          "properties": {
+            "annotations": [],
+            "type": "DataWarehouse",
+            "typeProperties": {
+              "workspaceId": "00000000-0000-0000-0000-000000000000",
+              "artifactId": "00000000-0000-0000-0000-00000000002b"
+            }
+          }
+        }
+      },
+      {
+        "name": "Count gold rows",
+        "type": "Lookup",
+        "dependsOn": [
+          { "activity": "Gold revenue", "dependencyConditions": ["Succeeded"] }
+        ],
+        "policy": {
+          "timeout": "0.00:10:00",
+          "retry": 0,
+          "retryIntervalInSeconds": 30,
+          "secureOutput": false,
+          "secureInput": false
+        },
+        "typeProperties": {
+          "source": {
+            "type": "DataWarehouseSource",
+            "sqlReaderQuery": "SELECT COUNT(*) AS segments, SUM(revenue) AS revenue FROM gold.revenue_by_segment",
+            "queryTimeout": "02:00:00"
+          },
+          "firstRowOnly": true
+        }
+      },
+      {
+        "name": "Has gold rows",
+        "type": "IfCondition",
+        "dependsOn": [
+          { "activity": "Count gold rows", "dependencyConditions": ["Succeeded"] }
+        ],
+        "typeProperties": {
+          "expression": {
+            "value": "@greater(activity('Count gold rows').output.firstRow.segments, 0)",
+            "type": "Expression"
+          },
+          "ifTrueActivities": [
+            {
+              "name": "Post to Teams",
+              "type": "Teams",
+              "dependsOn": [],
+              "typeProperties": {
+                "inputs": {
+                  "body": {
+                    "messageBody": "@concat('Retail load ', pipeline().parameters.run_date, ': ', string(activity('Count gold rows').output.firstRow.segments), ' segments in gold')"
+                  }
+                }
+              }
+            }
+          ],
+          "ifFalseActivities": [
+            {
+              "name": "Fail empty gold",
+              "type": "Fail",
+              "dependsOn": [],
+              "typeProperties": {
+                "message": "@concat('gold.revenue_by_segment is empty for ', pipeline().parameters.run_date)",
+                "errorCode": "GOLD_EMPTY"
+              }
+            }
+          ]
+        }
+      },
+      {
+        "name": "Email on notebook failure",
+        "type": "Office365Outlook",
+        "dependsOn": [
+          { "activity": "Silver orders", "dependencyConditions": ["Failed"] }
+        ],
+        "typeProperties": {
+          "inputs": {
+            "body": {
+              "To": "data-team@example.com",
+              "Subject": "@concat('Retail load failed: ', pipeline().Pipeline)",
+              "Body": "@activity('Silver orders').error.message"
+            }
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "run_date": { "type": "string", "defaultValue": "2026-03-05" },
+      "min_amount": { "type": "int", "defaultValue": 0 }
+    },
+    "annotations": []
+  }
+}

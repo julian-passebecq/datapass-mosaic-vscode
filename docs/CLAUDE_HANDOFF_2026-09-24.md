@@ -8,7 +8,60 @@ PR #1 merged the implementation branch into `main` with a merge commit (`f35dbe4
 
 Workflow from here: branch from `main` for each tranche, keep CI green, merge through a pull request. The dated sections below record how the project got here; branch names and tips in them are historical.
 
-## 0. Airflow lab simulator and exercise pack — Claude, 2026-09-25 (newest)
+## 0. Cloud Lab pipelines (Factory Lab) — Claude, 2026-09-25 (newest)
+
+Branch `feature/factory-lab`, stacked on `feature/airflow-lab-surface`. "Fabric Lab" becomes **Cloud Lab** (module id `fabric` and command id unchanged). It is the first piece of the simulated cloud platform the user asked for. Nothing connects to Fabric, Azure or Databricks, and the real Fabric VS Code extension is not used.
+
+- **Engine** `runtime/factorylab` (new package, shipped with the runtime; see its README):
+  - `loader.py` reads real pipeline JSON (Fabric `pipeline-content.json`, ADF / Synapse `pipeline/<name>.json`) for three flavors and validates it with Data Factory's design-time rules. An activity used in the wrong product names the equivalent: TridentNotebook in ADF → DatabricksNotebook.
+  - `expressions.py` is a bounded parser and evaluator for the expression language: `@`, `@{}`, `@@`, `?.`, pipeline() system variables as documented for each product, variables(), activity(), item(), and string, collection, logic, conversion, math and date functions.
+  - `engine.py` simulates the orchestration: conditions and AND/OR, skip propagation, the leaf rule (try/catch succeeds, do-if-else fails), retries and timeouts, Inactive activities, ForEach (batchCount), If, Switch, Until, Filter, variables and return value, Execute/Invoke pipeline. It adds a readable note for each activity run.
+  - `work.py` runs Copy (overwrite, append BY NAME, ADF upsert with MERGE, preCopyScript), Lookup, Script and stored procedures (`@params` checked like SQL Server, typed Int32/Decimal/Boolean values) on the local catalog. It runs notebooks too. A missing procedure or notebook fails the activity.
+- **Runtime**:
+  - `datapass_runtime/factory_workspace.py` adapts the catalog. It runs SparkLab notebooks in *pipeline notebook* mode (`sparklab/notebook_utils.py`, `SafeSparkParser.run_notebook`).
+  - Kernel op `factory_simulate` and `POST /api/local/factory/simulate` take the flavor, the pipeline, the lab files and the scenario, with size limits. `data_plane` is `local` (really run) or `simulated` (dry run). The response adds `tables_changed`.
+  - `catalog.validate_sql` now allows MERGE.
+- **SparkLab pipeline notebook mode** (ordinary SparkLab cells are unchanged; the smoke checks that they still reject these):
+  - Fabric `# PARAMETERS CELL` injection. Without the cell, values are injected at the top and later assignments overwrite them; the run reports it.
+  - `dbutils.widgets` (`InputWidgetNotDefined`).
+  - `df.write.mode(...).saveAsTable()` with Spark's default errorifexists.
+  - `spark.sql` (queries become DataFrames, statements run), `spark.read.table`, `df.count()`, f-strings, text arithmetic.
+  - `notebookutils` / `mssparkutils` / `dbutils` `.notebook.exit`, `display`, `print`.
+  - 3-part names (`lakehouse.schema.table`, Unity Catalog) drop the first part.
+  - Side effects run on the catalog as the statements are reached. Still no eval/exec.
+- **Samples** `samples/factory-lab/` (copied to the learner's `factory/`) hold the same daily retail load in the three git layouts:
+  - Fabric: Copy → Notebook → stored procedure → Lookup → If → Teams, plus an Outlook alert on notebook failure;
+  - ADF: upsert Copy → Databricks notebook → procedure → Web, with datasets and linked services that hold no secrets and point at `.invalid` hosts;
+  - Synapse: Script CTAS → SQL pool stored procedure → Lookup.
+- **Extension**:
+  - `src/factoryState.ts` reads `factory/` and sends the referenced files with each run; `src/platform/factoryRun.ts` holds the pure mapping (tested by `scripts/factory_lab_smoke.mjs`).
+  - The **Pipelines** tab (`FactoryPipelines.tsx`) has:
+    - a product switch and a pipeline picker;
+    - a canvas with condition-colored edges, drill-down into containers and activity details (input, output, error, **Show in JSON**);
+    - run settings: parameters, trigger, and per-activity failures, durations and outputs;
+    - **Run on local lakehouse** and **Dry run**;
+    - the run status explained by the leaf rule, activity runs, child runs, variables and tables written;
+    - a Fabric vs ADF vs Synapse differences table.
+  - The old content lives in the **Lakehouse and notebooks** tab. `SharedGraphCanvas` gained `onNodeClick` and edge `className`.
+- **Checked against Microsoft Learn**: Fabric pipeline system variables (`DataFactory` = workspace name, `Pipeline` = pipeline name), and the notebook exit value path (`output.result.exitValue`). Everything else relies on product knowledge, not a live service: activity type names such as `TridentNotebook`, `InvokePipeline`, `Teams` and `Office365Outlook`, and the shape of the Teams and Outlook activities, which is abbreviated.
+- **Next** (roadmap agreed with the user):
+  - The Cloud lab holds pipelines, notebooks, Synapse-style SQL (procedures, CTAS, indexes, partitioning, distributions) and Databricks. Light optional layers (dbt, Airflow, modeling) appear only in some exercises.
+  - A separate BI lab holds SQL, dbt, gold tables, KPI and a little DAX, with no pipelines.
+  - Next tranche: guided pipeline exercises, including an ADF → Fabric port. Then SQL pool / warehouse, Databricks (clusters, jobs, Unity Catalog, ML), and the BI lab.
+  - The overlap between the older Pipeline Lab DSL and the Factory Lab is still to decide with the user.
+
+Checked:
+- `npm run compile`;
+- `npm test` (new `factory_lab_smoke.mjs`; `package_smoke.mjs` requires the new files);
+- `pip install ./runtime` and compileall (now with `runtime/factorylab`);
+- `runtime_smoke.py`: engine semantics, pipeline notebooks, the three samples through the API with the kernel worker, dry run, wrong-product validation and size limits;
+- `exercise_packs_smoke.py`: 186 references pass, 186 starters and 220 mutants rejected, so SparkLab's existing packs are unchanged;
+- `npm run test:host`: 20/20 steps, including the two new ones;
+- the Pipelines tab in a browser harness, with the built webview and a real run result: canvas colors, activity details, drill-down into If, product switch, narrow width. It found one bug: a run that succeeded after retries kept the failed attempt's error. That is fixed and covered by the smoke.
+
+Not re-checked in a real F5 session.
+
+## 0a. Airflow lab simulator and exercise pack — Claude, 2026-09-25
 
 Branch `content/airflow-lab-v1`. Airflow practice without Airflow, in the local runtime (no FastAPI Cloud, no separate service; `datapass-airflow-runner` stays empty).
 
@@ -21,13 +74,13 @@ Branch `content/airflow-lab-v1`. Airflow practice without Airflow, in the local 
 
 Checked: `npm run compile`; `npm test` (airflow brief, package boundary); `pip install ./runtime`; compileall; `runtime_smoke.py` (parser rejections, both timetables, catchup, a trigger-rule table, retries, sensor timeout, templates); `exercise_packs_smoke.py` → 186 references pass, 186 starters and 220 mutants rejected; `npm run test:host` (branch-join reference passes, starter fails, `import os` rejected). Not re-checked in a real F5 session.
 
-## 0a. Data-engineering patterns pack — Claude, 2026-09-25
+## 0b. Data-engineering patterns pack — Claude, 2026-09-25
 
 Merged as PR #6 (`63e5f0b`). Branch `content/more-exercises`. New pack `content/exercise-packs/de-patterns-v1` (16 authored DuckDB SQL exercises, 5 easy / 8 medium / 3 hard). It fills the gap between `sql-lab-v1` (joins/grouping/windows) and real pipeline work: typing text columns after Mosaic **Import CSV**, latest-per-key CDC dedup with a tie-breaker, the `NOT IN` NULL trap, gaps and islands, 30-minute sessionization, `ASOF LEFT JOIN`, SCD2 validity ranges with `LEAD`, full-row upsert results, a UNION ALL data-quality rule report, a `generate_series` calendar spine, a user-level funnel, `MEDIAN`, monthly cohorts, `string_split`/`UNNEST` tag normalisation, strict `>` watermarks, and `COUNT(*) FILTER` vs the `COUNT(boolean)` trap.
 
 Every exercise has a visible, a hidden and an edge fixture designed around its pitfall, a runnable starter that fails, and 1-3 mutants (34 in total). Expected rows were computed by running the reference over the grader's own typed fixture CTEs, then reviewed by hand. Gate: `exercise_packs_smoke.py` → 173 references pass, 173 starters and 188 mutants rejected; `de-patterns-v1` joined `RUNNABLE_STARTER_PACKS`. The host E2E grades `de-not-in-null-trap` from the extension catalog (the reference passes; `NOT IN` fails only on the guest-order fixture).
 
-## 0b. Mosaic CSV import — Claude, 2026-09-25
+## 0c. Mosaic CSV import — Claude, 2026-09-25
 
 Merged as PR #4 (`aeb7aef`).
 
@@ -39,7 +92,7 @@ Branch `feature/mosaic-import-csv`. Gives learners a way to load their own data 
 
 Checked: `npm run compile`; `npm test` (new `csv_import_smoke.mjs`); `runtime_smoke.py` (new TestClient block: import, catalog, duplicate/non-bronze/injection-name/malformed/over-limit/extra-`path` refusals, CAST query); compileall; pack smoke; `npm run test:host` (new step, 17/17); browser harness render of the preview and the button → `importCsv` message. Not re-checked in a real F5 session (the native file picker and input box are only exercised through the host classes).
 
-## 0c. Polish tranche — Claude, 2026-09-25
+## 0d. Polish tranche — Claude, 2026-09-25
 
 Merged as PR #3 (`603babd`). Branch `polish/setup-progress-and-lockfile`. Closes the three "known, not fixed" items from the F5 pass below and the lockfile decision.
 
@@ -50,7 +103,7 @@ Merged as PR #3 (`603babd`). Branch `polish/setup-progress-and-lockfile`. Closes
 
 Checked: `npm run compile`, `npm test` (new parser assertions in `runtime_environment_smoke.mjs`), the Python gates, and the built webview in a browser harness with a stubbed VS Code API (setup-progress card, pipeline header, minimap computed colors in a dark theme). Not re-checked in a real F5 session.
 
-## 0d. Manual F5 pass — Claude, 2026-09-25
+## 0e. Manual F5 pass — Claude, 2026-09-25
 
 A real VS Code 1.139 Extension Development Host (fresh profile, disposable workspace, managed runtime set up through the UI) was driven over the Chrome DevTools Protocol: real webview buttons, the real modal dialog, real mouse drags, screenshots. This replaced the "NOT exercised" item from the earlier tranche.
 
@@ -66,11 +119,11 @@ Bugs found and fixed:
 6. **Start runtime without an open folder** started anyway, then HTTP 500s. Now refused with a clear message.
 7. Badges wrapped out of their pills; Output panel popped open on every start; a broken dbt install dumped a 20-line traceback into the dbt card (now one line). QUICKSTART/README used stale button labels.
 
-Known, not fixed at the time (all three addressed in §0c): first **Setup runtime** took ~15 min on this Windows machine (pip unpacking under antivirus); only the output channel shows progress. React Flow minimap is light in dark theme. Pipeline header shows the compiler's `compiled_design_only` truth next to executable activities.
+Known, not fixed at the time (all three addressed in §0d): first **Setup runtime** took ~15 min on this Windows machine (pip unpacking under antivirus); only the output channel shows progress. React Flow minimap is light in dark theme. Pipeline header shows the compiler's `compiled_design_only` truth next to executable activities.
 
 The driver lives outside the repo (Playwright over CDP); if you repeat it, launch Code with `--folder-uri`, `--disable-features=CalculateNativeWinOcclusion --disable-backgrounding-occluded-windows`, and `window.dialogStyle: custom`, and use DOM clicks inside webviews.
 
-## 0e. Content tranche — Claude, 2026-09-24
+## 0f. Content tranche — Claude, 2026-09-24
 
 | Commit | Change |
 | --- | --- |
@@ -128,9 +181,9 @@ NOT exercised: a human F5 session clicking through the real webview inside VS Co
 
 1. Manual F5 pass over the new UI (see "NOT exercised" above), then decide on un-drafting PR #1. *(Done 2026-09-25; PR #1 merged.)*
 2. P2 content: promote exercises from `legacy-donors/leetcodedataeng`. The grader uses a single `input` fixture table per exercise (`content/exercise-packs/*/grading.server.json`); most donor SQL problems are multi-table, so either extend fixtures to named tables or re-author. Add each exercise to the runtime smoke with its reference solution.
-3. ~~A Mosaic "Import CSV into catalog" action~~ Done (§0b).
+3. ~~A Mosaic "Import CSV into catalog" action~~ Done (§0c).
 4. If wiring Pipeline dbt later: extend the trusted-local opt-in to dbt, validate the project path against the manifest `assets.dbt`, reuse `dbt_runner` artifact validation, never report success without a qualified manifest/run_results pair.
-5. ~~`package-lock.json` is not committed~~ Done: the lockfile is committed and CI uses `npm ci` (§0c).
+5. ~~`package-lock.json` is not committed~~ Done: the lockfile is committed and CI uses `npm ci` (§0d).
 
 ## 1. Start here
 
@@ -444,7 +497,7 @@ Proceed in this order unless a newly reproduced bug blocks the sequence.
 1. Branch from `main` for each tranche; merge back through a pull request.
 2. Keep CI green after every coherent tranche.
 3. Do not force-push or rewrite `main` history.
-4. For user-facing changes, repeat the manual F5 pass (see §0d) before merging.
+4. For user-facing changes, repeat the manual F5 pass (see §0e) before merging.
 
 Status after the 2026-09-24 Claude tranches: P1 trusted Python — done; P1 SparkLab — done; P1 E2E — done (`npm run test:host`); P2 pipeline dbt — decided: explicitly unsupported; P2 Mosaic durability — done; P2 content — donor Practice content promoted: `sql-lab-v1` (60), `engine-lab-v1` (68 variants), `python-lab-v1` (12); non-gradable donor tracks intentionally left to reference material. Manual F5 pass done on 2026-09-25 and PR #1 merged to `main`. Remaining: the known limitations listed in §0 and further content.
 

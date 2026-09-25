@@ -8,10 +8,14 @@ feed the virtual runtime model.
 from __future__ import annotations
 
 import ast
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import Any
 
-from .sparklab import DataFrame, Expr, GroupedData, SparkSession, Window, WindowSpec, functions as F
+from .notebook_utils import (DataFrameWriter, DbUtils, NotebookExit, NotebookUtils, _NotebookApi, _Widgets, no_op,
+                             parameters_cell_end)
+from .sparklab import DataFrame, Expr, GroupedData, ReadBuilder, SparkSession, Window, WindowSpec, functions as F
+
+NOTEBOOK_STYLES = ('fabric', 'synapse', 'databricks')
 
 
 class SparkLabSyntaxError(ValueError):
@@ -26,6 +30,16 @@ class ParseResult:
     action: str = 'notebook_preview'
 
 
+@dataclass
+class NotebookRun:
+    exited: bool = False
+    exit_value: str | None = None
+    dataframe: DataFrame | None = None
+    parameters_cell: bool = False
+    injected: dict[str, Any] = field(default_factory=dict)
+    notes: list[str] = field(default_factory=list)
+
+
 class SafeSparkParser:
     """Interpret a whitelisted PySpark-like AST without executing Python."""
 
@@ -37,6 +51,7 @@ class SafeSparkParser:
             "Window": Window,
         }
         self.last_dataframe_name: str | None = None
+        self.notebook_mode = False
 
     def parse(self, source: str) -> ParseResult:
         self.last_dataframe_name = None
@@ -55,6 +70,67 @@ class SafeSparkParser:
         if not isinstance(value, DataFrame):
             raise SparkLabSyntaxError("Final result is not a DataFrame")
         return ParseResult(value, dict(self.symbols), self.last_dataframe_name, self.action)
+
+    def run_notebook(self, source: str, parameters: dict[str, Any], style: str) -> NotebookRun:
+        """Run a pipeline notebook statement by statement, still without eval/exec.
+
+        The session's notebook runtime performs table writes, spark.sql statements
+        and count() as they are reached. Fabric and Synapse receive the pipeline
+        parameters as assignments injected after the parameters cell (or at the
+        top without one); Databricks reads them with dbutils.widgets.get.
+        """
+        if style not in NOTEBOOK_STYLES:
+            raise SparkLabSyntaxError(f"Unknown notebook style: {style}")
+        if self.spark.notebook_runtime is None:
+            raise SparkLabSyntaxError('Pipeline notebooks need a local notebook runtime')
+        try:
+            tree = ast.parse(source, mode="exec")
+        except SyntaxError as exc:
+            raise SparkLabSyntaxError(f"line {exc.lineno}: {exc.msg}") from exc
+        self.notebook_mode = True
+        self.last_dataframe_name = None
+        self.symbols.update({'display': self._display, 'print': no_op, 'str': str, 'int': int, 'float': float,
+                             'bool': bool})
+        if style == 'databricks':
+            self.symbols['dbutils'] = DbUtils(dict(parameters))
+        else:
+            self.symbols['notebookutils'] = self.symbols['mssparkutils'] = NotebookUtils()
+        run = NotebookRun()
+        cell_end = parameters_cell_end(source)
+        run.parameters_cell = cell_end is not None
+        pending = dict(parameters) if style != 'databricks' else {}
+        if pending and cell_end is None:
+            self._inject(pending, run)
+        for stmt in tree.body:
+            if pending and not run.injected and cell_end is not None and stmt.lineno >= cell_end:
+                self._inject(pending, run)
+            try:
+                self._stmt(stmt)
+            except NotebookExit as done:
+                run.exited, run.exit_value = True, done.value
+                break
+            except Exception as exc:  # SparkLab and catalog errors both stop the notebook at this line
+                raise SparkLabSyntaxError(f"line {stmt.lineno}: {exc}") from exc
+            target = stmt.targets[0].id if isinstance(stmt, ast.Assign) else None
+            if run.injected and target in run.injected:
+                where = ('there is no parameters cell, so the pipeline values were injected at the top'
+                         if cell_end is None else 'this line runs after the parameters cell')
+                run.notes.append(f"line {stmt.lineno}: '{target}' came from the pipeline but is reassigned here "
+                                 f"({where})")
+        if self.last_dataframe_name:
+            value = self.symbols.get(self.last_dataframe_name)
+            run.dataframe = value if isinstance(value, DataFrame) else None
+        return run
+
+    def _inject(self, parameters: dict[str, Any], run: NotebookRun) -> None:
+        for name, value in parameters.items():
+            if not isinstance(name, str) or not name.isidentifier() or name in {'spark', 'F', 'Window'}:
+                raise SparkLabSyntaxError(f"Notebook parameter name is not a Python identifier: {name!r}")
+            self.symbols[name] = value
+        run.injected = dict(parameters)
+
+    def _display(self, value: Any = None, *args: Any, **kwargs: Any) -> Any:
+        return value
 
     def _stmt(self, node: ast.stmt) -> None:
         if isinstance(node, (ast.Import, ast.ImportFrom)):
@@ -84,6 +160,16 @@ class SafeSparkParser:
         executed. Names are mapped to SparkLab's already-whitelisted objects.
         """
         allowed_modules = {"pyspark.sql", "pyspark.sql.functions", "pyspark.sql.window"}
+        if self.notebook_mode and isinstance(node, (ast.Import, ast.ImportFrom)):
+            # Fabric and Synapse notebooks often import their utilities; bind the lab objects instead.
+            names = [a.name for a in node.names] if isinstance(node, ast.Import) else [node.module or '']
+            if all(n in {'notebookutils', 'mssparkutils', 'notebookutils.mssparkutils'} for n in names):
+                for alias in node.names:
+                    target = alias.asname or alias.name.split('.')[-1]
+                    if alias.name not in {'notebookutils', 'mssparkutils'}:
+                        raise SparkLabSyntaxError(f"Unsupported notebook utility import: {alias.name}")
+                    self.symbols[target] = self.symbols.get('notebookutils') or NotebookUtils()
+                return
         if isinstance(node, ast.Import):
             for alias in node.names:
                 if alias.name not in allowed_modules:
@@ -126,6 +212,19 @@ class SafeSparkParser:
             return self.symbols[node.id]
         if isinstance(node, ast.Constant):
             return node.value
+        if isinstance(node, ast.JoinedStr) and self.notebook_mode:
+            parts = []
+            for value in node.values:
+                if isinstance(value, ast.Constant):
+                    parts.append(str(value.value))
+                    continue
+                if not isinstance(value, ast.FormattedValue) or value.format_spec is not None or value.conversion not in (-1, 115):
+                    raise SparkLabSyntaxError('f-strings may only insert plain {name} values')
+                inner = self._expr(value.value)
+                if inner is not None and not isinstance(inner, (str, int, float, bool)):
+                    raise SparkLabSyntaxError('f-strings may only insert text and numbers')
+                parts.append(str(inner))
+            return ''.join(parts)
         if isinstance(node, ast.Tuple):
             return tuple(self._expr(x) for x in node.elts)
         if isinstance(node, ast.List):
@@ -159,6 +258,8 @@ class SafeSparkParser:
             return fn(right)
         if isinstance(node, ast.BinOp):
             left, right = self._expr(node.left), self._expr(node.right)
+            if self.notebook_mode and not isinstance(left, Expr) and not isinstance(right, Expr):
+                return self._plain_binop(node.op, left, right)
             if not isinstance(left, Expr):
                 raise SparkLabSyntaxError("Binary expression left side must be a Spark expression")
             mapping = {
@@ -183,7 +284,43 @@ class SafeSparkParser:
             return ~value
         raise SparkLabSyntaxError(f"Unsupported expression: {type(node).__name__}")
 
+    @staticmethod
+    def _plain_binop(op: ast.operator, left: Any, right: Any) -> Any:
+        """Text and number arithmetic in pipeline notebooks (for example building a table name)."""
+        plain = (str, int, float)
+        if not isinstance(left, plain) or not isinstance(right, plain) or isinstance(left, bool) or isinstance(right, bool):
+            raise SparkLabSyntaxError('Only text and numbers can be combined outside Spark expressions')
+        if isinstance(op, ast.Add) and isinstance(left, str) == isinstance(right, str):
+            return left + right
+        if not isinstance(left, str) and not isinstance(right, str):
+            if isinstance(op, ast.Sub):
+                return left - right
+            if isinstance(op, ast.Mult):
+                return left * right
+            if isinstance(op, ast.Div) and right != 0:
+                return left / right
+        raise SparkLabSyntaxError(f"Unsupported operation {type(op).__name__} on {type(left).__name__} and "
+                                  f"{type(right).__name__}")
+
+    def _notebook_attribute(self, base: Any, attr: str) -> tuple[bool, Any]:
+        allowed: dict[type, set[str]] = {
+            SparkSession: {'sql'}, DataFrame: {'write', 'count'}, ReadBuilder: {'table'},
+            DataFrameWriter: {'mode', 'format', 'option', 'partitionBy', 'saveAsTable'},
+            NotebookUtils: {'notebook'}, _NotebookApi: {'exit', 'run'},
+            DbUtils: {'widgets', 'notebook'}, _Widgets: {'text', 'dropdown', 'get'},
+        }
+        for typ, names in allowed.items():
+            if isinstance(base, typ) and attr in names:
+                return True, getattr(base, attr)
+        if isinstance(base, (DataFrameWriter, NotebookUtils, _NotebookApi, DbUtils, _Widgets)):
+            raise SparkLabSyntaxError(f"Unsupported {type(base).__name__.lstrip('_')} attribute: {attr}")
+        return False, None
+
     def _attribute(self, base: Any, attr: str) -> Any:
+        if self.notebook_mode:
+            found, value = self._notebook_attribute(base, attr)
+            if found:
+                return value
         allowed_attrs = {
             SparkSession: {"table", "read"}, DataFrame: {
                 "filter", "where", "select", "withColumn", "withColumnRenamed", "drop", "dropDuplicates", "distinct",

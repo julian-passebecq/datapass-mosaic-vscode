@@ -1,0 +1,16 @@
+{
+  "name": "ds_sqlpool_gold",
+  "properties": {
+    "linkedServiceName": {
+      "referenceName": "ls_sqlpool",
+      "type": "LinkedServiceReference"
+    },
+    "annotations": [],
+    "type": "AzureSqlDWTable",
+    "schema": [],
+    "typeProperties": {
+      "schema": "gold",
+      "table": "revenue_by_segment"
+    }
+  }
+}
