@@ -109,6 +109,7 @@ class Engine:
                 {'id':'databricks','available':self.catalog.kind != 'sqlite','truth':'Databricks jobs, compute and Unity Catalog simulated; notebook and SQL tasks run on the local catalog'},
                 {'id':'sqlpool','available':self.catalog.kind != 'sqlite','truth':'T-SQL translated to DuckDB for a documented subset; distributions, partitions and data movement modelled'},
                 {'id':'warehouse','available':self.catalog.kind != 'sqlite','truth':'warehouse SQL runs on DuckDB; lineage is a static analysis of the SQL text; model checks are real queries'},
+                {'id':'dbt-project','available':self.catalog.kind != 'sqlite','truth':'Datapass dbt emulation: sandboxed Jinja, SQL runs on DuckDB; not dbt Core'},
             ],
             'session_generation': self.generation,
             'distributed_spark': False,
@@ -559,6 +560,12 @@ class Engine:
                 raise ValueError('The BI Lab needs DuckDB; the SQLite compatibility catalog cannot run it.')
             from bilab.lab import lab_view
             return lab_view(self.catalog, request['scripts'], request.get('model'), bool(request.get('run')))
+        if op == 'bi_dbt':
+            if self.catalog.kind == 'sqlite':
+                raise ValueError('The dbt emulation needs DuckDB; the SQLite compatibility catalog cannot run it.')
+            from dbtlab.lab import dbt_view
+            return dbt_view(self.catalog, request['files'], request['command'], request.get('select'),
+                            request.get('exclude'), bool(request.get('full_refresh')), request.get('vars'))
         if op == 'check':
             case = get_case(request['case_id'])
             return {step['id']:self.check(step.get('check')) for step in case['steps']}

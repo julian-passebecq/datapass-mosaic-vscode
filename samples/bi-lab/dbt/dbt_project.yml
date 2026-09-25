@@ -1,0 +1,26 @@
+# The BI Lab warehouse, the dbt way: staging views over the sources, an intermediate layer, and the star in marts.
+# Staging lands in silver and the marts in the warehouse layer, next to the SQL scripts' gold tables to compare.
+name: datapass_bi
+version: '1.0.0'
+config-version: 2
+profile: datapass_bi
+
+model-paths: [models]
+snapshot-paths: [snapshots]
+test-paths: [tests]
+macro-paths: [macros]
+
+vars:
+  # Incremental builds of the sales fact reprocess this many days before the latest loaded order date.
+  lookback_days: 7
+
+models:
+  datapass_bi:
+    staging:
+      +materialized: view
+      +schema: silver
+    intermediate:
+      +materialized: ephemeral
+    marts:
+      +materialized: table
+      +schema: warehouse

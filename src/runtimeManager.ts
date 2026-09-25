@@ -5,6 +5,7 @@ import * as path from "node:path";
 import * as vscode from "vscode";
 import type {
   AirflowScenarioInput,
+  BiDbtCommand,
   BiRunMode,
   CsvImportView,
   FactoryFlavor,
@@ -29,7 +30,7 @@ import type { FactoryFilesPayload } from "./factoryState";
 import { toSqlPoolView } from "./platform/sqlpoolRun";
 import { toDatabricksLabView, toDatabricksScenario, toDatabricksStateView } from "./platform/databricksRun";
 import type { DatabricksFilesPayload } from "./factoryState";
-import { toBiLabView } from "./platform/biRun";
+import { toBiDbtView, toBiLabView } from "./platform/biRun";
 
 const HOST = "127.0.0.1";
 // A cold start in a fresh managed venv (FastAPI, DuckDB, Polars, pandas; first
@@ -594,6 +595,34 @@ export class RuntimeManager implements vscode.Disposable {
       biRun
     });
     if (biRun.ran) await this.refreshCatalog();
+  }
+
+  /**
+   * BI Lab dbt tab: the Datapass dbt emulation runs the command on the local catalog (Jinja in a sandbox, SQL on
+   * DuckDB) and reports the nodes, the results and the column lineage of the models. It is not dbt Core.
+   */
+  async runBiDbt(request: { command: BiDbtCommand; select: string[]; selectText: string; fullRefresh: boolean;
+    files: Record<string, string>; warnings: string[] }): Promise<void> {
+    const url = this.state.status === "running" ? this.state.url : undefined;
+    if (!url) throw new Error("Start the Datapass runtime before running dbt.");
+    const raw = await requestJson<unknown>(
+      `${url}/api/local/bi/dbt`,
+      "POST",
+      { files: request.files, command: request.command, select: request.select, full_refresh: request.fullRefresh },
+      120000
+    );
+    const biDbtRun = toBiDbtView(raw, { command: request.command, select: request.selectText, warnings: request.warnings });
+    const counts = biDbtRun.counts ?? {};
+    this.setState({
+      ...this.state,
+      detail: biDbtRun.status === "invalid"
+        ? `dbt ${request.command} not run: ${biDbtRun.error ?? "invalid project"}`
+        : biDbtRun.status === "parsed"
+          ? `dbt project parsed: ${biDbtRun.nodes.length} nodes.`
+          : `dbt ${request.command} (Datapass emulation): ${Object.entries(counts).filter(([, n]) => n).map(([k, n]) => `${n} ${k}`).join(", ") || "nothing selected"}.`,
+      biDbtRun
+    });
+    if (biDbtRun.results.length) await this.refreshCatalog();
   }
 
   /**

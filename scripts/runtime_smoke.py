@@ -494,6 +494,47 @@ with TemporaryDirectory(prefix="datapass-bi-smoke-") as temp:
     assert not dml_view["issues"], dml_view["issues"]
     bi_catalog.close()
 
+# dbt emulation: sandboxed Jinja, real DuckDB SQL, dbt Core semantics (scripts/dbt_oracle_smoke.py compares them
+# with dbt Core when it is installed).
+def bi_dbt_files() -> dict:
+    folder = BI_SAMPLE / "dbt"
+    return {f.relative_to(folder).as_posix(): f.read_text(encoding="utf-8") for f in folder.rglob("*") if f.is_file()}
+
+
+with TemporaryDirectory(prefix="datapass-dbt-smoke-") as temp:
+    from datapass_runtime.catalog import Catalog
+    from bilab.script import run_script
+    from dbtlab.lab import dbt_view
+
+    assert resources.files("dbtlab").joinpath("README.md").is_file()
+    dbt_catalog = Catalog(Path(temp), "duckdb")
+    parsed = dbt_view(dbt_catalog, bi_dbt_files(), "parse", None, None, False, None)
+    assert parsed["status"] == "parsed" and len(parsed["nodes"]) == 32 and not parsed["project"]["issues"], parsed["project"]
+    missing = dbt_view(dbt_catalog, bi_dbt_files(), "build", ["stg_shop__orders"], None, False, None)
+    assert missing["run"]["results"][0]["status"] == "error" and "does not exist" in missing["run"]["results"][0]["message"]
+    run_script(dbt_catalog, (BI_SAMPLE / "warehouse" / "00_sources.sql").read_text(encoding="utf-8"), "smoke")
+    built = dbt_view(dbt_catalog, bi_dbt_files(), "build", None, None, False, None)
+    assert built["status"] == "success" and built["run"]["counts"]["success"] == 12 and built["run"]["counts"]["pass"] == 19, built["run"]["counts"]
+    assert "not dbt Core" in built["truth"]
+    dbt_columns = {(c["table"], c["column"]): c for c in built["lineage"]["columns"]}
+    assert dbt_columns[("warehouse.fct_sales", "net_amount")]["origins"] == [
+        "source.shop_order_lines.discount_amount", "source.shop_order_lines.quantity", "source.shop_order_lines.unit_price"]
+    incremental = dbt_view(dbt_catalog, bi_dbt_files(), "run", ["fct_sales"], None, False, None)
+    assert "{%" not in incremental["run"]["results"][0]["compiled"] and "where o.order_date >=" in incremental["run"]["results"][0]["compiled"]
+    # A ref reached only in incremental runs is refused, as dbt Core does, until the depends_on hint declares it.
+    without_hint = bi_dbt_files()
+    without_hint["models/marts/fct_sales.sql"] = without_hint["models/marts/fct_sales.sql"].replace("-- depends_on: {{ ref('dim_date') }}", "")
+    refused = dbt_view(dbt_catalog, without_hint, "run", ["fct_sales"], None, False, None)["run"]["results"][0]
+    assert refused["status"] == "error" and "depends_on: {{ ref('dim_date') }}" in refused["message"], refused["message"]
+    # The Jinja sandbox, packages and schemas outside the catalog layers.
+    base = {"dbt_project.yml": "name: p\nversion: '1.0.0'\nconfig-version: 2\nprofile: p\n"}
+    for sql, expected in [("select '{{ ''.__class__ }}' as x", "unsafe"), ("select {{ dbt_utils.star('x') }}", "Packages are not installed"),
+                          ("select {{ env_var('HOME') }}", "env_var"), ("{{ config(schema='gold') }} select 1 as x", "generate_schema_name")]:
+        outcome = dbt_view(dbt_catalog, {**base, "models/m.sql": sql}, "run", None, None, False, None)["run"]["results"][0]
+        assert outcome["status"] == "error" and expected in outcome["message"], (sql, outcome["message"])
+    assert dbt_view(dbt_catalog, {"models/m.sql": "select 1"}, "run", None, None, False, None)["status"] == "invalid"
+    dbt_catalog.close()
+
 # Databricks Lab: jobs orchestrated on a logical clock; notebook and SQL tasks run on the catalog under Unity Catalog.
 from databrickslab.compute import load_compute
 from databrickslab.engine import JobScenario, simulate_job
@@ -931,6 +972,15 @@ with TemporaryDirectory(prefix="datapass-csv-import-smoke-") as temp:
                         {"scripts": [], "run": "yes"}, {"scripts": [], "extra": 1}):
                 assert client.post("/api/local/bi/lab", json=bad).status_code == 422, bad
             assert capabilities()["bi_lab"]["power_bi"] is False
+            # BI Lab dbt tab: the emulation runs on the workspace catalog (the warehouse sources were built above).
+            dbt_run = client.post("/api/local/bi/dbt", json={"files": bi_dbt_files(), "command": "build", "select": ["+fct_sales"]})
+            assert dbt_run.status_code == 200, dbt_run.text
+            dbt_run = dbt_run.json()
+            assert dbt_run["status"] == "success" and dbt_run["run"]["counts"]["error"] == 0, dbt_run["run"]["counts"]
+            for bad in ({"files": {"../x.sql": "select 1"}}, {"files": {}, "select": ["--vars"]}, {"files": {}, "command": "deps"},
+                        {"files": {}, "extra": True}):
+                assert client.post("/api/local/bi/dbt", json=bad).status_code == 422, bad
+            assert "not dbt Core" in capabilities()["bi_lab"]["dbt"]
             # Databricks Lab: the route runs a job on the workspace catalog; the state route shows UC and MLflow.
             dbx = client.post("/api/local/databricks/run", json={"name": "retail_daily_dbx", "document": databricks_job("retail_daily_dbx"),
                                                                  "files": databricks_files(), "data_plane": "local"})

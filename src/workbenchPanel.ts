@@ -1,7 +1,7 @@
 import * as vscode from "vscode";
 import { AIRFLOW_STARTER_FILE, airflowPaths } from "./airflowState";
-import { biFileUri, biRoot, collectBiScripts, copyBiSamples, readBiModel } from "./biState";
-import { BI_LIMITS, BI_MODEL_FILE } from "./platform/biRun";
+import { biFileUri, biRoot, collectBiDbtFiles, collectBiScripts, copyBiSamples, readBiModel } from "./biState";
+import { BI_LIMITS, BI_MODEL_FILE, DBT_COMMANDS, parseSelect } from "./platform/biRun";
 import { loadExerciseCatalog } from "./exerciseCatalog";
 import { decodeCsvBytes, suggestBronzeAsset, validateBronzeAsset } from "./platform/csvImport";
 import {
@@ -30,6 +30,7 @@ import { collectWorkbenchState } from "./workbenchState";
 import { contentSecurityPolicy, makeNonce } from "./webview/security";
 import type {
   AirflowScenarioInput,
+  BiDbtCommand,
   BiRunMode,
   FactoryFlavor,
   FactoryScenarioInput,
@@ -263,6 +264,9 @@ export class WorkbenchPanel {
         break;
       case "revealBiLine":
         await this.revealBiLine(message.path, message.line);
+        break;
+      case "runBiDbt":
+        await this.runBiDbt(message.command, message.select, message.fullRefresh);
         break;
       case "openDbtProject":
         await this.openDbtProject();
@@ -1011,6 +1015,33 @@ export class WorkbenchPanel {
     await this.refresh();
   }
 
+  /** BI Lab dbt tab: run a dbt command on bi/dbt with the Datapass dbt emulation (never dbt Core, never a shell). */
+  private async runBiDbt(command: BiDbtCommand, selectText: string, fullRefresh: boolean): Promise<void> {
+    if (![...DBT_COMMANDS, "parse"].includes(command)) return;
+    const parsed = parseSelect(typeof selectText === "string" ? selectText : "");
+    if (parsed.error) {
+      void vscode.window.showWarningMessage(parsed.error);
+      return;
+    }
+    const root = biRoot();
+    if (root) {
+      for (const document of vscode.workspace.textDocuments) {
+        if (document.isDirty && document.uri.toString().startsWith(root.toString() + "/")) await document.save();
+      }
+    }
+    const { files, warnings } = await collectBiDbtFiles();
+    if (!("dbt_project.yml" in files)) {
+      void vscode.window.showWarningMessage("No dbt project in bi/dbt. Create the BI Lab files first.");
+      return;
+    }
+    try {
+      await this.runtimeManager.runBiDbt({ command, select: parsed.selectors, selectText, fullRefresh: fullRefresh === true, files, warnings });
+    } catch (error) {
+      void vscode.window.showErrorMessage(`dbt run failed: ${error instanceof Error ? error.message : String(error)}`);
+    }
+    await this.refresh();
+  }
+
   private async revealBiLine(relative: string, line: number): Promise<void> {
     if (!Number.isInteger(line) || line < 1) return;
     const uri = biFileUri(relative) ?? (this.lastBiActiveFile && vscode.workspace.asRelativePath(this.lastBiActiveFile, false)
@@ -1151,6 +1182,7 @@ function extensionFor(language: string): string {
     case "sqlpool":
     case "databricks-grants":
     case "warehouse":
+    case "dbt-sql":
       return "sql";
     case "python":
     case "pandas":
@@ -1169,6 +1201,7 @@ function extensionFor(language: string): string {
       return "ps1";
     case "yaml":
     case "yml":
+    case "dbt-yml":
       return "yml";
     default:
       return "txt";

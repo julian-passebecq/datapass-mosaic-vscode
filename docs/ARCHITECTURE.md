@@ -103,6 +103,22 @@ The **BI Lab** module (`bi`, `runtime/bilab`, README there) teaches data warehou
 - Practice languages `warehouse` (a SQL script) and `bi-model` (a model file) grade on an isolated temporary catalog
   (`datapass_runtime/warehouse_grading.py`), with outcomes result, table, checks, relationships, lineage and impact.
 
+The BI Lab's **dbt** tab runs `bi/dbt/` with the Datapass dbt emulation (`runtime/dbtlab`, README there):
+
+- `project.py` reads `dbt_project.yml`, property files, sources, models, seeds, snapshots, tests and macros, and
+  renders every node once in parse mode (is_incremental() false) to find its refs and sources, as dbt parses.
+- `render.py` renders project Jinja in jinja2's `SandboxedEnvironment` with a dbt context (ref, source, config, var,
+  this, is_incremental, target, macros); packages, env_var, run_query and adapter calls fail explicitly.
+- `engine.py` compiles (ephemeral CTE injection) and runs build/run/test/seed/snapshot with dbt-duckdb's
+  materializations (view, table, incremental with delete+insert, append or merge, ephemeral), seeds, snapshots
+  (timestamp and check, hard deletes, dbt_valid_to_current), generic and singular tests, selection and dbt build's
+  test gating, on the shared catalog.
+- `lab.py` adds the column lineage of the compiled models through `bilab.lineage`; the route is
+  `POST /api/local/bi/dbt` (kernel op `bi_dbt`). Practice languages `dbt-sql` and `dbt-yml` grade one project
+  file on an isolated catalog (`datapass_runtime/dbt_project_grading.py`).
+- `scripts/dbt_oracle_smoke.py` runs the same projects through real dbt Core + dbt-duckdb and compares node
+  statuses and every table; `scripts/authoring/gen_dbt.py` cross-checks each exercise fixture the same way.
+
 The **Lakehouse and notebooks** tab keeps the original workflow of lakehouse + notebook + pipeline, reproduced locally:
 
 - Fabric-inspired notebook surface.

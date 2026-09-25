@@ -1,0 +1,10 @@
+{
+  "schema_version": 1,
+  "id": "dbt-v1",
+  "version": "1",
+  "title": "BI Lab: dbt (models, tests, incremental models, snapshots) on the Datapass dbt emulation",
+  "enabled": true,
+  "provenance": {
+    "source": "Authored for Datapass Workbench"
+  }
+}

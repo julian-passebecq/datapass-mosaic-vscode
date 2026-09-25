@@ -43,7 +43,8 @@ SCENARIO_LANGUAGES = {'airflow': 'datapass-airflow-sim-v1', 'factory': 'datapass
                       'factory-notebook': 'datapass-factory-sim-v1', 'sqlpool': 'datapass-sqlpool-sim-v1',
                       'databricks-job': 'datapass-databricks-sim-v1', 'databricks-notebook': 'datapass-databricks-sim-v1',
                       'databricks-grants': 'datapass-databricks-sim-v1',
-                      'warehouse': 'datapass-warehouse-v1', 'bi-model': 'datapass-warehouse-v1'}
+                      'warehouse': 'datapass-warehouse-v1', 'bi-model': 'datapass-warehouse-v1',
+                      'dbt-sql': 'datapass-dbt-emulation-v1', 'dbt-yml': 'datapass-dbt-emulation-v1'}
 
 
 def _check_factory_scenario(definition, raw):
@@ -105,6 +106,17 @@ def _check_warehouse_scenario(definition, raw):
             raise ValueError('Fixture values must be finite JSON scalars: '+definition.id)
 
 
+def _check_dbt_scenario(definition, raw):
+    from dbtlab.exercise import DbtScenario
+    scenario = DbtScenario.model_validate(raw)
+    if not scenario.file.endswith('.sql' if definition.language == 'dbt-sql' else '.yml'):
+        raise ValueError(f'A {definition.language} fixture puts the learner\'s file at a matching path: ' + definition.id)
+    tables = [*scenario.tables, *(t for step in scenario.runs for t in step.tables)]
+    for table in tables:
+        if any(not COLUMN_TYPE.fullmatch(t) for t in table.types.values()):
+            raise ValueError('Unsupported fixture column type in '+definition.id)
+
+
 class GradingDefinition(Contract):
     solution: str
     fixtures: list[Fixture]
@@ -132,7 +144,7 @@ class PackRegistry:
                 raise ValueError('Canonical topic must belong to exercise topics')
             if definition.language not in {'sql','python','polars','sparklab','dbt','airflow','factory','factory-notebook','sqlpool',
                                            'databricks-job','databricks-notebook','databricks-grants',
-                                           'warehouse','bi-model'}:
+                                           'warehouse','bi-model','dbt-sql','dbt-yml'}:
                 raise ValueError('No grading adapter for '+definition.language)
             private = GradingDefinition.model_validate(grading[definition.id])
             refs = {'visible': [c.id for c in definition.visible_checks], 'hidden': definition.hidden_check_refs, 'edge': definition.edge_check_refs}
@@ -188,6 +200,8 @@ class PackRegistry:
                         _check_databricks_scenario(definition, fixture.scenario)
                     elif definition.language in ('warehouse', 'bi-model'):
                         _check_warehouse_scenario(definition, fixture.scenario)
+                    elif definition.language in ('dbt-sql', 'dbt-yml'):
+                        _check_dbt_scenario(definition, fixture.scenario)
                     else:
                         _check_factory_scenario(definition, fixture.scenario)
             for fixture in private.fixtures:

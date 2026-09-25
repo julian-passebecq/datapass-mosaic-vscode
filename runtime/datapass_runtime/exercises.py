@@ -93,6 +93,9 @@ def grade(engine, request):
     if spec.runtime == 'datapass-warehouse-v1':
         from .warehouse_grading import grade_warehouse
         return grade_warehouse(engine, request, spec, private)
+    if spec.runtime == 'datapass-dbt-emulation-v1':
+        from .dbt_project_grading import grade_dbt_project
+        return grade_dbt_project(engine, request, spec, private)
     fixtures = [f for f in private.fixtures if request['mode'] == 'submit' or f.visibility == 'visible']
     evidence, runs = [], []
     plan = spec.spark_plan if spec.language == 'sparklab' else None

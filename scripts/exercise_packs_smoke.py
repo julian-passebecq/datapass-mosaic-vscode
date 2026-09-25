@@ -33,6 +33,9 @@ PLAN_ONLY_STARTERS = {
     "spark-coalesce-output-partitions", "spark-one-pass-aggregation", "spark-broadcast-dimension",
     "spark-remove-random-repartition", "spark-window-instead-of-self-join",
 }
+# Packs whose wrong answers may fail to build: a dbt model that does not compile or reads a relation that
+# was never built is the outcome the lesson is about (dbt's own error), not a typo in the starter or mutant.
+BUILD_ERRORS_ARE_ANSWERS = {"dbt-v1"}
 # Starters whose lesson is that the platform refuses them (a Synapse table script
 # run on Fabric Warehouse): they must fail, with the platform's error.
 STARTERS_REFUSED_BY_DESIGN = {"sp-fabric-port"}
@@ -833,6 +836,52 @@ MUTANTS: dict[str, list[str]] = {
         '{\n  "name": "account_fees",\n  "tables": [\n    {\n      "name": "gold.fct_account_fees",\n      "role": "fact",\n      "grain": [\n        "account_key",\n        "month_start"\n      ]\n    },\n    {\n      "name": "gold.dim_account",\n      "role": "dimension",\n      "key": "account_key"\n    },\n    {\n      "name": "gold.dim_customer",\n      "role": "dimension",\n      "key": "customer_key"\n    },\n    {\n      "name": "gold.bridge_account_holder",\n      "role": "fact",\n      "grain": [\n        "account_key",\n        "customer_key"\n      ]\n    }\n  ],\n  "relationships": [\n    {\n      "from": "gold.fct_account_fees.account_key",\n      "to": "gold.dim_account.account_key",\n      "cardinality": "many-to-one",\n      "cross_filter": "single",\n      "active": true\n    },\n    {\n      "from": "gold.bridge_account_holder.account_key",\n      "to": "gold.dim_account.account_key",\n      "cardinality": "many-to-one",\n      "cross_filter": "both",\n      "active": true\n    },\n    {\n      "from": "gold.bridge_account_holder.customer_key",\n      "to": "gold.dim_customer.customer_key",\n      "cardinality": "many-to-one",\n      "cross_filter": "single",\n      "active": true\n    }\n  ]\n}\n',
         '{\n  "name": "account_fees",\n  "tables": [\n    {\n      "name": "gold.fct_account_fees",\n      "role": "fact",\n      "grain": [\n        "account_key",\n        "month_start"\n      ]\n    },\n    {\n      "name": "gold.dim_account",\n      "role": "dimension",\n      "key": "account_key"\n    },\n    {\n      "name": "gold.dim_customer",\n      "role": "dimension",\n      "key": "customer_key"\n    },\n    {\n      "name": "gold.bridge_account_holder",\n      "role": "bridge",\n      "grain": [\n        "account_key",\n        "customer_key"\n      ]\n    }\n  ],\n  "relationships": [\n    {\n      "from": "gold.fct_account_fees.account_key",\n      "to": "gold.dim_account.account_key",\n      "cardinality": "many-to-one",\n      "cross_filter": "single",\n      "active": true\n    },\n    {\n      "from": "gold.bridge_account_holder.account_key",\n      "to": "gold.dim_account.account_key",\n      "cardinality": "many-to-one",\n      "cross_filter": "both",\n      "active": true\n    },\n    {\n      "from": "gold.bridge_account_holder.customer_key",\n      "to": "gold.dim_customer.customer_key",\n      "cardinality": "many-to-one",\n      "cross_filter": "both",\n      "active": true\n    }\n  ]\n}\n',
     ],
+    # --- dbt-v1: BI Lab dbt projects on the Datapass dbt emulation ---
+    'dbt-ref-builds-the-dag': [
+        "select order_date, count(*) as orders, sum(amount) as revenue\nfrom {{ source('shop', 'orders') }}\ngroup by order_date\n",
+    ],
+    'dbt-staging-model': [
+        "select\n    order_id,\n    customer_id,\n    lower(status) as status,\n    amount_cents / 100.0 as amount,\n    cast(ordered_at as date) as order_date\nfrom {{ source('shop', 'orders') }}\n",
+        "select\n    order_id,\n    customer_id,\n    status as status,\n    amount_cents / 100 as amount,\n    cast(ordered_at as date) as order_date\nfrom {{ source('shop', 'orders') }}\nwhere not is_test\n",
+    ],
+    'dbt-generic-tests': [
+        "version: 2\nmodels:\n  - name: fct_orders\n    columns:\n      - name: order_id\n        data_tests: [not_null]\n      - name: customer_id\n        data_tests:\n          - not_null\n          - relationships:\n              arguments:\n                to: ref('dim_customers')\n                field: customer_id\n      - name: status\n        data_tests:\n          - accepted_values:\n              arguments:\n                values: ['placed', 'shipped', 'returned']\n",
+        "version: 2\nmodels:\n  - name: fct_orders\n    columns:\n      - name: order_id\n        data_tests: [unique, not_null]\n      - name: customer_id\n        data_tests:\n          - not_null\n          - relationships:\n              arguments:\n                to: ref('fct_orders')\n                field: customer_id\n      - name: status\n        data_tests:\n          - accepted_values:\n              arguments:\n                values: ['placed', 'shipped', 'returned']\n",
+        "version: 2\nmodels:\n  - name: fct_orders\n    columns:\n      - name: order_id\n        data_tests: [unique, not_null]\n      - name: customer_id\n        data_tests:\n          - not_null\n          - relationships:\n              arguments:\n                to: ref('dim_customers')\n                field: customer_id\n      - name: status\n        data_tests:\n          - accepted_values:\n              arguments:\n                values: ['placed', 'shipped', 'returned', 'lost']\n",
+    ],
+    'dbt-singular-test': [
+        "-- Orders whose total differs from the sum of their lines.\nselect o.order_id, o.amount_cents, coalesce(sum(l.amount_cents), 0) as lines_cents\nfrom {{ source('shop', 'orders') }} as o\njoin {{ source('shop', 'order_lines') }} as l on l.order_id = o.order_id\nwhere not o.is_test\ngroup by o.order_id, o.amount_cents\nhaving o.amount_cents <> coalesce(sum(l.amount_cents), 0)\n",
+        "-- Orders whose total differs from the sum of their lines.\nselect o.order_id, o.amount_cents, coalesce(sum(l.amount_cents), 0) as lines_cents\nfrom {{ source('shop', 'orders') }} as o\nleft join {{ source('shop', 'order_lines') }} as l on l.order_id = o.order_id\ngroup by o.order_id, o.amount_cents\nhaving o.amount_cents <> coalesce(sum(l.amount_cents), 0)\n",
+    ],
+    'dbt-test-severity-where': [
+        'version: 2\nmodels:\n  - name: stg_orders\n    columns:\n      - name: order_id\n        data_tests: [not_null]\n      - name: status\n        data_tests:\n          - accepted_values:\n              arguments:\n                values: [\'placed\', \'shipped\', \'returned\']\n      - name: amount\n        data_tests:\n          - not_null:\n              config:\n                where: "order_date >= \'2026-01-01\'"\n',
+        "version: 2\nmodels:\n  - name: stg_orders\n    columns:\n      - name: order_id\n        data_tests: [not_null]\n      - name: status\n        data_tests:\n          - accepted_values:\n              arguments:\n                values: ['placed', 'shipped', 'returned']\n              config:\n                severity: warn\n      - name: amount\n        data_tests:\n          - not_null\n",
+    ],
+    'dbt-incremental-append': [
+        "{{ config(materialized='incremental') }}\nselect event_id, customer_id, event_type, occurred_at\nfrom {{ source('shop', 'events') }}\n{% if is_incremental() %}\nwhere event_id >= (select max(event_id) from {{ this }})\n{% endif %}\n",
+    ],
+    'dbt-incremental-unique-key': [
+        "{{ config(materialized='incremental', unique_key='order_id') }}\nselect order_id, status, updated_at\nfrom {{ source('shop', 'orders') }}\n{% if is_incremental() %}\nwhere updated_at < (select max(updated_at) from {{ this }})\n{% endif %}\n",
+        "{{ config(materialized='incremental', incremental_strategy='append') }}\nselect order_id, status, updated_at\nfrom {{ source('shop', 'orders') }}\n{% if is_incremental() %}\nwhere updated_at > (select max(updated_at) from {{ this }})\n{% endif %}\n",
+    ],
+    'dbt-snapshot-timestamp': [
+        "{% snapshot customers_snapshot %}\n{{\n    config(\n        target_schema='silver',\n        unique_key='city',\n        strategy='timestamp',\n        updated_at='updated_at'\n    )\n}}\nselect customer_id, city, segment, updated_at from {{ source('crm', 'customers') }}\n{% endsnapshot %}\n",
+        "{% snapshot customers_snapshot %}\n{{\n    config(\n        target_schema='silver',\n        unique_key='customer_id',\n        strategy='check',\n        check_cols=['city', 'segment']\n    )\n}}\nselect customer_id, city, segment, updated_at from {{ source('crm', 'customers') }}\n{% endsnapshot %}\n",
+    ],
+    'dbt-snapshot-check-deletes': [
+        "{% snapshot segments_snapshot %}\n{{\n    config(\n        target_schema='silver',\n        unique_key='customer_id',\n        strategy='check',\n        check_cols=['segment']\n    )\n}}\nselect customer_id, segment from {{ source('crm', 'customers') }}\n{% endsnapshot %}\n",
+        "{% snapshot segments_snapshot %}\n{{\n    config(\n        target_schema='silver',\n        unique_key='customer_id',\n        strategy='check',\n        check_cols=['customer_id'],\n        hard_deletes='invalidate'\n    )\n}}\nselect customer_id, segment from {{ source('crm', 'customers') }}\n{% endsnapshot %}\n",
+    ],
+    'dbt-dim-from-snapshot': [
+        "select\n    md5(customer_id || '|' || cast(dbt_valid_from as varchar)) as customer_key,\n    customer_id,\n    city,\n    segment,\n    cast(dbt_valid_from as date) as valid_from,\n    cast(dbt_valid_to as date) as valid_to,\n    dbt_valid_to is null as is_current\nfrom {{ ref('customers_snapshot') }}\n",
+        "select\n    md5(customer_id) as customer_key,\n    customer_id,\n    city,\n    segment,\n    cast(dbt_valid_from as date) as valid_from,\n    coalesce(cast(dbt_valid_to as date), date '9999-12-31') as valid_to,\n    dbt_valid_to is null as is_current\nfrom {{ ref('customers_snapshot') }}\n",
+    ],
+    'dbt-generate-schema-name': [
+        '{% macro generate_schema_name(custom_schema_name, node) -%}\n    {%- if custom_schema_name is none -%}\n        {{ target.schema }}\n    {%- else -%}\n        {{ target.schema }}\n    {%- endif -%}\n{%- endmacro %}\n',
+    ],
+    'dbt-conditional-ref': [
+        "-- depends_on: order_cutoff\n{{ config(materialized='incremental', unique_key='order_id') }}\nselect order_id, status, amount, order_date\nfrom {{ ref('stg_orders') }}\n{% if is_incremental() %}\nwhere order_date >= (select last_order_date - 1 from {{ ref('order_cutoff') }})\n{% endif %}\n",
+    ],
 }
 
 
@@ -897,7 +946,7 @@ def main() -> None:
                     graded = grade(manager, workspace, spec, mutant)
                     if graded["status"] == "passed":
                         failures.append(f"{spec['id']}: mutant #{index} passed; fixtures do not discriminate it")
-                    elif any(check["execution_status"] != "success" for check in graded["checks"]):
+                    elif any(check["execution_status"] != "success" for check in graded["checks"])                             and spec.get("pack", {}).get("id") not in BUILD_ERRORS_ARE_ANSWERS:
                         # A mutant must be a runnable wrong answer, not a typo that errors.
                         failures.append(f"{spec['id']}: mutant #{index} does not execute ({summary(graded)})")
         finally:

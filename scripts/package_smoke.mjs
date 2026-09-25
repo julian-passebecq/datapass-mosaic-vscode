@@ -21,6 +21,9 @@ const required = [
   "runtime/databrickslab/README.md",
   "runtime/bilab/lineage.py",
   "runtime/bilab/README.md",
+  "runtime/dbtlab/engine.py",
+  "runtime/dbtlab/README.md",
+  "content/exercise-packs/dbt-v1/grading.server.json",
   "content/exercise-packs/dwh-v1/grading.server.json",
   "content/exercise-packs/sqlpool-v1/grading.server.json",
   "content/exercise-packs/airflow-lab-v1/grading.server.json",
@@ -30,7 +33,9 @@ const required = [
   "samples/factory-lab/sql/pool/01_star_schema.sql",
   "samples/factory-lab/databricks/jobs/retail_daily_dbx.json",
   "samples/bi-lab/model.json",
-  "samples/bi-lab/warehouse/05_fct_sales.sql"
+  "samples/bi-lab/warehouse/05_fct_sales.sql",
+  "samples/bi-lab/dbt/dbt_project.yml",
+  "samples/bi-lab/dbt/models/marts/fct_sales.sql"
 ];
 
 for (const path of required) {

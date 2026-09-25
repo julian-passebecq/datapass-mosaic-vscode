@@ -1154,3 +1154,9 @@ h2 { margin-bottom: 8px; font-size: 28px; }
 .bi-column-detail { display: grid; grid-template-columns: minmax(0, 2fr) minmax(220px, 1fr); gap: 12px; align-items: start; }
 .bi-side { display: grid; gap: 6px; font-size: 12px; }
 @media (max-width: 760px) { .bi-column-detail { grid-template-columns: minmax(0, 1fr); } }
+.bi-select { min-width: 260px; padding: 3px 6px; border: 1px solid var(--vscode-input-border, var(--vscode-panel-border)); background: var(--vscode-input-background); color: var(--vscode-input-foreground); border-radius: 4px; }
+.bi-check { display: inline-flex; align-items: center; gap: 4px; font-size: 11px; color: var(--vscode-descriptionForeground); }
+.bi-dbt-success, .bi-dbt-pass { color: var(--vscode-charts-green, #2e7d32); }
+.bi-dbt-fail, .bi-dbt-error { color: var(--vscode-errorForeground); font-weight: 600; }
+.bi-dbt-warn { color: var(--vscode-editorWarning-foreground); font-weight: 600; }
+.bi-dbt-skipped { color: var(--vscode-descriptionForeground); }

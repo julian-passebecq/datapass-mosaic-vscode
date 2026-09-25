@@ -36,7 +36,7 @@ Never blur real execution and simulation.
 - Mosaic Python/Polars: real local execution only when explicitly trusted local Python is enabled.
 - Practice: native VS Code solution files with real local grading through the shared runtime.
 - Cloud Lab (module id `fabric`, formerly Fabric Lab): Fabric-inspired UX; local DuckDB/DuckLake and selected real-local operations; no implicit Microsoft Fabric, Azure or Databricks connection. Its Pipelines tab (`runtime/factorylab`) reads real Fabric / Azure Data Factory / Synapse pipeline JSON and simulates the orchestration deterministically (dependency conditions, leaf rule, retries, containers, expressions); Copy, Lookup, Script, stored procedures and notebooks run on the local catalog, notebooks through SparkLab's whitelisted AST interpreter (NEVER eval/exec'd); every other activity follows the scenario. Its SQL pool tab (`runtime/sqlpoollab`) translates a documented T-SQL subset to DuckDB and really runs the data statements on the local catalog; distributions, partitions, columnstore rowgroups and data movement plans are modelled teaching data, not Synapse or Fabric telemetry. Its Databricks tab (`runtime/databrickslab`) reads Jobs API JSON and simulates the orchestration (run_if, If/else, for each, retries, task values) and the compute and its cost (lab DBU figures); notebook tasks run on SparkLab (NEVER eval/exec'd, including the bounded pyspark.ml and MLflow subset) and SQL tasks on DuckDB, both under Unity Catalog privilege checks for the job's run_as principal.
-- BI Lab (module id `bi`, `runtime/bilab`): warehouse SQL scripts really run on the local DuckDB catalog; column lineage and impact are a static analysis of the SQL text (sqlglot), never execution; star model checks (keys, grain, SCD2 validity, relationships) are real queries. The star model file is Datapass's own format with Power BI's relationship vocabulary; there is no Power BI or DAX engine and no connection to one.
+- BI Lab (module id `bi`, `runtime/bilab`): warehouse SQL scripts really run on the local DuckDB catalog; column lineage and impact are a static analysis of the SQL text (sqlglot), never execution; star model checks (keys, grain, SCD2 validity, relationships) are real queries. The star model file is Datapass's own format with Power BI's relationship vocabulary; there is no Power BI or DAX engine and no connection to one. Its dbt tab and the `dbt-v1` Practice pack use the Datapass dbt emulation (`runtime/dbtlab`): project Jinja is rendered in jinja2's sandbox and NEVER executed as Python, the compiled SQL really runs on DuckDB, and dbt Core + dbt-duckdb semantics are reproduced for a documented subset and checked with `scripts/dbt_oracle_smoke.py` against real dbt Core. It is labelled "not dbt Core"; packages, Python models, hooks and adapter calls are refused, not approximated.
 - SparkLab/ZilaCode: bounded PySpark-style semantics; distributed Spark behavior and telemetry are simulated/teaching data.
 - dbt Lab: prefer real dbt Core + dbt-duckdb; static lineage is a fallback, not execution.
 - Airflow Lab: deterministic scheduling simulator; it is not an Airflow scheduler/executor. Airflow DAG files (the Airflow Lab panel and Practice `airflow` exercises) are parsed by a whitelisted AST reader (`runtime/airflowlab`) and NEVER eval/exec'd; scheduler and task outcomes are simulated with Airflow 3 semantics.
@@ -74,9 +74,10 @@ npm install --no-audit --no-fund
 npm run compile
 npm test
 python -m pip install ./runtime
-python -m compileall -q runtime/datapass_runtime runtime/sparklab runtime/airflowlab runtime/factorylab runtime/sqlpoollab runtime/databrickslab runtime/bilab
+python -m compileall -q runtime/datapass_runtime runtime/sparklab runtime/airflowlab runtime/factorylab runtime/sqlpoollab runtime/databrickslab runtime/bilab runtime/dbtlab
 python scripts/runtime_smoke.py
 python scripts/exercise_packs_smoke.py
+DATAPASS_DBT_PYTHON=<python with dbt-core + dbt-duckdb> python scripts/dbt_oracle_smoke.py   # when changing runtime/dbtlab
 npm run test:host   # with DATAPASS_E2E_PYTHON set; see docs/LOCAL_TEST.md
 ```
 

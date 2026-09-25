@@ -1,18 +1,20 @@
 import { Badge, Button, Tab, TabList, Text } from "@fluentui/react-components";
 import { useMemo, useState } from "react";
-import type { BiCheckView, BiLabView, BiLineageView, BiViewState, RuntimeViewState } from "./contracts";
+import type { BiCheckView, BiDbtCommand, BiDbtView, BiLabView, BiLineageView, BiViewState, RuntimeViewState } from "./contracts";
 import { SharedGraphCanvas } from "./SharedGraphCanvas";
 import type { VsCodeApi } from "./WorkbenchApp";
 import {
   BI_MODEL_FILE,
+  DBT_COMMANDS,
   checkCounts,
+  dbtGraph,
   columnLineageGraph,
   influenceOf,
   starGraph,
   tableLineageGraph
 } from "../platform/biRun";
 
-type BiTab = "warehouse" | "model" | "lineage" | "concepts";
+type BiTab = "warehouse" | "model" | "lineage" | "dbt" | "concepts";
 
 /** BI Lab: a local data warehouse to learn dimensional modeling, SCD, SQL lineage and star models. */
 export function BiSurface({ vscode, bi, runtime }: { vscode: VsCodeApi; bi: BiViewState | undefined; runtime: RuntimeViewState }) {
@@ -27,9 +29,10 @@ export function BiSurface({ vscode, bi, runtime }: { vscode: VsCodeApi; bi: BiVi
         <Tab value="warehouse">Warehouse</Tab>
         <Tab value="model">Star model</Tab>
         <Tab value="lineage">Lineage</Tab>
+        <Tab value="dbt">dbt</Tab>
         <Tab value="concepts">Concepts</Tab>
       </TabList>
-      {tab !== "concepts" && (
+      {tab !== "concepts" && tab !== "dbt" && (
         !bi?.exists ? (
           <div className="factory-empty">
             <Text weight="semibold">Create the BI Lab files</Text>
@@ -64,11 +67,12 @@ export function BiSurface({ vscode, bi, runtime }: { vscode: VsCodeApi; bi: BiVi
           </div>
         )
       )}
-      {tab !== "concepts" && !running && bi?.exists && <p className="factory-note">Start the runtime to build and analyze the warehouse.</p>}
+      {tab !== "concepts" && tab !== "dbt" && !running && bi?.exists && <p className="factory-note">Start the runtime to build and analyze the warehouse.</p>}
       {tab !== "concepts" && bi?.warnings.map(warning => <p key={warning} className="factory-warning">{warning}</p>)}
       {tab === "warehouse" && bi?.exists && <WarehouseTab bi={bi} lab={lab} vscode={vscode} />}
       {tab === "model" && bi?.exists && <ModelTab bi={bi} lab={lab} vscode={vscode} />}
       {tab === "lineage" && bi?.exists && <LineageTab lab={lab} vscode={vscode} />}
+      {tab === "dbt" && <DbtTab bi={bi} run={runtime.biDbtRun} running={running} vscode={vscode} />}
       {tab === "concepts" && <ConceptsTab vscode={vscode} />}
     </div>
   );
@@ -378,6 +382,145 @@ function ResultTable({ columns, rows }: { columns: readonly string[]; rows: read
           ))}
         </tbody>
       </table>
+    </div>
+  );
+}
+
+const DBT_BADGE: Record<string, "success" | "danger" | "warning" | "informative"> = {
+  success: "success", pass: "success", warn: "warning", fail: "danger", error: "danger", skipped: "informative"
+};
+
+function DbtTab({ bi, run, running, vscode }: { bi: BiViewState | undefined; run: BiDbtView | undefined; running: boolean; vscode: VsCodeApi }) {
+  const [command, setCommand] = useState<BiDbtCommand>(run?.command === "parse" || !run ? "build" : run.command);
+  const [select, setSelect] = useState(run?.select ?? "");
+  const [fullRefresh, setFullRefresh] = useState(false);
+  const [withTests, setWithTests] = useState(false);
+  const [chosen, setChosen] = useState<string>();
+  const graph = useMemo(() => (run ? dbtGraph(run, withTests) : { nodes: [], edges: [] }), [run, withTests]);
+  const send = (next: BiDbtCommand) => vscode.postMessage({ type: "runBiDbt", command: next, select, fullRefresh });
+  if (!bi?.dbtExists) {
+    return (
+      <div className="factory-empty">
+        <Text weight="semibold">Create the BI Lab files</Text>
+        <p>
+          <code>bi/dbt/</code> holds the same warehouse built the dbt way: sources, staging views, an ephemeral
+          intermediate model, the star in marts (with an incremental fact), a snapshot of product prices, tests and
+          macros. The Datapass dbt emulation runs it on the local catalog: no dbt install needed.
+        </p>
+        <Button appearance="primary" onClick={() => vscode.postMessage({ type: "createBiLab" })}>Create lab files</Button>
+      </div>
+    );
+  }
+  const node = run?.nodes.find(n => n.uniqueId === chosen);
+  const result = run?.results.find(r => r.uniqueId === chosen);
+  const columns = node?.relation ? run?.lineage?.columns.filter(c => c.table === node.relation) ?? [] : [];
+  return (
+    <div className="bi-grid">
+      <div className="bi-panel bi-wide">
+        <div className="factory-toolbar">
+          <div className="button-row">
+            <select aria-label="dbt command" value={command} onChange={event => setCommand(event.target.value as BiDbtCommand)}>
+              {DBT_COMMANDS.map(item => <option key={item} value={item}>dbt {item}</option>)}
+            </select>
+            <input className="bi-select" aria-label="Selection" placeholder="--select, e.g. +fct_sales tag:daily"
+              value={select} onChange={event => setSelect(event.target.value)} />
+            <label className="bi-check">
+              <input type="checkbox" checked={fullRefresh} onChange={event => setFullRefresh(event.target.checked)} /> --full-refresh
+            </label>
+            <Button size="small" appearance="primary" disabled={!running} onClick={() => send(command)}>Run</Button>
+            <Button size="small" appearance="secondary" disabled={!running} onClick={() => send("parse")}>Parse only</Button>
+            <Button size="small" appearance="secondary" onClick={() => vscode.postMessage({ type: "openBiFile", path: "bi/dbt/dbt_project.yml" })}>
+              Open dbt_project.yml
+            </Button>
+            <Button size="small" appearance="secondary" onClick={() => vscode.postMessage({ type: "selectModule", moduleId: "practice" })}>
+              dbt exercises
+            </Button>
+          </div>
+        </div>
+        <p className="factory-note">
+          {run?.truth ?? "Datapass dbt emulation: Jinja in a sandbox, SQL on DuckDB, dbt Core semantics for a documented subset; not dbt Core."}
+          {" "}The sources are the tables of <code>bi/warehouse/00_sources.sql</code>: build the warehouse first.
+        </p>
+        {!running && <p className="factory-note">Start the runtime to run dbt.</p>}
+        {run?.warnings.map(w => <p key={w} className="factory-warning">{w}</p>)}
+        {run?.error && <p className="factory-error">{run.error}</p>}
+        {run?.issues.map((issue, index) => <p key={index} className="factory-warning">{issue.path}: {issue.message}</p>)}
+        {run && (
+          <>
+            <div className="factory-result-head">
+              <div>
+                <div className="eyebrow">
+                  {run.projectName} · dbt {run.command}{run.select ? ` --select ${run.select}` : ""}{run.now ? ` · ${run.now}` : ""}
+                </div>
+                <Text weight="semibold">{run.status === "parsed" ? `${run.nodes.length} nodes parsed` : `${run.results.length} nodes ran`}</Text>
+              </div>
+              <div className="button-row">
+                {Object.entries(run.counts ?? {}).filter(([, n]) => n).map(([status, n]) => (
+                  <Badge key={status} appearance="tint" color={DBT_BADGE[status] ?? "informative"}>{n} {status}</Badge>
+                ))}
+                <label className="bi-check">
+                  <input type="checkbox" checked={withTests} onChange={event => setWithTests(event.target.checked)} /> tests in the graph
+                </label>
+              </div>
+            </div>
+            <SharedGraphCanvas graph={graph} vscode={vscode} storageKey={withTests ? "bi-dbt-dag-tests" : "bi-dbt-dag"}
+              onNodeClick={id => setChosen(id)} />
+          </>
+        )}
+      </div>
+      {run && run.results.length > 0 && (
+        <div className="bi-panel">
+          <Text weight="semibold">Results</Text>
+          <table className="factory-runs">
+            <thead><tr><th>Node</th><th>Status</th><th>Rows / failures</th></tr></thead>
+            <tbody>
+              {run.results.map(r => (
+                <tr key={r.uniqueId} className={chosen === r.uniqueId ? "is-selected" : ""} onClick={() => setChosen(r.uniqueId)}>
+                  <td>{r.name}<small>{r.resourceType}{r.materialized && r.resourceType === "model" ? ` · ${r.materialized}` : ""}</small></td>
+                  <td className={`bi-dbt-${r.status}`}>{r.status}</td>
+                  <td>
+                    {r.resourceType === "test" ? (r.failures ?? "") : (r.rowsAffected ?? "")}
+                    {r.status === "error" || r.status === "skipped" ? <small>{r.message}</small> : null}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+      {node && (
+        <div className="bi-panel">
+          <Text weight="semibold">{node.name}</Text>
+          <p className="factory-note">
+            {node.resourceType}{node.relation ? ` → ${node.relation}` : ""}{node.tags.length ? ` · tags ${node.tags.join(", ")}` : ""}
+          </p>
+          {node.description && <p>{node.description}</p>}
+          {node.problem && <p className="factory-error">{node.problem}</p>}
+          {result?.message && <p className={result.status === "error" ? "factory-error" : "factory-note"}>{result.message}</p>}
+          <button type="button" className="bi-link" onClick={() => vscode.postMessage({ type: "openBiFile", path: `bi/dbt/${node.path}` })}>
+            Open {node.path}
+          </button>
+          {result && result.failingRows.length > 0 && (
+            <ResultTable columns={Object.keys(result.failingRows[0])} rows={result.failingRows} />
+          )}
+          {columns.length > 0 && (
+            <table className="factory-runs">
+              <thead><tr><th>Column</th><th>How</th><th>Origins</th></tr></thead>
+              <tbody>
+                {columns.map(c => (
+                  <tr key={c.column}><td>{c.column}</td><td>{c.transform}</td><td><small>{c.origins.join(", ")}</small></td></tr>
+                ))}
+              </tbody>
+            </table>
+          )}
+          {result?.compiled && (
+            <details className="sqlpool-sql" open={node.resourceType === "test"}>
+              <summary>Compiled SQL</summary>
+              <pre className="factory-json">{result.compiled}</pre>
+            </details>
+          )}
+        </div>
+      )}
     </div>
   );
 }

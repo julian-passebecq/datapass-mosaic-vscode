@@ -1,5 +1,9 @@
 import type {
   BiCheckView,
+  BiDbtCommand,
+  BiDbtNodeView,
+  BiDbtResultView,
+  BiDbtView,
   BiImpactView,
   BiLabView,
   BiLineageColumnView,
@@ -24,8 +28,27 @@ type Cell = string | number | boolean | null;
 export const BI_FOLDER = "bi";
 export const BI_SCRIPTS_FOLDER = "bi/warehouse";
 export const BI_MODEL_FILE = "bi/model.json";
-/** The runtime accepts 40 scripts of up to 60,000 characters and a model file of up to 100 KB. */
-export const BI_LIMITS = { scripts: 40, scriptChars: 60_000, modelChars: 100_000 };
+export const BI_DBT_FOLDER = "bi/dbt";
+/** The runtime accepts 40 scripts of up to 60,000 characters, a model file of up to 100 KB and a dbt project of
+ * up to 200 files and 600 KB. */
+export const BI_LIMITS = { scripts: 40, scriptChars: 60_000, modelChars: 100_000, dbtFiles: 200, dbtChars: 600_000 };
+export const DBT_COMMANDS: readonly BiDbtCommand[] = ["build", "run", "test", "seed", "snapshot", "compile"];
+
+/** The files a dbt project is made of (the rest of the folder, such as README files, stays out). */
+export function isDbtProjectFile(relative: string): boolean {
+  return /^[A-Za-z0-9_./ -]{1,200}$/.test(relative) && !relative.split("/").includes("..")
+    && (relative === "dbt_project.yml" || /\.(sql|yml|yaml|csv)$/.test(relative)) && relative !== "profiles.yml"
+    && relative !== "packages.yml";
+}
+
+/** A selection typed in the dbt tab: space-separated selectors, each a bounded dbt selector (no CLI flags). */
+export function parseSelect(text: string): { selectors: string[]; error?: string } {
+  const selectors = text.trim().split(/\s+/).filter(Boolean);
+  const bad = selectors.find(selector => !/^[A-Za-z0-9_.*+:/@-]{1,120}$/.test(selector) || selector.startsWith("-"));
+  if (bad) return { selectors: [], error: `${bad} is not a dbt selector (names, +name, name+, tag:, path:, source:, resource_type:).` };
+  if (selectors.length > 10) return { selectors: [], error: "At most 10 selectors." };
+  return { selectors };
+}
 
 /** Warehouse scripts run in file-name order, so 00_sources.sql comes before 05_fct_sales.sql. */
 export function orderScripts<T extends { name: string }>(scripts: readonly T[]): T[] {
@@ -90,6 +113,92 @@ function toTable(value: unknown): BiTableView {
       return { name: str(c.name, ""), type: str(c.type, "") };
     })
   };
+}
+
+/** Runtime `/api/local/bi/dbt` response -> webview view. */
+export function toBiDbtView(raw: unknown, context: { command: BiDbtCommand; select: string; warnings?: string[] }): BiDbtView {
+  const view = asRecord(raw);
+  const run = asRecord(view.run);
+  const project = asRecord(view.project);
+  const status = view.status === "success" || view.status === "error" || view.status === "parsed" ? view.status : "invalid";
+  return {
+    command: context.command,
+    select: context.select,
+    status,
+    error: typeof view.error === "string" ? view.error : undefined,
+    projectName: optionalString(project.name),
+    issues: list(project.issues).map(item => {
+      const i = asRecord(item);
+      return { path: str(i.path, ""), message: str(i.message, "") };
+    }),
+    nodes: list(view.nodes).map((item): BiDbtNodeView => {
+      const n = asRecord(item);
+      const type = n.resource_type;
+      return {
+        uniqueId: str(n.unique_id, ""), name: str(n.name, ""),
+        resourceType: type === "seed" || type === "snapshot" || type === "test" ? type : "model",
+        materialized: str(n.materialized, ""), relation: optionalString(n.relation), path: str(n.path, ""),
+        dependsOn: strings(n.depends_on), sources: strings(n.sources), tags: strings(n.tags),
+        description: typeof n.description === "string" ? n.description : "", problem: optionalString(n.problem)
+      };
+    }),
+    sources: list(view.sources).map(item => {
+      const s = asRecord(item);
+      return { name: str(s.name, ""), relation: str(s.relation, ""), description: typeof s.description === "string" ? s.description : "" };
+    }),
+    results: list(run.results).map((item): BiDbtResultView => {
+      const r = asRecord(item);
+      const known = ["success", "error", "skipped", "pass", "fail", "warn"] as const;
+      const state = known.find(k => k === r.status) ?? "error";
+      return {
+        uniqueId: str(r.unique_id, ""), name: str(r.name, ""), resourceType: str(r.resource_type, ""), status: state,
+        message: str(r.message, ""), materialized: str(r.materialized, ""), relation: optionalString(r.relation),
+        rowsAffected: typeof r.rows_affected === "number" ? r.rows_affected : undefined,
+        failures: typeof r.failures === "number" ? r.failures : undefined,
+        compiled: typeof r.compiled === "string" ? r.compiled : "",
+        failingRows: list(r.failing_rows).map(row => Object.fromEntries(Object.entries(asRecord(row)).map(([k, v]) => [k, cell(v)]))),
+        path: str(r.path, "")
+      };
+    }),
+    counts: view.run ? Object.fromEntries(Object.entries(asRecord(run.counts)).filter(([, v]) => typeof v === "number")) as Record<string, number> : undefined,
+    now: optionalString(run.now),
+    lineage: view.lineage ? toLineage(view.lineage) : undefined,
+    truth: str(view.truth, "Datapass dbt emulation; not dbt Core."),
+    warnings: context.warnings ?? []
+  };
+}
+
+const DBT_STATE: Record<string, string> = {
+  success: "success", pass: "success", error: "failed", fail: "failed", warn: "warning", skipped: "skipped"
+};
+
+/** The project's DAG: sources, seeds, snapshots and models left to right; tests attach to what they test. */
+export function dbtGraph(view: BiDbtView, withTests = false): GraphView {
+  const results = new Map(view.results.map(r => [r.uniqueId, r]));
+  const shown = view.nodes.filter(n => (withTests || n.resourceType !== "test"));
+  const ids = new Set(shown.map(n => n.uniqueId));
+  const nodes: GraphNodeView[] = [
+    ...view.sources.filter(s => shown.some(n => n.sources.includes(s.name))).map(s => ({
+      id: `source:${s.name}`, label: s.name, detail: s.relation, truth: "source"
+    })),
+    ...shown.map(n => {
+      const result = results.get(n.uniqueId);
+      return {
+        id: n.uniqueId,
+        label: n.name,
+        detail: [n.resourceType === "model" ? n.materialized : n.resourceType, n.relation ?? "",
+          result ? result.status + (result.failures ? ` (${result.failures})` : "") : ""].filter(Boolean).join(" · "),
+        truth: n.resourceType,
+        status: n.problem ? "failed" : result ? DBT_STATE[result.status] : undefined
+      };
+    })
+  ];
+  const edges: GraphEdgeView[] = [];
+  for (const n of shown) {
+    for (const parent of n.dependsOn) if (ids.has(parent)) edges.push({ id: `${parent}->${n.uniqueId}`, source: parent, target: n.uniqueId, label: "" });
+    for (const source of n.sources) edges.push({ id: `source:${source}->${n.uniqueId}`, source: `source:${source}`, target: n.uniqueId, label: "" });
+  }
+  return { nodes, edges };
 }
 
 function toLineage(value: unknown): BiLineageView {

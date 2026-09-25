@@ -128,6 +128,8 @@ class Lineage:
             return
         kind = 'view' if str(tree.args.get('kind', '')).upper() == 'VIEW' else 'table'
         query = tree.expression
+        while isinstance(query, exp.Subquery):  # CREATE ... AS ( SELECT ... )
+            query = query.this
         info = self._fresh_table(name, kind, 'CREATE ' + kind.upper(), where)
         if isinstance(query, exp.Query):
             outputs, inputs, influence = self._query_outputs(query)
@@ -148,6 +150,8 @@ class Lineage:
             return
         info = self._table(name, 'INSERT', where)
         query = tree.expression
+        while isinstance(query, exp.Subquery):
+            query = query.this
         if not isinstance(query, exp.Query):
             return
         outputs, inputs, influence = self._query_outputs(query)
