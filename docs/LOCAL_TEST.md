@@ -20,7 +20,7 @@ DuckDB, Polars and the runtime package from this repository.
 
 The Workbench panel should show:
 
-- module tabs for Mosaic, Practice, Cloud Lab, SparkLab, dbt Lab, Airflow Lab and Pipeline Lab;
+- module tabs for Mosaic, Practice, Cloud Lab, SparkLab, dbt Lab, Terminal Lab, Airflow Lab and Pipeline Lab;
 - workspace manifest status;
 - local runtime status;
 - a draggable/resizable Mosaic surface.
@@ -55,11 +55,15 @@ No cloud account is required.
 
 ## Automated gates
 
-GitHub Actions runs three independent checks:
+GitHub Actions runs four independent checks:
 
-- extension: TypeScript typecheck + esbuild bundle + Node contract smokes (`npm test`);
+- extension: TypeScript typecheck + esbuild bundle + Node contract smokes (`npm test`, which includes
+  `scripts/terminal_lab_smoke.mjs`: the Terminal Lab's shell-detection rules — Git Bash next to `git.exe` or in the
+  usual Git for Windows folders, never `System32\bash.exe`, `datapass.terminalLab.bashPath` overriding, pwsh then
+  Windows PowerShell 5.1 — bundled and run under Node without `vscode`);
 - runtime: install local Python package + compile + runtime smoke (`scripts/runtime_smoke.py`);
-- extension-host: a real VS Code Extension Development Host E2E (`npm run test:host` under `xvfb-run`).
+- extension-host: a real VS Code Extension Development Host E2E (`npm run test:host` under `xvfb-run`);
+- vscode-ui: the packaged VSIX in a real VS Code window driven by Playwright (`npm run test:ui` under `xvfb-run`), with the screenshots uploaded as the `vscode-ui-pass` artifact.
 
 ### Extension Development Host E2E
 
@@ -87,7 +91,11 @@ npm run test:host
 8. Practice `demo-sum` visible run and submission pass; a wrong answer fails;
 9. Pipeline starter compiles to a graph and its activities run;
 10. retail medallion demo;
-11. trusted restart and a real Python/Polars run.
+11. trusted restart and a real Python/Polars run;
+12. Terminal Lab: the mission folder is built and a real terminal opens in it (bash and, if installed, PowerShell);
+    the reference commands are typed there, as a learner would, and the hidden checker judges what they left behind;
+    **Start over** releases the folder (closing the lab's terminals and the Git extension's repository on it) and
+    moves it to the attic instead of deleting it.
 
 The runtime steps also cover the catalog handoff (release, a second process writing the file, a refused reattach while it is held, then a reattach that sees its table) and the Catalog tree. With `DATAPASS_DBT_PYTHON` set to a Python that has dbt-core and dbt-duckdb, one more step types `dbt build` for the BI project in a real terminal and checks that the catalog was lent and reattached through shell integration and that the artifacts read back as a clean dbt Core run (CI installs them in a venv for this).
 
@@ -95,6 +103,43 @@ With both variables, a mission step starts *Last night's build failed on a uniqu
 
 `scripts/missions_smoke.py` plays every mission of `content/missions` through the runtime API with real dbt Core and dct (`DATAPASS_DBT_PYTHON` must point to a Python that has dbt-core, dbt-duckdb and dbt-charts): each reference solution passes, each untouched project and each mutant fails. Without the variable it only validates the pack.
 
+`scripts/terminal_missions_smoke.py` plays every Terminal Lab mission of `content/missions/terminal-v1` through the runtime API: it builds each mission's fixture (files and Git history) and runs the reference solution with a real shell, as a learner would type the commands, then asks the checker. It needs git and bash (Git Bash on Windows; `DATAPASS_BASH` overrides); PowerShell steps (`solution/solve.ps1`) are skipped with a note when no PowerShell is installed, unless `DATAPASS_REQUIRE_POWERSHELL=1` (set in CI, where pwsh is on the runner). Mission ids passed as arguments play only those missions. Reference solutions pass; the untouched fixture and every mutant (`mutants/<name>/solve.sh` or `solve.ps1`) fail.
+
+```bash
+python scripts/terminal_missions_smoke.py
+DATAPASS_REQUIRE_POWERSHELL=1 python scripts/terminal_missions_smoke.py   # CI
+python scripts/terminal_missions_smoke.py merge-conflict reflog-rescue    # only these missions
+```
+
 Without `DATAPASS_E2E_PYTHON` steps 5–11 are reported as skipped. The suite does not click webview buttons: it drives the same host classes the panel uses. Manual F5 inspection of the webview UI is still required for user-facing changes.
 
 The extension must stay green before deeper Mosaic/Pipeline/Fabric surfaces are promoted from migration sources.
+
+### Packaged VSIX UI pass
+
+```bash
+npm run package
+npm run test:ui
+```
+
+`scripts/vscode_ui_pass.mjs` installs the newest `*.vsix` into a fresh VS Code profile (a VS Code test build downloaded into `.vscode-test/`), opens a disposable workspace and clicks through the Workbench with Playwright (`_electron.launch`), as a learner would:
+
+1. **Create .datapass project**, **Setup runtime** (the managed venv), **Start runtime**.
+2. Raw requests to the live runtime port: 401 without the launch token, 400 with a foreign Host; the token never appears in the runtime log.
+3. Mosaic: the SQL scratch file, **Run active SQL**, the DuckDB result row in the webview.
+4. Practice: **Open solution** on the first exercise, then **Submit**; the runtime grades the starter.
+5. Layout at a 520 px Workbench: every module tab and every lab sub-tab. No element may stick out on the right unless a container scrolls or clips it (the PR #17 overflow). The probe first proves it catches a planted 2000 px block.
+6. **Stop runtime**; the port is closed afterwards. Uncaught webview errors fail the pass.
+
+Results and one screenshot per step land in `test-results/vscode-ui/` (`results.json`, `layout-<tab>.png`, …). The profile and workspace live under `C:\dpw-ui` on Windows (the managed venv sits in the profile and DuckDB's DLL path must stay under MAX_PATH) and under the temp folder elsewhere; the root is wiped first.
+
+| Variable | Use |
+|---|---|
+| `DATAPASS_UI_VSIX` | VSIX to install (default: the newest `*.vsix` in the repository root) |
+| `DATAPASS_UI_ROOT` | profile and workspace root (keep it short on Windows) |
+| `DATAPASS_UI_OUT` | results and screenshots folder |
+| `DATAPASS_UI_PYTHON` | base Python for **Setup runtime**, written to the manifest's `runtime.pythonCommand` |
+| `VSCODE_TEST_VERSION` / `DATAPASS_UI_CODE` | VS Code build to download (default stable) / an installed Code executable instead |
+| `DATAPASS_UI_KEEP=1` | keep the profile, so a rerun skips **Setup runtime**; the kept managed venv still holds the runtime of the VSIX that set it up, so run without it after a runtime change |
+
+The VSIX declares an extension pack, so the install also fetches the Python and Jupyter extensions from the Marketplace. On Linux, give the virtual display a real screen: `xvfb-run -a --server-args="-screen 0 1600x1000x24" npm run test:ui`.
