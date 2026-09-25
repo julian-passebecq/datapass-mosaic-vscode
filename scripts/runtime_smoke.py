@@ -1012,6 +1012,152 @@ assert runtime_caps["trusted_local_python"] is False, runtime_caps
 assert runtime_caps["python_sandboxed"] is False, runtime_caps
 
 
+# --- Snowflake SQL dialect translated to DuckDB (runtime/snowflakesql) ---------------------------------------------
+# Each expected value is Snowflake's documented result, so a sqlglot change that alters a translation fails here.
+import datetime as _dt
+
+import duckdb as _duckdb
+from snowflakesql import SnowflakeDialectError, translate
+
+_sf = _duckdb.connect()
+_sf.execute("""CREATE TABLE t AS SELECT * FROM (VALUES
+    (1, 'Ann', 'a1b22', DATE '2024-01-31', TIMESTAMP '2024-01-31 10:15:00', 10.0::DOUBLE, NULL::VARCHAR, 'x'),
+    (2, 'bob', 'xyz', DATE '2024-02-29', TIMESTAMP '2024-02-29 23:30:00', 0.0::DOUBLE, 'k', 'x'),
+    (3, 'Cy', NULL, DATE '2024-03-10', TIMESTAMP '2024-03-10 00:00:00', 2.0::DOUBLE, 'm', 'y')
+) AS v(id, name, code, d, ts, amount, note, grp)""")
+_D = _dt.date
+SNOWFLAKE_SEMANTICS = [
+    # Regular expressions: replace every match, full-string REGEXP_LIKE/RLIKE, NULL when REGEXP_SUBSTR finds nothing.
+    ("SELECT REGEXP_REPLACE('a1b2', '[0-9]', '#') AS r", [("a#b#",)]),
+    ("SELECT REGEXP_REPLACE('a1b2', '[0-9]') AS r", [("ab",)]),
+    ("SELECT REGEXP_LIKE('abc', 'b') AS p, REGEXP_LIKE('abc', 'a.c') AS f, 'abc' RLIKE 'ab' AS r", [(False, True, False)]),
+    ("SELECT REGEXP_SUBSTR('abc', '[0-9]+') AS n, REGEXP_SUBSTR('ab12c34', '[0-9]+') AS m", [(None, "12")]),
+    ("SELECT REGEXP_SUBSTR(description, '\\\\d+') AS age FROM (SELECT 'aged 42 years' AS description)", [("42",)]),
+    # NULL propagation where DuckDB's own functions would skip NULLs.
+    ("SELECT CONCAT('a', NULL) AS c, CONCAT_WS('-', 'a', NULL) AS w, 'a' || NULL AS p, CONCAT('a', 'b', 'c') AS ok", [(None, None, None, "abc")]),
+    ("SELECT GREATEST(1, NULL, 3) AS g, LEAST(1, NULL) AS l, GREATEST(1, 5, 3) AS g2", [(None, None, 5)]),
+    # NULL ordering (NULLs are the largest value) and window defaults.
+    ("SELECT note FROM t ORDER BY note DESC", [(None,), ("m",), ("k",)]),
+    ("SELECT note FROM t ORDER BY note", [("k",), ("m",), (None,)]),
+    ("SELECT id, ROW_NUMBER() OVER (ORDER BY note DESC) AS rn FROM t ORDER BY id", [(1, 1), (2, 3), (3, 2)]),
+    ("SELECT id, LAST_VALUE(id) OVER (PARTITION BY grp ORDER BY id) AS lv, FIRST_VALUE(id) OVER (ORDER BY id DESC) AS fv FROM t ORDER BY id", [(1, 2, 3), (2, 2, 3), (3, 3, 3)]),
+    ("SELECT x, SUM(x) OVER (ORDER BY x) AS s FROM (SELECT 1 AS x UNION ALL SELECT 1 UNION ALL SELECT 2) ORDER BY x, s", [(1, 2), (1, 2), (2, 4)]),
+    ("SELECT id, RANK() OVER (ORDER BY grp) AS r, DENSE_RANK() OVER (ORDER BY grp) AS dr, NTILE(2) OVER (ORDER BY id) AS nt, LAG(id) OVER (ORDER BY id) AS lg, LEAD(id, 1, 0) OVER (ORDER BY id) AS ld FROM t ORDER BY id",
+     [(1, 1, 1, 1, None, 2), (2, 1, 1, 1, 1, 3), (3, 3, 2, 2, 2, 0)]),
+    # Division.
+    ("SELECT 7 / 2 AS a, DIV0(5, 0) AS b, DIV0(6, 3) AS c", [(3.5, 0, 2.0)]),
+    ("SELECT id, amount / NULLIF(amount, 0) AS r FROM t ORDER BY id", [(1, 1.0), (2, None), (3, 1.0)]),
+    ("SELECT id % 2 AS m, MOD(-7, 3) AS n FROM t WHERE id = 1", [(1, -1)]),
+    # Dates keep their type; week and day-of-week follow Snowflake's defaults.
+    ("SELECT DATEADD(month, 1, TO_DATE('2024-01-31')) AS m, DATEADD(day, 1, d::DATE) AS n, DATEADD(year, 1, ts::TIMESTAMP) AS y FROM t WHERE id = 1",
+     [(_D(2024, 2, 29), _D(2024, 2, 1), _dt.datetime(2025, 1, 31, 10, 15))]),
+    ("SELECT DATE_TRUNC('month', d::DATE) AS m, TRUNC(d::DATE, 'year') AS y, LAST_DAY(d::DATE) AS l FROM t WHERE id = 2", [(_D(2024, 2, 1), _D(2024, 1, 1), _D(2024, 2, 29))]),
+    ("SELECT DATEDIFF(day, TO_DATE('2024-01-01'), TO_DATE('2024-03-01')) AS d, DATEDIFF(month, TO_DATE('2024-01-31'), TO_DATE('2024-02-01')) AS m, "
+     "DATEDIFF(year, TO_DATE('2023-12-31'), TO_DATE('2024-01-01')) AS y, DATEDIFF(week, TO_DATE('2024-01-07'), TO_DATE('2024-01-08')) AS w, "
+     "DATEDIFF(week, TO_DATE('2024-01-08'), TO_DATE('2024-01-14')) AS w0, TIMESTAMPDIFF(hour, '2024-01-01 10:59:00'::TIMESTAMP, '2024-01-01 11:01:00'::TIMESTAMP) AS h",
+     [(60, 1, 1, 1, 0, 1)]),
+    ("SELECT DAYOFWEEK(d) AS w, DAYOFWEEKISO(d) AS wi, YEAR(d) AS y, QUARTER(d) AS q, MONTH(d) AS m, DAY(d) AS dd, DATE_PART(dayofweek, d) AS dp FROM t WHERE id = 3",
+     [(0, 7, 2024, 1, 3, 10, 0)]),
+    ("SELECT TO_DATE('03/15/2024', 'MM/DD/YYYY') AS a, TO_DATE('2024-03-15') AS b, TRY_TO_DATE('2024-13-01') AS c, TRY_CAST('x' AS INT) AS e", [(_D(2024, 3, 15), _D(2024, 3, 15), None, None)]),
+    ("SELECT TO_CHAR(d::DATE, 'MON DD, YYYY') AS a, TO_VARCHAR(ts::TIMESTAMP, 'YYYY-MM-DD HH24:MI') AS b, TO_CHAR(TO_DATE('2024-03-10'), 'DY') AS c FROM t WHERE id = 1", [("Jan 31, 2024", "2024-01-31 10:15", "Sun")]),
+    # Strings.
+    ("SELECT SPLIT_PART('a,b,c', ',', 2) AS a, SPLIT_PART('a,b,c', ',', -1) AS b, SPLIT_PART('a,b,c', ',', 0) AS c", [("b", "c", "a")]),
+    ("SELECT SUBSTR('abcdef', 2, 3) AS a, SUBSTR('abcdef', 0, 2) AS b, LEFT('abc', 2) AS l, RIGHT('abc', 2) AS r, LENGTH('abc') AS n, LEN('ab') AS m", [("bcd", "ab", "ab", "bc", 3, 2)]),
+    ("SELECT UPPER('a') AS u, LOWER('B') AS l, TRIM('  a ') AS t, LTRIM('xxa', 'x') AS lt, RTRIM('ayy', 'y') AS rt, REPLACE('aaa', 'a', 'b') AS r, REVERSE('ab') AS v", [("A", "b", "a", "a", "a", "bbb", "ba")]),
+    ("SELECT LPAD('7', 3, '0') AS l, RPAD('7', 3, '-') AS r, CHARINDEX('b', 'abc') AS c, POSITION('c' IN 'abc') AS p, CONTAINS('abc', 'b') AS h, STARTSWITH('abc', 'a') AS s, ENDSWITH('abc', 'b') AS e",
+     [("007", "7--", 2, 3, True, True, False)]),
+    # Conditional functions.
+    ("SELECT IFF(1 > 2, 'y', 'n') AS i, NVL(NULL, 2) AS n, IFNULL(NULL, 3) AS f, NVL2(NULL, 1, 2) AS n2, NULLIF(1, 1) AS ni, ZEROIFNULL(NULL) AS z, NULLIFZERO(0) AS nz, "
+     "DECODE(2, 1, 'one', 2, 'two', 'other') AS de, EQUAL_NULL(NULL, NULL) AS eq, COALESCE(NULL, NULL, 4) AS co", [("n", 2, 3, 2, None, 0, None, "two", True, 4)]),
+    # Aggregates.
+    ("SELECT grp, COUNT(*) AS n, COUNT(note) AS nn, COUNT(DISTINCT name) AS dn, COUNT_IF(amount > 1) AS ci, SUM(amount) AS s, AVG(amount) AS a, MIN(id) AS mi, MAX(id) AS ma, "
+     "LISTAGG(name, ',') WITHIN GROUP (ORDER BY name DESC) AS l FROM t GROUP BY grp ORDER BY grp", [("x", 2, 1, 2, 1, 10.0, 5.0, 1, 2, "bob,Ann"), ("y", 1, 1, 1, 1, 2.0, 2.0, 3, 3, "Cy")]),
+    ("SELECT MEDIAN(x) AS m, VARIANCE(x) AS v, VAR_POP(x) AS vp, ROUND(STDDEV(x), 6) AS s, ROUND(STDDEV_POP(x), 6) AS sp FROM (SELECT 1 AS x UNION ALL SELECT 2 UNION ALL SELECT 3 UNION ALL SELECT 4)",
+     [(2.5, 1.6666666666666667, 1.25, 1.290994, 1.118034)]),
+    # Numbers and casts.
+    ("SELECT ABS(-2) AS a, ROUND(2.5) AS r, ROUND(-2.5) AS rn, ROUND(2.345, 2) AS r2, CEIL(1.2) AS c, FLOOR(-1.2) AS f, TRUNC(12.345, 1) AS t, SQRT(16) AS q, POWER(2, 3) AS p, SIGN(-3) AS s",
+     [(2, 3, -3, 2.35, 2, -2, 12.3, 4.0, 8.0, -1)]),
+    ("SELECT CAST('12' AS INT) AS i, '7'::NUMBER(10, 2) AS n, 3::VARCHAR AS v, 'true'::BOOLEAN AS b, '2024-01-02'::DATE AS d, '1.5'::FLOAT AS f", [(12, 7, "3", True, _D(2024, 1, 2), 1.5)]),
+    # Query syntax and identifiers.
+    ("SELECT ID, UPPER(Name) AS Upper_Name FROM T WHERE Name ILIKE 'a%' OR code LIKE ANY ('x%', 'z%') ORDER BY 1", [(1, "ANN"), (2, "BOB")]),
+    ("SELECT TOP 2 id FROM t ORDER BY id DESC", [(3,), (2,)]),
+    ("SELECT grp, COUNT(*) AS n FROM t GROUP BY ALL HAVING COUNT(*) > 1", [("x", 2)]),
+    ("SELECT id FROM t QUALIFY ROW_NUMBER() OVER (PARTITION BY grp ORDER BY id DESC) = 1 ORDER BY id", [(2,), (3,)]),
+    ("WITH a AS (SELECT id FROM t WHERE id < 3) SELECT id FROM a MINUS SELECT 1 UNION ALL SELECT 9 ORDER BY id", [(2,), (9,)]),
+    ("SELECT a.id, b.id AS other FROM t AS a LEFT JOIN t AS b ON a.id = b.id + 1 WHERE a.id IN (1, 2) AND EXISTS (SELECT 1 FROM t AS c WHERE c.id = a.id) ORDER BY a.id", [(1, None), (2, 1)]),
+    ("SELECT id FROM t NATURAL JOIN (SELECT 2 AS id) AS x", [(2,)]),
+    ("SELECT id FROM t JOIN (SELECT 3 AS id) USING (id)", [(3,)]),
+    ("SELECT id FROM t WHERE note IS DISTINCT FROM 'k' AND id BETWEEN 1 AND 3 ORDER BY id", [(1,), (3,)]),
+    ("SELECT $$it's$$ AS a, 'it''s' AS b, 'a\\\\b' AS c", [("it's", "it's", "a\\b")]),
+]
+for source, expected in SNOWFLAKE_SEMANTICS:
+    translated = translate(source).sql
+    actual = [tuple(float(v) if type(v).__name__ == "Decimal" else v for v in row) for row in _sf.execute(translated).fetchall()]
+    assert actual == expected, (source, translated, actual, expected)
+_names = _sf.execute(translate("SELECT ID, UPPER(Name) AS Upper_Name, id AS \"Kept Case\" FROM T").sql).description
+assert [d[0] for d in _names] == ["id", "upper_name", "Kept Case"], _names
+try:
+    _sf.execute(translate("SELECT 10 / amount AS r FROM t").sql).fetchall()
+    raise AssertionError("Snowflake raises on division by zero")
+except _duckdb.Error as error:
+    assert "Division by zero" in str(error), error
+assert "REGEXP_SUBSTR returns NULL when nothing matches" in translate("SELECT REGEXP_SUBSTR(code, 'b') FROM t").rewrites
+
+SNOWFLAKE_REFUSED = {
+    "SELECT HASH(name) FROM t": "HASH is not in the supported Snowflake subset",
+    "SELECT REGEXP_INSTR(code, '1') FROM t": "REGEXP_INSTR is not in the supported Snowflake subset",
+    "SELECT REGEXP_LIKE(code, 'A', 'i') FROM t": "parameter arguments",
+    "SELECT REGEXP_SUBSTR(code, '[0-9]', 1, 2) FROM t": "position, occurrence",
+    "SELECT CURRENT_DATE() AS d": "not in the supported Snowflake subset",
+    "SELECT RANDOM() AS r": "RANDOM is not in the supported Snowflake subset",
+    "SELECT * FROM t, LATERAL FLATTEN(input => ARRAY_CONSTRUCT(1, 2)) f": "not in the supported Snowflake subset",
+    "SELECT PARSE_JSON(note):a FROM t": "not in the supported Snowflake subset",
+    "SELECT id FROM t SAMPLE (50)": "SAMPLE is not in the supported Snowflake subset",
+    "SELECT COUNT(DISTINCT id, name) FROM t": "COUNT(DISTINCT a, b)",
+    "SELECT CAST(ts AS TIMESTAMP_TZ) FROM t": "Type",
+    "SELECT DATEADD(day, 1, d) FROM t": "needs an argument whose type is explicit",
+    "SELECT DATE_TRUNC('month', d) FROM t": "needs an argument whose type is explicit",
+    "SELECT TO_CHAR(d, 'YYYY-MM') FROM t": "TO_CHAR is not in the supported Snowflake subset",
+    "SELECT TO_CHAR(d::DATE, 'YYYY \"Q\"Q') FROM t": "format",
+    "SELECT WEEK(d::DATE) FROM t": "not in the supported Snowflake subset",
+    "SELECT id % amount FROM t": "MOD and % need a non-zero number literal",
+    "SELECT d + INTERVAL '1 day' FROM t": "INTERVAL",
+    "SELECT $1 FROM t": "$ column references",
+    "DELETE FROM t": "Only a SELECT query is supported",
+    "CREATE TABLE x AS SELECT 1 AS a": "Only a SELECT query is supported",
+    "SELECT 1; SELECT 2": "exactly one query",
+    "SELECT id FROM t WHERE id = ANY (SELECT 1)": "ANY",
+    "SELECT FROM WHERE": "could not be parsed",
+}
+for source, fragment in SNOWFLAKE_REFUSED.items():
+    try:
+        translate(source)
+        raise AssertionError(f"Snowflake subset should refuse: {source}")
+    except SnowflakeDialectError as error:
+        assert fragment in str(error), (source, str(error))
+        assert "could not be parsed" in str(error) or "not Snowflake" in str(error), str(error)
+_sf.close()
+
+# The kernel runs the translation on exercise fixtures (typed CTEs), like the sql language.
+with TemporaryDirectory(prefix="datapass-snowflake-smoke-") as temp:
+    from datapass_runtime.execution import Engine
+    engine = Engine(Path(temp), "duckdb")
+    assert next(k for k in engine.capabilities()["kernels"] if k["id"] == "snowflake")["available"]
+    orders = "\"orders\" AS (SELECT CAST(1 AS INTEGER) AS \"order_id\", CAST('2024-01-31' AS DATE) AS \"order_date\", CAST(NULL AS VARCHAR) AS \"note\" " \
+             "UNION ALL SELECT CAST(2 AS INTEGER), CAST('2024-02-01' AS DATE), CAST('gift' AS VARCHAR))"
+    run = engine.execute({"language": "snowflake", "cell_id": "c", "notebook_id": "n", "_exercise_fixture_ctes": orders,
+                          "code": "SELECT ORDER_ID, DATEADD(month, 1, order_date::DATE) AS due, CONCAT('#', note) AS tag FROM ORDERS ORDER BY order_id;"})
+    assert run["status"] == "success", run
+    assert run["result"]["columns"] == ["order_id", "due", "tag"], run["result"]
+    assert run["result"]["rows"] == [{"order_id": 1, "due": "2024-02-29", "tag": None}, {"order_id": 2, "due": "2024-03-01", "tag": "#gift"}], run["result"]
+    assert run["dialect"] == {"source": "snowflake", "target": "duckdb", "rewrites": ["DATEADD of a DATE stays a DATE"]}, run["dialect"]
+    refused = engine.execute({"language": "snowflake", "cell_id": "c", "notebook_id": "n", "_exercise_fixture_ctes": orders,
+                              "code": "SELECT REGEXP_INSTR(note, 'g') AS i FROM orders"})
+    assert refused["status"] == "error" and refused["error"]["type"] == "SnowflakeDialectError", refused
+    assert "REGEXP_INSTR" in refused["error"]["message"], refused
+    engine.catalog.close()
+
+
 # Mirrors the SparkLab scratch starter written by the extension (src/scaffold/starters.ts).
 SPARKLAB_SCRATCH = """from pyspark.sql import functions as F
 

@@ -92,6 +92,12 @@ export function exerciseReadme(exercise: ExerciseSummary): string {
             "shown here. Each check builds an isolated DuckDB catalog from the tables the exercise describes, never " +
             "your workspace catalog: SQL really runs, model checks are real queries, and column lineage is a static " +
             "analysis of your SQL text."
+        : exercise.language === "snowflake"
+          ? "**Run visible** checks the public example above. **Submit** also runs hidden and edge-case fixtures that " +
+            "are not shown here. Write Snowflake SQL: Datapass translates it to DuckDB with sqlglot and runs it on " +
+            "DuckDB (Snowflake SQL dialect translated to DuckDB, not Snowflake). Functions outside the supported " +
+            "subset are refused by name rather than approximated; unquoted identifiers are case-insensitive, as in " +
+            "Snowflake, and result columns are shown in lower case."
         : exercise.language === "sqlpool"
           ? "**Run visible** runs your T-SQL on the simulated SQL pool in the public scenario. **Submit** also runs " +
             "hidden and edge-case scenarios that are not shown here. Each check uses an isolated catalog, never your " +

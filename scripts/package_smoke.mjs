@@ -23,6 +23,8 @@ const required = [
   "runtime/bilab/README.md",
   "runtime/dbtlab/engine.py",
   "runtime/dbtlab/README.md",
+  "runtime/snowflakesql/translate.py",
+  "runtime/snowflakesql/README.md",
   "content/exercise-packs/dbt-v1/grading.server.json",
   "content/exercise-packs/dwh-v1/grading.server.json",
   "content/exercise-packs/sqlpool-v1/grading.server.json",

@@ -2,7 +2,10 @@
 from copy import deepcopy
 import re
 
-LANGUAGES={'sql','python','polars','dbt','sparklab'}
+LANGUAGES={'sql','python','polars','dbt','sparklab','snowflake'}
+# Runtime adapter and truth of each variant language (default: shared-<language>-v1, real).
+RUNTIMES={'dbt':('dbt-drill-sql-v1','semantic-emulation'),'sparklab':('shared-sparklab-v1','semantic-emulation'),
+          'snowflake':('snowflake-dialect-duckdb-v1','semantic-emulation')}
 
 def expand_scenarios(scenarios, grading):
     if not isinstance(scenarios,list) or not 1<=len(scenarios)<=100:
@@ -28,9 +31,9 @@ def expand_scenarios(scenarios, grading):
             if set(variant)!={'starter_source','supported_operations'}:
                 raise ValueError('Variant can only specify source and supported operations.')
             ident=semantic['variants'][language]
+            runtime,truth=RUNTIMES.get(language,('shared-'+language+'-v1','real'))
             definitions.append({**common,'id':ident,'version':version,'language':language,
-                                'runtime':'dbt-drill-sql-v1' if language=='dbt' else 'shared-'+language+'-v1',
-                                'truth':'semantic-emulation' if language in {'dbt','sparklab'} else 'real',
+                                'runtime':runtime,'truth':truth,
                                 'semantic':{**semantic,'supported_operations':variant['supported_operations']},
                                 'starter_source':variant['starter_source']})
             private[ident]={'solution':expected['solutions'][language],'fixtures':deepcopy(expected['fixtures'])}

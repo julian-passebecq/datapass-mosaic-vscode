@@ -1183,6 +1183,7 @@ function extensionFor(language: string): string {
     case "databricks-grants":
     case "warehouse":
     case "dbt-sql":
+    case "snowflake":
       return "sql";
     case "python":
     case "pandas":
