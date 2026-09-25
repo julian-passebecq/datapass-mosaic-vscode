@@ -35,7 +35,13 @@ const required = [
   "samples/bi-lab/model.json",
   "samples/bi-lab/warehouse/05_fct_sales.sql",
   "samples/bi-lab/dbt/dbt_project.yml",
-  "samples/bi-lab/dbt/models/marts/fct_sales.sql"
+  "samples/bi-lab/dbt/models/marts/fct_sales.sql",
+  "runtime/datapass_runtime/projects.py",
+  "runtime/datapass_runtime/run_journal.py",
+  "content/projects/retail-fabric/project.json",
+  "content/projects/retail-fabric/files/projects/retail-fabric/web_orders_2026-03-05.csv",
+  "content/projects/databricks-ml/project.json",
+  "content/projects/synapse-to-fabric/project.json"
 ];
 
 for (const path of required) {
@@ -49,7 +55,8 @@ for (const forbidden of [
   "workbench-core/**",
   "runtime/build/**",
   "runtime/**/*.egg-info/**",
-  "**/*.map"
+  "**/*.map",
+  "content/projects/*/reference/**"
 ]) {
   assert.ok(ignore.includes(forbidden), `VSIX ignore is missing ${forbidden}`);
 }

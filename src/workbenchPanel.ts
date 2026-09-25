@@ -27,6 +27,16 @@ import { retailDemoReadme, retailOrdersCsv, retailPythonStarter, retailSqlStarte
 import { airflowStarter, pipelineStarter, scratchSpec } from "./scaffold/starters";
 import { exerciseReadme } from "./scaffold/exerciseReadme";
 import { collectWorkbenchState } from "./workbenchState";
+import { copyProjectFiles, loadProjectContents, progressUri, readProgress, writeProgress } from "./projectState";
+import {
+  applyVerification,
+  emptyProgress,
+  isProjectFilePath,
+  serializeProgress,
+  setManual,
+  type ProjectContent,
+  type ProjectScaffold
+} from "./platform/projects";
 import { contentSecurityPolicy, makeNonce } from "./webview/security";
 import type {
   AirflowScenarioInput,
@@ -35,9 +45,11 @@ import type {
   FactoryFlavor,
   FactoryScenarioInput,
   DatabricksScenarioInput,
+  ProjectsHostState,
   ScratchKind,
   SqlPoolFlavor,
-  WebviewToHostMessage
+  WebviewToHostMessage,
+  WorkbenchFocus
 } from "./webview/contracts";
 
 export class WorkbenchPanel {
@@ -86,6 +98,11 @@ export class WorkbenchPanel {
   private lastSqlPoolFile?: vscode.Uri;
   /** The active .sql file the BI Lab last ran (not under bi/), to reveal a statement's line in it. */
   private lastBiActiveFile?: vscode.Uri;
+  /** The lab tab (or Practice filter) a project step asked to show. */
+  private focus?: WorkbenchFocus;
+  private focusSeq = 0;
+  /** A project verification in flight, or the last one's error. */
+  private projectsHost: ProjectsHostState = {};
 
   private constructor(
     private readonly panel: vscode.WebviewPanel,
@@ -125,7 +142,8 @@ export class WorkbenchPanel {
           this.selectedModule === "airflow" ||
           this.selectedModule === "fabric" ||
           this.selectedModule === "bi" ||
-          this.selectedModule === "dbt"
+          this.selectedModule === "dbt" ||
+          this.selectedModule === "projects"
         ) {
           void this.refresh();
         }
@@ -141,6 +159,7 @@ export class WorkbenchPanel {
       case "selectModule":
         if (MODULES.some(module => module.id === message.moduleId)) {
           this.selectedModule = message.moduleId;
+          this.focus = undefined;
           await this.refresh();
         }
         return;
@@ -277,6 +296,21 @@ export class WorkbenchPanel {
       case "runDbtBuild":
         await this.runDbtBuild();
         return;
+      case "prepareProject":
+        await this.prepareProject(message.projectId);
+        return;
+      case "openProjectStep":
+        await this.openProjectStep(message.projectId, message.stepId);
+        return;
+      case "verifyProjectSteps":
+        await this.verifyProjectSteps(message.projectId, message.stepIds);
+        return;
+      case "setProjectStepManual":
+        await this.setProjectStepManual(message.projectId, message.stepId, message.checked);
+        return;
+      case "openProgressFile":
+        await this.openProgressFile();
+        return;
     }
   }
 
@@ -398,11 +432,28 @@ export class WorkbenchPanel {
   }
 
   private async createRetailDemo(): Promise<void> {
-    const folder = vscode.workspace.workspaceFolders?.[0];
-    if (!folder) {
+    const root = await this.writeRetailDemoFiles();
+    if (!root) {
       void vscode.window.showWarningMessage("Open a workspace folder before creating the retail demo.");
       return;
     }
+
+    await this.openPipelineSource();
+    await this.openAirflowSource();
+    await this.openDbtProject();
+
+    const readme = vscode.Uri.joinPath(root, "README_DATAPASS_RETAIL.md");
+    await this.openBeside(readme);
+    void vscode.window.showInformationMessage(
+      "Datapass retail demo created: dataset, notebook starters, pipeline, Airflow DAG and dbt sample."
+    );
+    await this.refresh();
+  }
+
+  /** The retail demo's dataset, notebooks and README (missing files only). Returns the workspace root. */
+  private async writeRetailDemoFiles(): Promise<vscode.Uri | undefined> {
+    const folder = vscode.workspace.workspaceFolders?.[0];
+    if (!folder) return undefined;
 
     const root = folder.uri;
     const current = await readProjectManifest();
@@ -448,17 +499,7 @@ export class WorkbenchPanel {
         dbtProject: [...dbtRoot, "retail-dbt"].join("/")
       })
     );
-
-    await this.openPipelineSource();
-    await this.openAirflowSource();
-    await this.openDbtProject();
-
-    const readme = vscode.Uri.joinPath(root, "README_DATAPASS_RETAIL.md");
-    await this.openBeside(readme);
-    void vscode.window.showInformationMessage(
-      "Datapass retail demo created: dataset, notebook starters, pipeline, Airflow DAG and dbt sample."
-    );
-    await this.refresh();
+    return root;
   }
 
   private async runActiveSql(): Promise<void> {
@@ -1130,12 +1171,155 @@ export class WorkbenchPanel {
     terminal.sendText(`dbt build --profiles-dir ${quoteShellArg(profilesDir.fsPath)}`, true);
   }
 
+  // ---- Projects ----------------------------------------------------------------------------------------
+
+  private async findProject(projectId: string): Promise<ProjectContent | undefined> {
+    const project = (await loadProjectContents(this.context.extensionUri)).projects.find(p => p.id === projectId);
+    if (!project) void vscode.window.showErrorMessage(`Projet introuvable : ${projectId}`);
+    return project;
+  }
+
+  /** Create the lab files a step needs, never overwriting the learner's files. */
+  private async runScaffolds(project: ProjectContent, names: readonly ProjectScaffold[]): Promise<void> {
+    const root = vscode.workspace.workspaceFolders?.[0]?.uri;
+    if (!root) return;
+    for (const name of new Set(names)) {
+      switch (name) {
+        case "project":
+          await copyProjectFiles(this.context.extensionUri, project.id);
+          break;
+        case "factory":
+          await copyFactorySamples(this.context.extensionUri);
+          break;
+        case "bi":
+          await copyBiSamples(this.context.extensionUri);
+          break;
+        case "retail_demo":
+          await this.writeRetailDemoFiles();
+          break;
+        case "airflow": {
+          const { dagsParts } = await airflowPaths();
+          await vscode.workspace.fs.createDirectory(vscode.Uri.joinPath(root, ...dagsParts));
+          await writeIfMissing(vscode.Uri.joinPath(root, ...dagsParts, AIRFLOW_STARTER_FILE), airflowStarter());
+          break;
+        }
+        case "pipeline": {
+          const manifest = await readProjectManifest();
+          const directory = vscode.Uri.joinPath(root, ...safeRelativeParts(manifest.manifest?.assets?.pipelines, "pipelines"));
+          await vscode.workspace.fs.createDirectory(directory);
+          await writeIfMissing(vscode.Uri.joinPath(directory, "main.pipeline.py"), pipelineStarter());
+          break;
+        }
+        case "sparklab": {
+          const manifest = await readProjectManifest();
+          const directory = vscode.Uri.joinPath(root, ...safeRelativeParts(manifest.manifest?.assets?.notebooks, "notebooks"));
+          const spec = scratchSpec("sparklab");
+          await vscode.workspace.fs.createDirectory(directory);
+          await writeIfMissing(vscode.Uri.joinPath(directory, spec.fileName), spec.content);
+          break;
+        }
+      }
+    }
+  }
+
+  /** Every file the project's steps need: its starter files and the lab samples. */
+  private async prepareProject(projectId: string): Promise<void> {
+    if (!vscode.workspace.workspaceFolders?.length) {
+      void vscode.window.showWarningMessage("Ouvrez un dossier de workspace avant de préparer un projet.");
+      return;
+    }
+    const project = await this.findProject(projectId);
+    if (!project) return;
+    await this.runScaffolds(project, project.steps.flatMap(step => step.open.scaffold));
+    void vscode.window.showInformationMessage(
+      `Fichiers du projet « ${project.title} » prêts (projects/${project.id}/ et les échantillons des labos). Les fichiers existants ont été gardés.`
+    );
+    await this.refresh();
+  }
+
+  /** "Ouvrir dans <lab>": create the step's files, open its file or exercise beside, and show its lab and tab. */
+  private async openProjectStep(projectId: string, stepId: string): Promise<void> {
+    const project = await this.findProject(projectId);
+    const step = project?.steps.find(s => s.id === stepId);
+    if (!project || !step) return;
+    const root = vscode.workspace.workspaceFolders?.[0]?.uri;
+    if (!root) {
+      void vscode.window.showWarningMessage("Ouvrez un dossier de workspace avant d'ouvrir une étape de projet.");
+      return;
+    }
+    await this.runScaffolds(project, step.open.scaffold);
+    let query: string | undefined;
+    if (step.open.exercise) {
+      await this.openExercise(step.open.exercise);
+      query = step.open.exercise.split("/")[1];
+    } else if (step.open.file && isProjectFilePath(step.open.file)) {
+      const uri = vscode.Uri.joinPath(root, ...step.open.file.split("/"));
+      if (await exists(uri)) await this.openBeside(uri);
+      else void vscode.window.showWarningMessage(`Fichier introuvable : ${step.open.file}`);
+    }
+    this.selectedModule = step.open.module;
+    this.focus = { module: step.open.module, tab: step.open.tab, query, seq: ++this.focusSeq };
+    await this.refresh();
+  }
+
+  /** "Vérifier": the runtime checks the steps on the workspace; the result is kept in .datapass/progress.json. */
+  private async verifyProjectSteps(projectId: string, stepIds: string[]): Promise<void> {
+    if (this.runtimeManager.snapshot().status !== "running") {
+      void vscode.window.showWarningMessage("Démarrez le runtime Datapass pour vérifier les étapes : il lit le catalogue et le journal des exécutions.");
+      return;
+    }
+    const project = await this.findProject(projectId);
+    if (!project || !Array.isArray(stepIds)) return;
+    const known = stepIds.filter(id => project.steps.some(step => step.id === id && step.checks.length));
+    if (!known.length) return;
+    this.projectsHost = { verifying: { projectId, stepIds: known } };
+    await this.refresh();
+    try {
+      const progress = await readProgress();
+      if (progress.error) throw new Error(`${progress.error} Corrigez ou supprimez le fichier, puis vérifiez à nouveau.`);
+      const result = await this.runtimeManager.checkProject(projectId, known);
+      await writeProgress(applyVerification(progress.document, project, result, new Date().toISOString()));
+      this.projectsHost = {};
+    } catch (error) {
+      this.projectsHost = { error: `Vérification impossible : ${error instanceof Error ? error.message : String(error)}` };
+    }
+    await this.refresh();
+  }
+
+  /** The learner ticks a step by hand: kept as a declaration, never as a verification. */
+  private async setProjectStepManual(projectId: string, stepId: string, checked: boolean): Promise<void> {
+    if (!vscode.workspace.workspaceFolders?.length) {
+      void vscode.window.showWarningMessage("Ouvrez un dossier de workspace pour garder la progression.");
+      return;
+    }
+    const project = await this.findProject(projectId);
+    if (!project || !project.steps.some(step => step.id === stepId)) return;
+    const progress = await readProgress();
+    if (progress.error) {
+      void vscode.window.showErrorMessage(`${progress.error} Corrigez ou supprimez le fichier.`);
+      return;
+    }
+    await writeProgress(setManual(progress.document, project, stepId, checked === true, new Date().toISOString()));
+    await this.refresh();
+  }
+
+  private async openProgressFile(): Promise<void> {
+    const uri = progressUri();
+    if (!uri) return;
+    if (!(await exists(uri))) {
+      await vscode.workspace.fs.createDirectory(vscode.Uri.joinPath(uri, ".."));
+      await vscode.workspace.fs.writeFile(uri, new TextEncoder().encode(serializeProgress(emptyProgress())));
+    }
+    await this.openBeside(uri);
+  }
+
   private async refresh(): Promise<void> {
     const state = await collectWorkbenchState(
       this.selectedModule,
       this.runtimeManager,
       this.context.extensionUri,
-      this.pythonTrust
+      this.pythonTrust,
+      { focus: this.focus, projects: this.projectsHost }
     );
     await this.panel.webview.postMessage({ type: "state", state });
   }

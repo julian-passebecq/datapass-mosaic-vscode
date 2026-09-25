@@ -518,7 +518,7 @@ def check_project(body: ProjectCheckRequest) -> dict[str, object]:
     try:
         project = load_project(body.project_id)
     except KeyError as error:
-        raise HTTPException(status_code=404, detail=str(error)) from error
+        raise HTTPException(status_code=404, detail=error.args[0]) from error
     try:
         return verify_project(project, body.steps, RunJournal(workspace_data_dir()), native_command)
     except ValueError as error:

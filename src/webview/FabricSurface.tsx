@@ -1,6 +1,6 @@
 import { Badge, Button, Card, CardHeader, Tab, TabList, Text } from "@fluentui/react-components";
-import { useState } from "react";
-import type { FactoryViewState, RuntimeViewState } from "./contracts";
+import { useEffect, useState } from "react";
+import type { FactoryViewState, RuntimeViewState, WorkbenchFocus } from "./contracts";
 import { FactoryPipelines } from "./FactoryPipelines";
 import { SqlPoolLab } from "./SqlPoolLab";
 import { DatabricksLab } from "./DatabricksLab";
@@ -10,15 +10,22 @@ import type { VsCodeApi } from "./WorkbenchApp";
 export function FabricSurface({
   vscode,
   runtime,
-  factory
+  factory,
+  focus
 }: {
   vscode: VsCodeApi;
   runtime: RuntimeViewState;
   factory: FactoryViewState | undefined;
+  /** A tab a project step asked to show. */
+  focus?: WorkbenchFocus;
 }) {
   const running = runtime.status === "running";
-  const [tab, setTab] = useState<"pipelines" | "sqlpool" | "databricks" | "lakehouse">(
-    runtime.databricksRun ? "databricks" : runtime.sqlpoolRun && !runtime.factoryRun ? "sqlpool" : "pipelines");
+  const [tab, setTab] = useState<CloudTab>(() => asCloudTab(focus?.tab) ??
+    (runtime.databricksRun ? "databricks" : runtime.sqlpoolRun && !runtime.factoryRun ? "sqlpool" : "pipelines"));
+  useEffect(() => {
+    const requested = asCloudTab(focus?.tab);
+    if (requested) setTab(requested);
+  }, [focus?.seq]);
 
   return (
     <section className="lab-surface">
@@ -31,7 +38,7 @@ export function FabricSurface({
           {running ? "local runtime connected" : "runtime stopped"}
         </Badge>
       </div>
-      <TabList className="lab-subtabs" selectedValue={tab} onTabSelect={(_, data) => setTab(data.value as typeof tab)} size="small">
+      <TabList className="lab-subtabs" selectedValue={tab} onTabSelect={(_, data) => setTab(data.value as CloudTab)} size="small">
         <Tab value="pipelines">Pipelines</Tab>
         <Tab value="sqlpool">SQL pool</Tab>
         <Tab value="databricks">Databricks</Tab>
@@ -43,6 +50,12 @@ export function FabricSurface({
       {tab === "lakehouse" && <LakehouseOverview vscode={vscode} runtime={runtime} />}
     </section>
   );
+}
+
+type CloudTab = "pipelines" | "sqlpool" | "databricks" | "lakehouse";
+
+function asCloudTab(value: string | undefined): CloudTab | undefined {
+  return value === "pipelines" || value === "sqlpool" || value === "databricks" || value === "lakehouse" ? value : undefined;
 }
 
 function LakehouseOverview({ vscode, runtime }: { vscode: VsCodeApi; runtime: RuntimeViewState }) {

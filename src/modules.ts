@@ -1,4 +1,4 @@
-export type ModuleId = "mosaic" | "practice" | "fabric" | "bi" | "sparklab" | "dbt" | "airflow" | "pipeline";
+export type ModuleId = "projects" | "mosaic" | "practice" | "fabric" | "bi" | "sparklab" | "dbt" | "airflow" | "pipeline";
 export type ExecutionMode = "real" | "simulated" | "hybrid";
 
 export interface WorkbenchModule {
@@ -12,6 +12,15 @@ export interface WorkbenchModule {
 }
 
 export const MODULES: readonly WorkbenchModule[] = [
+  {
+    id:"projects",
+    label:"Projects",
+    description:"End-to-end projects whose steps are done in the labs, with checkboxes that follow your progress.",
+    command:"datapass.openProjects",
+    execution:"Steps verified on your workspace; each check says real, simulated or emulated",
+    mode:"hybrid",
+    highlights:["Three stories across every lab","Verified checks apart from ticks by hand","Progress in .datapass/progress.json"]
+  },
   {
     id:"mosaic",
     label:"Mosaic",

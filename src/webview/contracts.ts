@@ -1,6 +1,7 @@
 import type { ModuleId, WorkbenchModule } from "../modules";
 import type { MosaicLayoutItem } from "../platform/mosaicLayout";
 import type { PythonTrustState } from "../platform/pythonTrust";
+import type { ProjectsViewState } from "../platform/projects";
 
 export type RuntimeStatus = "stopped" | "starting" | "running" | "error";
 export type ScratchKind = "sql" | "python" | "sparklab" | "notes";
@@ -1071,6 +1072,22 @@ export interface WorkbenchViewState {
   factory?: FactoryViewState;
   bi?: BiViewState;
   dbt?: DbtViewState;
+  projects?: ProjectsViewState & ProjectsHostState;
+  /** A lab tab or Practice filter to show, set when a project step opens a lab; seq changes on each request. */
+  focus?: WorkbenchFocus;
+}
+
+export interface WorkbenchFocus {
+  module: ModuleId;
+  tab?: string;
+  query?: string;
+  seq: number;
+}
+
+/** What the host is doing for the Projects module: a verification in flight, or the last one's error. */
+export interface ProjectsHostState {
+  verifying?: { projectId: string; stepIds: string[] };
+  error?: string;
 }
 
 export type HostToWebviewMessage = {
@@ -1124,4 +1141,9 @@ export type WebviewToHostMessage =
   | { type: "runBiDbt"; command: BiDbtCommand; select: string; fullRefresh: boolean }
   | { type: "openDbtProject" }
   | { type: "refreshDbt" }
-  | { type: "runDbtBuild" };
+  | { type: "runDbtBuild" }
+  | { type: "prepareProject"; projectId: string }
+  | { type: "openProjectStep"; projectId: string; stepId: string }
+  | { type: "verifyProjectSteps"; projectId: string; stepIds: string[] }
+  | { type: "setProjectStepManual"; projectId: string; stepId: string; checked: boolean }
+  | { type: "openProgressFile" };
