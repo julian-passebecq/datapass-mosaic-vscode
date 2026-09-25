@@ -35,7 +35,8 @@ export class CatalogTreeProvider implements vscode.TreeDataProvider<CatalogNode>
   constructor(private readonly runtime: RuntimeManager) {
     this.subscription = runtime.onDidChange(state => {
       // Refetch when the runtime starts or stops, or when a run changed the catalog listing.
-      const next = JSON.stringify([state.status, state.url, (state.catalog ?? []).map(item => [item.name, item.row_count])]);
+      const next = JSON.stringify([state.status, state.url, state.catalogLease?.holder ?? null,
+        (state.catalog ?? []).map(item => [item.name, item.row_count])]);
       if (next === this.signature) return;
       this.signature = next;
       this.schedule();
@@ -122,6 +123,15 @@ export class CatalogTreeProvider implements vscode.TreeDataProvider<CatalogNode>
         command: state.status === "starting" ? undefined : { command: "datapass.openMosaic", title: "Open Workbench" }
       }];
     }
+    if (state.catalogLease) {
+      return [{
+        kind: "message",
+        label: "Catalog lent to dbt Core / dct",
+        detail: state.catalogLease.reattachError ?? state.catalogLease.holder,
+        icon: "lock",
+        command: { command: "datapass.catalog.reattach", title: "Reattach catalog" }
+      }];
+    }
     if (this.error) {
       return [{ kind: "message", label: "Catalog unavailable", detail: this.error, icon: "error",
         command: { command: "datapass.catalog.refresh", title: "Retry" } }];
@@ -141,7 +151,8 @@ export class CatalogTreeProvider implements vscode.TreeDataProvider<CatalogNode>
   }
 
   private async load(): Promise<void> {
-    if (this.runtime.snapshot().status !== "running") {
+    const state = this.runtime.snapshot();
+    if (state.status !== "running" || state.catalogLease) {
       this.view = undefined;
       this.error = undefined;
       this.changed.fire(undefined);
@@ -201,6 +212,11 @@ export function registerCatalogTree(runtime: RuntimeManager, openWorkbench: () =
     provider,
     vscode.window.createTreeView("datapass.catalog", { treeDataProvider: provider, showCollapseAll: true }),
     vscode.commands.registerCommand("datapass.catalog.refresh", () => provider.refresh()),
+    vscode.commands.registerCommand("datapass.catalog.reattach", async () => {
+      if (!(await runtime.reattachCatalog())) {
+        void vscode.window.showWarningMessage(runtime.snapshot().catalogLease?.reattachError ?? "The catalog is still held.");
+      }
+    }),
     vscode.commands.registerCommand("datapass.catalog.openScratch", async (node: unknown) => {
       const table = tableOf(node);
       if (table) await openTableScratch(table);

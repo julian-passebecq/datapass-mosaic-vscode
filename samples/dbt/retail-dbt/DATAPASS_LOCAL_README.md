@@ -1,12 +1,11 @@
-# Local dbt project
+# Retail dbt sample
 
-Review SQL, macros and project hooks before running. No code was run by the exporter.
-This is an isolated teaching project, not an automatic clone of the Datapass workspace catalog.
+A small dbt project for the Datapass dbt Lab: two seeds (`raw_customers`, `raw_orders`), a staging view, two marts and
+tests. It runs with real dbt Core and dbt-duckdb on the local catalog.
 
-Install dbt-duckdb in your chosen virtual environment, then:
+In the dbt Lab: **Install dbt tools** once, pick this project, then run `dbt build` in its terminal. The lab generates
+the `datapass_retail` profile in `.datapass/dbt/profiles.yml` (a local DuckDB file, no secrets) and lends the catalog
+file to dbt while the command runs. Review SQL, macros and hooks before running a project you did not write: dbt runs
+them as your user.
 
-```sh
-dbt build --project-dir . --profiles-dir . --profile datapass_retail
-```
-
-Import `target/manifest.json` and `target/run_results.json` from the SAME invocation into Datapass. A later `dbt docs generate` can replace the manifest invocation ID; capture matching artifacts first.
+`charts/revenue.yml` and `dbt_charts.yml` describe a dbt Charts board on `fct_sales`.

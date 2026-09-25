@@ -60,11 +60,11 @@ export const MODULES: readonly WorkbenchModule[] = [
   {
     id:"dbt",
     label:"dbt Lab",
-    description:"dbt models, tests and manifest-backed lineage.",
+    description:"Real-life dbt: dbt Core and dbt-duckdb in a real terminal on the local catalog, with the run's artifacts.",
     command:"datapass.openDbtLab",
-    execution:"Real dbt Core + DuckDB",
-    mode:"hybrid",
-    highlights:["Real dbt Core where installed","DuckDB development target","Manifest lineage + test results"]
+    execution:"Real dbt Core in your terminal",
+    mode:"real",
+    highlights:["Managed dbt Core + dbt-duckdb, installed on request","Real commands typed in a VS Code terminal","DAG, statuses and failures from target/ artifacts"]
   },
   {
     id:"airflow",

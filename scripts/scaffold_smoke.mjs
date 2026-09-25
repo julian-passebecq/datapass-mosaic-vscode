@@ -7,7 +7,6 @@ import * as esbuild from "esbuild";
 
 const dir = await mkdtemp(path.join(tmpdir(), "datapass-scaffold-"));
 const outfile = path.join(dir, "retail-demo.mjs");
-const dbtOutfile = path.join(dir, "dbt-version.mjs");
 const readmeOutfile = path.join(dir, "exercise-readme.mjs");
 
 try {
@@ -18,16 +17,6 @@ try {
     format: "esm",
     target: "node20",
     outfile,
-    logLevel: "silent"
-  });
-
-  await esbuild.build({
-    entryPoints: ["src/platform/dbtVersion.ts"],
-    bundle: true,
-    platform: "node",
-    format: "esm",
-    target: "node20",
-    outfile: dbtOutfile,
     logLevel: "silent"
   });
 
@@ -43,7 +32,6 @@ try {
 
   const mod = await import(pathToFileURL(outfile).href + `?v=${Date.now()}`);
   const readmeMod = await import(pathToFileURL(readmeOutfile).href + `?v=${Date.now()}`);
-  const dbtMod = await import(pathToFileURL(dbtOutfile).href + `?v=${Date.now()}`);
 
   const customDataset = "assets/raw/retail_orders.csv";
   const sql = mod.retailSqlStarter(customDataset);
@@ -85,25 +73,6 @@ try {
   assert.equal(rows[0], "order_id,customer_id,order_date,amount,status");
   assert.ok(rows.some(row => row.includes("refund")));
   assert.ok(rows.some(row => row.includes("cancelled")));
-
-  const parsedDbt = dbtMod.parseDbtVersionOutput([
-    "Core:",
-    "  - installed: 1.10.2",
-    "  - latest:    1.10.2 - Up to date!",
-    "Plugins:",
-    "  - duckdb: 1.9.6 - Up to date!"
-  ].join("\n"));
-  assert.equal(parsedDbt.coreVersion, "1.10.2");
-  assert.equal(parsedDbt.duckdbAdapterVersion, "1.9.6");
-
-  const coreOnly = dbtMod.parseDbtVersionOutput("dbt Core v1.10.2");
-  assert.equal(coreOnly.coreVersion, "1.10.2");
-  assert.equal(coreOnly.duckdbAdapterVersion, undefined);
-
-  const traceback = ["Command failed: dbt --version", "Traceback (most recent call last):", '  File "x.py", line 4, in <module>', "ModuleNotFoundError: No module named '_ctypes'", ""].join("\n");
-  assert.equal(dbtMod.summarizeProbeError(traceback), "Command failed: dbt --version: ModuleNotFoundError: No module named '_ctypes'");
-  assert.equal(dbtMod.summarizeProbeError("spawn dbt ENOENT"), "spawn dbt ENOENT");
-  assert.equal(dbtMod.summarizeProbeError(undefined), undefined);
 
   const brief = readmeMod.exerciseReadme({
     key: "sql-lab-v1/x/sql", packId: "sql-lab-v1", packTitle: "SQL lab", id: "x", version: "1",
@@ -157,7 +126,7 @@ try {
   assert.match(airflowBrief, /\*\*Run visible\*\* simulates the public scenario/);
   assert.match(airflowBrief, /The DAG file is parsed, never executed\./);
 
-  console.log("Retail scaffold, exercise brief and dbt detection smoke tests passed.");
+  console.log("Retail scaffold and exercise brief smoke tests passed.");
 } finally {
   await rm(dir, { recursive: true, force: true });
 }

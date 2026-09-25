@@ -80,7 +80,7 @@ npm run test:host
 1. activation and every Workbench command; the Mosaic command opens the Workbench webview;
 2. `.datapass/project.json` creation with `trustedLocalPython: false`;
 3. trusted-Python resolution (manifest flag alone is not enough; confirmation required; disable resets); Mosaic layout round trip through `.datapass/mosaic.json`, rejected input and corrupt-file fallback;
-4. Airflow starter DAG file under `airflow/dags`; dbt sample static lineage (labeled static, not a run);
+4. Airflow starter DAG file under `airflow/dags`; the dbt Lab finds the workspace's dbt projects and writes `.datapass/dbt/profiles.yml` (no run claimed before `target/` exists);
 5. runtime start **with `DATAPASS_TRUSTED_PYTHON=1` injected into the host** — it must still report trusted Python off;
 6. Mosaic SQL scratch on real DuckDB; Python refused while untrusted;
 7. SparkLab scratch result + simulated stages; unsafe SparkLab source rejected; Airflow Lab simulates the starter DAG (states, retries, all_done cleanup) and rejects a bad import with its line;
@@ -88,6 +88,8 @@ npm run test:host
 9. Pipeline starter compiles to a graph and its activities run;
 10. retail medallion demo;
 11. trusted restart and a real Python/Polars run.
+
+The runtime steps also cover the catalog handoff (release, a second process writing the file, a refused reattach while it is held, then a reattach that sees its table) and the Catalog tree. With `DATAPASS_DBT_PYTHON` set to a Python that has dbt-core and dbt-duckdb, one more step types `dbt build` for the BI project in a real terminal and checks that the catalog was lent and reattached through shell integration and that the artifacts read back as a clean dbt Core run (CI installs them in a venv for this).
 
 Without `DATAPASS_E2E_PYTHON` steps 5–11 are reported as skipped. The suite does not click webview buttons: it drives the same host classes the panel uses. Manual F5 inspection of the webview UI is still required for user-facing changes.
 

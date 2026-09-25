@@ -1,296 +1,84 @@
 import * as vscode from "vscode";
-import { defaultProbeRunner } from "./platform/detection";
-import { parseDbtVersionOutput, summarizeProbeError } from "./platform/dbtVersion";
-import { readProjectManifest } from "./project/projectManifest";
-import type { DbtCliView, DbtViewState, GraphView } from "./webview/contracts";
+import { toDbtCoreRunView } from "./platform/dbtArtifacts";
+import { readProfileName, readProjectName } from "./platform/dbtTools";
+import type { DbtProjectRef, DbtToolsView, DbtViewState } from "./webview/contracts";
 
-const EMPTY_GRAPH: GraphView = { nodes: [], edges: [] };
-const REF = /\{\{\s*ref\(\s*['"]([^'"]+)['"]\s*\)\s*\}\}/g;
-const SOURCE = /\{\{\s*source\(\s*['"]([^'"]+)['"]\s*,\s*['"]([^'"]+)['"]\s*\)\s*\}\}/g;
+const PROJECT_GLOB = "**/dbt_project.yml";
+const PROJECT_EXCLUDE = "{**/node_modules/**,**/target/**,**/dbt_packages/**,**/dbt_internal_packages/**,**/.datapass/**,**/.git/**}";
+const MAX_MANIFEST_BYTES = 40_000_000;
 
-export async function probeDbtCli(): Promise<DbtCliView> {
-  const result = await defaultProbeRunner("dbt", ["--version"], 1800);
-  if (!result.ok) {
-    return {
-      available: false,
-      adapterAvailable: false,
-      detail: summarizeProbeError(result.error)
-    };
-  }
-
-  const parsed = parseDbtVersionOutput(result.output ?? "");
-  return {
-    available: true,
-    adapterAvailable: Boolean(parsed.duckdbAdapterVersion),
-    version: parsed.coreVersion,
-    adapterVersion: parsed.duckdbAdapterVersion,
-    detail: parsed.duckdbAdapterVersion ? undefined : "dbt-duckdb adapter was not detected in dbt --version output."
-  };
-}
-
-export async function loadDbtState(): Promise<DbtViewState> {
-  const cli = await probeDbtCli();
-  const root = vscode.workspace.workspaceFolders?.[0]?.uri;
-  if (!root) {
-    return {
-      exists: false,
-      path: "dbt/retail-dbt",
-      modelCount: 0,
-      seedCount: 0,
-      lineageSource: "none",
-      graph: EMPTY_GRAPH,
-      errors: [],
-      cli: cli
-    };
-  }
-
-  const manifest = await readProjectManifest();
-  const dbtParts = safeRelativeParts(manifest.manifest?.assets?.dbt, "dbt");
-  const projectRoot = vscode.Uri.joinPath(root, ...dbtParts, "retail-dbt");
-  const projectFile = vscode.Uri.joinPath(projectRoot, "dbt_project.yml");
-  const relativePath = vscode.workspace.asRelativePath(projectRoot, false);
-
-  if (!(await exists(projectFile))) {
-    return {
-      exists: false,
-      path: relativePath,
-      modelCount: 0,
-      seedCount: 0,
-      lineageSource: "none",
-      graph: EMPTY_GRAPH,
-      errors: [],
-      cli: cli
-    };
-  }
-
-  const errors: string[] = [];
-  const projectText = new TextDecoder().decode(await vscode.workspace.fs.readFile(projectFile));
-  const projectName = /^name:\s*['"]?([^'"\s]+)['"]?/m.exec(projectText)?.[1];
-
-  const artifact = await readJson(vscode.Uri.joinPath(projectRoot, "target", "manifest.json"));
-  if (artifact && typeof artifact === "object") {
+/** Every dbt project in the workspace (a folder with dbt_project.yml), sorted by path. */
+export async function findDbtProjects(): Promise<Array<DbtProjectRef & { file: vscode.Uri; folder: vscode.Uri }>> {
+  const files = await vscode.workspace.findFiles(PROJECT_GLOB, PROJECT_EXCLUDE, 60);
+  const projects = [];
+  for (const file of files) {
+    const folder = vscode.Uri.joinPath(file, "..");
+    let text = "";
     try {
-      const manifestGraph = graphFromManifest(artifact as Record<string, unknown>);
-      if (manifestGraph.graph.nodes.length > 0) {
-        return {
-          exists: true,
-          path: relativePath,
-          projectName,
-          modelCount: manifestGraph.modelCount,
-          seedCount: manifestGraph.seedCount,
-          lineageSource: "manifest",
-          graph: manifestGraph.graph,
-          errors,
-          cli: cli
-        };
-      }
-    } catch (error) {
-      errors.push(`Could not read target/manifest.json: ${error instanceof Error ? error.message : String(error)}`);
+      text = new TextDecoder().decode(await vscode.workspace.fs.readFile(file));
+    } catch {
+      // Listed without a name; dbt itself will say what is wrong with it.
     }
-  }
-
-  const staticGraph = await graphFromSource(projectRoot);
-  return {
-    exists: true,
-    path: relativePath,
-    projectName,
-    modelCount: staticGraph.modelCount,
-    seedCount: staticGraph.seedCount,
-    lineageSource: "static",
-    graph: staticGraph.graph,
-    errors,
-    cli: cli
-  };
-}
-
-function graphFromManifest(manifest: Record<string, unknown>): {
-  graph: GraphView;
-  modelCount: number;
-  seedCount: number;
-} {
-  const nodesObject = objectValue(manifest.nodes) ?? {};
-  const sourcesObject = objectValue(manifest.sources) ?? {};
-  const all = { ...nodesObject, ...sourcesObject };
-  const graphNodes = new Map<string, { id: string; label: string; detail: string; truth: string }>();
-  let modelCount = 0;
-  let seedCount = 0;
-
-  for (const [uniqueId, raw] of Object.entries(all)) {
-    const node = objectValue(raw);
-    if (!node) continue;
-    const resourceType = stringValue(node.resource_type) ?? "resource";
-    if (!["model", "seed", "source"].includes(resourceType)) continue;
-    if (resourceType === "model") modelCount += 1;
-    if (resourceType === "seed") seedCount += 1;
-    const config = objectValue(node.config);
-    const materialized = stringValue(config?.materialized);
-    graphNodes.set(uniqueId, {
-      id: uniqueId,
-      label: stringValue(node.name) ?? uniqueId,
-      detail: materialized ? `${resourceType} · ${materialized}` : resourceType,
-      truth: "dbt manifest"
+    projects.push({
+      path: vscode.workspace.asRelativePath(folder, false).replaceAll("\\", "/"),
+      name: readProjectName(text),
+      profile: readProfileName(text),
+      file,
+      folder
     });
   }
+  return projects.sort((a, b) => a.path.localeCompare(b.path));
+}
 
-  const edges: Array<{ id: string; source: string; target: string; label: string }> = [];
-  const parentMap = objectValue(manifest.parent_map) ?? {};
-  for (const [target, rawParents] of Object.entries(parentMap)) {
-    if (!graphNodes.has(target) || !Array.isArray(rawParents)) continue;
-    for (const parent of rawParents) {
-      if (typeof parent !== "string" || !graphNodes.has(parent)) continue;
-      edges.push({
-        id: `${parent}->${target}`,
-        source: parent,
-        target,
-        label: "depends_on"
-      });
-    }
-  }
+export function projectFolder(relative: string): vscode.Uri | undefined {
+  const root = vscode.workspace.workspaceFolders?.[0]?.uri;
+  const parts = relative.split("/").filter(Boolean);
+  if (!root || parts.some(part => part === ".." || part === "." || part.includes(":"))) return undefined;
+  return parts.length ? vscode.Uri.joinPath(root, ...parts) : root;
+}
 
-  return {
-    graph: { nodes: [...graphNodes.values()], edges },
-    modelCount,
-    seedCount
+/**
+ * The dbt Lab view: the workspace's dbt projects, the managed tools, and what the last real dbt Core command left in
+ * the selected project's target/ folder. Nothing here runs dbt: the learner does, in the terminal.
+ */
+export async function loadDbtState(options: {
+  tools: DbtToolsView;
+  selected?: string;
+  shellIntegration?: boolean;
+}): Promise<DbtViewState> {
+  const projects = (await findDbtProjects()).map(({ path, name, profile }) => ({ path, name, profile }));
+  const selected = projects.find(project => project.path === options.selected)?.path ?? projects[0]?.path;
+  const state: DbtViewState = {
+    projects,
+    selected,
+    tools: options.tools,
+    profilesPath: ".datapass/dbt/profiles.yml",
+    shellIntegration: options.shellIntegration
   };
-}
-
-async function graphFromSource(projectRoot: vscode.Uri): Promise<{
-  graph: GraphView;
-  modelCount: number;
-  seedCount: number;
-}> {
-  const modelFiles = await collectFiles(vscode.Uri.joinPath(projectRoot, "models"), ".sql");
-  const seedFiles = await collectFiles(vscode.Uri.joinPath(projectRoot, "seeds"), ".csv");
-
-  const nodes = new Map<string, { id: string; label: string; detail: string; truth: string }>();
-  const edges: Array<{ id: string; source: string; target: string; label: string }> = [];
-
-  for (const seed of seedFiles) {
-    const name = baseName(seed.path, ".csv");
-    nodes.set(name, { id: name, label: name, detail: "seed", truth: "Static lineage" });
-  }
-
-  for (const model of modelFiles) {
-    const name = baseName(model.path, ".sql");
-    nodes.set(name, { id: name, label: name, detail: "model", truth: "Static lineage" });
-  }
-
-  for (const model of modelFiles) {
-    const target = baseName(model.path, ".sql");
-    const sql = new TextDecoder().decode(await vscode.workspace.fs.readFile(model.uri));
-
-    for (const source of matchAll(sql, REF, match => match[1])) {
-      if (!nodes.has(source)) {
-        nodes.set(source, { id: source, label: source, detail: "unresolved ref", truth: "Static lineage" });
-      }
-      edges.push({
-        id: `${source}->${target}`,
-        source,
-        target,
-        label: "ref"
-      });
-    }
-
-    for (const source of matchAll(sql, SOURCE, match => `${match[1]}.${match[2]}`)) {
-      if (!nodes.has(source)) {
-        nodes.set(source, { id: source, label: source, detail: "source", truth: "Static lineage" });
-      }
-      edges.push({
-        id: `${source}->${target}`,
-        source,
-        target,
-        label: "source"
-      });
-    }
-  }
-
-  return {
-    graph: { nodes: [...nodes.values()], edges },
-    modelCount: modelFiles.length,
-    seedCount: seedFiles.length
-  };
-}
-
-interface FileRef {
-  uri: vscode.Uri;
-  path: string;
-}
-
-async function collectFiles(root: vscode.Uri, extension: string): Promise<FileRef[]> {
-  const result: FileRef[] = [];
-  let entries: [string, vscode.FileType][];
+  const folder = selected !== undefined ? projectFolder(selected) : undefined;
+  if (!folder) return state;
+  const target = vscode.Uri.joinPath(folder, "target");
+  const manifest = await readJson(vscode.Uri.joinPath(target, "manifest.json"));
+  if (manifest.missing) return state;
+  if (manifest.error) return { ...state, artifactError: `target/manifest.json: ${manifest.error}` };
+  const results = await readJson(vscode.Uri.joinPath(target, "run_results.json"));
   try {
-    entries = await vscode.workspace.fs.readDirectory(root);
-  } catch {
-    return result;
+    return { ...state, run: toDbtCoreRunView(manifest.value, results.value), artifactError: results.error && `target/run_results.json: ${results.error}` };
+  } catch (error) {
+    return { ...state, artifactError: error instanceof Error ? error.message : String(error) };
   }
-
-  for (const [name, type] of entries) {
-    const uri = vscode.Uri.joinPath(root, name);
-    if ((type & vscode.FileType.Directory) !== 0) {
-      result.push(...await collectFiles(uri, extension));
-    } else if ((type & vscode.FileType.File) !== 0 && name.toLowerCase().endsWith(extension)) {
-      result.push({ uri, path: uri.path });
-    }
-  }
-  return result;
 }
 
-function matchAll(
-  value: string,
-  regex: RegExp,
-  project: (match: RegExpExecArray) => string
-): string[] {
-  const result: string[] = [];
-  regex.lastIndex = 0;
-  let match: RegExpExecArray | null;
-  while ((match = regex.exec(value)) !== null) result.push(project(match));
-  return [...new Set(result)];
-}
-
-function baseName(path: string, extension: string): string {
-  const normalized = path.replaceAll("\\", "/");
-  const file = normalized.split("/").at(-1) ?? normalized;
-  return file.toLowerCase().endsWith(extension)
-    ? file.slice(0, -extension.length)
-    : file;
-}
-
-async function readJson(uri: vscode.Uri): Promise<unknown | undefined> {
+async function readJson(uri: vscode.Uri): Promise<{ value?: unknown; missing?: boolean; error?: string }> {
   try {
-    return JSON.parse(new TextDecoder().decode(await vscode.workspace.fs.readFile(uri)));
+    const stat = await vscode.workspace.fs.stat(uri);
+    if (stat.size > MAX_MANIFEST_BYTES) return { error: `larger than ${MAX_MANIFEST_BYTES / 1_000_000} MB; not read.` };
   } catch {
-    return undefined;
+    return { missing: true };
   }
-}
-
-function objectValue(value: unknown): Record<string, unknown> | undefined {
-  return value && typeof value === "object" && !Array.isArray(value)
-    ? value as Record<string, unknown>
-    : undefined;
-}
-
-function stringValue(value: unknown): string | undefined {
-  return typeof value === "string" ? value : undefined;
-}
-
-function safeRelativeParts(value: string | undefined, fallback: string): string[] {
-  const normalized = (value ?? fallback).replaceAll("\\", "/");
-  const parts = normalized.split("/").filter(Boolean);
-  if (
-    parts.length === 0 ||
-    parts.some(part => part === "." || part === ".." || part.includes(":"))
-  ) {
-    return [fallback];
-  }
-  return parts;
-}
-
-async function exists(uri: vscode.Uri): Promise<boolean> {
   try {
-    await vscode.workspace.fs.stat(uri);
-    return true;
-  } catch {
-    return false;
+    return { value: JSON.parse(new TextDecoder().decode(await vscode.workspace.fs.readFile(uri))) };
+  } catch (error) {
+    return { error: error instanceof Error ? error.message : String(error) };
   }
 }

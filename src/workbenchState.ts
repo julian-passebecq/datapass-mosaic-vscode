@@ -10,13 +10,14 @@ import { loadPipelineState } from "./pipelineState";
 import { readProjectManifest } from "./project/projectManifest";
 import type { PythonTrustController } from "./pythonTrustController";
 import type { RuntimeManager } from "./runtimeManager";
-import type { SparkLabProfileView, WorkbenchViewState } from "./webview/contracts";
+import type { DbtToolsView, SparkLabProfileView, WorkbenchViewState } from "./webview/contracts";
 
 export async function collectWorkbenchState(
   selectedModule: ModuleId,
   runtimeManager: RuntimeManager,
   extensionUri: vscode.Uri,
-  pythonTrust: PythonTrustController
+  pythonTrust: PythonTrustController,
+  dbtLab?: { tools: DbtToolsView; selected?: string; shellIntegration?: boolean }
 ): Promise<WorkbenchViewState> {
   const folder = vscode.workspace.workspaceFolders?.[0];
   const manifest = await readProjectManifest();
@@ -29,8 +30,8 @@ export async function collectWorkbenchState(
   const airflow = selectedModule === "airflow"
     ? await loadAirflowState()
     : undefined;
-  const dbt = selectedModule === "dbt"
-    ? await loadDbtState()
+  const dbt = selectedModule === "dbt" && dbtLab
+    ? await loadDbtState(dbtLab)
     : undefined;
   const factory = selectedModule === "fabric"
     ? await loadFactoryState()

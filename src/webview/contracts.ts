@@ -1,6 +1,8 @@
 import type { ModuleId, WorkbenchModule } from "../modules";
 import type { MosaicLayoutItem } from "../platform/mosaicLayout";
 import type { PythonTrustState } from "../platform/pythonTrust";
+import type { DbtCoreRunView } from "../platform/dbtArtifacts";
+import type { DbtCommand } from "../platform/dbtTools";
 
 export type RuntimeStatus = "stopped" | "starting" | "running" | "error";
 export type ScratchKind = "sql" | "python" | "sparklab" | "notes";
@@ -181,12 +183,22 @@ export interface RuntimeViewState {
   biDbtRun?: BiDbtView;
   retailDemo?: RetailDemoRunView;
   catalog?: readonly LocalCatalogAssetView[];
+  /** Set while the catalog file is lent to a dbt Core or dct command in the dbt Lab terminal. */
+  catalogLease?: CatalogLeaseView;
   lastRun?: LocalCellRunView;
   /** Latest Mosaic CSV import; cleared when a newer SQL/Python run replaces the preview. */
   csvImport?: CsvImportView;
   pipelineRun?: PipelineRunView;
   practiceResult?: PracticeResultView;
   environment?: RuntimeEnvironmentView;
+}
+
+export interface CatalogLeaseView {
+  /** The command line that borrows .datapass/data/workspace.duckdb. */
+  holder: string;
+  since: string;
+  /** The last reattach attempt failed (the file is still held); the text says why. */
+  reattachError?: string;
 }
 
 export interface PythonTrustView {
@@ -1036,24 +1048,36 @@ export interface SqlPoolLabView {
   warnings: string[];
 }
 
-export interface DbtCliView {
-  available: boolean;
-  adapterAvailable: boolean;
-  version?: string;
-  adapterVersion?: string;
+/** The managed dbt tools environment (dbt Core, dbt-duckdb, dbt Charts), installed only on an explicit action. */
+export interface DbtToolsView {
+  status: "missing" | "installing" | "ready" | "error";
+  python?: string;
+  binDir?: string;
+  /** Installed package versions (dbt-core, dbt-duckdb, duckdb, dbt-charts), read from package metadata. */
+  versions?: Readonly<Record<string, string | null>>;
   detail?: string;
+  progress?: { step: number; totalSteps: number; label: string; activity?: string; startedAt: number };
+}
+
+export interface DbtProjectRef {
+  /** Folder relative to the workspace root, with forward slashes. */
+  path: string;
+  name?: string;
+  profile?: string;
 }
 
 export interface DbtViewState {
-  exists: boolean;
-  path: string;
-  projectName?: string;
-  modelCount: number;
-  seedCount: number;
-  lineageSource: "manifest" | "static" | "none";
-  graph: GraphView;
-  errors: readonly string[];
-  cli: DbtCliView;
+  projects: readonly DbtProjectRef[];
+  /** The selected project's folder (relative), when there is one. */
+  selected?: string;
+  tools: DbtToolsView;
+  /** `.datapass/dbt/profiles.yml`, generated; no secrets. */
+  profilesPath: string;
+  /** What the last real dbt Core command left in target/ (manifest.json, run_results.json). */
+  run?: DbtCoreRunView;
+  artifactError?: string;
+  /** The dbt terminal reports command start and end (VS Code shell integration), so the handoff is automatic. */
+  shellIntegration?: boolean;
 }
 
 export interface WorkbenchViewState {
@@ -1122,6 +1146,12 @@ export type WebviewToHostMessage =
   | { type: "runBiLab"; mode: BiRunMode }
   | { type: "revealBiLine"; path: string; line: number }
   | { type: "runBiDbt"; command: BiDbtCommand; select: string; fullRefresh: boolean }
-  | { type: "openDbtProject" }
+  | { type: "createDbtSample" }
+  | { type: "selectDbtProject"; path: string }
   | { type: "refreshDbt" }
-  | { type: "runDbtBuild" };
+  | { type: "installDbtTools" }
+  | { type: "showDbtToolsLog" }
+  | { type: "runDbtCommand"; command: DbtCommand; select: string; exclude: string; fullRefresh: boolean }
+  | { type: "openDbtTerminal" }
+  | { type: "openDbtFile"; path: string }
+  | { type: "reattachCatalog" };
