@@ -1,14 +1,14 @@
--- Projet « Retail de bout en bout » : les commandes web en silver.
--- Mosaic > Run active SQL exécute ce fichier sur le catalogue local (DuckDB).
+-- Project "Retail end to end": the web orders in silver.
+-- Mosaic > Run active SQL runs this file on the local catalog (DuckDB).
 --
--- bronze.web_orders vient de l'import CSV : toutes ses colonnes sont du texte.
--- Construisez silver.web_orders avec :
---   - order_id et customer_id en texte ;
---   - segment_id en INTEGER et net_amount en DOUBLE ;
---   - ordered_at converti en TIMESTAMP et renommé loaded_at, comme dans les commandes magasin
---     (le pipeline Fabric ajoutera ces lignes à bronze.orders par nom de colonne) ;
---   - une seule ligne par commande (la boutique renvoie parfois une ligne en double) ;
---   - seulement les montants strictement positifs (ni remboursement ni échantillon gratuit).
+-- bronze.web_orders comes from the CSV import: every column is text.
+-- Build silver.web_orders with:
+--   - order_id and customer_id as text;
+--   - segment_id as INTEGER and net_amount as DOUBLE;
+--   - ordered_at cast to TIMESTAMP and renamed loaded_at, as in the store orders
+--     (the Fabric pipeline will append these rows to bronze.orders by column name);
+--   - one row per order (the shop sometimes sends a line twice);
+--   - only strictly positive amounts (no refund, no free sample).
 
 CREATE OR REPLACE TABLE silver.web_orders AS
 SELECT order_id,

@@ -53,7 +53,7 @@ story whose steps are done in the existing modules, with checkboxes that follow 
     demo, and a generic `run` check for future labs;
   - `POST /api/local/projects/check {project_id, steps}`: checks come from shipped content only; manual steps come
     back "manual", never verified.
-- **Content** (French, like the Projects UI; the labs stay English), all doable with today's features:
+- **Content** (English, like the rest of the Workbench), all doable with today's features:
   - `retail-fabric` (12 steps): CSV import and typed silver SQL in Mosaic, a SparkLab broadcast join, a second Copy
     activity added to the Fabric pipeline (Copy, notebook and stored procedure run locally), an SCD2 star with green
     model checks, dbt build, a daily Airflow schedule with catchup and retries, a Pipeline Lab quality gate, three
@@ -68,10 +68,10 @@ story whose steps are done in the existing modules, with checkboxes that follow 
   - `src/platform/projects.ts` (pure): content normalization, `.datapass/progress.json` (manual ticks, `last`
     verification, `verified` = last one that passed), next suggested step, Markdown subset;
   - `src/projectState.ts`: content, progress file, project files copied without overwriting;
-  - `workbenchPanel.ts`: scaffolds, **Ouvrir dans <lab>** (file or exercise beside, lab tab via `focus`),
-    **Vérifier**, manual ticks;
+  - `workbenchPanel.ts`: scaffolds, **Open in <lab>** (file or exercise beside, lab tab via `focus`),
+    **Verify**, manual ticks;
   - `ProjectsSurface.tsx`: list with a two-segment progress bar (verified / ticked by hand), project page with the
-    story, next step, steps with checkbox, state badge ("vérifié", "coché à la main", "à reprendre"), truth badges and
+    story, next step, steps with checkbox, state badge ("verified", "ticked by hand", "to redo"), truth badges and
     last result. A verified step stays verified when a later project changes shared tables (the retail demo rewrites
     `silver.orders`); the regression is shown next to it.
 - **Docs**: `docs/PROJECT_AUTHORING.md` (schema, checks, truth, walkthrough, how a future lab adds steps), CLAUDE.md,
@@ -88,10 +88,10 @@ Checked:
 - the packaged VSIX installed with `code --install-extension --force` in a fresh profile and walked in a real VS Code
   1.139 window by Playwright (`_electron.launch`, webview frames through `iframe.webview.ready` / `iframe#active-frame`):
   Projects list, **Create .datapass project**, **Setup runtime** (about 2 min) and **Start runtime**, the retail
-  project page; step 1 through **Ouvrir dans Mosaic** (project files created) and the real **Import CSV…** dialog,
-  then **Vérifier** (vérifié); step 3 checked on the starter (à reprendre), then the SQL written and **Run active SQL**
-  (vérifié); the runbook ticked by hand (coché à la main, never verified in `progress.json`); **Ouvrir dans
-  Practice** (exercise opened, list filtered), **Ouvrir dans Cloud Lab** (Pipelines tab), **Ouvrir dans BI Lab** (dbt
+  project page; step 1 through **Open in Mosaic** (project files created) and the real **Import CSV…** dialog,
+  then **Verify** (verified); step 3 checked on the starter (to redo), then the SQL written and **Run active SQL**
+  (verified); the runbook ticked by hand (never verified in `progress.json`); **Open in
+  Practice** (exercise opened, list filtered), **Open in Cloud Lab** (Pipelines tab), **Open in BI Lab** (dbt
   tab); the page and the list at a narrow width. Screenshots reviewed.
 - Bugs the walk found and fixed: a slow refresh (the Practice catalog) could land after a newer one and switch the
   Workbench back to Practice (refreshes now post only the newest state); a lab opened from a step kept the Projects
@@ -100,8 +100,8 @@ Checked:
   (`net::ERR_FAILED`) and the Workbench stayed blank.
 
 Open points for the user:
-- Project content and the Projects UI are in French, as the requested labels ("vérifié", "coché à la main",
-  "Ouvrir dans", "Vérifier"); the labs stay in English. Say if the projects should be English instead.
+- The Projects module was first written in French (the request quoted French labels); the user then asked for
+  English everywhere: the UI, the three projects, their starter files and the runtime's check messages are English.
 - Next: steps for the future labs (dbt Core + dbt Charts, Terminal Lab, simulated Infra Lab) through `record_run`
   and the generic `run` check.
 

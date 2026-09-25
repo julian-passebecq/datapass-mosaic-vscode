@@ -34,7 +34,7 @@ A step:
 | `module` | The Workbench module where the step happens (`src/modules.ts`) |
 | `optional` | Not counted in the progress bar (for example a step that needs trusted Python) |
 | `instructions` | Markdown subset: paragraphs, `-` and `1.` lists, `**bold**`, `` `code` ``, fenced code |
-| `open` | What **Ouvrir dans <lab>** does: `module`, optional `tab` (Cloud Lab: pipelines, sqlpool, databricks, lakehouse; BI Lab: warehouse, model, lineage, dbt, concepts), `file` to open beside the Workbench, `exercise` (Practice key `pack/id/language`), and `scaffold`: files to create first |
+| `open` | What **Open in <lab>** does: `module`, optional `tab` (Cloud Lab: pipelines, sqlpool, databricks, lakehouse; BI Lab: warehouse, model, lineage, dbt, concepts), `file` to open beside the Workbench, `exercise` (Practice key `pack/id/language`), and `scaffold`: files to create first |
 | `checks` | What Datapass verifies. No checks: a manual step |
 
 Scaffolds never overwrite a file: `project` (this project's `files/`), `factory` (Cloud Lab samples),
@@ -43,7 +43,7 @@ Scaffolds never overwrite a file: `project` (this project's `files/`), `factory`
 
 ## Checks and their truth
 
-State checks run in the kernel, on the workspace catalog, when the learner clicks **Vérifier**:
+State checks run in the kernel, on the workspace catalog, when the learner clicks **Verify**:
 
 | Kind | Passes when | Truth |
 | --- | --- | --- |
@@ -72,8 +72,8 @@ passes when a recorded run of that lab succeeded and its facts match:
 | `lakehouse_demo` | Cloud Lab › Lakehouse **Run local medallion flow** | real |
 | `run` | generic: any journal `lab`, `subject`, `expect`, `at_least`, `at_most`, `includes` | the run's truth |
 
-A manual step is never verified: the learner ticks it and the Projects UI shows "coché à la main", apart
-from "vérifié". Labels and messages are French, like the Projects UI.
+A manual step is never verified: the learner ticks it and the Projects UI shows "ticked by hand", apart
+from "verified". Labels, instructions and messages are written in English, like the rest of the Workbench.
 
 ## Adding a lab later
 
