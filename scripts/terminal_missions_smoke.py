@@ -27,6 +27,7 @@ from fastapi.testclient import TestClient  # noqa: E402
 from datapass_runtime import main as runtime_main  # noqa: E402
 from datapass_runtime.content import CONTENT  # noqa: E402
 from missionlab.model import load_missions  # noqa: E402
+from runtime_test_auth import client_kwargs  # noqa: E402
 
 PACK = "terminal-v1"
 
@@ -76,7 +77,7 @@ def play(mission, pack_dir: Path, shell: str | None, script: Path | None) -> tup
     temp = TemporaryDirectory(prefix="dpt-")
     workspace = Path(temp.name)
     os.environ["DATAPASS_WORKSPACE_ROOT"] = str(workspace)
-    with TestClient(runtime_main.app) as client:
+    with TestClient(runtime_main.app, **client_kwargs()) as client:
         built = client.post("/api/local/missions/setup", json={"mission_id": mission.id})
         assert built.status_code == 200, f"{mission.id}: setup failed: {built.text}"
         folder = workspace / mission.folder
@@ -173,7 +174,7 @@ def main() -> None:
     mission, pack_dir = missions[0]
     with TemporaryDirectory(prefix="dpt-") as temp:
         os.environ["DATAPASS_WORKSPACE_ROOT"] = temp
-        with TestClient(runtime_main.app) as client:
+        with TestClient(runtime_main.app, **client_kwargs()) as client:
             assert client.post("/api/local/missions/setup", json={"mission_id": mission.id}).status_code == 200
             (Path(temp) / mission.folder / "mine.txt").write_text("my work\n", encoding="utf-8")
             again = client.post("/api/local/missions/setup", json={"mission_id": mission.id}).json()
