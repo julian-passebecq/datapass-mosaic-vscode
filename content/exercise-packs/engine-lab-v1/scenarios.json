@@ -181,6 +181,20 @@
           "filter",
           "select"
         ]
+      },
+      "tsql": {
+        "starter_source": "-- T-SQL (SQL Server, Synapse, Fabric Warehouse), translated to DuckDB\nSELECT *\nFROM orders\n-- keep ACTIVE orders\n",
+        "supported_operations": [
+          "filter",
+          "select"
+        ]
+      },
+      "bigquery": {
+        "starter_source": "-- BigQuery SQL (GoogleSQL), translated to DuckDB\nSELECT *\nFROM orders\n-- keep ACTIVE orders\n",
+        "supported_operations": [
+          "filter",
+          "select"
+        ]
       }
     }
   },
@@ -355,6 +369,20 @@
           "withColumn",
           "when"
         ]
+      },
+      "tsql": {
+        "starter_source": "-- T-SQL (SQL Server, Synapse, Fabric Warehouse), translated to DuckDB\nSELECT *\nFROM orders\n-- add is_high_value\n",
+        "supported_operations": [
+          "withColumn",
+          "when"
+        ]
+      },
+      "bigquery": {
+        "starter_source": "-- BigQuery SQL (GoogleSQL), translated to DuckDB\nSELECT *\nFROM orders\n-- add is_high_value\n",
+        "supported_operations": [
+          "withColumn",
+          "when"
+        ]
       }
     }
   },
@@ -522,6 +550,20 @@
       },
       "sparklab": {
         "starter_source": "from pyspark.sql import functions as F\norders = spark.table(\"orders\")\norders\n",
+        "supported_operations": [
+          "groupBy",
+          "agg"
+        ]
+      },
+      "tsql": {
+        "starter_source": "-- T-SQL (SQL Server, Synapse, Fabric Warehouse), translated to DuckDB\nSELECT *\nFROM orders\n-- sum amount per customer\n",
+        "supported_operations": [
+          "groupBy",
+          "agg"
+        ]
+      },
+      "bigquery": {
+        "starter_source": "-- BigQuery SQL (GoogleSQL), translated to DuckDB\nSELECT *\nFROM orders\n-- sum amount per customer\n",
         "supported_operations": [
           "groupBy",
           "agg"
@@ -703,6 +745,20 @@
       },
       "sparklab": {
         "starter_source": "from pyspark.sql import functions as F\norders = spark.table(\"orders\")\norders\n",
+        "supported_operations": [
+          "groupBy",
+          "agg"
+        ]
+      },
+      "tsql": {
+        "starter_source": "-- T-SQL (SQL Server, Synapse, Fabric Warehouse), translated to DuckDB\nSELECT *\nFROM orders\n-- count, sum and average per customer\n",
+        "supported_operations": [
+          "groupBy",
+          "agg"
+        ]
+      },
+      "bigquery": {
+        "starter_source": "-- BigQuery SQL (GoogleSQL), translated to DuckDB\nSELECT *\nFROM orders\n-- count, sum and average per customer\n",
         "supported_operations": [
           "groupBy",
           "agg"
@@ -906,6 +962,20 @@
           "join",
           "select"
         ]
+      },
+      "tsql": {
+        "starter_source": "-- T-SQL (SQL Server, Synapse, Fabric Warehouse), translated to DuckDB\nSELECT *\nFROM orders\n-- join customers on customer_id\n",
+        "supported_operations": [
+          "join",
+          "select"
+        ]
+      },
+      "bigquery": {
+        "starter_source": "-- BigQuery SQL (GoogleSQL), translated to DuckDB\nSELECT *\nFROM orders\n-- join customers on customer_id\n",
+        "supported_operations": [
+          "join",
+          "select"
+        ]
       }
     }
   },
@@ -1100,6 +1170,18 @@
         "supported_operations": [
           "join"
         ]
+      },
+      "tsql": {
+        "starter_source": "-- T-SQL (SQL Server, Synapse, Fabric Warehouse), translated to DuckDB\nSELECT *\nFROM orders\n-- keep orders without a customer\n",
+        "supported_operations": [
+          "join"
+        ]
+      },
+      "bigquery": {
+        "starter_source": "-- BigQuery SQL (GoogleSQL), translated to DuckDB\nSELECT *\nFROM orders\n-- keep orders without a customer\n",
+        "supported_operations": [
+          "join"
+        ]
       }
     }
   },
@@ -1279,6 +1361,22 @@
       },
       "sparklab": {
         "starter_source": "from pyspark.sql import functions as F\ncustomer_history = spark.table(\"customer_history\")\ncustomer_history\n",
+        "supported_operations": [
+          "Window",
+          "row_number",
+          "filter"
+        ]
+      },
+      "tsql": {
+        "starter_source": "-- T-SQL (SQL Server, Synapse, Fabric Warehouse), translated to DuckDB\nSELECT *\nFROM customer_history\n-- keep the latest row per customer\n",
+        "supported_operations": [
+          "Window",
+          "row_number",
+          "filter"
+        ]
+      },
+      "bigquery": {
+        "starter_source": "-- BigQuery SQL (GoogleSQL), translated to DuckDB\nSELECT *\nFROM customer_history\n-- keep the latest row per customer\n",
         "supported_operations": [
           "Window",
           "row_number",
@@ -1476,6 +1574,20 @@
       },
       "sparklab": {
         "starter_source": "from pyspark.sql import functions as F\norders = spark.table(\"orders\")\norders\n",
+        "supported_operations": [
+          "Window",
+          "sum"
+        ]
+      },
+      "tsql": {
+        "starter_source": "-- T-SQL (SQL Server, Synapse, Fabric Warehouse), translated to DuckDB\nSELECT *\nFROM orders\n-- add running_amount per customer\n",
+        "supported_operations": [
+          "Window",
+          "sum"
+        ]
+      },
+      "bigquery": {
+        "starter_source": "-- BigQuery SQL (GoogleSQL), translated to DuckDB\nSELECT *\nFROM orders\n-- add running_amount per customer\n",
         "supported_operations": [
           "Window",
           "sum"
@@ -1683,6 +1795,22 @@
           "lag",
           "withColumn"
         ]
+      },
+      "tsql": {
+        "starter_source": "-- T-SQL (SQL Server, Synapse, Fabric Warehouse), translated to DuckDB\nSELECT *\nFROM orders\n-- compare with the previous order\n",
+        "supported_operations": [
+          "Window",
+          "lag",
+          "withColumn"
+        ]
+      },
+      "bigquery": {
+        "starter_source": "-- BigQuery SQL (GoogleSQL), translated to DuckDB\nSELECT *\nFROM orders\n-- compare with the previous order\n",
+        "supported_operations": [
+          "Window",
+          "lag",
+          "withColumn"
+        ]
       }
     }
   },
@@ -1877,6 +2005,22 @@
           "row_number",
           "filter"
         ]
+      },
+      "tsql": {
+        "starter_source": "-- T-SQL (SQL Server, Synapse, Fabric Warehouse), translated to DuckDB\nSELECT *\nFROM product_sales\n-- keep three products per category\n",
+        "supported_operations": [
+          "Window",
+          "row_number",
+          "filter"
+        ]
+      },
+      "bigquery": {
+        "starter_source": "-- BigQuery SQL (GoogleSQL), translated to DuckDB\nSELECT *\nFROM product_sales\n-- keep three products per category\n",
+        "supported_operations": [
+          "Window",
+          "row_number",
+          "filter"
+        ]
       }
     }
   },
@@ -2048,6 +2192,20 @@
           "withColumn",
           "coalesce"
         ]
+      },
+      "tsql": {
+        "starter_source": "-- T-SQL (SQL Server, Synapse, Fabric Warehouse), translated to DuckDB\nSELECT *\nFROM customers\n-- replace NULL country\n",
+        "supported_operations": [
+          "withColumn",
+          "coalesce"
+        ]
+      },
+      "bigquery": {
+        "starter_source": "-- BigQuery SQL (GoogleSQL), translated to DuckDB\nSELECT *\nFROM customers\n-- replace NULL country\n",
+        "supported_operations": [
+          "withColumn",
+          "coalesce"
+        ]
       }
     }
   },
@@ -2215,6 +2373,18 @@
       },
       "polars": {
         "starter_source": "import polars as pl\nhistorical_orders_df = pl.DataFrame(historical_orders)\ncurrent_orders_df = pl.DataFrame(current_orders)\ndisplay(historical_orders_df)\n",
+        "supported_operations": [
+          "select"
+        ]
+      },
+      "tsql": {
+        "starter_source": "-- T-SQL (SQL Server, Synapse, Fabric Warehouse), translated to DuckDB\nSELECT *\nFROM historical_orders\n-- append current_orders\n",
+        "supported_operations": [
+          "select"
+        ]
+      },
+      "bigquery": {
+        "starter_source": "-- BigQuery SQL (GoogleSQL), translated to DuckDB\nSELECT *\nFROM historical_orders\n-- append current_orders\n",
         "supported_operations": [
           "select"
         ]
@@ -2408,6 +2578,22 @@
           "sum",
           "withColumn"
         ]
+      },
+      "tsql": {
+        "starter_source": "-- T-SQL (SQL Server, Synapse, Fabric Warehouse), translated to DuckDB\nSELECT *\nFROM orders\n-- add customer_total and amount_share\n",
+        "supported_operations": [
+          "Window",
+          "sum",
+          "withColumn"
+        ]
+      },
+      "bigquery": {
+        "starter_source": "-- BigQuery SQL (GoogleSQL), translated to DuckDB\nSELECT *\nFROM orders\n-- add customer_total and amount_share\n",
+        "supported_operations": [
+          "Window",
+          "sum",
+          "withColumn"
+        ]
       }
     }
   },
@@ -2586,6 +2772,18 @@
         "supported_operations": [
           "select"
         ]
+      },
+      "tsql": {
+        "starter_source": "-- T-SQL (SQL Server, Synapse, Fabric Warehouse), translated to DuckDB\nSELECT *\nFROM employees\n-- add wage_rank per department\n",
+        "supported_operations": [
+          "select"
+        ]
+      },
+      "bigquery": {
+        "starter_source": "-- BigQuery SQL (GoogleSQL), translated to DuckDB\nSELECT *\nFROM employees\n-- add wage_rank per department\n",
+        "supported_operations": [
+          "select"
+        ]
       }
     }
   },
@@ -2755,6 +2953,18 @@
       },
       "polars": {
         "starter_source": "import polars as pl\nsizes_df = pl.DataFrame(sizes)\nbrands_df = pl.DataFrame(brands)\ndisplay(sizes_df)\n",
+        "supported_operations": [
+          "select"
+        ]
+      },
+      "tsql": {
+        "starter_source": "-- T-SQL (SQL Server, Synapse, Fabric Warehouse), translated to DuckDB\nSELECT *\nFROM sizes\n-- combine every size with every brand\n",
+        "supported_operations": [
+          "select"
+        ]
+      },
+      "bigquery": {
+        "starter_source": "-- BigQuery SQL (GoogleSQL), translated to DuckDB\nSELECT *\nFROM sizes\n-- combine every size with every brand\n",
         "supported_operations": [
           "select"
         ]
@@ -3095,6 +3305,18 @@
         "supported_operations": [
           "select"
         ]
+      },
+      "tsql": {
+        "starter_source": "-- T-SQL (SQL Server, Synapse, Fabric Warehouse), translated to DuckDB\nSELECT *\nFROM customers\n-- normalize email\n",
+        "supported_operations": [
+          "select"
+        ]
+      },
+      "bigquery": {
+        "starter_source": "-- BigQuery SQL (GoogleSQL), translated to DuckDB\nSELECT *\nFROM customers\n-- normalize email\n",
+        "supported_operations": [
+          "select"
+        ]
       }
     }
   },
@@ -3250,6 +3472,13 @@
     "variants": {
       "sql": {
         "starter_source": "SELECT user_id, event_id, event_time\nFROM events\n-- keep the latest event per user with QUALIFY\n",
+        "supported_operations": [
+          "window",
+          "qualify"
+        ]
+      },
+      "bigquery": {
+        "starter_source": "-- BigQuery SQL (GoogleSQL), translated to DuckDB\nSELECT user_id, event_id, event_time\nFROM events\nWHERE TRUE\n-- keep the latest event per user with QUALIFY\n",
         "supported_operations": [
           "window",
           "qualify"
@@ -3418,6 +3647,18 @@
       },
       "polars": {
         "starter_source": "import polars as pl\nevents_df = pl.DataFrame(events)\ndisplay(events_df)\n",
+        "supported_operations": [
+          "select"
+        ]
+      },
+      "tsql": {
+        "starter_source": "-- T-SQL (SQL Server, Synapse, Fabric Warehouse), translated to DuckDB\nSELECT user_id, STRING_AGG(event_name, ',') AS recent_events\nFROM events\nGROUP BY user_id\n",
+        "supported_operations": [
+          "select"
+        ]
+      },
+      "bigquery": {
+        "starter_source": "-- BigQuery SQL (GoogleSQL), translated to DuckDB\nSELECT user_id, STRING_AGG(event_name, ',') AS recent_events\nFROM events\nGROUP BY user_id\n",
         "supported_operations": [
           "select"
         ]

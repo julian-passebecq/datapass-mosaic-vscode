@@ -367,6 +367,49 @@ MUTANTS: dict[str, list[str]] = {
     'eng-ordered-string-agg-sql': [
         "SELECT user_id, string_agg(event_name, ',' ORDER BY event_time) AS recent_events FROM events GROUP BY user_id",
     ],
+    # T-SQL and BigQuery variants (translated dialects): runnable wrong answers, several of them dialect traps.
+    'eng-filter-active-tsql': ["SELECT order_id, customer_id, status, amount FROM orders WHERE status <> 'CANCELLED';"],
+    'eng-filter-active-bigquery': ["SELECT order_id, customer_id, status, amount FROM orders WHERE UPPER(status) = 'ACTIVE'"],
+    'eng-derived-flag-tsql': ['SELECT order_id, amount, IIF(amount > 1000, 1, 0) AS is_high_value FROM orders;'],
+    'eng-derived-flag-bigquery': ['SELECT order_id, amount, IF(amount > 1000, 1, 0) AS is_high_value FROM orders'],
+    'eng-group-sum-tsql': ['SELECT customer_id, SUM(DISTINCT amount) AS total_amount FROM orders GROUP BY customer_id;'],
+    'eng-group-sum-bigquery': ['SELECT customer_id, MAX(amount) AS total_amount FROM orders GROUP BY customer_id'],
+    'eng-multi-agg-tsql': [
+        # T-SQL: an integer AVG truncates (the translation keeps it), so AVG of CAST(amount AS INT) is wrong twice.
+        'SELECT customer_id, COUNT(order_id) AS order_count, SUM(amount) AS total_amount, AVG(CAST(amount AS INT)) AS avg_amount FROM orders GROUP BY customer_id;',
+    ],
+    'eng-multi-agg-bigquery': ['SELECT customer_id, COUNT(order_id) AS order_count, SUM(amount) AS total_amount, SAFE_DIVIDE(SUM(amount), COUNT(DISTINCT customer_id)) AS avg_amount FROM orders GROUP BY customer_id'],
+    'eng-inner-join-tsql': ['SELECT o.order_id, o.customer_id, o.amount, c.customer_name FROM orders AS o LEFT JOIN customers AS c ON o.customer_id = c.customer_id;'],
+    'eng-inner-join-bigquery': ['SELECT o.order_id, o.customer_id, o.amount, c.customer_name FROM orders AS o LEFT JOIN customers AS c ON o.customer_id = c.customer_id'],
+    'eng-anti-join-tsql': ['SELECT o.order_id, o.customer_id, o.amount FROM orders AS o WHERE EXISTS (SELECT 1 FROM customers AS c WHERE c.customer_id = o.customer_id);'],
+    'eng-anti-join-bigquery': ['SELECT o.order_id, o.customer_id, o.amount FROM orders AS o INNER JOIN customers AS c ON c.customer_id = o.customer_id'],
+    'eng-latest-row-tsql': ['WITH ranked AS (SELECT *, ROW_NUMBER() OVER (PARTITION BY customer_id ORDER BY updated_at) AS rn FROM customer_history) SELECT customer_id, updated_at, status FROM ranked WHERE rn = 1;'],
+    'eng-latest-row-bigquery': ['SELECT customer_id, updated_at, status FROM customer_history WHERE TRUE QUALIFY ROW_NUMBER() OVER (PARTITION BY customer_id ORDER BY updated_at) = 1'],
+    'eng-running-total-tsql': ['SELECT customer_id, order_date, order_id, amount, SUM(amount) OVER (ORDER BY order_date, order_id ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW) AS running_amount FROM orders;'],
+    'eng-running-total-bigquery': ['SELECT customer_id, order_date, order_id, amount, SUM(amount) OVER (PARTITION BY customer_id) AS running_amount FROM orders'],
+    'eng-lag-delta-tsql': ['WITH x AS (SELECT *, LEAD(amount) OVER (PARTITION BY customer_id ORDER BY order_date, order_id) AS previous_amount FROM orders) SELECT customer_id, order_date, order_id, amount, previous_amount, amount - previous_amount AS amount_delta FROM x;'],
+    'eng-lag-delta-bigquery': ['WITH x AS (SELECT *, LAG(amount) OVER (PARTITION BY customer_id ORDER BY order_date, order_id) AS previous_amount FROM orders) SELECT customer_id, order_date, order_id, amount, previous_amount, IFNULL(amount - previous_amount, 0) AS amount_delta FROM x'],
+    'eng-top-n-tsql': ['WITH ranked AS (SELECT *, ROW_NUMBER() OVER (PARTITION BY category ORDER BY revenue DESC, product_id) AS rn FROM product_sales) SELECT category, product_id, revenue FROM ranked WHERE rn < 3;'],
+    'eng-top-n-bigquery': ['SELECT category, product_id, revenue FROM product_sales WHERE TRUE QUALIFY ROW_NUMBER() OVER (PARTITION BY category ORDER BY revenue, product_id) <= 3'],
+    'eng-null-fill-tsql': ["SELECT customer_id, ISNULL(country, '') AS country_clean FROM customers;"],
+    'eng-null-fill-bigquery': ["SELECT customer_id, CONCAT(country, '') AS country_clean FROM customers"],  # BigQuery CONCAT keeps NULL
+    'eng-union-tsql': ['SELECT order_id, amount FROM historical_orders UNION SELECT order_id, amount FROM current_orders;'],
+    'eng-union-bigquery': ['SELECT order_id, amount FROM historical_orders UNION DISTINCT SELECT order_id, amount FROM current_orders'],
+    'eng-transform-share-tsql': [
+        # T-SQL: integer / integer is an integer division (the translation keeps it): every share becomes 0.
+        'SELECT customer_id, order_id, amount, SUM(amount) OVER (PARTITION BY customer_id) AS customer_total, '
+        'CAST(amount AS INT) / CAST(SUM(amount) OVER (PARTITION BY customer_id) AS INT) AS amount_share FROM orders;',
+    ],
+    'eng-transform-share-bigquery': ['SELECT customer_id, order_id, amount, SUM(amount) OVER () AS customer_total, SAFE_DIVIDE(amount, SUM(amount) OVER ()) AS amount_share FROM orders'],
+    'eng-dense-rank-tsql': ['SELECT employee_name, department, wage, RANK() OVER (PARTITION BY department ORDER BY wage DESC) AS wage_rank FROM employees;'],
+    'eng-dense-rank-bigquery': ['SELECT employee_name, department, wage, ROW_NUMBER() OVER (PARTITION BY department ORDER BY wage DESC, employee_name) AS wage_rank FROM employees'],
+    'eng-cross-merge-tsql': ['SELECT DISTINCT s.size_code, b.brand_name FROM sizes AS s CROSS JOIN brands AS b;'],
+    'eng-cross-merge-bigquery': ['SELECT DISTINCT s.size_code, b.brand_name FROM sizes AS s CROSS JOIN brands AS b'],
+    'eng-normalize-email-tsql': ["SELECT customer_id, LOWER(REPLACE(email, ' ', '')) AS email_normalized FROM customers;"],
+    'eng-normalize-email-bigquery': ['SELECT customer_id, LOWER(email) AS email_normalized FROM customers'],
+    'eng-qualify-latest-bigquery': ['SELECT user_id, event_id, event_time FROM events WHERE TRUE QUALIFY ROW_NUMBER() OVER (PARTITION BY user_id ORDER BY event_time DESC, event_id) = 1'],
+    'eng-ordered-string-agg-tsql': ["SELECT user_id, STRING_AGG(event_name, ',') WITHIN GROUP (ORDER BY event_time) AS recent_events FROM events GROUP BY user_id;"],
+    'eng-ordered-string-agg-bigquery': ["SELECT user_id, STRING_AGG(event_name, ',' ORDER BY event_time) AS recent_events FROM events GROUP BY user_id"],
     'eng-split-explode-sql': [
         "SELECT DISTINCT order_id, CAST(unnest(string_split(item_ids, ',')) AS INTEGER) AS item_id FROM orders",
     ],
