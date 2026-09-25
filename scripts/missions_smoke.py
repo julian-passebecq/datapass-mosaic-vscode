@@ -21,6 +21,7 @@ from tempfile import TemporaryDirectory
 os.environ.pop("DATAPASS_TRUSTED_PYTHON", None)
 
 from fastapi.testclient import TestClient  # noqa: E402
+from runtime_test_auth import client_kwargs  # noqa: E402
 
 from datapass_runtime import main as runtime_main  # noqa: E402
 from datapass_runtime.content import CONTENT  # noqa: E402
@@ -82,7 +83,7 @@ def play(mission, pack_dir: Path, variant: str) -> dict:
         os.environ["DATAPASS_WORKSPACE_ROOT"] = str(workspace)
         runtime_main.kernel_manager.restart(runtime_main.NATIVE_WORKSPACE_ID)
         try:
-            with TestClient(runtime_main.app) as client:
+            with TestClient(runtime_main.app, **client_kwargs()) as client:
                 for step in mission.reference:
                     if step.batch:
                         response = client.post("/api/local/missions/setup", json={"mission_id": mission.id, "batch_id": step.batch})

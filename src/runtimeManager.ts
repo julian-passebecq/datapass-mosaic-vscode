@@ -1,7 +1,6 @@
 import { spawn, type ChildProcess } from "node:child_process";
 import { existsSync } from "node:fs";
 import { homedir } from "node:os";
-import * as http from "node:http";
 import * as path from "node:path";
 import * as vscode from "vscode";
 import type {
@@ -31,6 +30,7 @@ import {
   uvVenvArgs
 } from "./platform/runtimeEnvironment";
 import { runtimeProcessEnv } from "./platform/pythonTrust";
+import { newRuntimeToken, requestGetJson, requestJson } from "./platform/runtimeClient";
 import { toSparkLabRunView } from "./platform/sparkLabRun";
 import { toAirflowLabView, toRuntimeScenario } from "./platform/airflowRun";
 import { toFactoryLabView, toRuntimeScenario as toFactoryScenario } from "./platform/factoryRun";
@@ -67,6 +67,8 @@ export interface PipelineCompileResponse {
 
 export class RuntimeManager implements vscode.Disposable {
   private child?: ChildProcess;
+  /** This launch's runtime token: in memory only, never persisted or logged. */
+  private token?: string;
   private state: RuntimeViewState = { status: "stopped" };
   private readonly output = vscode.window.createOutputChannel("Datapass Runtime");
   private readonly changed = new vscode.EventEmitter<RuntimeViewState>();
@@ -232,6 +234,8 @@ export class RuntimeManager implements vscode.Disposable {
     const resolvedPython = existsSync(managedPython) ? managedPython : pythonCommand;
     const port = await findFreePort(HOST);
     const url = `http://${HOST}:${port}`;
+    const token = newRuntimeToken();
+    this.token = token;
     this.setState({ status: "starting", url, detail: "Starting local FastAPI runtime… The first start can take up to a minute." });
     this.output.appendLine(`Starting Datapass runtime with ${resolvedPython}`);
     this.output.appendLine(trustedPython
@@ -259,7 +263,9 @@ export class RuntimeManager implements vscode.Disposable {
           contentRoot: path.join(this.extensionUri.fsPath, "content"),
           storage,
           trustedPython,
-          workspaceRoot: vscode.workspace.workspaceFolders?.[0]?.uri.fsPath
+          workspaceRoot: vscode.workspace.workspaceFolders?.[0]?.uri.fsPath,
+          runtimeToken: token,
+          runtimePort: port
         })
       }
     );
@@ -290,9 +296,9 @@ export class RuntimeManager implements vscode.Disposable {
     });
 
     try {
-      await waitForDatapassHealth(`${url}/api/health`, STARTUP_TIMEOUT_MS, () => exitReason);
+      await waitForDatapassHealth(`${url}/api/health`, STARTUP_TIMEOUT_MS, () => exitReason, token);
       if (this.child === child) {
-        const capabilities = await requestGetJson<{ runtime?: { trusted_local_python?: unknown } }>(
+        const capabilities = await this.getJson<{ runtime?: { trusted_local_python?: unknown } }>(
           `${url}/api/capabilities`
         );
         const reported = capabilities.runtime?.trusted_local_python === true;
@@ -331,7 +337,7 @@ export class RuntimeManager implements vscode.Disposable {
   ): Promise<void> {
     const url = this.state.status === "running" ? this.state.url : undefined;
     if (!url) throw new Error("Start the Datapass runtime before grading an exercise.");
-    const result = await requestJson<Omit<NonNullable<RuntimeViewState["practiceResult"]>, "exerciseKey" | "mode">>(
+    const result = await this.postJson<Omit<NonNullable<RuntimeViewState["practiceResult"]>, "exerciseKey" | "mode">>(
       `${url}/api/local/exercise`,
       "POST",
       request,
@@ -355,7 +361,7 @@ export class RuntimeManager implements vscode.Disposable {
     if (!url) throw new Error("Start the Datapass runtime before running the retail demo.");
     this.setState({ ...this.state, detail: "Running retail medallion demo…" });
     try {
-      const retailDemo = await requestJson<NonNullable<RuntimeViewState["retailDemo"]>>(
+      const retailDemo = await this.postJson<NonNullable<RuntimeViewState["retailDemo"]>>(
         `${url}/api/demo/retail/run`,
         "POST",
         { dataset_path: datasetPath },
@@ -382,7 +388,7 @@ export class RuntimeManager implements vscode.Disposable {
     if (!url) throw new Error("Start the Datapass runtime before importing a CSV.");
     let response: Omit<CsvImportView, "fileName">;
     try {
-      response = await requestJson<Omit<CsvImportView, "fileName">>(
+      response = await this.postJson<Omit<CsvImportView, "fileName">>(
         `${url}/api/local/import-csv`,
         "POST",
         { asset, text },
@@ -413,7 +419,7 @@ export class RuntimeManager implements vscode.Disposable {
   async runSql(code: string): Promise<LocalCellRunView> {
     const url = this.state.status === "running" ? this.state.url : undefined;
     if (!url) throw new Error("Start the Datapass runtime before running SQL.");
-    const lastRun = await requestJson<NonNullable<RuntimeViewState["lastRun"]>>(
+    const lastRun = await this.postJson<NonNullable<RuntimeViewState["lastRun"]>>(
       `${url}/api/local/execute`,
       "POST",
       {
@@ -442,7 +448,7 @@ export class RuntimeManager implements vscode.Disposable {
     if (!url) throw new Error("Start the Datapass runtime before importing a file.");
     let response: Omit<CsvImportView, "fileName">;
     try {
-      response = await requestJson<Omit<CsvImportView, "fileName">>(
+      response = await this.postJson<Omit<CsvImportView, "fileName">>(
         `${url}/api/local/import-file`, "POST", { asset, format, data }, 120000);
     } catch (error) {
       throw new Error(`${format === "parquet" ? "Parquet" : "JSON"} import refused: ${runtimeErrorDetail(error)}`);
@@ -464,7 +470,7 @@ export class RuntimeManager implements vscode.Disposable {
     if (!url) throw new Error("Start the Datapass runtime before profiling a table.");
     let tableProfile: TableProfileView;
     try {
-      tableProfile = await requestJson<TableProfileView>(`${url}/api/local/profile`, "POST", { asset }, 60000);
+      tableProfile = await this.postJson<TableProfileView>(`${url}/api/local/profile`, "POST", { asset }, 60000);
     } catch (error) {
       throw new Error(`Profile refused: ${runtimeErrorDetail(error)}`);
     }
@@ -477,7 +483,7 @@ export class RuntimeManager implements vscode.Disposable {
     if (!url) throw new Error("Start the Datapass runtime before explaining a query.");
     let plan: QueryPlanView;
     try {
-      plan = { ...await requestJson<QueryPlanView>(`${url}/api/local/explain`, "POST", { query }, 60000), source };
+      plan = { ...await this.postJson<QueryPlanView>(`${url}/api/local/explain`, "POST", { query }, 60000), source };
     } catch (error) {
       throw new Error(`EXPLAIN ANALYZE refused: ${runtimeErrorDetail(error)}`);
     }
@@ -491,7 +497,7 @@ export class RuntimeManager implements vscode.Disposable {
     if (!this.state.trustedPython) {
       throw new Error("Trusted local Python is disabled for this runtime. Enable it for the workspace, then restart the runtime.");
     }
-    const lastRun = await requestJson<NonNullable<RuntimeViewState["lastRun"]>>(
+    const lastRun = await this.postJson<NonNullable<RuntimeViewState["lastRun"]>>(
       `${url}/api/local/execute`,
       "POST",
       {
@@ -517,7 +523,7 @@ export class RuntimeManager implements vscode.Disposable {
   async runSparkLab(code: string, fileName: string, profileId: string, aqe: boolean): Promise<void> {
     const url = this.state.status === "running" ? this.state.url : undefined;
     if (!url) throw new Error("Start the Datapass runtime before running SparkLab.");
-    const raw = await requestJson<unknown>(
+    const raw = await this.postJson<unknown>(
       `${url}/api/local/execute`,
       "POST",
       {
@@ -547,7 +553,7 @@ export class RuntimeManager implements vscode.Disposable {
     try {
       // The first call after a start spawns the kernel and creates and seeds the DuckDB catalog: about 4 s on a
       // Windows machine with antivirus, more than requestGetJson's 3 s default.
-      const catalog = await requestGetJson<NonNullable<RuntimeViewState["catalog"]>>(
+      const catalog = await this.getJson<NonNullable<RuntimeViewState["catalog"]>>(
         `${url}/api/local/catalog`,
         CATALOG_TIMEOUT_MS
       );
@@ -569,7 +575,7 @@ export class RuntimeManager implements vscode.Disposable {
     const url = this.state.status === "running" ? this.state.url : undefined;
     if (!url) return false;
     if (this.state.catalogLease) return true;
-    const lease = await requestJson<{ holder?: string; since?: string }>(
+    const lease = await this.postJson<{ holder?: string; since?: string }>(
       `${url}/api/local/catalog/release`, "POST", { holder: holder.slice(0, 200) }, 30000
     );
     this.output.appendLine(`Catalog lent to: ${holder}`);
@@ -586,7 +592,7 @@ export class RuntimeManager implements vscode.Disposable {
     const url = this.state.status === "running" ? this.state.url : undefined;
     if (!url || !this.state.catalogLease) return true;
     try {
-      await requestJson<unknown>(`${url}/api/local/catalog/reattach`, "POST", {}, 30000);
+      await this.postJson<unknown>(`${url}/api/local/catalog/reattach`, "POST", {}, 30000);
     } catch (error) {
       const reason = runtimeErrorDetail(error);
       this.setState({ ...this.state, detail: reason, catalogLease: { ...this.state.catalogLease, reattachError: reason } });
@@ -602,7 +608,7 @@ export class RuntimeManager implements vscode.Disposable {
   async missionSetup(missionId: string, batchId: string): Promise<void> {
     const url = this.requireAttached("load a mission's data");
     try {
-      await requestJson<unknown>(`${url}/api/local/missions/setup`, "POST", { mission_id: missionId, batch_id: batchId }, 60000);
+      await this.postJson<unknown>(`${url}/api/local/missions/setup`, "POST", { mission_id: missionId, batch_id: batchId }, 60000);
     } catch (error) {
       throw new Error(runtimeErrorDetail(error));
     }
@@ -613,7 +619,7 @@ export class RuntimeManager implements vscode.Disposable {
   async missionCheck(missionId: string, dct: Record<string, unknown>): Promise<unknown> {
     const url = this.requireAttached("check a mission");
     try {
-      return await requestJson<unknown>(`${url}/api/local/missions/check`, "POST", { mission_id: missionId, dct }, 60000);
+      return await this.postJson<unknown>(`${url}/api/local/missions/check`, "POST", { mission_id: missionId, dct }, 60000);
     } catch (error) {
       throw new Error(runtimeErrorDetail(error));
     }
@@ -633,14 +639,14 @@ export class RuntimeManager implements vscode.Disposable {
     const url = this.state.status === "running" ? this.state.url : undefined;
     if (!url) throw new Error("Start the Datapass runtime to browse the catalog.");
     if (this.state.catalogLease) throw new Error(`The catalog is lent to ${this.state.catalogLease.holder}.`);
-    return requestGetJson<unknown>(`${url}/api/local/catalog/schema`, 20000);
+    return this.getJson<unknown>(`${url}/api/local/catalog/schema`, 20000);
   }
 
   /** Airflow Lab: the DAG file's TEXT is parsed and simulated by the runtime, never executed. */
   async simulateAirflow(source: string, fileName: string, scenario: AirflowScenarioInput): Promise<void> {
     const url = this.state.status === "running" ? this.state.url : undefined;
     if (!url) throw new Error("Start the Datapass runtime before simulating an Airflow DAG.");
-    const raw = await requestJson<unknown>(
+    const raw = await this.postJson<unknown>(
       `${url}/api/local/airflow/simulate`,
       "POST",
       { source, scenario: toRuntimeScenario(scenario) },
@@ -681,7 +687,7 @@ export class RuntimeManager implements vscode.Disposable {
       this.setState({ ...this.state, detail: `Pipeline ${request.name} not run: fix the scenario.`, factoryRun });
       return;
     }
-    const raw = await requestJson<unknown>(
+    const raw = await this.postJson<unknown>(
       `${url}/api/local/factory/simulate`,
       "POST",
       {
@@ -713,7 +719,7 @@ export class RuntimeManager implements vscode.Disposable {
   async runSqlPool(request: { flavor: SqlPoolFlavor; script: string; scale: number; source: string; warnings?: string[] }): Promise<void> {
     const url = this.state.status === "running" ? this.state.url : undefined;
     if (!url) throw new Error("Start the Datapass runtime before running a SQL pool script.");
-    const raw = await requestJson<unknown>(
+    const raw = await this.postJson<unknown>(
       `${url}/api/local/sqlpool/run`,
       "POST",
       { flavor: request.flavor, script: request.script, scale: request.scale, source: sqlPoolSourceLabel(request.source) },
@@ -747,7 +753,7 @@ export class RuntimeManager implements vscode.Disposable {
   }): Promise<void> {
     const url = this.state.status === "running" ? this.state.url : undefined;
     if (!url) throw new Error("Start the Datapass runtime before running the BI Lab.");
-    const raw = await requestJson<unknown>(
+    const raw = await this.postJson<unknown>(
       `${url}/api/local/bi/lab`,
       "POST",
       { scripts: request.scripts, model: request.model ?? null, run: request.mode !== "analyze" },
@@ -775,7 +781,7 @@ export class RuntimeManager implements vscode.Disposable {
     files: Record<string, string>; warnings: string[] }): Promise<void> {
     const url = this.state.status === "running" ? this.state.url : undefined;
     if (!url) throw new Error("Start the Datapass runtime before running dbt.");
-    const raw = await requestJson<unknown>(
+    const raw = await this.postJson<unknown>(
       `${url}/api/local/bi/dbt`,
       "POST",
       { files: request.files, command: request.command, select: request.select, full_refresh: request.fullRefresh },
@@ -816,7 +822,7 @@ export class RuntimeManager implements vscode.Disposable {
       this.setState({ ...this.state, detail: `Job ${request.name} not run: fix the run settings.`, databricksRun });
       return;
     }
-    const raw = await requestJson<unknown>(
+    const raw = await this.postJson<unknown>(
       `${url}/api/local/databricks/run`,
       "POST",
       { name: request.name, document: request.document, files: request.files, scenario, data_plane: request.scenario.dataPlane },
@@ -839,14 +845,14 @@ export class RuntimeManager implements vscode.Disposable {
   async exploreDatabricks(files: DatabricksFilesPayload): Promise<void> {
     const url = this.state.status === "running" ? this.state.url : undefined;
     if (!url) return;
-    const raw = await requestJson<unknown>(`${url}/api/local/databricks/state`, "POST", { files }, 20000);
+    const raw = await this.postJson<unknown>(`${url}/api/local/databricks/state`, "POST", { files }, 20000);
     this.setState({ ...this.state, databricksState: toDatabricksStateView(raw) });
   }
 
   async runPipeline(source: string): Promise<void> {
     const url = this.state.status === "running" ? this.state.url : undefined;
     if (!url) throw new Error("Start the Datapass runtime before running a pipeline.");
-    const pipelineRun = await requestJson<NonNullable<RuntimeViewState["pipelineRun"]>>(
+    const pipelineRun = await this.postJson<NonNullable<RuntimeViewState["pipelineRun"]>>(
       `${url}/api/pipeline/run`,
       "POST",
       { source },
@@ -865,7 +871,7 @@ export class RuntimeManager implements vscode.Disposable {
   async compilePipeline(source: string): Promise<PipelineCompileResponse> {
     const url = this.state.status === "running" ? this.state.url : undefined;
     if (!url) throw new Error("Start the Datapass runtime before compiling a pipeline.");
-    return requestJson<PipelineCompileResponse>(
+    return this.postJson<PipelineCompileResponse>(
       `${url}/api/pipeline/compile`,
       "POST",
       { source }
@@ -880,7 +886,7 @@ export class RuntimeManager implements vscode.Disposable {
     const url = this.state.status === "running" ? this.state.url : undefined;
     if (!url) throw new Error("Start the Datapass runtime before verifying project steps.");
     try {
-      return await requestJson<unknown>(`${url}/api/local/projects/check`, "POST", { project_id: projectId, steps }, 60000);
+      return await this.postJson<unknown>(`${url}/api/local/projects/check`, "POST", { project_id: projectId, steps }, 60000);
     } catch (error) {
       throw new Error(runtimeErrorDetail(error));
     }
@@ -905,6 +911,7 @@ export class RuntimeManager implements vscode.Disposable {
     }
     const child = this.child;
     this.child = undefined;
+    this.token = undefined;
     child.kill();
     this.setState({ status: "stopped", detail: "Local runtime stopped." });
   }
@@ -1000,53 +1007,20 @@ export class RuntimeManager implements vscode.Disposable {
     });
   }
 
+  private postJson<T>(url: string, method: "POST", body: unknown, timeoutMs?: number): Promise<T> {
+    return requestJson<T>(url, method, body, timeoutMs, this.token);
+  }
+
+  private getJson<T>(url: string, timeoutMs?: number): Promise<T> {
+    return requestGetJson<T>(url, timeoutMs, this.token);
+  }
+
   private setState(next: RuntimeViewState): void {
     this.state = next;
     this.changed.fire(this.snapshot());
   }
 }
 
-
-
-function requestJson<T>(
-  url: string,
-  method: "POST",
-  body: unknown,
-  timeoutMs = 2500
-): Promise<T> {
-  return new Promise((resolve, reject) => {
-    const payload = Buffer.from(JSON.stringify(body), "utf8");
-    const request = http.request(
-      url,
-      {
-        method,
-        headers: {
-          "content-type": "application/json",
-          "content-length": String(payload.length)
-        }
-      },
-      response => {
-        const chunks: Buffer[] = [];
-        response.on("data", chunk => chunks.push(Buffer.from(chunk)));
-        response.on("end", () => {
-          const text = Buffer.concat(chunks).toString("utf8");
-          if ((response.statusCode ?? 500) < 200 || (response.statusCode ?? 500) >= 300) {
-            reject(new Error(`Runtime request failed with HTTP ${response.statusCode}: ${text.slice(0, 500)}`));
-            return;
-          }
-          try {
-            resolve(JSON.parse(text) as T);
-          } catch (error) {
-            reject(error);
-          }
-        });
-      }
-    );
-    request.setTimeout(timeoutMs, () => request.destroy(new Error("Runtime request timed out.")));
-    request.on("error", reject);
-    request.end(payload);
-  });
-}
 
 
 /** The script's workspace path as the run journal's label; anything the runtime would refuse is dropped. */
@@ -1071,27 +1045,4 @@ function runtimeErrorDetail(error: unknown): string {
     // Not JSON (e.g. truncated); fall through to the raw message.
   }
   return message;
-}
-
-function requestGetJson<T>(url: string, timeoutMs = 3000): Promise<T> {
-  return new Promise((resolve, reject) => {
-    const request = http.get(url, response => {
-      const chunks: Buffer[] = [];
-      response.on("data", chunk => chunks.push(Buffer.from(chunk)));
-      response.on("end", () => {
-        const text = Buffer.concat(chunks).toString("utf8");
-        if ((response.statusCode ?? 500) < 200 || (response.statusCode ?? 500) >= 300) {
-          reject(new Error(`Runtime request failed with HTTP ${response.statusCode}: ${text.slice(0, 500)}`));
-          return;
-        }
-        try {
-          resolve(JSON.parse(text) as T);
-        } catch (error) {
-          reject(error);
-        }
-      });
-    });
-    request.setTimeout(timeoutMs, () => request.destroy(new Error("Runtime request timed out.")));
-    request.on("error", reject);
-  });
 }

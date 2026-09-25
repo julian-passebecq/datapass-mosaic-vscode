@@ -11,6 +11,8 @@
  * 3. VS Code Workspace Trust is granted.
  */
 
+import { RUNTIME_PORT_ENV, RUNTIME_TOKEN_ENV } from "./runtimeClient";
+
 export const TRUSTED_PYTHON_ENV = "DATAPASS_TRUSTED_PYTHON";
 
 export type PythonTrustState =
@@ -65,23 +67,30 @@ export interface RuntimeProcessEnvOptions {
   storage: "duckdb" | "ducklake";
   trustedPython: boolean;
   workspaceRoot?: string;
+  /** This launch's random token (see runtimeClient.ts); the runtime refuses every request without it. */
+  runtimeToken: string;
+  runtimePort: number;
 }
 
 /**
  * Build the runtime process environment. An inherited DATAPASS_TRUSTED_PYTHON is
- * always discarded so a shell variable can never silently enable Python.
+ * always discarded so a shell variable can never silently enable Python, and an
+ * inherited runtime token or port is replaced by this launch's own.
  */
 export function runtimeProcessEnv(
   base: Readonly<Record<string, string | undefined>>,
   options: RuntimeProcessEnvOptions
 ): Record<string, string> {
+  const replaced = new Set([TRUSTED_PYTHON_ENV, RUNTIME_TOKEN_ENV, RUNTIME_PORT_ENV]);
   const env: Record<string, string> = {};
   for (const [key, value] of Object.entries(base)) {
-    if (value !== undefined && key.toUpperCase() !== TRUSTED_PYTHON_ENV) env[key] = value;
+    if (value !== undefined && !replaced.has(key.toUpperCase())) env[key] = value;
   }
   env.DATAPASS_CONTENT_ROOT = options.contentRoot;
   env.DATAPASS_STORAGE = options.storage;
   if (options.workspaceRoot) env.DATAPASS_WORKSPACE_ROOT = options.workspaceRoot;
   if (options.trustedPython) env[TRUSTED_PYTHON_ENV] = "1";
+  env[RUNTIME_TOKEN_ENV] = options.runtimeToken;
+  env[RUNTIME_PORT_ENV] = String(options.runtimePort);
   return env;
 }

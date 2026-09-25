@@ -1,5 +1,6 @@
 import * as http from "node:http";
 import * as net from "node:net";
+import { runtimeAuthHeaders } from "./runtimeClient";
 
 export interface DatapassHealth {
   status: "ok";
@@ -28,9 +29,9 @@ export async function findFreePort(host = "127.0.0.1"): Promise<number> {
   });
 }
 
-export async function probeDatapassHealth(url: string): Promise<DatapassHealth> {
+export async function probeDatapassHealth(url: string, token?: string): Promise<DatapassHealth> {
   return new Promise((resolve, reject) => {
-    const request = http.get(url, response => {
+    const request = http.get(url, { headers: runtimeAuthHeaders(token) }, response => {
       const statusCode = response.statusCode ?? 0;
       const chunks: Buffer[] = [];
       let size = 0;
@@ -84,7 +85,8 @@ export async function probeDatapassHealth(url: string): Promise<DatapassHealth> 
 export async function waitForDatapassHealth(
   url: string,
   timeoutMs: number,
-  abortReason: () => string | undefined = () => undefined
+  abortReason: () => string | undefined = () => undefined,
+  token?: string
 ): Promise<DatapassHealth> {
   const deadline = Date.now() + timeoutMs;
   let lastError = "Runtime did not become healthy.";
@@ -93,7 +95,7 @@ export async function waitForDatapassHealth(
     const aborted = abortReason();
     if (aborted) throw new Error(aborted);
     try {
-      return await probeDatapassHealth(url);
+      return await probeDatapassHealth(url, token);
     } catch (error) {
       lastError = error instanceof Error ? error.message : String(error);
     }
