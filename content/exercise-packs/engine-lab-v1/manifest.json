@@ -2,9 +2,9 @@
   "schema_version": 1,
   "id": "engine-lab-v1",
   "version": "1",
-  "title": "Engine lab: one result contract in DuckDB SQL, pandas, Polars and SparkLab",
+  "title": "Engine lab: one result contract in DuckDB SQL, T-SQL, BigQuery SQL, pandas, Polars and SparkLab",
   "enabled": true,
   "provenance": {
-    "source": "Adapted from the Datapass leetcodedataeng engine lab with new shared fixtures"
+    "source": "Adapted from the Datapass leetcodedataeng engine lab with new shared fixtures; its T-SQL and BigQuery variants are translated to DuckDB (runtime/sqldialects), with dbo. dropped from table names"
   }
 }

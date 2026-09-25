@@ -4,7 +4,9 @@
       "sql": "SELECT order_id, customer_id, status, amount\nFROM orders\nWHERE status = 'ACTIVE'",
       "python": "import pandas as pd\norders_df = pd.DataFrame(orders)\nactive = orders_df[orders_df[\"status\"] == \"ACTIVE\"]\ndisplay(active[[\"order_id\", \"customer_id\", \"status\", \"amount\"]])",
       "polars": "import polars as pl\norders_df = pl.DataFrame(orders)\ndisplay(orders_df.filter(pl.col(\"status\") == \"ACTIVE\").select(\"order_id\", \"customer_id\", \"status\", \"amount\"))",
-      "sparklab": "from pyspark.sql import functions as F\norders = spark.table(\"orders\")\norders.filter(F.col(\"status\") == \"ACTIVE\").select(\"order_id\", \"customer_id\", \"status\", \"amount\")"
+      "sparklab": "from pyspark.sql import functions as F\norders = spark.table(\"orders\")\norders.filter(F.col(\"status\") == \"ACTIVE\").select(\"order_id\", \"customer_id\", \"status\", \"amount\")",
+      "tsql": "SELECT order_id, customer_id, status, amount\nFROM orders\nWHERE status = 'ACTIVE';",
+      "bigquery": "SELECT order_id, customer_id, status, amount\nFROM orders\nWHERE status = 'ACTIVE'"
     },
     "fixtures": [
       {
@@ -118,7 +120,9 @@
       "sql": "SELECT order_id, amount,\n    CASE WHEN amount >= 1000 THEN 1 ELSE 0 END AS is_high_value\nFROM orders",
       "python": "import pandas as pd\norders_df = pd.DataFrame(orders)\norders_df[\"is_high_value\"] = (orders_df[\"amount\"] >= 1000).astype(int)\ndisplay(orders_df[[\"order_id\", \"amount\", \"is_high_value\"]])",
       "polars": "import polars as pl\norders_df = pl.DataFrame(orders)\ndisplay(orders_df.with_columns(is_high_value=pl.when(pl.col(\"amount\") >= 1000).then(1).otherwise(0)).select(\"order_id\", \"amount\", \"is_high_value\"))",
-      "sparklab": "from pyspark.sql import functions as F\norders = spark.table(\"orders\")\norders.withColumn(\"is_high_value\", F.when(F.col(\"amount\") >= 1000, 1).otherwise(0)).select(\"order_id\", \"amount\", \"is_high_value\")"
+      "sparklab": "from pyspark.sql import functions as F\norders = spark.table(\"orders\")\norders.withColumn(\"is_high_value\", F.when(F.col(\"amount\") >= 1000, 1).otherwise(0)).select(\"order_id\", \"amount\", \"is_high_value\")",
+      "tsql": "SELECT order_id, amount,\n    IIF(amount >= 1000, 1, 0) AS is_high_value\nFROM orders;",
+      "bigquery": "SELECT order_id, amount,\n    IF(amount >= 1000, 1, 0) AS is_high_value\nFROM orders"
     },
     "fixtures": [
       {
@@ -224,7 +228,9 @@
       "sql": "SELECT customer_id, SUM(amount) AS total_amount\nFROM orders\nGROUP BY customer_id",
       "python": "import pandas as pd\norders_df = pd.DataFrame(orders)\nresult = orders_df.groupby(\"customer_id\", as_index=False).agg(total_amount=(\"amount\", \"sum\"))\ndisplay(result)",
       "polars": "import polars as pl\norders_df = pl.DataFrame(orders)\ndisplay(orders_df.group_by(\"customer_id\").agg(total_amount=pl.col(\"amount\").sum()))",
-      "sparklab": "from pyspark.sql import functions as F\norders = spark.table(\"orders\")\norders.groupBy(\"customer_id\").agg(F.sum(\"amount\").alias(\"total_amount\"))"
+      "sparklab": "from pyspark.sql import functions as F\norders = spark.table(\"orders\")\norders.groupBy(\"customer_id\").agg(F.sum(\"amount\").alias(\"total_amount\"))",
+      "tsql": "SELECT customer_id, SUM(amount) AS total_amount\nFROM orders\nGROUP BY customer_id;",
+      "bigquery": "SELECT customer_id, SUM(amount) AS total_amount\nFROM orders\nGROUP BY customer_id"
     },
     "fixtures": [
       {
@@ -319,7 +325,9 @@
       "sql": "SELECT customer_id,\n    COUNT(order_id) AS order_count,\n    SUM(amount) AS total_amount,\n    AVG(amount) AS avg_amount\nFROM orders\nGROUP BY customer_id",
       "python": "import pandas as pd\norders_df = pd.DataFrame(orders)\nresult = orders_df.groupby(\"customer_id\", as_index=False).agg(\n    order_count=(\"order_id\", \"count\"),\n    total_amount=(\"amount\", \"sum\"),\n    avg_amount=(\"amount\", \"mean\"),\n)\ndisplay(result)",
       "polars": "import polars as pl\norders_df = pl.DataFrame(orders)\ndisplay(orders_df.group_by(\"customer_id\").agg(\n    order_count=pl.col(\"order_id\").count(),\n    total_amount=pl.col(\"amount\").sum(),\n    avg_amount=pl.col(\"amount\").mean(),\n))",
-      "sparklab": "from pyspark.sql import functions as F\norders = spark.table(\"orders\")\norders.groupBy(\"customer_id\").agg(\n    F.count(\"order_id\").alias(\"order_count\"),\n    F.sum(\"amount\").alias(\"total_amount\"),\n    F.avg(\"amount\").alias(\"avg_amount\"),\n)"
+      "sparklab": "from pyspark.sql import functions as F\norders = spark.table(\"orders\")\norders.groupBy(\"customer_id\").agg(\n    F.count(\"order_id\").alias(\"order_count\"),\n    F.sum(\"amount\").alias(\"total_amount\"),\n    F.avg(\"amount\").alias(\"avg_amount\"),\n)",
+      "tsql": "SELECT customer_id,\n    COUNT(order_id) AS order_count,\n    SUM(amount) AS total_amount,\n    AVG(amount) AS avg_amount\nFROM orders\nGROUP BY customer_id;",
+      "bigquery": "SELECT customer_id,\n    COUNT(order_id) AS order_count,\n    SUM(amount) AS total_amount,\n    AVG(amount) AS avg_amount\nFROM orders\nGROUP BY customer_id"
     },
     "fixtures": [
       {
@@ -437,7 +445,9 @@
       "sql": "SELECT o.order_id, o.customer_id, o.amount, c.customer_name\nFROM orders AS o\nINNER JOIN customers AS c\n    ON o.customer_id = c.customer_id",
       "python": "import pandas as pd\norders_df = pd.DataFrame(orders)\ncustomers_df = pd.DataFrame(customers)\nresult = orders_df.merge(customers_df, on=\"customer_id\", how=\"inner\")\ndisplay(result[[\"order_id\", \"customer_id\", \"amount\", \"customer_name\"]])",
       "polars": "import polars as pl\norders_df = pl.DataFrame(orders)\ncustomers_df = pl.DataFrame(customers)\ndisplay(orders_df.join(customers_df, on=\"customer_id\", how=\"inner\").select(\"order_id\", \"customer_id\", \"amount\", \"customer_name\"))",
-      "sparklab": "from pyspark.sql import functions as F\norders = spark.table(\"orders\")\ncustomers = spark.table(\"customers\")\norders.join(customers, on=\"customer_id\", how=\"inner\").select(\"order_id\", \"customer_id\", \"amount\", \"customer_name\")"
+      "sparklab": "from pyspark.sql import functions as F\norders = spark.table(\"orders\")\ncustomers = spark.table(\"customers\")\norders.join(customers, on=\"customer_id\", how=\"inner\").select(\"order_id\", \"customer_id\", \"amount\", \"customer_name\")",
+      "tsql": "SELECT o.order_id, o.customer_id, o.amount, c.customer_name\nFROM orders AS o\nINNER JOIN customers AS c\n    ON o.customer_id = c.customer_id;",
+      "bigquery": "SELECT o.order_id, o.customer_id, o.amount, c.customer_name\nFROM orders AS o\nINNER JOIN customers AS c\n    ON o.customer_id = c.customer_id"
     },
     "fixtures": [
       {
@@ -559,7 +569,9 @@
       "sql": "SELECT o.order_id, o.customer_id, o.amount\nFROM orders AS o\nWHERE NOT EXISTS (\n    SELECT 1 FROM customers AS c\n    WHERE c.customer_id = o.customer_id\n)",
       "python": "import pandas as pd\norders_df = pd.DataFrame(orders)\ncustomers_df = pd.DataFrame(customers)\nmissing = orders_df[~orders_df[\"customer_id\"].isin(customers_df[\"customer_id\"].dropna())]\ndisplay(missing[[\"order_id\", \"customer_id\", \"amount\"]])",
       "polars": "import polars as pl\norders_df = pl.DataFrame(orders)\ncustomers_df = pl.DataFrame(customers)\ndisplay(orders_df.join(customers_df, on=\"customer_id\", how=\"anti\").select(\"order_id\", \"customer_id\", \"amount\"))",
-      "sparklab": "from pyspark.sql import functions as F\norders = spark.table(\"orders\")\ncustomers = spark.table(\"customers\")\norders.join(customers, on=\"customer_id\", how=\"anti\").select(\"order_id\", \"customer_id\", \"amount\")"
+      "sparklab": "from pyspark.sql import functions as F\norders = spark.table(\"orders\")\ncustomers = spark.table(\"customers\")\norders.join(customers, on=\"customer_id\", how=\"anti\").select(\"order_id\", \"customer_id\", \"amount\")",
+      "tsql": "SELECT o.order_id, o.customer_id, o.amount\nFROM orders AS o\nWHERE NOT EXISTS (\n    SELECT 1 FROM customers AS c\n    WHERE c.customer_id = o.customer_id\n);",
+      "bigquery": "SELECT o.order_id, o.customer_id, o.amount\nFROM orders AS o\nLEFT JOIN customers AS c\n    ON c.customer_id = o.customer_id\nWHERE c.customer_id IS NULL"
     },
     "fixtures": [
       {
@@ -677,7 +689,9 @@
       "sql": "WITH ranked AS (\n    SELECT *, ROW_NUMBER() OVER (PARTITION BY customer_id ORDER BY updated_at DESC) AS rn\n    FROM customer_history\n)\nSELECT customer_id, updated_at, status\nFROM ranked\nWHERE rn = 1",
       "python": "import pandas as pd\ncustomer_history_df = pd.DataFrame(customer_history)\nlatest = customer_history_df.sort_values(\"updated_at\").drop_duplicates(subset=[\"customer_id\"], keep=\"last\")\ndisplay(latest[[\"customer_id\", \"updated_at\", \"status\"]])",
       "polars": "import polars as pl\ncustomer_history_df = pl.DataFrame(customer_history)\ndisplay(customer_history_df.sort(\"updated_at\").group_by(\"customer_id\").last().select(\"customer_id\", \"updated_at\", \"status\"))",
-      "sparklab": "from pyspark.sql import functions as F\nfrom pyspark.sql.window import Window\nhistory = spark.table(\"customer_history\")\nw = Window.partitionBy(\"customer_id\").orderBy(F.col(\"updated_at\").desc())\nhistory.withColumn(\"rn\", F.row_number().over(w)).filter(F.col(\"rn\") == 1).select(\"customer_id\", \"updated_at\", \"status\")"
+      "sparklab": "from pyspark.sql import functions as F\nfrom pyspark.sql.window import Window\nhistory = spark.table(\"customer_history\")\nw = Window.partitionBy(\"customer_id\").orderBy(F.col(\"updated_at\").desc())\nhistory.withColumn(\"rn\", F.row_number().over(w)).filter(F.col(\"rn\") == 1).select(\"customer_id\", \"updated_at\", \"status\")",
+      "tsql": "WITH ranked AS (\n    SELECT *, ROW_NUMBER() OVER (PARTITION BY customer_id ORDER BY updated_at DESC) AS rn\n    FROM customer_history\n)\nSELECT customer_id, updated_at, status\nFROM ranked\nWHERE rn = 1;",
+      "bigquery": "SELECT customer_id, updated_at, status\nFROM customer_history\nWHERE TRUE\nQUALIFY ROW_NUMBER() OVER (PARTITION BY customer_id ORDER BY updated_at DESC) = 1"
     },
     "fixtures": [
       {
@@ -785,7 +799,9 @@
       "sql": "SELECT customer_id, order_date, order_id, amount,\n    SUM(amount) OVER (\n        PARTITION BY customer_id\n        ORDER BY order_date, order_id\n        ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW\n    ) AS running_amount\nFROM orders",
       "python": "import pandas as pd\norders_df = pd.DataFrame(orders)\nordered = orders_df.sort_values([\"customer_id\", \"order_date\", \"order_id\"])\nordered[\"running_amount\"] = ordered.groupby(\"customer_id\")[\"amount\"].cumsum()\ndisplay(ordered[[\"customer_id\", \"order_date\", \"order_id\", \"amount\", \"running_amount\"]])",
       "polars": "import polars as pl\norders_df = pl.DataFrame(orders)\ndisplay(orders_df.sort(\"customer_id\", \"order_date\", \"order_id\").with_columns(running_amount=pl.col(\"amount\").cum_sum().over(\"customer_id\")))",
-      "sparklab": "from pyspark.sql import functions as F\nfrom pyspark.sql.window import Window\norders = spark.table(\"orders\")\nw = Window.partitionBy(\"customer_id\").orderBy(\"order_date\", \"order_id\").rowsBetween(Window.unboundedPreceding, Window.currentRow)\norders.withColumn(\"running_amount\", F.sum(\"amount\").over(w))"
+      "sparklab": "from pyspark.sql import functions as F\nfrom pyspark.sql.window import Window\norders = spark.table(\"orders\")\nw = Window.partitionBy(\"customer_id\").orderBy(\"order_date\", \"order_id\").rowsBetween(Window.unboundedPreceding, Window.currentRow)\norders.withColumn(\"running_amount\", F.sum(\"amount\").over(w))",
+      "tsql": "SELECT customer_id, order_date, order_id, amount,\n    SUM(amount) OVER (\n        PARTITION BY customer_id\n        ORDER BY order_date, order_id\n        ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW\n    ) AS running_amount\nFROM orders;",
+      "bigquery": "SELECT customer_id, order_date, order_id, amount,\n    SUM(amount) OVER (\n        PARTITION BY customer_id\n        ORDER BY order_date, order_id\n        ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW\n    ) AS running_amount\nFROM orders"
     },
     "fixtures": [
       {
@@ -945,7 +961,9 @@
       "sql": "WITH x AS (\n    SELECT *, LAG(amount) OVER (PARTITION BY customer_id ORDER BY order_date, order_id) AS previous_amount\n    FROM orders\n)\nSELECT customer_id, order_date, order_id, amount, previous_amount, amount - previous_amount AS amount_delta\nFROM x",
       "python": "import pandas as pd\norders_df = pd.DataFrame(orders)\nordered = orders_df.sort_values([\"customer_id\", \"order_date\", \"order_id\"])\nordered[\"previous_amount\"] = ordered.groupby(\"customer_id\")[\"amount\"].shift(1)\nordered[\"amount_delta\"] = ordered[\"amount\"] - ordered[\"previous_amount\"]\ndisplay(ordered[[\"customer_id\", \"order_date\", \"order_id\", \"amount\", \"previous_amount\", \"amount_delta\"]])",
       "polars": "import polars as pl\norders_df = pl.DataFrame(orders)\nresult = orders_df.sort(\"customer_id\", \"order_date\", \"order_id\").with_columns(previous_amount=pl.col(\"amount\").shift(1).over(\"customer_id\"))\ndisplay(result.with_columns(amount_delta=pl.col(\"amount\") - pl.col(\"previous_amount\")))",
-      "sparklab": "from pyspark.sql import functions as F\nfrom pyspark.sql.window import Window\norders = spark.table(\"orders\")\nw = Window.partitionBy(\"customer_id\").orderBy(\"order_date\", \"order_id\")\nwith_previous = orders.withColumn(\"previous_amount\", F.lag(\"amount\").over(w))\nwith_previous.withColumn(\"amount_delta\", F.col(\"amount\") - F.col(\"previous_amount\"))"
+      "sparklab": "from pyspark.sql import functions as F\nfrom pyspark.sql.window import Window\norders = spark.table(\"orders\")\nw = Window.partitionBy(\"customer_id\").orderBy(\"order_date\", \"order_id\")\nwith_previous = orders.withColumn(\"previous_amount\", F.lag(\"amount\").over(w))\nwith_previous.withColumn(\"amount_delta\", F.col(\"amount\") - F.col(\"previous_amount\"))",
+      "tsql": "WITH x AS (\n    SELECT *, LAG(amount) OVER (PARTITION BY customer_id ORDER BY order_date, order_id) AS previous_amount\n    FROM orders\n)\nSELECT customer_id, order_date, order_id, amount, previous_amount, amount - previous_amount AS amount_delta\nFROM x;",
+      "bigquery": "WITH x AS (\n    SELECT *, LAG(amount) OVER (PARTITION BY customer_id ORDER BY order_date, order_id) AS previous_amount\n    FROM orders\n)\nSELECT customer_id, order_date, order_id, amount, previous_amount, amount - previous_amount AS amount_delta\nFROM x"
     },
     "fixtures": [
       {
@@ -1114,7 +1132,9 @@
       "sql": "WITH ranked AS (\n    SELECT *, ROW_NUMBER() OVER (PARTITION BY category ORDER BY revenue DESC, product_id) AS rn\n    FROM product_sales\n)\nSELECT category, product_id, revenue\nFROM ranked\nWHERE rn <= 3",
       "python": "import pandas as pd\nproduct_sales_df = pd.DataFrame(product_sales)\nordered = product_sales_df.sort_values([\"category\", \"revenue\", \"product_id\"], ascending=[True, False, True])\ndisplay(ordered.groupby(\"category\").head(3)[[\"category\", \"product_id\", \"revenue\"]])",
       "polars": "import polars as pl\nproduct_sales_df = pl.DataFrame(product_sales)\nordered = product_sales_df.sort([\"category\", \"revenue\", \"product_id\"], descending=[False, True, False])\ndisplay(ordered.group_by(\"category\", maintain_order=True).head(3).select(\"category\", \"product_id\", \"revenue\"))",
-      "sparklab": "from pyspark.sql import functions as F\nfrom pyspark.sql.window import Window\nsales = spark.table(\"product_sales\")\nw = Window.partitionBy(\"category\").orderBy(F.col(\"revenue\").desc(), F.col(\"product_id\"))\nsales.withColumn(\"rn\", F.row_number().over(w)).filter(F.col(\"rn\") <= 3).select(\"category\", \"product_id\", \"revenue\")"
+      "sparklab": "from pyspark.sql import functions as F\nfrom pyspark.sql.window import Window\nsales = spark.table(\"product_sales\")\nw = Window.partitionBy(\"category\").orderBy(F.col(\"revenue\").desc(), F.col(\"product_id\"))\nsales.withColumn(\"rn\", F.row_number().over(w)).filter(F.col(\"rn\") <= 3).select(\"category\", \"product_id\", \"revenue\")",
+      "tsql": "WITH ranked AS (\n    SELECT *, ROW_NUMBER() OVER (PARTITION BY category ORDER BY revenue DESC, product_id) AS rn\n    FROM product_sales\n)\nSELECT category, product_id, revenue\nFROM ranked\nWHERE rn <= 3;",
+      "bigquery": "SELECT category, product_id, revenue\nFROM product_sales\nWHERE TRUE\nQUALIFY ROW_NUMBER() OVER (PARTITION BY category ORDER BY revenue DESC, product_id) <= 3"
     },
     "fixtures": [
       {
@@ -1262,7 +1282,9 @@
       "sql": "SELECT customer_id, COALESCE(country, 'UNKNOWN') AS country_clean\nFROM customers",
       "python": "import pandas as pd\ncustomers_df = pd.DataFrame(customers)\ncustomers_df[\"country_clean\"] = customers_df[\"country\"].fillna(\"UNKNOWN\")\ndisplay(customers_df[[\"customer_id\", \"country_clean\"]])",
       "polars": "import polars as pl\ncustomers_df = pl.DataFrame(customers)\ndisplay(customers_df.select(\"customer_id\", country_clean=pl.col(\"country\").fill_null(\"UNKNOWN\")))",
-      "sparklab": "from pyspark.sql import functions as F\ncustomers = spark.table(\"customers\")\ncustomers.withColumn(\"country_clean\", F.coalesce(F.col(\"country\"), F.lit(\"UNKNOWN\"))).select(\"customer_id\", \"country_clean\")"
+      "sparklab": "from pyspark.sql import functions as F\ncustomers = spark.table(\"customers\")\ncustomers.withColumn(\"country_clean\", F.coalesce(F.col(\"country\"), F.lit(\"UNKNOWN\"))).select(\"customer_id\", \"country_clean\")",
+      "tsql": "SELECT customer_id, ISNULL(country, 'UNKNOWN') AS country_clean\nFROM customers;",
+      "bigquery": "SELECT customer_id, IFNULL(country, 'UNKNOWN') AS country_clean\nFROM customers"
     },
     "fixtures": [
       {
@@ -1360,7 +1382,9 @@
     "solutions": {
       "sql": "SELECT order_id, amount FROM historical_orders\nUNION ALL\nSELECT order_id, amount FROM current_orders",
       "python": "import pandas as pd\nhistorical_orders_df = pd.DataFrame(historical_orders)\ncurrent_orders_df = pd.DataFrame(current_orders)\ndisplay(pd.concat([historical_orders_df, current_orders_df], ignore_index=True)[[\"order_id\", \"amount\"]])",
-      "polars": "import polars as pl\nhistorical_orders_df = pl.DataFrame(historical_orders)\ncurrent_orders_df = pl.DataFrame(current_orders)\ndisplay(pl.concat([historical_orders_df, current_orders_df]).select(\"order_id\", \"amount\"))"
+      "polars": "import polars as pl\nhistorical_orders_df = pl.DataFrame(historical_orders)\ncurrent_orders_df = pl.DataFrame(current_orders)\ndisplay(pl.concat([historical_orders_df, current_orders_df]).select(\"order_id\", \"amount\"))",
+      "tsql": "SELECT order_id, amount FROM historical_orders\nUNION ALL\nSELECT order_id, amount FROM current_orders;",
+      "bigquery": "SELECT order_id, amount FROM historical_orders\nUNION ALL\nSELECT order_id, amount FROM current_orders"
     },
     "fixtures": [
       {
@@ -1481,7 +1505,9 @@
       "sql": "SELECT customer_id, order_id, amount,\n    SUM(amount) OVER (PARTITION BY customer_id) AS customer_total,\n    amount / SUM(amount) OVER (PARTITION BY customer_id) AS amount_share\nFROM orders",
       "python": "import pandas as pd\norders_df = pd.DataFrame(orders)\norders_df[\"customer_total\"] = orders_df.groupby(\"customer_id\")[\"amount\"].transform(\"sum\")\norders_df[\"amount_share\"] = orders_df[\"amount\"] / orders_df[\"customer_total\"]\ndisplay(orders_df[[\"customer_id\", \"order_id\", \"amount\", \"customer_total\", \"amount_share\"]])",
       "polars": "import polars as pl\norders_df = pl.DataFrame(orders)\nresult = orders_df.with_columns(customer_total=pl.col(\"amount\").sum().over(\"customer_id\"))\ndisplay(result.with_columns(amount_share=pl.col(\"amount\") / pl.col(\"customer_total\")))",
-      "sparklab": "from pyspark.sql import functions as F\nfrom pyspark.sql.window import Window\norders = spark.table(\"orders\")\nw = Window.partitionBy(\"customer_id\")\nwith_total = orders.withColumn(\"customer_total\", F.sum(\"amount\").over(w))\nwith_total.withColumn(\"amount_share\", F.col(\"amount\") / F.col(\"customer_total\"))"
+      "sparklab": "from pyspark.sql import functions as F\nfrom pyspark.sql.window import Window\norders = spark.table(\"orders\")\nw = Window.partitionBy(\"customer_id\")\nwith_total = orders.withColumn(\"customer_total\", F.sum(\"amount\").over(w))\nwith_total.withColumn(\"amount_share\", F.col(\"amount\") / F.col(\"customer_total\"))",
+      "tsql": "SELECT customer_id, order_id, amount,\n    SUM(amount) OVER (PARTITION BY customer_id) AS customer_total,\n    amount / SUM(amount) OVER (PARTITION BY customer_id) AS amount_share\nFROM orders;",
+      "bigquery": "SELECT customer_id, order_id, amount,\n    SUM(amount) OVER (PARTITION BY customer_id) AS customer_total,\n    SAFE_DIVIDE(amount, SUM(amount) OVER (PARTITION BY customer_id)) AS amount_share\nFROM orders"
     },
     "fixtures": [
       {
@@ -1631,7 +1657,9 @@
     "solutions": {
       "sql": "SELECT employee_name, department, wage,\n    DENSE_RANK() OVER (PARTITION BY department ORDER BY wage DESC) AS wage_rank\nFROM employees",
       "python": "import pandas as pd\nemployees_df = pd.DataFrame(employees)\nemployees_df[\"wage_rank\"] = employees_df.groupby(\"department\")[\"wage\"].rank(method=\"dense\", ascending=False).astype(int)\ndisplay(employees_df)",
-      "polars": "import polars as pl\nemployees_df = pl.DataFrame(employees)\ndisplay(employees_df.with_columns(wage_rank=pl.col(\"wage\").rank(method=\"dense\", descending=True).over(\"department\").cast(pl.Int64)))"
+      "polars": "import polars as pl\nemployees_df = pl.DataFrame(employees)\ndisplay(employees_df.with_columns(wage_rank=pl.col(\"wage\").rank(method=\"dense\", descending=True).over(\"department\").cast(pl.Int64)))",
+      "tsql": "SELECT employee_name, department, wage,\n    DENSE_RANK() OVER (PARTITION BY department ORDER BY wage DESC) AS wage_rank\nFROM employees;",
+      "bigquery": "SELECT employee_name, department, wage,\n    DENSE_RANK() OVER (PARTITION BY department ORDER BY wage DESC) AS wage_rank\nFROM employees"
     },
     "fixtures": [
       {
@@ -1783,7 +1811,9 @@
     "solutions": {
       "sql": "SELECT s.size_code, b.brand_name\nFROM sizes AS s\nCROSS JOIN brands AS b",
       "python": "import pandas as pd\nsizes_df = pd.DataFrame(sizes)\nbrands_df = pd.DataFrame(brands)\ndisplay(sizes_df.merge(brands_df, how=\"cross\"))",
-      "polars": "import polars as pl\nsizes_df = pl.DataFrame(sizes)\nbrands_df = pl.DataFrame(brands)\ndisplay(sizes_df.join(brands_df, how=\"cross\"))"
+      "polars": "import polars as pl\nsizes_df = pl.DataFrame(sizes)\nbrands_df = pl.DataFrame(brands)\ndisplay(sizes_df.join(brands_df, how=\"cross\"))",
+      "tsql": "SELECT s.size_code, b.brand_name\nFROM sizes AS s\nCROSS JOIN brands AS b;",
+      "bigquery": "SELECT s.size_code, b.brand_name\nFROM sizes AS s\nCROSS JOIN brands AS b"
     },
     "fixtures": [
       {
@@ -2019,7 +2049,9 @@
     "solutions": {
       "sql": "SELECT customer_id, lower(trim(email)) AS email_normalized\nFROM customers",
       "python": "import pandas as pd\ncustomers_df = pd.DataFrame(customers)\ncustomers_df[\"email_normalized\"] = customers_df[\"email\"].str.strip().str.lower()\ndisplay(customers_df[[\"customer_id\", \"email_normalized\"]])",
-      "polars": "import polars as pl\ncustomers_df = pl.DataFrame(customers)\ndisplay(customers_df.select(\"customer_id\", email_normalized=pl.col(\"email\").str.strip_chars().str.to_lowercase()))"
+      "polars": "import polars as pl\ncustomers_df = pl.DataFrame(customers)\ndisplay(customers_df.select(\"customer_id\", email_normalized=pl.col(\"email\").str.strip_chars().str.to_lowercase()))",
+      "tsql": "SELECT customer_id, LOWER(TRIM(email)) AS email_normalized\nFROM customers;",
+      "bigquery": "SELECT customer_id, LOWER(TRIM(email)) AS email_normalized\nFROM customers"
     },
     "fixtures": [
       {
@@ -2099,7 +2131,8 @@
   },
   "eng-qualify-latest": {
     "solutions": {
-      "sql": "SELECT user_id, event_id, event_time\nFROM events\nQUALIFY ROW_NUMBER() OVER (\n    PARTITION BY user_id\n    ORDER BY event_time DESC, event_id DESC\n) = 1"
+      "sql": "SELECT user_id, event_id, event_time\nFROM events\nQUALIFY ROW_NUMBER() OVER (\n    PARTITION BY user_id\n    ORDER BY event_time DESC, event_id DESC\n) = 1",
+      "bigquery": "SELECT user_id, event_id, event_time\nFROM events\nWHERE TRUE\nQUALIFY ROW_NUMBER() OVER (\n    PARTITION BY user_id\n    ORDER BY event_time DESC, event_id DESC\n) = 1"
     },
     "fixtures": [
       {
@@ -2201,7 +2234,9 @@
     "solutions": {
       "sql": "SELECT user_id, string_agg(event_name, ',' ORDER BY event_time DESC) AS recent_events\nFROM events\nGROUP BY user_id",
       "python": "import pandas as pd\nevents_df = pd.DataFrame(events)\nordered = events_df.sort_values(\"event_time\", ascending=False)\nresult = ordered.groupby(\"user_id\", as_index=False).agg(recent_events=(\"event_name\", \",\".join))\ndisplay(result)",
-      "polars": "import polars as pl\nevents_df = pl.DataFrame(events)\nordered = events_df.sort(\"event_time\", descending=True)\ndisplay(ordered.group_by(\"user_id\", maintain_order=True).agg(recent_events=pl.col(\"event_name\").str.join(\",\")))"
+      "polars": "import polars as pl\nevents_df = pl.DataFrame(events)\nordered = events_df.sort(\"event_time\", descending=True)\ndisplay(ordered.group_by(\"user_id\", maintain_order=True).agg(recent_events=pl.col(\"event_name\").str.join(\",\")))",
+      "tsql": "SELECT user_id, STRING_AGG(event_name, ',') WITHIN GROUP (ORDER BY event_time DESC) AS recent_events\nFROM events\nGROUP BY user_id;",
+      "bigquery": "SELECT user_id, STRING_AGG(event_name, ',' ORDER BY event_time DESC) AS recent_events\nFROM events\nGROUP BY user_id"
     },
     "fixtures": [
       {

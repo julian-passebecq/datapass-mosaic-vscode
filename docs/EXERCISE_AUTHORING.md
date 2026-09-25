@@ -5,7 +5,7 @@ Practice exercises live in versioned packs under `content/exercise-packs/<pack>/
 ## Pack formats
 
 - **Per-language pack**: `manifest.json`, `exercises.json` (public definitions), `grading.server.json` (reference solution + fixtures per exercise id). Example: `sql-lab-v1`, `internal-demo`.
-- **Semantic pack**: `manifest.json`, `scenarios.json`, `grading.server.json`. One scenario and one fixture set expand into several language variants (`sql`, `snowflake`, `python`, `polars`, `sparklab`, `dbt`, `dbt-sql`) registered as `<scenario>-<language>`. Examples: `unified-retail-v1`, `engine-lab-v1`, `zilla-v1`.
+- **Semantic pack**: `manifest.json`, `scenarios.json`, `grading.server.json`. One scenario and one fixture set expand into several language variants (`sql`, `snowflake`, `tsql`, `bigquery`, `python`, `polars`, `sparklab`, `dbt`, `dbt-sql`) registered as `<scenario>-<language>`. Examples: `unified-retail-v1`, `engine-lab-v1`, `zilla-v1`.
   - A `dbt-sql` variant is a real dbt model on the Datapass dbt emulation: the registry turns each shared fixture into a dbt scenario whose tables are the sources of a small project (`{{ source('zilla', '<table>') }}`), builds the model (`models/<model>.sql`, from the variant's optional `model` name) and grades its table. An ordered result cannot be a model, so ordered scenarios have no `dbt-sql` variant.
   - A `snowflake` variant is graded like `sql` after the Snowflake-to-DuckDB translation (see below).
 
@@ -32,7 +32,13 @@ Language `snowflake` (the learner writes Snowflake SQL, `solution.sql`), truth `
 same typed CTEs, the same result contract. A query outside the subset fails the check with the refusal message (the
 function's name), so references, starters and mutants must stay inside it.
 
-- Only give a problem a `snowflake` variant when its natural Snowflake answer is inside the subset.
+Languages `tsql` ("T-SQL dialect translated to DuckDB, not SQL Server") and `bigquery` ("BigQuery SQL dialect translated
+to DuckDB, not BigQuery") work the same way through the same translator. Their type-aware rules (T-SQL integer division
+and integer `AVG`, CAST to integers) read the exercise's `data_context` types, so declare every fixture column's type.
+Good mutants use the dialect's own semantics: `CAST(amount AS INT) / CAST(total AS INT)` is 0 in T-SQL, BigQuery's
+`CONCAT` keeps a NULL (see the `eng-*-tsql` and `eng-*-bigquery` mutants).
+
+- Only give a problem a `snowflake`, `tsql` or `bigquery` variant when its natural answer in that dialect is inside the subset.
 - Unquoted identifiers are folded to lower case: keep fixture tables and columns in lower case.
 - In a semantic pack the variant's runtime is `snowflake-dialect-duckdb-v1`.
 
@@ -317,7 +323,7 @@ resolved from source".
 | Pack | Language(s) | Exercises | Notes |
 | --- | --- | --- | --- |
 | `sql-lab-v1` | SQL | 60 | All 60 donor SQL lab challenges |
-| `engine-lab-v1` | SQL, pandas (`python`), Polars, SparkLab | 20 scenarios / 68 variants | Donor engine lab; SparkLab only where its bounded API supports the operation |
+| `engine-lab-v1` | SQL, T-SQL, BigQuery, pandas (`python`), Polars, SparkLab | 20 scenarios / 103 variants | Donor engine lab; SparkLab only where its bounded API supports the operation; T-SQL and BigQuery re-surfaced from the donor where the reference translates and passes (not `eng-split-explode`: arrays) |
 | `python-lab-v1` | Python | 12 | Donor curriculum lessons that transform data |
 | `de-patterns-v1` | SQL | 16 | Authored data-engineering patterns: typing imported CSV text, CDC dedup, NULL-safe anti-join, gaps and islands, sessionization, ASOF joins, SCD2 ranges, upsert results, data-quality rules, calendar spines, funnels, medians, cohorts, delimited lists, watermarks, COUNT FILTER |
 | `spark-lab-v1` | SparkLab | 12 | Authored Spark lessons. Result pitfalls: left-join filter placement, semi joins, `count(col)` vs `count("*")`, `eqNullSafe` change detection, full outer reconciliation, join fan-out, RANGE vs ROWS running totals. Plan lessons (graded on `spark_plan`): `coalesce` vs `repartition`, one-pass aggregation, broadcasting a dimension above the threshold, removing a random repartition before a window, a window instead of an aggregate self-join |

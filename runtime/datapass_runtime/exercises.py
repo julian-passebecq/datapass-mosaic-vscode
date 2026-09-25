@@ -10,6 +10,7 @@ import uuid
 import sqlite3
 from importlib.metadata import version
 
+from .sql_dialects import PRACTICE_DIALECTS
 from .catalog import validate_sql
 from .content import content_root
 
@@ -110,9 +111,12 @@ def grade(engine, request):
                             _exercise_spark_scale={name: scale.model_dump() for name, scale in plan.scale.items()})
         columns = list(spec.data_context[0].columns) if spec.data_context else list(fixture.input_rows[0]) if fixture.input_rows else ['value']
         types = dict(spec.data_context[0].columns) if spec.data_context else {}
-        if fixture.tables is not None and spec.language in {'sql', 'sparklab', 'snowflake'}:
+        if fixture.tables is not None and spec.language in {'sql', 'sparklab'} | PRACTICE_DIALECTS:
             # One typed CTE per named table; SparkLab compiles to SQL over the same CTEs.
             internal['_exercise_fixture_ctes'] = _fixture_ctes(spec, fixture)
+            if spec.language in PRACTICE_DIALECTS:
+                # The fixture tables' types, for the dialect's type-aware rules (integer division, casts).
+                internal['_exercise_schema'] = {c.name: dict(c.columns) for c in spec.data_context}
             if spec.language == 'sparklab':
                 internal['_exercise_tables'] = {c.name: list(c.columns) for c in spec.data_context}
                 internal['_exercise_table_counts'] = {name: len(rows) for name, rows in fixture.tables.items()}
@@ -125,7 +129,7 @@ def grade(engine, request):
             # Python/Polars: each table is a list of row dicts, by name and in `tables`.
             tables = deepcopy(fixture.tables)
             engine.python_namespaces[namespace] = {'__name__':'__datapass_exercise__', 'tables':tables, **deepcopy(fixture.tables)}
-        elif spec.language in {'sql','sparklab','dbt','snowflake'}:
+        elif spec.language in {'sql','sparklab','dbt'} | PRACTICE_DIALECTS:
             internal['_exercise_fixture_sql'] = _fixture_sql(fixture.input_rows, columns, types)
             internal['_exercise_columns'] = columns
             internal['_exercise_input_count'] = len(fixture.input_rows)
@@ -170,7 +174,7 @@ def grade(engine, request):
     else:
         engine_version = version('duckdb')
     return dict(checks=evidence, runs=runs, status='error' if not available else 'passed' if all(c['passed'] for c in evidence) else 'failed',
-                truth='unsupported' if not available else 'semantic-emulation' if spec.language in {'sparklab','dbt','snowflake'} else 'real',
+                truth='unsupported' if not available else 'semantic-emulation' if spec.language in {'sparklab','dbt'} | PRACTICE_DIALECTS else 'real',
                 runtime={'adapter':spec.runtime,'engine':runtime_engine,'engine_version':engine_version,'session_generation':engine.generation},
                 elapsed_ms=round(sum(c['elapsed_ms'] for c in evidence),3))
 
