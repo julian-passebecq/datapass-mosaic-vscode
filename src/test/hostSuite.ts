@@ -819,7 +819,7 @@ export async function run(): Promise<void> {
       assert.equal(semantic.status, "passed", JSON.stringify(semantic.checks));
 
       // Engine lab: named tables reach SparkLab; Python variants stay behind the trust gate.
-      assert.equal(catalog.filter(item => item.packId === "engine-lab-v1").length, 68);
+      assert.equal(catalog.filter(item => item.packId === "engine-lab-v1").length, 103, "68 variants + 17 T-SQL + 18 BigQuery");
       assert.equal(catalog.filter(item => item.packId === "python-lab-v1").length, 12);
       const engine = JSON.parse(new TextDecoder().decode(await vscode.workspace.fs.readFile(
         vscode.Uri.joinPath(extension.extensionUri, "content", "exercise-packs", "engine-lab-v1", "grading.server.json")
@@ -1160,6 +1160,35 @@ export async function run(): Promise<void> {
       const refused = await submit(pages, "SELECT domain, HASH(url) AS h FROM pages");
       assert.equal(refused.status, "failed");
       assert.match(refused.checks[0].message, /HASH is not in the supported Snowflake subset.*not Snowflake/);
+    }],
+    ["Engine lab T-SQL and BigQuery variants: translated to DuckDB and graded, with the dialects' semantics", async () => {
+      const catalog = await loadExerciseCatalog(extension.extensionUri);
+      const engine = catalog.filter(item => item.packId === "engine-lab-v1");
+      assert.equal(engine.filter(item => item.language === "tsql").length, 17);
+      assert.equal(engine.filter(item => item.language === "bigquery").length, 18);
+      const grading = JSON.parse(new TextDecoder().decode(await vscode.workspace.fs.readFile(
+        vscode.Uri.joinPath(extension.extensionUri, "content", "exercise-packs", "engine-lab-v1", "grading.server.json")
+      ))) as Record<string, { solutions: Record<string, string> }>;
+      const submit = async (id: string, code: string) => {
+        const exercise = engine.find(item => item.id === id)!;
+        await runtime!.gradeExercise(exercise.key, {
+          exercise_id: exercise.id, exercise_version: exercise.version, language: exercise.language,
+          code, mode: "submit", notebook_id: "e2e-engine", cell_id: "solution", source_revision: 1
+        });
+        return runtime!.snapshot().practiceResult!;
+      };
+      const share = await submit("eng-transform-share-tsql", grading["eng-transform-share"].solutions.tsql);
+      assert.equal(share.status, "passed", JSON.stringify(share.checks));
+      assert.equal(share.truth, "semantic-emulation");
+      // T-SQL divides integers as integers: the translation keeps it, so this answer is wrong.
+      const integerShare = await submit("eng-transform-share-tsql", "SELECT customer_id, order_id, amount, " +
+        "SUM(amount) OVER (PARTITION BY customer_id) AS customer_total, " +
+        "CAST(amount AS INT) / CAST(SUM(amount) OVER (PARTITION BY customer_id) AS INT) AS amount_share FROM orders;");
+      assert.equal(integerShare.status, "failed");
+      const flag = await submit("eng-derived-flag-bigquery", grading["eng-derived-flag"].solutions.bigquery);
+      assert.equal(flag.status, "passed", JSON.stringify(flag.checks));
+      const unnest = await submit("eng-derived-flag-bigquery", "SELECT x FROM UNNEST([1, 2]) AS x");
+      assert.match(unnest.checks[0].message, /not BigQuery/);
     }]
   ];
 

@@ -73,6 +73,68 @@ Open points:
 - Next: **Infra Lab** (simulated Terraform, Docker, VM + monitoring, Kubernetes), reusing missionlab with its own
   check kinds.
 
+## V2-2 + D-5: one SQL dialect translator for the whole Workbench — Claude, 2026-09-25
+
+The user asked for a "dialect button like a kernel". Before this, three SQL translation paths coexisted: the SQL pool's
+hand-written T-SQL tokenizer, `runtime/snowflakesql` (sqlglot, Practice) and `runtime/bilab`'s lineage (sqlglot, static
+analysis, unchanged). Delivered as four PRs, each merged on green CI:
+
+- **#38 `runtime/sqldialects`** (README there: subsets, rules, refusals, known differences).
+  - Dialects: T-SQL, Snowflake (the PR #19 subset, unchanged), BigQuery, Spark SQL (ANSI mode, read with sqlglot's
+    Databricks dialect), PostgreSQL.
+  - Label: "<dialect> dialect translated to DuckDB, not <engine>".
+  - Every syntax node and function is allowlisted; anything else is refused by name. The clock, random values and
+    file/network table functions are refused everywhere.
+  - Rules keep the engine's result where DuckDB differs: integer division, CAST to integers, T-SQL
+    `AVG`/`LEN`/`+`/`CONVERT` styles/`VARCHAR(n)`, dates staying `DATE`, Sunday weeks, weekday numbers,
+    `REGEXP_EXTRACT`, `SUBSTRING` starts, zero divisors raising, NULL order.
+  - Type-dependent rules read the caller's schema: a qualified copy is annotated by sqlglot and the types are mapped
+    back by node id, with a return-type table for functions sqlglot leaves untyped. A type that stays unknown is a
+    refusal that says how to make it explicit.
+  - Rule of thumb: where DuckDB would silently return another value, rewrite or refuse; where DuckDB raises and the
+    engine returns a value, document it as a known difference.
+  - `/api/local/execute` (language `sql`) and `/api/local/explain` take `dialect`. The translated SQL goes through the
+    catalog's own validation. The run journal records dialect runs as `emulation`.
+  - The kernel worker now reports ValueError subclasses as rejected requests (400, not 500).
+- **#39 SQL pool delegation.** `sqlpoollab/tsql.py` keeps GO batches, CREATE TABLE types, WITH options (distribution,
+  columnstore, HEAP, partitions, CLUSTER BY), procedures, DECLARE/SET and names.
+  - Every query, DML statement and expression goes through the shared T-SQL dialect, with hooks: variables, the fixed
+    lab clock, `dbo`→warehouse, unqualified names typed as warehouse tables.
+  - Every pool script of the repository gave identical statuses, messages, plans and rows before and after.
+  - sqlpool-v1 gate counts unchanged.
+- **#41 Mosaic.** Status bar "SQL: DuckDB ▾" on `.sql` files (`src/sqlDialectStatus.ts`, `src/platform/sqlDialect.ts`).
+  - The picker writes, replaces or removes the first line `-- dialect: <name>`.
+  - Run and Explain active SQL send it.
+  - Mosaic shows the translated DuckDB SQL, its label and rewrites; **Open translated SQL** opens a read-only tab.
+  - The query history keeps the dialect.
+- **Practice (the last PR).** Languages `tsql` and `bigquery`, graded like `snowflake` with the fixture types.
+  - `engine-lab-v1` re-surfaces the donor engine lab's T-SQL and BigQuery variants (leetcodedataeng, `dbo.` dropped):
+    17 + 18 variants, each with a passing reference, a failing starter and a mutant. Several mutants are dialect traps.
+  - `eng-split-explode` has no variant: arrays are outside both subsets.
+
+Checked:
+- `npm run compile`, `npm test` (new `sql_dialect_smoke`: header parsing, and dialect ids and labels equal to the
+  runtime's);
+- compileall, `runtime_smoke.py`: pinned results per dialect (Snowflake 41, T-SQL 32, BigQuery 20, Spark SQL 15,
+  PostgreSQL 16), about 80 refusals, script mode, the API, the pool through the shared dialect;
+- `projects_smoke.py`;
+- `exercise_packs_smoke.py`: 584 reference solutions, 584 starters and 549 mutants rejected (549/549/514 before the
+  35 new variants);
+- `npm run test:host`: new Mosaic dialect and engine-lab dialect steps;
+- the packaged VSIX in real VS Code (Playwright `_electron.launch`, fresh short profile `C:\dpsq`, runtime venv
+  prebuilt at the profile's globalStorage): status bar, picker, header, Start runtime, Run, the translated panel,
+  Explain, Open translated SQL, back to DuckDB. Screenshots reviewed.
+  - The pass found two UI problems, fixed in #41: the panel widened the narrow SQL block, and the picker was offered
+    on the read-only translated tab.
+  - Harness note: write the SQL file under a new name on each run, or VS Code's hot exit restores the old buffer.
+
+Open points:
+- T-SQL collation: SQL Server's default compares strings case-insensitively; here comparisons are case-sensitive. This
+  is documented as a known difference, not emulated.
+- The translated SQL is one line: the Mosaic panel wraps it, but the read-only tab does not pretty-print it.
+- Spark SQL and PostgreSQL have no Practice content yet; adding the languages would take two lines each (see
+  `PRACTICE_DIALECTS`).
+
 ## 0. Runtime loopback authentication (audit D-2, D-9) — Claude, 2026-09-25
 
 Audit finding: the runtime declared no middleware, so any local process or a DNS-rebinding web page could call it, including `POST /api/local/execute` with trusted Python on.
