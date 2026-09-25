@@ -50,6 +50,14 @@ try {
   assert.equal(mod.querySummary("-- revenue by day\n\nSELECT order_date, SUM(amount)\nFROM orders"), "SELECT order_date, SUM(amount)");
   assert.equal(mod.querySummary("SELECT " + "x, ".repeat(60), 20).length, 20);
 
+  // A dialect file's run keeps its dialect, so a rerun translates it again; the same SQL in DuckDB is another entry.
+  let dialects = mod.addQueryHistory(undefined, { ...entry("1", "SELECT TOP 1 1"), dialect: "tsql" });
+  dialects = mod.addQueryHistory(dialects, entry("2", "SELECT TOP 1 1"));
+  assert.deepEqual(dialects.map(item => item.id), ["2", "1"]);
+  const withDialects = mod.restoreQueryHistory([...dialects, { ...entry("3", "SELECT 3"), dialect: "oracle" }]);
+  assert.equal(withDialects.find(item => item.id === "1").dialect, "tsql");
+  assert.ok(!("dialect" in withDialects.find(item => item.id === "2")) && !("dialect" in withDialects.find(item => item.id === "3")));
+
   console.log("Mosaic tools smoke passed.");
 } finally {
   await rm(dir, { recursive: true, force: true });
