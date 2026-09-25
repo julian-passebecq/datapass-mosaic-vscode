@@ -22,6 +22,18 @@ Every exercise needs exactly one visible, and any number of hidden and edge fixt
 - Column types are applied with `CAST`, so dates, decimals and empty fixtures stay typed. Allowed: `INTEGER`, `BIGINT`, `DOUBLE`, `VARCHAR`, `BOOLEAN`, `DATE`, `TIMESTAMP`, `DECIMAL(p,s)`. Write dates as `YYYY-MM-DD` strings; results serialize dates the same way.
 - At most 200 rows per table and per expected result.
 
+## Snowflake SQL exercises
+
+Language `snowflake` (the learner writes Snowflake SQL, `solution.sql`), truth `semantic-emulation`, labelled
+"Snowflake SQL dialect translated to DuckDB, not Snowflake". The query is translated with sqlglot by
+`runtime/snowflakesql` (see its README for the subset) and graded exactly like a `sql` exercise: the same fixtures, the
+same typed CTEs, the same result contract. A query outside the subset fails the check with the refusal message (the
+function's name), so references, starters and mutants must stay inside it.
+
+- Only give a problem a `snowflake` variant when its natural Snowflake answer is inside the subset.
+- Unquoted identifiers are folded to lower case: keep fixture tables and columns in lower case.
+- In a semantic pack the variant's runtime is `snowflake-dialect-duckdb-v1`.
+
 ## SparkLab plan checks
 
 A SparkLab exercise may add `spark_plan` to its public definition. Grading then also checks the plan SparkLab models for the submission (`runtime/sparklab/physical.py`), next to the result-row fixtures:

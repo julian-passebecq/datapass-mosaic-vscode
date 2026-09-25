@@ -85,6 +85,13 @@ export function PracticeSurface({
                 </div>
               )}
 
+              {exercise.language === "snowflake" && (
+                <div className="pipeline-notice">
+                  Snowflake SQL dialect translated to DuckDB, not Snowflake: your query runs on local DuckDB, and
+                  functions outside the supported subset are refused rather than approximated.
+                </div>
+              )}
+
               {result && (
                 <div className="practice-result">
                   <div className="practice-result-header">

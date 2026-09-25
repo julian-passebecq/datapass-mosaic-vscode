@@ -157,6 +157,14 @@ try {
   assert.match(airflowBrief, /\*\*Run visible\*\* simulates the public scenario/);
   assert.match(airflowBrief, /The DAG file is parsed, never executed\./);
 
+  const snowflakeBrief = readmeMod.exerciseReadme({
+    key: "zilla-v1/z/snowflake", packId: "zilla-v1", packTitle: "Zilla", id: "z-snowflake", version: "1",
+    title: "Filter", difficulty: "easy", language: "snowflake", prompt: "Keep popular videos.",
+    starterSource: "SELECT 1", truth: "semantic-emulation", topics: ["filtering"], sections: [], hints: [], dataContext: []
+  });
+  assert.match(snowflakeBrief, /Snowflake SQL dialect translated to DuckDB, not Snowflake/);
+  assert.match(snowflakeBrief, /refused by name rather than approximated/);
+
   console.log("Retail scaffold, exercise brief and dbt detection smoke tests passed.");
 } finally {
   await rm(dir, { recursive: true, force: true });
