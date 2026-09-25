@@ -1,0 +1,23 @@
+zilla-v1: ZillaCode problems adapted for Datapass Workbench
+
+This pack contains material adapted from ZillaCode (https://github.com/davidzajac1/zillacode), an open-source
+collection of data engineering practice problems by David Zajac and contributors,
+licensed under the Apache License, Version 2.0 (see LICENSE in this folder).
+
+Adapted material: the problem statements (rewritten), the input fixtures of the two
+tests of each problem, and the reference transformations the Datapass references were
+derived from. It reached Datapass through CodeDELeet's normalized import
+(public/packs/v3-zilla.json, SHA-256 d3fd4f4cfc852b1056afc36c1e58b940a32ce22a810fa0a327d671b6bede7803; provenance ledger
+docs/v3/ZILLA_IMPORT_PROVENANCE.json, SHA-256 97bb00ac7d408980ae088af5bef2ff4e2930314c0f475de1c6d44f60edbbbbe9). The private ZillaCode
+archive was not used and the reference application was not run.
+
+Modifications (see each exercise's "Source" section and provenance):
+- statements rewritten for Datapass; table and column names normalized to snake_case;
+- output contracts made explicit (column order, row order, NULL and tie rules), with
+  documented corrections where the original statement and reference disagreed;
+- references rewritten for DuckDB SQL, Snowflake SQL (translated to DuckDB), pandas,
+  Polars, SparkLab and the Datapass dbt emulation;
+- expected rows recomputed by running the Datapass references; hidden and edge
+  fixtures added for ties, NULLs and empty groups.
+
+The Datapass-authored parts of this pack are part of the Datapass Workbench repository.

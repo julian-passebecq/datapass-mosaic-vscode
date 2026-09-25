@@ -780,6 +780,45 @@ export async function run(): Promise<void> {
       assert.equal(run?.status, "success", run?.error?.message);
       assert.match(run?.stdout ?? "", /\(3, 1\)/);
       assert.deepEqual(run?.result?.columns, ["value"]);
+    }],
+    ["ZillaCode pack grades one exercise in every language, Snowflake SQL translated to DuckDB", async () => {
+      const catalog = await loadExerciseCatalog(extension.extensionUri);
+      const zilla = catalog.filter(item => item.packId === "zilla-v1");
+      assert.equal(new Set(zilla.map(item => item.id.replace(/-(sql|snowflake|python|polars|sparklab|dbt-sql)$/, ""))).size, 52);
+      const grading = JSON.parse(new TextDecoder().decode(await vscode.workspace.fs.readFile(
+        vscode.Uri.joinPath(extension.extensionUri, "content", "exercise-packs", "zilla-v1", "grading.server.json")
+      ))) as Record<string, { solutions: Record<string, string> }>;
+      const submit = async (exercise: (typeof zilla)[number], code: string) => {
+        await runtime!.gradeExercise(exercise.key, {
+          exercise_id: exercise.id, exercise_version: exercise.version, language: exercise.language,
+          code, mode: "submit", notebook_id: "e2e-zilla", cell_id: "solution", source_revision: 1
+        });
+        return runtime!.snapshot().practiceResult!;
+      };
+      const expectedTruth: Record<string, string> = {
+        sql: "real", python: "real", polars: "real", snowflake: "semantic-emulation", sparklab: "semantic-emulation",
+        "dbt-sql": "semantic-emulation"
+      };
+      for (const language of ["sql", "snowflake", "python", "polars", "sparklab", "dbt-sql"]) {
+        const exercise = zilla.find(item => item.id === `zilla-001-popular-videos-${language}`);
+        assert.ok(exercise, `zilla-001 has a ${language} variant`);
+        const passed = await submit(exercise, grading["zilla-001-popular-videos"].solutions[language]);
+        assert.equal(passed.status, "passed", `${language}: ${JSON.stringify(passed.checks)}`);
+        assert.equal(passed.truth, expectedTruth[language], language);
+        assert.deepEqual(passed.checks.map(check => check.visibility), ["visible", "hidden", "edge"], language);
+        assert.equal((await submit(exercise, exercise.starterSource)).status, "failed", `${language} starter must fail`);
+      }
+      // Snowflake sorts NULLs first in a descending order: without NULLS LAST, the unscored page wins.
+      const pages = zilla.find(item => item.id === "zilla-015-best-pages-snowflake")!;
+      const reference = grading["zilla-015-best-pages"].solutions.snowflake;
+      assert.equal((await submit(pages, reference)).status, "passed");
+      const nullsFirst = await submit(pages, reference.replaceAll(" NULLS LAST", ""));
+      assert.equal(nullsFirst.status, "failed", "Snowflake's default NULL order must fail the edge check");
+      assert.deepEqual(nullsFirst.checks.map(check => check.passed), [true, true, false]);
+      // Functions outside the subset are refused by name, never approximated.
+      const refused = await submit(pages, "SELECT domain, HASH(url) AS h FROM pages");
+      assert.equal(refused.status, "failed");
+      assert.match(refused.checks[0].message, /HASH is not in the supported Snowflake subset.*not Snowflake/);
     }]
   ];
 

@@ -49,6 +49,10 @@ The branch already preserves the useful parts of the previous Datapass work rath
 
 See `docs/ARCHITECTURE.md` for the target architecture and `docs/HARVEST_AUDIT.md` for exactly what was reused or deliberately excluded.
 
+## Practice packs
+
+Practice grades native solution files on the local runtime (see `docs/EXERCISE_AUTHORING.md` for every pack). `zilla-v1` brings the 52 ZillaCode problems (Apache-2.0) with one result contract per problem in DuckDB SQL, Snowflake SQL, pandas, Polars, SparkLab and dbt. The Snowflake variant is labelled "Snowflake SQL dialect translated to DuckDB, not Snowflake": the query is translated with sqlglot for a documented subset (`runtime/snowflakesql/README.md`) and runs on local DuckDB; nothing connects to Snowflake.
+
 ## Try the connected demo
 
 Open **Fabric Lab** and choose **Create / repair demo files** to scaffold a small connected project across CSV, SQL/Polars, Pipeline Lab, Airflow Lab and dbt Lab.
@@ -64,7 +68,7 @@ npm ci
 npm run package
 ```
 
-This writes `datapass-mosaic-vscode-<version>.vsix` (about 0.6 MB). Install it with **Extensions → … → Install from VSIX…**, or:
+This writes `datapass-mosaic-vscode-<version>.vsix` (about 1.2 MB). Install it with **Extensions → … → Install from VSIX…**, or:
 
 ```bash
 code --install-extension datapass-mosaic-vscode-0.1.0.vsix
