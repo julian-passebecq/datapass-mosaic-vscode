@@ -14,6 +14,7 @@ from airflowlab.lab import lab_view
 from missionlab.check import evaluate as evaluate_mission, fixture_statements, sql_queries as mission_queries
 from missionlab.model import find_mission
 
+from .auth import RuntimeAuthMiddleware
 from .catalog_lease import CatalogLease, CatalogLocked, CatalogReleased, is_lock_error
 from .pipeline_compiler import compile_response
 from .kernels import KernelManager
@@ -38,6 +39,8 @@ async def lifespan(_app: FastAPI):
 
 
 app = FastAPI(title="Datapass Runtime", version="0.1.0", lifespan=lifespan)
+# Every request needs this launch's token and a loopback Host header (see auth.py).
+app.add_middleware(RuntimeAuthMiddleware)
 catalog_lease = CatalogLease()
 
 

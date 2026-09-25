@@ -816,11 +816,29 @@ models >> after
 
 with TemporaryDirectory(prefix="datapass-csv-import-smoke-") as temp:
     from fastapi.testclient import TestClient
+    from runtime_test_auth import client_kwargs
 
     previous_workspace = os.environ.get("DATAPASS_WORKSPACE_ROOT")
     os.environ["DATAPASS_WORKSPACE_ROOT"] = temp
     try:
-        with TestClient(app) as client:
+        auth = client_kwargs()
+        # Loopback authentication (D-2): the launch token and a loopback Host are required on every route,
+        # /api/health included; the refusal says nothing about the runtime.
+        with TestClient(app, base_url=auth["base_url"]) as anonymous:
+            for response in (anonymous.get("/api/health"), anonymous.get("/api/capabilities"),
+                             anonymous.post("/api/local/execute", json={"language": "sql", "code": "SELECT 1"})):
+                assert response.status_code == 401, response.text
+                assert response.json() == {"detail": "Missing or invalid Datapass runtime token."}, response.text
+            wrong = anonymous.get("/api/health", headers={"X-Datapass-Token": "0" * 64})
+            assert wrong.status_code == 401, wrong.text
+        with TestClient(app, **{**auth, "base_url": "http://attacker.example:8765"}) as rebound:
+            assert rebound.get("/api/health").status_code == 400, "a DNS-rebound Host is refused even with the token"
+        with TestClient(app, **{**auth, "base_url": "http://127.0.0.1:1"}) as other_port:
+            assert other_port.get("/api/health").status_code == 400, "only this launch's port is accepted"
+        with TestClient(app, **{**auth, "base_url": "http://localhost:" + auth["base_url"].rsplit(":", 1)[1]}) as local:
+            assert local.get("/api/health").json()["status"] == "ok"
+        with TestClient(app, **auth) as client:
+            assert client.get("/api/health").json() == {"status": "ok", "runtime": "local", "version": "0.1.0"}
             csv_text = "﻿city,visits\nLyon,3\nParis,\n"
             imported = client.post("/api/local/import-csv", json={"asset": "bronze.city_visits", "text": csv_text})
             assert imported.status_code == 200, imported.text

@@ -22,7 +22,17 @@ Workflow from here: branch from `main` for each tranche, keep CI green, merge th
 - **Bug found.** The Cloud Lab sub-tabs and the execution badge overflowed a narrow Workbench. Fixed in PR #17.
 - **Stacked PRs.** Retarget the next PR to `main` before merging its base with `--delete-branch`. Otherwise GitHub closes it.
 
-## 0. dbt Lab rebuild: real dbt Core, dbt Charts, missions — Claude, 2026-09-25 (newest)
+## 0. Runtime loopback authentication (audit D-2, D-9) — Claude, 2026-09-25 (newest)
+
+Audit finding: the runtime declared no middleware, so any local process or a DNS-rebinding web page could call it, including `POST /api/local/execute` with trusted Python on.
+
+- **Token.** `RuntimeManager.start` generates a token per launch (`newRuntimeToken`, `src/platform/runtimeClient.ts`, 32 random bytes), keeps it in memory, and passes it with the port as `DATAPASS_RUNTIME_TOKEN` / `DATAPASS_RUNTIME_PORT` (`runtimeProcessEnv` drops inherited values). All HTTP helpers moved to `runtimeClient.ts` and send `X-Datapass-Token`; the class routes every call through `postJson` / `getJson`.
+- **Runtime.** `runtime/datapass_runtime/auth.py` (pure ASGI middleware): Host must be `127.0.0.1:<port>` or `localhost:<port>` (400), token must match (401, `hmac.compare_digest`), no token or port configured → 503 on everything. Decision: `/api/health` is not exempt (the extension always has the token; the refusal leaks nothing).
+- **Callers.** TestClient smokes use `scripts/runtime_test_auth.py` (`client_kwargs()`); the host E2E injects a hostile inherited `DATAPASS_RUNTIME_TOKEN`. The kernel worker drops `*TOKEN*` variables; dbt/dct terminals take the extension host's environment, so neither sees the token.
+- **D-9.** `makeNonce` uses `crypto.randomBytes` (unbiased); the webview CSP `img-src` is `webview.cspSource data:` (no `https:`). The only webview image is the dct PNG render, inlined as a data URL.
+- **Tests.** `scripts/runtime_auth_smoke.mjs` (client header on every helper, env, nonce, CSP); `runtime_smoke.py` (401 without/with a wrong token, 400 for a rebound or other-port Host, `localhost:<port>` accepted).
+
+## 0. dbt Lab rebuild: real dbt Core, dbt Charts, missions — Claude, 2026-09-25
 
 The user approved a lab map on 2026-09-25: the BI Lab stays the guided place to learn data warehousing (with the dbt
 emulation, labelled "not dbt Core"), and the **dbt Lab** is rebuilt as the real-life lab. Terminal Lab (real shells)

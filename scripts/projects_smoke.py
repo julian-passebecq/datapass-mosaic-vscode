@@ -24,6 +24,7 @@ from tempfile import TemporaryDirectory
 os.environ.pop("DATAPASS_TRUSTED_PYTHON", None)
 
 from fastapi.testclient import TestClient  # noqa: E402
+from runtime_test_auth import client_kwargs  # noqa: E402
 
 from datapass_runtime import main  # noqa: E402
 from datapass_runtime.projects import FILE_ROOTS, Project, load_projects, safe_path  # noqa: E402
@@ -322,7 +323,7 @@ def main_smoke() -> None:
         previous = os.environ.get("DATAPASS_WORKSPACE_ROOT")
         os.environ["DATAPASS_WORKSPACE_ROOT"] = temp
         try:
-            with TestClient(main.app) as client:
+            with TestClient(main.app, **client_kwargs()) as client:
                 # The route: content ids only, unknown projects and steps refused.
                 assert client.post("/api/local/projects/check", json={"project_id": "nope"}).status_code == 404
                 assert client.post("/api/local/projects/check", json={"project_id": "../x"}).status_code == 422

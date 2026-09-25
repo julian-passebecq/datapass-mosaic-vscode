@@ -56,7 +56,9 @@ try {
     contentRoot: "/ext/content",
     storage: "duckdb",
     trustedPython: false,
-    workspaceRoot: "/ws"
+    workspaceRoot: "/ws",
+    runtimeToken: "t0",
+    runtimePort: 4100
   });
   assert.equal(off.DATAPASS_TRUSTED_PYTHON, undefined);
   assert.equal(off.datapass_trusted_python, undefined);
@@ -68,7 +70,9 @@ try {
   const on = trust.runtimeProcessEnv({ PATH: "/bin" }, {
     contentRoot: "/ext/content",
     storage: "ducklake",
-    trustedPython: true
+    trustedPython: true,
+    runtimeToken: "t1",
+    runtimePort: 4101
   });
   assert.equal(on.DATAPASS_TRUSTED_PYTHON, "1");
   assert.equal(on.DATAPASS_WORKSPACE_ROOT, undefined);
