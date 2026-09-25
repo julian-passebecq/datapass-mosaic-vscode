@@ -19,13 +19,18 @@ const required = [
   "runtime/sqlpoollab/README.md",
   "runtime/databrickslab/engine.py",
   "runtime/databrickslab/README.md",
+  "runtime/bilab/lineage.py",
+  "runtime/bilab/README.md",
+  "content/exercise-packs/dwh-v1/grading.server.json",
   "content/exercise-packs/sqlpool-v1/grading.server.json",
   "content/exercise-packs/airflow-lab-v1/grading.server.json",
   "samples/dbt/retail-dbt/dbt_project.yml",
   "samples/factory-lab/fabric/pl_retail_daily.DataPipeline/pipeline-content.json",
   "samples/factory-lab/sql/procedures/warehouse.usp_load_gold_revenue.sql",
   "samples/factory-lab/sql/pool/01_star_schema.sql",
-  "samples/factory-lab/databricks/jobs/retail_daily_dbx.json"
+  "samples/factory-lab/databricks/jobs/retail_daily_dbx.json",
+  "samples/bi-lab/model.json",
+  "samples/bi-lab/warehouse/05_fct_sales.sql"
 ];
 
 for (const path of required) {

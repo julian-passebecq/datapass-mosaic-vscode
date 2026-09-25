@@ -12,6 +12,7 @@ registry, and writes `content/exercise-packs/<pack>/`.
 | `gen_cloud_pipelines.py` | `cloud-pipelines-v1` | `datapass_runtime/factory_grading.py` |
 | `gen_sqlpool.py` | `sqlpool-v1` | `datapass_runtime/sqlpool_grading.py` |
 | `gen_databricks.py` | `databricks-v1` | `datapass_runtime/databricks_grading.py` |
+| `gen_dwh.py` | `dwh-v1` | `datapass_runtime/warehouse_grading.py` (BI Lab) |
 | `gen_spark_lab.py` | `spark-lab-v1` | SparkLab grader; the pack and its grading changes come with PR #7, which is not in this branch's history |
 
 Run from the repository root, against the repository's runtime:

@@ -1125,3 +1125,32 @@ h2 { margin-bottom: 8px; font-size: 28px; }
   .sqlpool-run { grid-template-columns: 1fr; }
   .databricks-columns { grid-template-columns: 1fr; }
 }
+
+/* BI Lab */
+.bi-surface { display: grid; gap: 10px; min-width: 0; margin-top: 12px; }
+.bi-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 10px; align-items: start; min-width: 0; }
+.bi-panel { display: grid; gap: 8px; align-content: start; min-width: 0; padding: 10px 12px; border: 1px solid var(--vscode-panel-border); border-radius: 7px; }
+.bi-wide { grid-column: 1 / -1; }
+.bi-panel select { max-width: 100%; }
+.bi-files { display: grid; gap: 3px; margin: 0; padding-left: 16px; font-size: 12px; }
+.bi-files small { margin-left: 6px; color: var(--vscode-descriptionForeground); }
+.bi-link { padding: 0; border: 0; background: none; color: var(--vscode-textLink-foreground); cursor: pointer; font: inherit; text-align: left; }
+.bi-link:hover { text-decoration: underline; }
+.bi-exercise { margin-right: 8px; font-size: 11px; }
+.bi-checks tr.bi-check-fail td:last-child { color: var(--vscode-errorForeground); font-weight: 600; }
+.bi-checks tr.bi-check-warn td:last-child { color: var(--vscode-editorWarning-foreground); font-weight: 600; }
+.bi-checks tr.bi-check-pass td:last-child { color: var(--vscode-charts-green, #2e7d32); }
+.bi-impact { display: grid; gap: 4px; font-size: 12px; }
+.bi-concepts { display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 10px; align-items: start; min-width: 0; }
+.bi-concepts > p { grid-column: 1 / -1; }
+.bi-static tbody tr { cursor: default; }
+.bi-terms { display: grid; gap: 6px; margin: 0; font-size: 12px; }
+.bi-terms dt { font-weight: 600; }
+.bi-terms dd { margin: 0 0 0 10px; color: var(--vscode-descriptionForeground); }
+.state-warning { --airflow-state: var(--vscode-charts-yellow, #f9a825); }
+.react-flow__edge.bi-edge-inactive .react-flow__edge-path { stroke-dasharray: 6 4; opacity: 0.7; }
+.react-flow__edge.bi-edge-both .react-flow__edge-path { stroke: var(--vscode-charts-purple, #8e24aa); stroke-width: 2px; }
+.datapass-side-handle { opacity: 0; }
+.bi-column-detail { display: grid; grid-template-columns: minmax(0, 2fr) minmax(220px, 1fr); gap: 12px; align-items: start; }
+.bi-side { display: grid; gap: 6px; font-size: 12px; }
+@media (max-width: 760px) { .bi-column-detail { grid-template-columns: minmax(0, 1fr); } }

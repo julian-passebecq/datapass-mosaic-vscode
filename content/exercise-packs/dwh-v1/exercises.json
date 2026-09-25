@@ -1,0 +1,2029 @@
+[
+  {
+    "schema_version": 1,
+    "id": "dwh-snowflake-flatten",
+    "version": "1",
+    "title": "Flatten a snowflaked product hierarchy",
+    "difficulty": "easy",
+    "topics": [
+      "star-schema",
+      "snowflake",
+      "dimensions"
+    ],
+    "tags": [
+      "bi-lab",
+      "data-warehousing",
+      "warehouse-sql"
+    ],
+    "origin": "authored",
+    "language": "warehouse",
+    "runtime": "datapass-warehouse-v1",
+    "prompt": "The ERP stores products in three tables: source.erp_products -> source.erp_subcategories -> source.erp_categories (a snowflake). Build gold.dim_product, one flat table the reports can join once: product_key, product_id, product_name, subcategory, category, list_price. product_key is ROW_NUMBER() OVER (ORDER BY product_id). Every product must be in the dimension: when its subcategory or category is missing, report it under 'Unassigned'.",
+    "sections": [
+      {
+        "title": "Warehouse",
+        "body": "Your SQL script runs for real on DuckDB, on an isolated catalog built for each check from the tables the exercise describes; your workspace catalog is never read or written. Name tables with their layer (source., silver., gold.). A script can hold several statements separated by ; (CREATE TABLE/VIEW, INSERT, UPDATE, DELETE, MERGE, DROP, SELECT) and stops at the first error. Column lineage, when graded, is a static analysis of your SQL text (sqlglot)."
+      },
+      {
+        "title": "Star or snowflake",
+        "body": "A snowflake normalizes a dimension into several tables (product -> subcategory -> category). A star keeps one wide, denormalized table per dimension: fewer joins for every report, simpler filters, and the hierarchy is still there as columns. Most BI models (Power BI included) prefer the star."
+      },
+      {
+        "title": "Graded",
+        "body": "The rows of gold.dim_product, with products whose subcategory is missing or points to a category that does not exist."
+      }
+    ],
+    "starter_source": "-- The gift card has no subcategory. Where does it go?\nCREATE OR REPLACE TABLE gold.dim_product AS\nSELECT ROW_NUMBER() OVER (ORDER BY p.product_id) AS product_key,\n       p.product_id,\n       p.product_name,\n       s.subcategory_name AS subcategory,\n       c.category_name AS category,\n       p.list_price\nFROM source.erp_products AS p\nJOIN source.erp_subcategories AS s ON s.subcategory_id = p.subcategory_id\nJOIN source.erp_categories AS c ON c.category_id = s.category_id;\n",
+    "fixtures": [
+      {
+        "id": "dwh-snowflake-flatten-fixtures",
+        "version": "1"
+      }
+    ],
+    "visible_checks": [
+      {
+        "id": "dimension",
+        "description": "Outcome of the public scenario on an isolated DuckDB catalog."
+      }
+    ],
+    "hidden_check_refs": [
+      "orphan-category"
+    ],
+    "edge_check_refs": [
+      "missing-subcategory"
+    ],
+    "hints": [
+      "An inner join keeps only the rows that match on both sides.",
+      "LEFT JOIN both levels, then COALESCE the missing names."
+    ],
+    "solution": {
+      "available": true,
+      "reveal": "explicit"
+    },
+    "explanation": "LEFT JOINs keep every product even when a level of the hierarchy is missing, and COALESCE gives those rows a visible 'Unassigned' member instead of NULL (a NULL category disappears or shows as blank in most reports). An inner join silently drops the gift card and any product whose subcategory points nowhere, so revenue by category no longer adds up to total revenue.",
+    "follow_ups": [
+      "When would you keep a snowflake anyway? Think about a very large hierarchy shared by several dimensions, or a model where the hierarchy changes independently."
+    ],
+    "canonical_placement": {
+      "domain": "bi-data-warehousing",
+      "topic": "star-schema"
+    },
+    "related_associations": [
+      "bi-lab/warehouse"
+    ],
+    "recommendation": {
+      "rank": 1,
+      "reason": "BI Lab data warehousing progression"
+    },
+    "validator_version": "rows-v2",
+    "validation": {
+      "kind": "rows",
+      "ordered": false,
+      "duplicate_sensitive": true,
+      "relative_tolerance": 1e-09,
+      "absolute_tolerance": 1e-06,
+      "required_columns": [],
+      "exact_schema": null,
+      "forbidden_extra_columns": true,
+      "null_semantics": "equal"
+    },
+    "runtime_requirements": [
+      "duckdb"
+    ],
+    "provenance": {
+      "source": "Authored for Datapass Workbench: dimensional modeling (Kimball) and warehouse loading patterns",
+      "fixtures": "Authored scenarios; expected rows computed by running the reference and reviewed"
+    },
+    "constraints": {
+      "truth": "Real DuckDB execution on an isolated local catalog; column lineage is a static analysis of the SQL text; model checks are real queries."
+    },
+    "truth": "real"
+  },
+  {
+    "schema_version": 1,
+    "id": "dwh-surrogate-unknown",
+    "version": "1",
+    "title": "Surrogate keys and the unknown member",
+    "difficulty": "easy",
+    "topics": [
+      "surrogate-keys",
+      "unknown-member",
+      "facts"
+    ],
+    "tags": [
+      "bi-lab",
+      "data-warehousing",
+      "warehouse-sql"
+    ],
+    "origin": "authored",
+    "language": "warehouse",
+    "runtime": "datapass-warehouse-v1",
+    "prompt": "Build gold.dim_product (product_key, product_id, product_name, category) with product_key = ROW_NUMBER() OVER (ORDER BY product_id), plus the unknown member: product_key -1, product_id 'UNKNOWN', product_name 'Unknown product', category 'Unknown'. Then build gold.fct_sales (order_id, line_number, product_key, quantity, net_amount) from source.shop_order_lines: one row per line, product_key looked up in the dimension, and -1 when the product is not in it (the shop sells items the ERP has not sent yet).",
+    "sections": [
+      {
+        "title": "Warehouse",
+        "body": "Your SQL script runs for real on DuckDB, on an isolated catalog built for each check from the tables the exercise describes; your workspace catalog is never read or written. Name tables with their layer (source., silver., gold.). A script can hold several statements separated by ; (CREATE TABLE/VIEW, INSERT, UPDATE, DELETE, MERGE, DROP, SELECT) and stops at the first error. Column lineage, when graded, is a static analysis of your SQL text (sqlglot)."
+      },
+      {
+        "title": "Why surrogate keys",
+        "body": "A surrogate key is a meaningless integer the warehouse owns. It stays stable when a source renames or reuses its codes, it lets one business key have several versions (type 2), and it gives missing references somewhere to point: the unknown member (-1). A fact row with a NULL key vanishes from every report that joins the dimension."
+      },
+      {
+        "title": "Graded",
+        "body": "gold.fct_sales, revenue by category through the dimension (the report every user runs), and the rows of gold.dim_product."
+      }
+    ],
+    "starter_source": "CREATE OR REPLACE TABLE gold.dim_product AS\nSELECT ROW_NUMBER() OVER (ORDER BY product_id) AS product_key, product_id, product_name, category\nFROM source.erp_products;\n\nCREATE OR REPLACE TABLE gold.fct_sales AS\nSELECT l.order_id, l.line_number, d.product_key, l.quantity, l.net_amount\nFROM source.shop_order_lines AS l\nJOIN gold.dim_product AS d ON d.product_id = l.product_id;\n",
+    "fixtures": [
+      {
+        "id": "dwh-surrogate-unknown-fixtures",
+        "version": "1"
+      }
+    ],
+    "visible_checks": [
+      {
+        "id": "fact",
+        "description": "Outcome of the public scenario on an isolated DuckDB catalog."
+      }
+    ],
+    "hidden_check_refs": [
+      "report"
+    ],
+    "edge_check_refs": [
+      "dimension"
+    ],
+    "hints": [
+      "Add the -1 row with UNION ALL when you build the dimension.",
+      "LEFT JOIN the dimension and COALESCE the key to -1."
+    ],
+    "solution": {
+      "available": true,
+      "reveal": "explicit"
+    },
+    "explanation": "The LEFT JOIN keeps the line of the product the ERP does not know yet, and COALESCE points it to the unknown member, which exists in the dimension. Revenue by category then still adds up to total revenue, with the unexplained part visible as 'Unknown' instead of silently missing. A NULL key or an inner join loses the sale in every report that joins the dimension.",
+    "follow_ups": [
+      "When the ERP sends P99 later, what should happen to the sales already pointing to -1? See the late arriving dimension exercise for the inferred member technique."
+    ],
+    "canonical_placement": {
+      "domain": "bi-data-warehousing",
+      "topic": "surrogate-keys"
+    },
+    "related_associations": [
+      "bi-lab/warehouse"
+    ],
+    "recommendation": {
+      "rank": 2,
+      "reason": "BI Lab data warehousing progression"
+    },
+    "validator_version": "rows-v2",
+    "validation": {
+      "kind": "rows",
+      "ordered": false,
+      "duplicate_sensitive": true,
+      "relative_tolerance": 1e-09,
+      "absolute_tolerance": 1e-06,
+      "required_columns": [],
+      "exact_schema": null,
+      "forbidden_extra_columns": true,
+      "null_semantics": "equal"
+    },
+    "runtime_requirements": [
+      "duckdb"
+    ],
+    "provenance": {
+      "source": "Authored for Datapass Workbench: dimensional modeling (Kimball) and warehouse loading patterns",
+      "fixtures": "Authored scenarios; expected rows computed by running the reference and reviewed"
+    },
+    "constraints": {
+      "truth": "Real DuckDB execution on an isolated local catalog; column lineage is a static analysis of the SQL text; model checks are real queries."
+    },
+    "truth": "real"
+  },
+  {
+    "schema_version": 1,
+    "id": "dwh-date-dimension",
+    "version": "1",
+    "title": "Build a date dimension with a fiscal calendar",
+    "difficulty": "easy",
+    "topics": [
+      "date-dimension",
+      "dimensions",
+      "role-playing"
+    ],
+    "tags": [
+      "bi-lab",
+      "data-warehousing",
+      "warehouse-sql"
+    ],
+    "origin": "authored",
+    "language": "warehouse",
+    "runtime": "datapass-warehouse-v1",
+    "prompt": "Build gold.dim_date for every day of 2026 with the columns date_key, full_date, calendar_year, calendar_quarter, month_number, month_name, day_name, is_weekend, fiscal_year, fiscal_quarter. date_key is the integer yyyymmdd (20260105). month_name and day_name are English names ('January', 'Monday'); is_weekend is TRUE on Saturday and Sunday. The fiscal year starts on 1 July and is named after the year it ends in: 2026-07-01 is in fiscal year 2027, fiscal quarter 1; 2026-06-30 is in fiscal year 2026, fiscal quarter 4. Add the unknown row: date_key -1, month_name and day_name 'Unknown', every other column NULL.",
+    "sections": [
+      {
+        "title": "Warehouse",
+        "body": "Your SQL script runs for real on DuckDB, on an isolated catalog built for each check from the tables the exercise describes; your workspace catalog is never read or written. Name tables with their layer (source., silver., gold.). A script can hold several statements separated by ; (CREATE TABLE/VIEW, INSERT, UPDATE, DELETE, MERGE, DROP, SELECT) and stops at the first error. Column lineage, when graded, is a static analysis of your SQL text (sqlglot)."
+      },
+      {
+        "title": "Why a date table",
+        "body": "Every fact joins a date. A date dimension holds the calendar and fiscal attributes once (and holidays, weeks, periods...), so reports never recompute them and every fact uses the same definitions. One date table can play several roles (order date, ship date): see the star model exercise."
+      },
+      {
+        "title": "Graded",
+        "body": "A few chosen days (a Sunday, the fiscal year boundary), the number of days and weekend days, and the number of days per fiscal year and quarter."
+      }
+    ],
+    "starter_source": "CREATE OR REPLACE TABLE gold.dim_date AS\nSELECT CAST(strftime(d, '%Y%m%d') AS INTEGER) AS date_key,\n       CAST(d AS DATE) AS full_date,\n       year(d) AS calendar_year,\n       quarter(d) AS calendar_quarter,\n       month(d) AS month_number,\n       monthname(d) AS month_name,\n       dayname(d) AS day_name,\n       dayofweek(d) IN (6, 7) AS is_weekend,\n       year(d) AS fiscal_year,\n       quarter(d) AS fiscal_quarter\nFROM generate_series(DATE '2026-01-01', DATE '2026-12-31', INTERVAL 1 DAY) AS days(d);\n",
+    "fixtures": [
+      {
+        "id": "dwh-date-dimension-fixtures",
+        "version": "1"
+      }
+    ],
+    "visible_checks": [
+      {
+        "id": "sample-days",
+        "description": "Outcome of the public scenario on an isolated DuckDB catalog."
+      }
+    ],
+    "hidden_check_refs": [
+      "counts"
+    ],
+    "edge_check_refs": [
+      "fiscal"
+    ],
+    "hints": [
+      "DuckDB's dayofweek() numbers Sunday 0 to Saturday 6; isodow() numbers Monday 1 to Sunday 7.",
+      "generate_series includes its end; range does not.",
+      "Months 7 to 12 belong to the next fiscal year. (month + 5) % 12 // 3 + 1 turns July into quarter 1 (// is integer division)."
+    ],
+    "solution": {
+      "available": true,
+      "reveal": "explicit"
+    },
+    "explanation": "A generated calendar with one row per day, integer smart keys (yyyymmdd) that sort and partition well, and the fiscal attributes computed once. The traps are all conventions: which day numbering the engine uses for weekends, whether the series includes its last day, and which year names a fiscal year. Getting them right in one table means every report agrees.",
+    "follow_ups": [
+      "Add is_holiday from a holiday table, and a week_start column (Monday). Why do smart date keys break the 'meaningless surrogate key' rule, and why is it accepted for dates?"
+    ],
+    "canonical_placement": {
+      "domain": "bi-data-warehousing",
+      "topic": "date-dimension"
+    },
+    "related_associations": [
+      "bi-lab/warehouse"
+    ],
+    "recommendation": {
+      "rank": 3,
+      "reason": "BI Lab data warehousing progression"
+    },
+    "validator_version": "rows-v2",
+    "validation": {
+      "kind": "rows",
+      "ordered": false,
+      "duplicate_sensitive": true,
+      "relative_tolerance": 1e-09,
+      "absolute_tolerance": 1e-06,
+      "required_columns": [],
+      "exact_schema": null,
+      "forbidden_extra_columns": true,
+      "null_semantics": "equal"
+    },
+    "runtime_requirements": [
+      "duckdb"
+    ],
+    "provenance": {
+      "source": "Authored for Datapass Workbench: dimensional modeling (Kimball) and warehouse loading patterns",
+      "fixtures": "Authored scenarios; expected rows computed by running the reference and reviewed"
+    },
+    "constraints": {
+      "truth": "Real DuckDB execution on an isolated local catalog; column lineage is a static analysis of the SQL text; model checks are real queries."
+    },
+    "truth": "real"
+  },
+  {
+    "schema_version": 1,
+    "id": "dwh-junk-dimension",
+    "version": "1",
+    "title": "Gather low-cardinality flags in a junk dimension",
+    "difficulty": "easy",
+    "topics": [
+      "junk-dimension",
+      "dimensions",
+      "nulls"
+    ],
+    "tags": [
+      "bi-lab",
+      "data-warehousing",
+      "warehouse-sql"
+    ],
+    "origin": "authored",
+    "language": "warehouse",
+    "runtime": "datapass-warehouse-v1",
+    "prompt": "Orders carry three small flags: channel, payment_type and is_gift. Instead of three tiny dimensions, build one junk dimension gold.dim_order_profile (order_profile_key, channel, payment_type, is_gift) with one row per combination that occurs, and gold.fct_orders (order_id, order_profile_key, order_total). A missing payment_type is stored as 'not provided' and a missing is_gift as FALSE. order_profile_key is ROW_NUMBER() OVER (ORDER BY channel, payment_type, is_gift), after replacing the missing values. Every order gets a key.",
+    "sections": [
+      {
+        "title": "Warehouse",
+        "body": "Your SQL script runs for real on DuckDB, on an isolated catalog built for each check from the tables the exercise describes; your workspace catalog is never read or written. Name tables with their layer (source., silver., gold.). A script can hold several statements separated by ; (CREATE TABLE/VIEW, INSERT, UPDATE, DELETE, MERGE, DROP, SELECT) and stops at the first error. Column lineage, when graded, is a static analysis of your SQL text (sqlglot)."
+      },
+      {
+        "title": "Junk dimension",
+        "body": "Low-cardinality flags and indicators that belong to no real dimension are grouped in one small table of their combinations. The fact keeps a single key instead of several text columns or several one-column dimensions."
+      },
+      {
+        "title": "Graded",
+        "body": "gold.fct_orders, the rows of gold.dim_order_profile, and orders whose is_gift is missing."
+      }
+    ],
+    "starter_source": "CREATE OR REPLACE TABLE gold.dim_order_profile AS\nSELECT ROW_NUMBER() OVER (ORDER BY channel, payment_type, is_gift) AS order_profile_key,\n       channel, payment_type, is_gift\nFROM (SELECT DISTINCT channel, payment_type, is_gift FROM source.shop_orders) AS profiles;\n\nCREATE OR REPLACE TABLE gold.fct_orders AS\nSELECT o.order_id, p.order_profile_key, o.order_total\nFROM source.shop_orders AS o\nLEFT JOIN gold.dim_order_profile AS p\n       ON p.channel = o.channel AND p.payment_type = o.payment_type AND p.is_gift = o.is_gift;\n",
+    "fixtures": [
+      {
+        "id": "dwh-junk-dimension-fixtures",
+        "version": "1"
+      }
+    ],
+    "visible_checks": [
+      {
+        "id": "fact",
+        "description": "Outcome of the public scenario on an isolated DuckDB catalog."
+      }
+    ],
+    "hidden_check_refs": [
+      "dimension"
+    ],
+    "edge_check_refs": [
+      "missing-gift-flag"
+    ],
+    "hints": [
+      "NULL = NULL is not true, so a join on a NULL column never matches.",
+      "Replace missing values the same way in the dimension and in the lookup."
+    ],
+    "solution": {
+      "available": true,
+      "reveal": "explicit"
+    },
+    "explanation": "Replacing the missing values before building the combinations gives every order a profile, and the lookup must apply exactly the same replacements. Joining on a column that is NULL never matches (NULL = NULL is unknown), so those orders get no key and fall out of every report on the profile.",
+    "follow_ups": [
+      "If channel had 50 values and payment_type 20, would you still pre-build every combination, or only those seen? What changes when a new combination appears tomorrow?"
+    ],
+    "canonical_placement": {
+      "domain": "bi-data-warehousing",
+      "topic": "junk-dimension"
+    },
+    "related_associations": [
+      "bi-lab/warehouse"
+    ],
+    "recommendation": {
+      "rank": 4,
+      "reason": "BI Lab data warehousing progression"
+    },
+    "validator_version": "rows-v2",
+    "validation": {
+      "kind": "rows",
+      "ordered": false,
+      "duplicate_sensitive": true,
+      "relative_tolerance": 1e-09,
+      "absolute_tolerance": 1e-06,
+      "required_columns": [],
+      "exact_schema": null,
+      "forbidden_extra_columns": true,
+      "null_semantics": "equal"
+    },
+    "runtime_requirements": [
+      "duckdb"
+    ],
+    "provenance": {
+      "source": "Authored for Datapass Workbench: dimensional modeling (Kimball) and warehouse loading patterns",
+      "fixtures": "Authored scenarios; expected rows computed by running the reference and reviewed"
+    },
+    "constraints": {
+      "truth": "Real DuckDB execution on an isolated local catalog; column lineage is a static analysis of the SQL text; model checks are real queries."
+    },
+    "truth": "real"
+  },
+  {
+    "schema_version": 1,
+    "id": "dwh-scd1-overwrite",
+    "version": "1",
+    "title": "Slowly changing dimension type 1: overwrite in place",
+    "difficulty": "easy",
+    "topics": [
+      "scd-type-1",
+      "surrogate-keys",
+      "incremental-load"
+    ],
+    "tags": [
+      "bi-lab",
+      "data-warehousing",
+      "warehouse-sql"
+    ],
+    "origin": "authored",
+    "language": "warehouse",
+    "runtime": "datapass-warehouse-v1",
+    "prompt": "gold.dim_customer (customer_key, customer_id, customer_name, city, email) is type 1: it keeps only the current values. Each day silver.customer_updates brings the customers created or changed in the CRM (customer_id, customer_name, city, email). Write the daily load: update existing customers in place, keeping their customer_key, and insert new ones with keys continuing after the highest existing key, numbered in customer_id order.",
+    "sections": [
+      {
+        "title": "Warehouse",
+        "body": "Your SQL script runs for real on DuckDB, on an isolated catalog built for each check from the tables the exercise describes; your workspace catalog is never read or written. Name tables with their layer (source., silver., gold.). A script can hold several statements separated by ; (CREATE TABLE/VIEW, INSERT, UPDATE, DELETE, MERGE, DROP, SELECT) and stops at the first error. Column lineage, when graded, is a static analysis of your SQL text (sqlglot)."
+      },
+      {
+        "title": "Type 1",
+        "body": "Type 1 overwrites: the dimension shows today's values and forgets the old ones, so past sales are reported with the customer's current city. It suits corrections and attributes whose history nobody analyses. The customer_key must never change: facts already point to it."
+      },
+      {
+        "title": "Runs",
+        "body": "The check runs your script two or three times in a row on the same catalog, like a scheduled load: before each run the day's batch replaces silver.customer_updates. Your script must be rerunnable: running it again on the same batch changes nothing."
+      },
+      {
+        "title": "Graded",
+        "body": "gold.dim_customer after two days, after replaying the second day, and revenue by customer through the keys that existing sales already use."
+      }
+    ],
+    "starter_source": "INSERT INTO gold.dim_customer (customer_key, customer_id, customer_name, city, email)\nSELECT (SELECT MAX(customer_key) FROM gold.dim_customer) + ROW_NUMBER() OVER (ORDER BY customer_id),\n       customer_id, customer_name, city, email\nFROM silver.customer_updates;\n",
+    "fixtures": [
+      {
+        "id": "dwh-scd1-overwrite-fixtures",
+        "version": "1"
+      }
+    ],
+    "visible_checks": [
+      {
+        "id": "two-days",
+        "description": "Outcome of the public scenario on an isolated DuckDB catalog."
+      }
+    ],
+    "hidden_check_refs": [
+      "replayed-day"
+    ],
+    "edge_check_refs": [
+      "existing-sales"
+    ],
+    "hints": [
+      "UPDATE ... FROM changes existing rows; INSERT ... WHERE NOT EXISTS adds only the new customers.",
+      "Deleting and re-inserting a customer gives it a new key: what happens to the sales pointing to the old one?"
+    ],
+    "solution": {
+      "available": true,
+      "reveal": "explicit"
+    },
+    "explanation": "An UPDATE in place keeps each customer's surrogate key, so every fact row already loaded still points to the right customer, and the NOT EXISTS guard makes the load rerunnable. Deleting and re-inserting looks equivalent in the dimension, but the customer gets a new key and the existing sales now point to nobody (or to someone else).",
+    "follow_ups": [
+      "Write the same load as one MERGE statement. What does a MERGE need to generate the new keys?"
+    ],
+    "canonical_placement": {
+      "domain": "bi-data-warehousing",
+      "topic": "scd-type-1"
+    },
+    "related_associations": [
+      "bi-lab/warehouse"
+    ],
+    "recommendation": {
+      "rank": 5,
+      "reason": "BI Lab data warehousing progression"
+    },
+    "validator_version": "rows-v2",
+    "validation": {
+      "kind": "rows",
+      "ordered": false,
+      "duplicate_sensitive": true,
+      "relative_tolerance": 1e-09,
+      "absolute_tolerance": 1e-06,
+      "required_columns": [],
+      "exact_schema": null,
+      "forbidden_extra_columns": true,
+      "null_semantics": "equal"
+    },
+    "runtime_requirements": [
+      "duckdb"
+    ],
+    "provenance": {
+      "source": "Authored for Datapass Workbench: dimensional modeling (Kimball) and warehouse loading patterns",
+      "fixtures": "Authored scenarios; expected rows computed by running the reference and reviewed"
+    },
+    "constraints": {
+      "truth": "Real DuckDB execution on an isolated local catalog; column lineage is a static analysis of the SQL text; model checks are real queries."
+    },
+    "truth": "real"
+  },
+  {
+    "schema_version": 1,
+    "id": "dwh-scd2-apply",
+    "version": "1",
+    "title": "Slowly changing dimension type 2: keep the history",
+    "difficulty": "medium",
+    "topics": [
+      "scd-type-2",
+      "incremental-load",
+      "nulls"
+    ],
+    "tags": [
+      "bi-lab",
+      "data-warehousing",
+      "warehouse-sql"
+    ],
+    "origin": "authored",
+    "language": "warehouse",
+    "runtime": "datapass-warehouse-v1",
+    "prompt": "gold.dim_customer (customer_key, customer_id, city, segment, valid_from, valid_to, is_current) keeps the history of city and segment: one row per version. valid_to is exclusive and 9999-12-31 while the version is current. Each day silver.customer_snapshot (snapshot_date, customer_id, city, segment) holds every customer as the CRM sees them that day. Write the daily load: when city or segment changed (NULL counts as a value), close the current version on snapshot_date and open a new one from snapshot_date; open a first version for new customers; do nothing for unchanged ones. New versions get keys after the highest key, numbered in customer_id order.",
+    "sections": [
+      {
+        "title": "Warehouse",
+        "body": "Your SQL script runs for real on DuckDB, on an isolated catalog built for each check from the tables the exercise describes; your workspace catalog is never read or written. Name tables with their layer (source., silver., gold.). A script can hold several statements separated by ; (CREATE TABLE/VIEW, INSERT, UPDATE, DELETE, MERGE, DROP, SELECT) and stops at the first error. Column lineage, when graded, is a static analysis of your SQL text (sqlglot)."
+      },
+      {
+        "title": "Type 2",
+        "body": "Type 2 adds a row for each change, so a sale can be reported with the city the customer had when they bought. Each version has its own surrogate key; facts store the key of the version valid at the time of the event. valid_from/valid_to (exclusive end) tell which version was valid when, and is_current finds today's one."
+      },
+      {
+        "title": "Runs",
+        "body": "The check runs your script one to three times in a row on the same catalog, like a scheduled load: before each run the day's batch replaces silver.customer_snapshot. Your script must be rerunnable: running it again on the same batch changes nothing."
+      },
+      {
+        "title": "Graded",
+        "body": "The dimension after one day, after two days (including a segment that goes from NULL to a value), after replaying a day, and the dimension's SCD2 checks: one current version per customer, no overlap and no gap between versions."
+      }
+    ],
+    "starter_source": "-- Today's values replace yesterday's: the history is lost.\nUPDATE gold.dim_customer AS d\nSET city = s.city, segment = s.segment\nFROM silver.customer_snapshot AS s\nWHERE d.customer_id = s.customer_id AND d.is_current;\n",
+    "fixtures": [
+      {
+        "id": "dwh-scd2-apply-fixtures",
+        "version": "1"
+      }
+    ],
+    "visible_checks": [
+      {
+        "id": "first-day",
+        "description": "Outcome of the public scenario on an isolated DuckDB catalog."
+      }
+    ],
+    "hidden_check_refs": [
+      "second-day",
+      "replayed-day"
+    ],
+    "edge_check_refs": [
+      "scd2-checks"
+    ],
+    "hints": [
+      "Compare with the CURRENT version only, and use IS DISTINCT FROM: NULL <> 'Consumer' is not true.",
+      "Close first, then insert for every customer who has no current version left."
+    ],
+    "solution": {
+      "available": true,
+      "reveal": "explicit"
+    },
+    "explanation": "Closing the changed versions first leaves exactly the changed and the new customers without a current version, so one INSERT ... WHERE NOT EXISTS opens all the new versions, and replaying the same snapshot finds nothing to change. IS DISTINCT FROM treats NULL as a value, so a segment going from NULL to 'Consumer' is a change. The closing date equals the next valid_from, so versions never overlap and never leave a gap.",
+    "follow_ups": [
+      "A customer disappears from the snapshot: should the load close its current version? What would a reappearance do then?",
+      "Add a row hash of the tracked columns to detect changes: why is it useful with 40 tracked columns?"
+    ],
+    "canonical_placement": {
+      "domain": "bi-data-warehousing",
+      "topic": "scd-type-2"
+    },
+    "related_associations": [
+      "bi-lab/warehouse"
+    ],
+    "recommendation": {
+      "rank": 6,
+      "reason": "BI Lab data warehousing progression"
+    },
+    "validator_version": "rows-v2",
+    "validation": {
+      "kind": "rows",
+      "ordered": false,
+      "duplicate_sensitive": true,
+      "relative_tolerance": 1e-09,
+      "absolute_tolerance": 1e-06,
+      "required_columns": [],
+      "exact_schema": null,
+      "forbidden_extra_columns": true,
+      "null_semantics": "equal"
+    },
+    "runtime_requirements": [
+      "duckdb"
+    ],
+    "provenance": {
+      "source": "Authored for Datapass Workbench: dimensional modeling (Kimball) and warehouse loading patterns",
+      "fixtures": "Authored scenarios; expected rows computed by running the reference and reviewed"
+    },
+    "constraints": {
+      "truth": "Real DuckDB execution on an isolated local catalog; column lineage is a static analysis of the SQL text; model checks are real queries."
+    },
+    "truth": "real"
+  },
+  {
+    "schema_version": 1,
+    "id": "dwh-scd2-type1-attribute",
+    "version": "1",
+    "title": "A type 1 attribute inside a type 2 dimension",
+    "difficulty": "medium",
+    "topics": [
+      "scd-type-2",
+      "scd-type-1",
+      "scd-type-6"
+    ],
+    "tags": [
+      "bi-lab",
+      "data-warehousing",
+      "warehouse-sql"
+    ],
+    "origin": "authored",
+    "language": "warehouse",
+    "runtime": "datapass-warehouse-v1",
+    "prompt": "gold.dim_customer (customer_key, customer_id, email, city, valid_from, valid_to, is_current) tracks the history of city (type 2), but email is type 1: a new email is a correction that must appear on every version of the customer, and never creates a version. Each day silver.customer_snapshot (snapshot_date, customer_id, email, city) holds every customer. Write the daily load. New versions and new customers get keys after the highest key, in customer_id order; versions close on snapshot_date (exclusive valid_to, 9999-12-31 while current).",
+    "sections": [
+      {
+        "title": "Warehouse",
+        "body": "Your SQL script runs for real on DuckDB, on an isolated catalog built for each check from the tables the exercise describes; your workspace catalog is never read or written. Name tables with their layer (source., silver., gold.). A script can hold several statements separated by ; (CREATE TABLE/VIEW, INSERT, UPDATE, DELETE, MERGE, DROP, SELECT) and stops at the first error. Column lineage, when graded, is a static analysis of your SQL text (sqlglot)."
+      },
+      {
+        "title": "Mixing types",
+        "body": "A dimension usually mixes types per column: type 2 for what analysts slice history by (city, segment), type 1 for corrections and contact data (email). Overwriting the type 1 column on all versions keeps it consistent whichever version a fact points to. Adding the current value next to the historical one on every row is called type 6 (1 + 2 + 3)."
+      },
+      {
+        "title": "Runs",
+        "body": "The check runs your script one to three times in a row on the same catalog, like a scheduled load: before each run the day's batch replaces silver.customer_snapshot. Your script must be rerunnable: running it again on the same batch changes nothing."
+      },
+      {
+        "title": "Graded",
+        "body": "The dimension after one day, after two days (a customer changing both email and city), and after replaying the second day."
+      }
+    ],
+    "starter_source": "-- Every change opens a version, and the old versions keep the old email.\nUPDATE gold.dim_customer AS d\nSET valid_to = s.snapshot_date, is_current = FALSE\nFROM silver.customer_snapshot AS s\nWHERE d.customer_id = s.customer_id AND d.is_current\n  AND (d.city IS DISTINCT FROM s.city OR d.email IS DISTINCT FROM s.email);\n\nINSERT INTO gold.dim_customer (customer_key, customer_id, email, city, valid_from, valid_to, is_current)\nSELECT (SELECT MAX(customer_key) FROM gold.dim_customer) + ROW_NUMBER() OVER (ORDER BY s.customer_id),\n       s.customer_id, s.email, s.city, s.snapshot_date, DATE '9999-12-31', TRUE\nFROM silver.customer_snapshot AS s\nWHERE NOT EXISTS (SELECT 1 FROM gold.dim_customer AS d WHERE d.customer_id = s.customer_id AND d.is_current);\n",
+    "fixtures": [
+      {
+        "id": "dwh-scd2-type1-attribute-fixtures",
+        "version": "1"
+      }
+    ],
+    "visible_checks": [
+      {
+        "id": "first-day",
+        "description": "Outcome of the public scenario on an isolated DuckDB catalog."
+      }
+    ],
+    "hidden_check_refs": [
+      "second-day"
+    ],
+    "edge_check_refs": [
+      "replayed-day"
+    ],
+    "hints": [
+      "The type 1 UPDATE has no is_current filter: it rewrites all the customer's rows.",
+      "Only a city change closes a version."
+    ],
+    "solution": {
+      "available": true,
+      "reveal": "explicit"
+    },
+    "explanation": "The type 1 update runs on every row of the customer, so each historical version shows the corrected email; the type 2 part then only looks at city. Creating a version for an email change multiplies versions for no analytical reason, and updating only the current row leaves the old email on the versions that old sales point to.",
+    "follow_ups": [
+      "Add current_city (type 6): every version also shows the customer's city today. Which statement maintains it?"
+    ],
+    "canonical_placement": {
+      "domain": "bi-data-warehousing",
+      "topic": "scd-type-2"
+    },
+    "related_associations": [
+      "bi-lab/warehouse"
+    ],
+    "recommendation": {
+      "rank": 7,
+      "reason": "BI Lab data warehousing progression"
+    },
+    "validator_version": "rows-v2",
+    "validation": {
+      "kind": "rows",
+      "ordered": false,
+      "duplicate_sensitive": true,
+      "relative_tolerance": 1e-09,
+      "absolute_tolerance": 1e-06,
+      "required_columns": [],
+      "exact_schema": null,
+      "forbidden_extra_columns": true,
+      "null_semantics": "equal"
+    },
+    "runtime_requirements": [
+      "duckdb"
+    ],
+    "provenance": {
+      "source": "Authored for Datapass Workbench: dimensional modeling (Kimball) and warehouse loading patterns",
+      "fixtures": "Authored scenarios; expected rows computed by running the reference and reviewed"
+    },
+    "constraints": {
+      "truth": "Real DuckDB execution on an isolated local catalog; column lineage is a static analysis of the SQL text; model checks are real queries."
+    },
+    "truth": "real"
+  },
+  {
+    "schema_version": 1,
+    "id": "dwh-scd3-previous-value",
+    "version": "1",
+    "title": "Slowly changing dimension type 3: the previous value",
+    "difficulty": "easy",
+    "topics": [
+      "scd-type-3",
+      "incremental-load",
+      "nulls"
+    ],
+    "tags": [
+      "bi-lab",
+      "data-warehousing",
+      "warehouse-sql"
+    ],
+    "origin": "authored",
+    "language": "warehouse",
+    "runtime": "datapass-warehouse-v1",
+    "prompt": "Sales managers want to compare each customer's segment with the one before the last reorganisation, without full history. gold.dim_customer (customer_key, customer_id, segment, previous_segment, segment_changed_on) is type 3 on segment. Each day silver.customer_snapshot (snapshot_date, customer_id, segment) holds every existing customer. When a segment changes (NULL counts as a value), keep the old one in previous_segment, store the new one, and set segment_changed_on to snapshot_date. An unchanged customer is left untouched.",
+    "sections": [
+      {
+        "title": "Warehouse",
+        "body": "Your SQL script runs for real on DuckDB, on an isolated catalog built for each check from the tables the exercise describes; your workspace catalog is never read or written. Name tables with their layer (source., silver., gold.). A script can hold several statements separated by ; (CREATE TABLE/VIEW, INSERT, UPDATE, DELETE, MERGE, DROP, SELECT) and stops at the first error. Column lineage, when graded, is a static analysis of your SQL text (sqlglot)."
+      },
+      {
+        "title": "Type 3",
+        "body": "Type 3 keeps a limited history in extra columns (current and previous value) on one row. Reports can show 'before / after' side by side, but a second change overwrites the first previous value: only one step of history survives."
+      },
+      {
+        "title": "Runs",
+        "body": "The check runs your script one to three times in a row on the same catalog, like a scheduled load: before each run the day's batch replaces silver.customer_snapshot. Your script must be rerunnable: running it again on the same batch changes nothing."
+      },
+      {
+        "title": "Graded",
+        "body": "The dimension after one day, after two changes in a row, and after replaying a day."
+      }
+    ],
+    "starter_source": "UPDATE gold.dim_customer AS d\nSET segment = s.segment\nFROM silver.customer_snapshot AS s\nWHERE d.customer_id = s.customer_id;\n",
+    "fixtures": [
+      {
+        "id": "dwh-scd3-previous-value-fixtures",
+        "version": "1"
+      }
+    ],
+    "visible_checks": [
+      {
+        "id": "first-day",
+        "description": "Outcome of the public scenario on an isolated DuckDB catalog."
+      }
+    ],
+    "hidden_check_refs": [
+      "second-change"
+    ],
+    "edge_check_refs": [
+      "replayed-day"
+    ],
+    "hints": [
+      "In an UPDATE, every expression on the right reads the row as it was before the update.",
+      "Only update the customers whose segment really changed, or a replay erases previous_segment."
+    ],
+    "solution": {
+      "available": true,
+      "reveal": "explicit"
+    },
+    "explanation": "One UPDATE shifts the current value into previous_segment and stores the new one; SQL evaluates all right-hand sides on the old row, so the order of the SET clauses does not matter. The change condition is what makes the load rerunnable: without it a replay copies the current segment into previous_segment and the real previous value is lost.",
+    "follow_ups": [
+      "When does type 3 beat type 2? Think of a one-off reorganisation where everyone wants 'old vs new territory' on the same row."
+    ],
+    "canonical_placement": {
+      "domain": "bi-data-warehousing",
+      "topic": "scd-type-3"
+    },
+    "related_associations": [
+      "bi-lab/warehouse"
+    ],
+    "recommendation": {
+      "rank": 8,
+      "reason": "BI Lab data warehousing progression"
+    },
+    "validator_version": "rows-v2",
+    "validation": {
+      "kind": "rows",
+      "ordered": false,
+      "duplicate_sensitive": true,
+      "relative_tolerance": 1e-09,
+      "absolute_tolerance": 1e-06,
+      "required_columns": [],
+      "exact_schema": null,
+      "forbidden_extra_columns": true,
+      "null_semantics": "equal"
+    },
+    "runtime_requirements": [
+      "duckdb"
+    ],
+    "provenance": {
+      "source": "Authored for Datapass Workbench: dimensional modeling (Kimball) and warehouse loading patterns",
+      "fixtures": "Authored scenarios; expected rows computed by running the reference and reviewed"
+    },
+    "constraints": {
+      "truth": "Real DuckDB execution on an isolated local catalog; column lineage is a static analysis of the SQL text; model checks are real queries."
+    },
+    "truth": "real"
+  },
+  {
+    "schema_version": 1,
+    "id": "dwh-point-in-time",
+    "version": "1",
+    "title": "Report with the version valid at the time of the sale",
+    "difficulty": "medium",
+    "topics": [
+      "scd-type-2",
+      "point-in-time",
+      "joins"
+    ],
+    "tags": [
+      "bi-lab",
+      "data-warehousing",
+      "warehouse-sql"
+    ],
+    "origin": "authored",
+    "language": "warehouse",
+    "runtime": "datapass-warehouse-v1",
+    "prompt": "silver.sales (order_id, customer_id, order_date, net_amount) still carries the customer's business key. gold.dim_customer is type 2 (customer_key, customer_id, segment, valid_from, valid_to, is_current; valid_to is exclusive). Write a SELECT of revenue by segment as it was when each order was placed: columns segment and revenue. Sales whose customer has no version valid on the order date count under 'Unknown'.",
+    "sections": [
+      {
+        "title": "Warehouse",
+        "body": "Your SQL script runs for real on DuckDB, on an isolated catalog built for each check from the tables the exercise describes; your workspace catalog is never read or written. Name tables with their layer (source., silver., gold.). A script can hold several statements separated by ; (CREATE TABLE/VIEW, INSERT, UPDATE, DELETE, MERGE, DROP, SELECT) and stops at the first error. Column lineage, when graded, is a static analysis of your SQL text (sqlglot)."
+      },
+      {
+        "title": "Point in time",
+        "body": "Joining a type 2 dimension on the business key alone returns every version; joining on is_current reports history with today's attributes. The version valid at the event's date is the one where valid_from <= date < valid_to. That is also how a fact load picks the surrogate key to store."
+      },
+      {
+        "title": "Graded",
+        "body": "Revenue by segment, including an order placed on the very day a customer changed segment and an order placed before the customer's first version."
+      }
+    ],
+    "starter_source": "SELECT d.segment, SUM(s.net_amount) AS revenue\nFROM silver.sales AS s\nJOIN gold.dim_customer AS d ON d.customer_id = s.customer_id AND d.is_current\nGROUP BY d.segment;\n",
+    "fixtures": [
+      {
+        "id": "dwh-point-in-time-fixtures",
+        "version": "1"
+      }
+    ],
+    "visible_checks": [
+      {
+        "id": "by-segment",
+        "description": "Outcome of the public scenario on an isolated DuckDB catalog."
+      }
+    ],
+    "hidden_check_refs": [
+      "change-day"
+    ],
+    "edge_check_refs": [
+      "before-first-version"
+    ],
+    "hints": [
+      "valid_to is exclusive: the day a new version starts belongs to the new version only.",
+      "A LEFT JOIN keeps sales that no version covers."
+    ],
+    "solution": {
+      "available": true,
+      "reveal": "explicit"
+    },
+    "explanation": "The range condition picks exactly one version per sale, because consecutive versions share the boundary date and the end is exclusive. BETWEEN includes valid_to, so a sale on the change day matches two versions and is counted twice. The LEFT JOIN plus COALESCE keeps revenue complete when a sale predates the first known version.",
+    "follow_ups": [
+      "Rewrite the report for 'revenue by segment as of today': which single change do you make?"
+    ],
+    "canonical_placement": {
+      "domain": "bi-data-warehousing",
+      "topic": "scd-type-2"
+    },
+    "related_associations": [
+      "bi-lab/warehouse"
+    ],
+    "recommendation": {
+      "rank": 9,
+      "reason": "BI Lab data warehousing progression"
+    },
+    "validator_version": "rows-v2",
+    "validation": {
+      "kind": "rows",
+      "ordered": false,
+      "duplicate_sensitive": true,
+      "relative_tolerance": 1e-09,
+      "absolute_tolerance": 1e-06,
+      "required_columns": [],
+      "exact_schema": null,
+      "forbidden_extra_columns": true,
+      "null_semantics": "equal"
+    },
+    "runtime_requirements": [
+      "duckdb"
+    ],
+    "provenance": {
+      "source": "Authored for Datapass Workbench: dimensional modeling (Kimball) and warehouse loading patterns",
+      "fixtures": "Authored scenarios; expected rows computed by running the reference and reviewed"
+    },
+    "constraints": {
+      "truth": "Real DuckDB execution on an isolated local catalog; column lineage is a static analysis of the SQL text; model checks are real queries."
+    },
+    "truth": "real"
+  },
+  {
+    "schema_version": 1,
+    "id": "dwh-late-arriving-dimension",
+    "version": "1",
+    "title": "Late arriving customers: inferred members",
+    "difficulty": "hard",
+    "topics": [
+      "late-arriving-dimension",
+      "inferred-member",
+      "incremental-load"
+    ],
+    "tags": [
+      "bi-lab",
+      "data-warehousing",
+      "warehouse-sql"
+    ],
+    "origin": "authored",
+    "language": "warehouse",
+    "runtime": "datapass-warehouse-v1",
+    "prompt": "Orders sometimes arrive before the CRM sends the customer. Each day brings silver.crm_customers (customer_id, customer_name, city: every customer the CRM knows) and silver.orders (order_id, customer_id, net_amount: the day's new orders). gold.dim_customer (customer_key, customer_id, customer_name, city, is_inferred) is type 1 and gold.fct_sales (order_id, customer_key, net_amount) starts empty. Write the daily load: update known customers from the CRM and insert new ones; give every order customer the CRM has not sent an inferred member (customer_name 'Unknown (inferred)', city 'Unknown', is_inferred TRUE) with its own key; when the CRM later sends that customer, complete the inferred row in place (is_inferred FALSE) instead of adding a row; load each order once. New keys follow the highest key in customer_id order, CRM customers first, then inferred members.",
+    "sections": [
+      {
+        "title": "Warehouse",
+        "body": "Your SQL script runs for real on DuckDB, on an isolated catalog built for each check from the tables the exercise describes; your workspace catalog is never read or written. Name tables with their layer (source., silver., gold.). A script can hold several statements separated by ; (CREATE TABLE/VIEW, INSERT, UPDATE, DELETE, MERGE, DROP, SELECT) and stops at the first error. Column lineage, when graded, is a static analysis of your SQL text (sqlglot)."
+      },
+      {
+        "title": "Inferred members",
+        "body": "A fact cannot wait for its dimension. Pointing it to the unknown member (-1) loses the link for ever: when the customer arrives, the old facts still say 'unknown'. An inferred member is a placeholder row with the real business key and its own surrogate key; the facts point to it, and when the dimension row arrives it is filled in place, so the old facts get the real attributes."
+      },
+      {
+        "title": "Runs",
+        "body": "The check runs your script one to three times in a row on the same catalog, like a scheduled load: before each run the day's batch replaces silver.crm_customers and silver.orders. Your script must be rerunnable: running it again on the same batch changes nothing."
+      },
+      {
+        "title": "Graded",
+        "body": "The facts after the first day, the dimension after the customer arrives, and the facts after replaying the second day."
+      }
+    ],
+    "starter_source": "UPDATE gold.dim_customer AS d\nSET customer_name = c.customer_name, city = c.city\nFROM silver.crm_customers AS c\nWHERE d.customer_id = c.customer_id;\n\nINSERT INTO gold.dim_customer (customer_key, customer_id, customer_name, city, is_inferred)\nSELECT (SELECT MAX(customer_key) FROM gold.dim_customer) + ROW_NUMBER() OVER (ORDER BY c.customer_id),\n       c.customer_id, c.customer_name, c.city, FALSE\nFROM silver.crm_customers AS c\nWHERE NOT EXISTS (SELECT 1 FROM gold.dim_customer AS d WHERE d.customer_id = c.customer_id);\n\n-- Orders of customers the CRM has not sent yet go to the unknown member.\nINSERT INTO gold.fct_sales (order_id, customer_key, net_amount)\nSELECT o.order_id, COALESCE(d.customer_key, -1), o.net_amount\nFROM silver.orders AS o\nLEFT JOIN gold.dim_customer AS d ON d.customer_id = o.customer_id\nWHERE NOT EXISTS (SELECT 1 FROM gold.fct_sales AS f WHERE f.order_id = o.order_id);\n",
+    "fixtures": [
+      {
+        "id": "dwh-late-arriving-dimension-fixtures",
+        "version": "1"
+      }
+    ],
+    "visible_checks": [
+      {
+        "id": "first-day-facts",
+        "description": "Outcome of the public scenario on an isolated DuckDB catalog."
+      }
+    ],
+    "hidden_check_refs": [
+      "customer-arrives"
+    ],
+    "edge_check_refs": [
+      "replayed-facts"
+    ],
+    "hints": [
+      "Load the CRM first, then create inferred members for the order customers still missing, then the facts.",
+      "The CRM update must also match inferred rows: that is how they become real."
+    ],
+    "solution": {
+      "available": true,
+      "reveal": "explicit"
+    },
+    "explanation": "The inferred member gives the fact a real key on day one. When the CRM sends the customer, the type 1 update fills that same row, so every fact already loaded reports the real name and city. Inserting the arriving customer as a new row instead leaves two rows for one customer, and the -1 approach never reconnects the day-one orders.",
+    "follow_ups": [
+      "With a type 2 customer dimension, should the arriving attributes overwrite the inferred version or open a new one? Kimball's answer: overwrite the inferred version, since it never held real values."
+    ],
+    "canonical_placement": {
+      "domain": "bi-data-warehousing",
+      "topic": "late-arriving-dimension"
+    },
+    "related_associations": [
+      "bi-lab/warehouse"
+    ],
+    "recommendation": {
+      "rank": 10,
+      "reason": "BI Lab data warehousing progression"
+    },
+    "validator_version": "rows-v2",
+    "validation": {
+      "kind": "rows",
+      "ordered": false,
+      "duplicate_sensitive": true,
+      "relative_tolerance": 1e-09,
+      "absolute_tolerance": 1e-06,
+      "required_columns": [],
+      "exact_schema": null,
+      "forbidden_extra_columns": true,
+      "null_semantics": "equal"
+    },
+    "runtime_requirements": [
+      "duckdb"
+    ],
+    "provenance": {
+      "source": "Authored for Datapass Workbench: dimensional modeling (Kimball) and warehouse loading patterns",
+      "fixtures": "Authored scenarios; expected rows computed by running the reference and reviewed"
+    },
+    "constraints": {
+      "truth": "Real DuckDB execution on an isolated local catalog; column lineage is a static analysis of the SQL text; model checks are real queries."
+    },
+    "truth": "real"
+  },
+  {
+    "schema_version": 1,
+    "id": "dwh-grain-allocation",
+    "version": "1",
+    "title": "Declare the grain: allocate the shipping fee to the lines",
+    "difficulty": "medium",
+    "topics": [
+      "grain",
+      "facts",
+      "allocation"
+    ],
+    "tags": [
+      "bi-lab",
+      "data-warehousing",
+      "warehouse-sql"
+    ],
+    "origin": "authored",
+    "language": "warehouse",
+    "runtime": "datapass-warehouse-v1",
+    "prompt": "gold.fct_sales has one row per order line (its grain), but the shipping fee is known per order (source.shop_orders.shipping_fee). Build gold.fct_sales (order_id, line_number, line_amount, shipping_allocated) from source.shop_order_lines: line_amount = quantity * unit_price, and the order's shipping fee split across its lines in proportion to line_amount. If an order's lines add up to 0, split its fee equally between its lines. The allocated amounts of an order must add up to its fee.",
+    "sections": [
+      {
+        "title": "Warehouse",
+        "body": "Your SQL script runs for real on DuckDB, on an isolated catalog built for each check from the tables the exercise describes; your workspace catalog is never read or written. Name tables with their layer (source., silver., gold.). A script can hold several statements separated by ; (CREATE TABLE/VIEW, INSERT, UPDATE, DELETE, MERGE, DROP, SELECT) and stops at the first error. Column lineage, when graded, is a static analysis of your SQL text (sqlglot)."
+      },
+      {
+        "title": "Grain",
+        "body": "The grain says what one fact row is. Every measure must be true at that grain: an order-level amount repeated on each line is counted once per line as soon as someone sums it. Either allocate it down to the grain (as here), or keep it in a separate fact at the order grain."
+      },
+      {
+        "title": "Graded",
+        "body": "The fact rows, shipping by channel summed from the lines (it must equal the orders' fees), and an order whose lines are all free."
+      }
+    ],
+    "starter_source": "-- The order's shipping fee is repeated on every line.\nCREATE OR REPLACE TABLE gold.fct_sales AS\nSELECT l.order_id, l.line_number, l.quantity * l.unit_price AS line_amount, o.shipping_fee AS shipping_allocated\nFROM source.shop_order_lines AS l\nJOIN source.shop_orders AS o ON o.order_id = l.order_id;\n",
+    "fixtures": [
+      {
+        "id": "dwh-grain-allocation-fixtures",
+        "version": "1"
+      }
+    ],
+    "visible_checks": [
+      {
+        "id": "lines",
+        "description": "Outcome of the public scenario on an isolated DuckDB catalog."
+      }
+    ],
+    "hidden_check_refs": [
+      "shipping-by-channel"
+    ],
+    "edge_check_refs": [
+      "free-lines"
+    ],
+    "hints": [
+      "A window SUM(...) OVER (PARTITION BY order_id) gives each line its order's total.",
+      "Guard the division: an order of free lines has a total of 0."
+    ],
+    "solution": {
+      "available": true,
+      "reveal": "explicit"
+    },
+    "explanation": "Each line gets fee * line_amount / order_amount, so the allocations of an order add up to its fee and shipping can be summed at any level (by product, by category) without double counting. The equal split is only a fallback for orders whose total is 0; without it the division gives NULL and the fee disappears.",
+    "follow_ups": [
+      "Rounding each allocation to cents can make an order's total differ by a cent. How would you put the remainder on the largest line?"
+    ],
+    "canonical_placement": {
+      "domain": "bi-data-warehousing",
+      "topic": "grain"
+    },
+    "related_associations": [
+      "bi-lab/warehouse"
+    ],
+    "recommendation": {
+      "rank": 11,
+      "reason": "BI Lab data warehousing progression"
+    },
+    "validator_version": "rows-v2",
+    "validation": {
+      "kind": "rows",
+      "ordered": false,
+      "duplicate_sensitive": true,
+      "relative_tolerance": 1e-09,
+      "absolute_tolerance": 1e-06,
+      "required_columns": [],
+      "exact_schema": null,
+      "forbidden_extra_columns": true,
+      "null_semantics": "equal"
+    },
+    "runtime_requirements": [
+      "duckdb"
+    ],
+    "provenance": {
+      "source": "Authored for Datapass Workbench: dimensional modeling (Kimball) and warehouse loading patterns",
+      "fixtures": "Authored scenarios; expected rows computed by running the reference and reviewed"
+    },
+    "constraints": {
+      "truth": "Real DuckDB execution on an isolated local catalog; column lineage is a static analysis of the SQL text; model checks are real queries."
+    },
+    "truth": "real"
+  },
+  {
+    "schema_version": 1,
+    "id": "dwh-periodic-snapshot",
+    "version": "1",
+    "title": "Periodic snapshot: stock at the end of each month",
+    "difficulty": "medium",
+    "topics": [
+      "periodic-snapshot",
+      "semi-additive",
+      "facts"
+    ],
+    "tags": [
+      "bi-lab",
+      "data-warehousing",
+      "warehouse-sql"
+    ],
+    "origin": "authored",
+    "language": "warehouse",
+    "runtime": "datapass-warehouse-v1",
+    "prompt": "source.inventory_movements (product_id, movement_date, quantity) records receipts (+) and sales (-). Build gold.fct_inventory_monthly (product_id, month_start, closing_quantity): one row for every product of source.erp_products and every month from 2026-01-01 to 2026-04-01, where closing_quantity is the stock at the end of that month (all movements up to then). Months without movements and products that never moved still get their row.",
+    "sections": [
+      {
+        "title": "Warehouse",
+        "body": "Your SQL script runs for real on DuckDB, on an isolated catalog built for each check from the tables the exercise describes; your workspace catalog is never read or written. Name tables with their layer (source., silver., gold.). A script can hold several statements separated by ; (CREATE TABLE/VIEW, INSERT, UPDATE, DELETE, MERGE, DROP, SELECT) and stops at the first error. Column lineage, when graded, is a static analysis of your SQL text (sqlglot)."
+      },
+      {
+        "title": "Periodic snapshot",
+        "body": "A transaction fact records events; a periodic snapshot records a state at regular intervals (stock, balances, headcount), one row per entity and period, even when nothing happened. Its measures are semi-additive: summing closing stock over products is right, summing it over months is meaningless (use the last or the average)."
+      },
+      {
+        "title": "Graded",
+        "body": "The snapshot rows, units on hand per month (summed over products, which is allowed), and a product that only moves in the last month."
+      }
+    ],
+    "starter_source": "CREATE OR REPLACE TABLE gold.fct_inventory_monthly AS\nSELECT product_id,\n       CAST(date_trunc('month', movement_date) AS DATE) AS month_start,\n       SUM(quantity) AS closing_quantity\nFROM source.inventory_movements\nGROUP BY product_id, CAST(date_trunc('month', movement_date) AS DATE);\n",
+    "fixtures": [
+      {
+        "id": "dwh-periodic-snapshot-fixtures",
+        "version": "1"
+      }
+    ],
+    "visible_checks": [
+      {
+        "id": "snapshot",
+        "description": "Outcome of the public scenario on an isolated DuckDB catalog."
+      }
+    ],
+    "hidden_check_refs": [
+      "on-hand"
+    ],
+    "edge_check_refs": [
+      "late-mover"
+    ],
+    "hints": [
+      "Build the grid first: every product CROSS JOIN every month.",
+      "A running SUM(...) OVER (PARTITION BY product ORDER BY month) turns movements into stock."
+    ],
+    "solution": {
+      "available": true,
+      "reveal": "explicit"
+    },
+    "explanation": "The grid of products x months guarantees a row per period even without movements, and the running total carries the stock forward. Grouping the movements alone gives net changes, not stock, and only for months where something moved; products that never moved disappear.",
+    "follow_ups": [
+      "Write the 'average closing stock per product over the quarter' query. Why is SUM over months wrong here?"
+    ],
+    "canonical_placement": {
+      "domain": "bi-data-warehousing",
+      "topic": "periodic-snapshot"
+    },
+    "related_associations": [
+      "bi-lab/warehouse"
+    ],
+    "recommendation": {
+      "rank": 12,
+      "reason": "BI Lab data warehousing progression"
+    },
+    "validator_version": "rows-v2",
+    "validation": {
+      "kind": "rows",
+      "ordered": false,
+      "duplicate_sensitive": true,
+      "relative_tolerance": 1e-09,
+      "absolute_tolerance": 1e-06,
+      "required_columns": [],
+      "exact_schema": null,
+      "forbidden_extra_columns": true,
+      "null_semantics": "equal"
+    },
+    "runtime_requirements": [
+      "duckdb"
+    ],
+    "provenance": {
+      "source": "Authored for Datapass Workbench: dimensional modeling (Kimball) and warehouse loading patterns",
+      "fixtures": "Authored scenarios; expected rows computed by running the reference and reviewed"
+    },
+    "constraints": {
+      "truth": "Real DuckDB execution on an isolated local catalog; column lineage is a static analysis of the SQL text; model checks are real queries."
+    },
+    "truth": "real"
+  },
+  {
+    "schema_version": 1,
+    "id": "dwh-accumulating-snapshot",
+    "version": "1",
+    "title": "Accumulating snapshot: an order's milestones",
+    "difficulty": "hard",
+    "topics": [
+      "accumulating-snapshot",
+      "merge",
+      "incremental-load"
+    ],
+    "tags": [
+      "bi-lab",
+      "data-warehousing",
+      "warehouse-sql"
+    ],
+    "origin": "authored",
+    "language": "warehouse",
+    "runtime": "datapass-warehouse-v1",
+    "prompt": "gold.fct_order_fulfillment (order_id, ordered_on, packed_on, shipped_on, delivered_on, days_to_ship, status) has one row per order that is updated as its milestones happen. Each day silver.order_events (order_id, event_type, event_date) brings the day's events: 'ordered', 'packed', 'shipped', 'delivered'. Write the daily load: create the row of a new order, fill the milestone dates that arrive without erasing the ones already known, then set days_to_ship (days from ordered_on to shipped_on, NULL until shipped) and status (the latest milestone reached).",
+    "sections": [
+      {
+        "title": "Warehouse",
+        "body": "Your SQL script runs for real on DuckDB, on an isolated catalog built for each check from the tables the exercise describes; your workspace catalog is never read or written. Name tables with their layer (source., silver., gold.). A script can hold several statements separated by ; (CREATE TABLE/VIEW, INSERT, UPDATE, DELETE, MERGE, DROP, SELECT) and stops at the first error. Column lineage, when graded, is a static analysis of your SQL text (sqlglot)."
+      },
+      {
+        "title": "Accumulating snapshot",
+        "body": "A third kind of fact table: one row per process instance (an order, a claim, an application) with a date column per milestone and lag measures between them. Unlike a transaction fact, its rows are updated as the process moves on. It answers 'how long between packing and shipping?' with a subtraction instead of a self-join over events."
+      },
+      {
+        "title": "Runs",
+        "body": "The check runs your script two or three times in a row on the same catalog, like a scheduled load: before each run the day's batch replaces silver.order_events. Your script must be rerunnable: running it again on the same batch changes nothing."
+      },
+      {
+        "title": "Graded",
+        "body": "The table after two days, after three days, and after replaying the second day."
+      }
+    ],
+    "starter_source": "-- One row per event: a transaction fact, not one row per order.\nINSERT INTO gold.fct_order_fulfillment (order_id, ordered_on, packed_on, shipped_on, delivered_on, status)\nSELECT order_id,\n       CASE WHEN event_type = 'ordered' THEN event_date END,\n       CASE WHEN event_type = 'packed' THEN event_date END,\n       CASE WHEN event_type = 'shipped' THEN event_date END,\n       CASE WHEN event_type = 'delivered' THEN event_date END,\n       event_type\nFROM silver.order_events;\n",
+    "fixtures": [
+      {
+        "id": "dwh-accumulating-snapshot-fixtures",
+        "version": "1"
+      }
+    ],
+    "visible_checks": [
+      {
+        "id": "two-days",
+        "description": "Outcome of the public scenario on an isolated DuckDB catalog."
+      }
+    ],
+    "hidden_check_refs": [
+      "three-days"
+    ],
+    "edge_check_refs": [
+      "replayed-day"
+    ],
+    "hints": [
+      "Pivot the day's events to one row per order first (MIN(...) FILTER (WHERE event_type = ...)).",
+      "MERGE: insert new orders, and for existing ones keep a known date with COALESCE(f.x, e.x)."
+    ],
+    "solution": {
+      "available": true,
+      "reveal": "explicit"
+    },
+    "explanation": "Pivoting the events gives one row per order and batch; the MERGE inserts new orders and, for existing ones, only fills milestones that were still empty, so a day without a 'packed' event does not erase yesterday's packing date and a replayed day changes nothing. Lags and status are derived from the dates afterwards, on every row.",
+    "follow_ups": [
+      "An order is cancelled after packing. Where would you record it, and what happens to days_to_ship?"
+    ],
+    "canonical_placement": {
+      "domain": "bi-data-warehousing",
+      "topic": "accumulating-snapshot"
+    },
+    "related_associations": [
+      "bi-lab/warehouse"
+    ],
+    "recommendation": {
+      "rank": 13,
+      "reason": "BI Lab data warehousing progression"
+    },
+    "validator_version": "rows-v2",
+    "validation": {
+      "kind": "rows",
+      "ordered": false,
+      "duplicate_sensitive": true,
+      "relative_tolerance": 1e-09,
+      "absolute_tolerance": 1e-06,
+      "required_columns": [],
+      "exact_schema": null,
+      "forbidden_extra_columns": true,
+      "null_semantics": "equal"
+    },
+    "runtime_requirements": [
+      "duckdb"
+    ],
+    "provenance": {
+      "source": "Authored for Datapass Workbench: dimensional modeling (Kimball) and warehouse loading patterns",
+      "fixtures": "Authored scenarios; expected rows computed by running the reference and reviewed"
+    },
+    "constraints": {
+      "truth": "Real DuckDB execution on an isolated local catalog; column lineage is a static analysis of the SQL text; model checks are real queries."
+    },
+    "truth": "real"
+  },
+  {
+    "schema_version": 1,
+    "id": "dwh-factless-coverage",
+    "version": "1",
+    "title": "Factless fact: promoted products that did not sell",
+    "difficulty": "medium",
+    "topics": [
+      "factless-fact",
+      "anti-join",
+      "facts"
+    ],
+    "tags": [
+      "bi-lab",
+      "data-warehousing",
+      "warehouse-sql"
+    ],
+    "origin": "authored",
+    "language": "warehouse",
+    "runtime": "datapass-warehouse-v1",
+    "prompt": "gold.fct_promotion_coverage (product_key, promo_code, date_key) has no measure: one row says 'this product was on this promotion that day'. gold.fct_sales (product_key, date_key, quantity) holds the sales and gold.dim_product (product_key, product_name) the products. Write a SELECT of the promoted products that sold nothing on any day of their promotion: columns promo_code and product_name.",
+    "sections": [
+      {
+        "title": "Warehouse",
+        "body": "Your SQL script runs for real on DuckDB, on an isolated catalog built for each check from the tables the exercise describes; your workspace catalog is never read or written. Name tables with their layer (source., silver., gold.). A script can hold several statements separated by ; (CREATE TABLE/VIEW, INSERT, UPDATE, DELETE, MERGE, DROP, SELECT) and stops at the first error. Column lineage, when graded, is a static analysis of your SQL text (sqlglot)."
+      },
+      {
+        "title": "Factless facts",
+        "body": "Some events have no measure: attendance, eligibility, promotion coverage. A factless fact records that the combination existed. Its classic use is the 'what did not happen' question: the sales fact alone cannot say which promoted products did not sell, because a missing sale leaves no row."
+      },
+      {
+        "title": "Graded",
+        "body": "The unsold promoted products, including a product that sold only outside its promotion's days and a product on two promotions."
+      }
+    ],
+    "starter_source": "SELECT DISTINCT c.promo_code, p.product_name\nFROM gold.fct_promotion_coverage AS c\nJOIN gold.dim_product AS p ON p.product_key = c.product_key\nWHERE c.product_key NOT IN (SELECT product_key FROM gold.fct_sales);\n",
+    "fixtures": [
+      {
+        "id": "dwh-factless-coverage-fixtures",
+        "version": "1"
+      }
+    ],
+    "visible_checks": [
+      {
+        "id": "spring",
+        "description": "Outcome of the public scenario on an isolated DuckDB catalog."
+      }
+    ],
+    "hidden_check_refs": [
+      "sold-outside-window"
+    ],
+    "edge_check_refs": [
+      "two-promotions"
+    ],
+    "hints": [
+      "Match sales on the product AND the covered day.",
+      "Group by promotion and product: 'nothing on any day' is a condition on the group, not on a row."
+    ],
+    "solution": {
+      "available": true,
+      "reveal": "explicit"
+    },
+    "explanation": "The coverage fact supplies the rows that should exist; the LEFT JOIN on product and day finds the matching sales, and HAVING COUNT(...) = 0 keeps the promotion-product pairs with no sale on any covered day. Checking 'no sales at all' ignores the promotion's dates, and a per-day anti-join returns products that simply had one quiet day.",
+    "follow_ups": [
+      "Turn the question around: the uplift of promoted products compared with the same weeks without promotion. Which fact tables do you need?"
+    ],
+    "canonical_placement": {
+      "domain": "bi-data-warehousing",
+      "topic": "factless-fact"
+    },
+    "related_associations": [
+      "bi-lab/warehouse"
+    ],
+    "recommendation": {
+      "rank": 14,
+      "reason": "BI Lab data warehousing progression"
+    },
+    "validator_version": "rows-v2",
+    "validation": {
+      "kind": "rows",
+      "ordered": false,
+      "duplicate_sensitive": true,
+      "relative_tolerance": 1e-09,
+      "absolute_tolerance": 1e-06,
+      "required_columns": [],
+      "exact_schema": null,
+      "forbidden_extra_columns": true,
+      "null_semantics": "equal"
+    },
+    "runtime_requirements": [
+      "duckdb"
+    ],
+    "provenance": {
+      "source": "Authored for Datapass Workbench: dimensional modeling (Kimball) and warehouse loading patterns",
+      "fixtures": "Authored scenarios; expected rows computed by running the reference and reviewed"
+    },
+    "constraints": {
+      "truth": "Real DuckDB execution on an isolated local catalog; column lineage is a static analysis of the SQL text; model checks are real queries."
+    },
+    "truth": "real"
+  },
+  {
+    "schema_version": 1,
+    "id": "dwh-drill-across",
+    "version": "1",
+    "title": "Drill across two facts without double counting",
+    "difficulty": "medium",
+    "topics": [
+      "conformed-dimensions",
+      "drill-across",
+      "fan-trap"
+    ],
+    "tags": [
+      "bi-lab",
+      "data-warehousing",
+      "warehouse-sql"
+    ],
+    "origin": "authored",
+    "language": "warehouse",
+    "runtime": "datapass-warehouse-v1",
+    "prompt": "gold.fct_sales (order_id, line_number, date_key, product_key, net_amount) and gold.fct_returns (return_id, date_key, product_key, refund_amount) share the conformed dimensions gold.dim_product (product_key, category) and gold.dim_date (date_key, year_month). Write a SELECT of category, year_month, sales, refunds and net_sales (sales - refunds) for every category and month that has sales or returns; a side with nothing counts 0.",
+    "sections": [
+      {
+        "title": "Warehouse",
+        "body": "Your SQL script runs for real on DuckDB, on an isolated catalog built for each check from the tables the exercise describes; your workspace catalog is never read or written. Name tables with their layer (source., silver., gold.). A script can hold several statements separated by ; (CREATE TABLE/VIEW, INSERT, UPDATE, DELETE, MERGE, DROP, SELECT) and stops at the first error. Column lineage, when graded, is a static analysis of your SQL text (sqlglot)."
+      },
+      {
+        "title": "Drill across",
+        "body": "Two facts at different grains never join row to row: every sale of a product would meet every return of that product (a fan trap), and the sums multiply. Aggregate each fact to the shared (conformed) attributes first, then join the two result sets on those attributes. That is what BI tools do when one visual shows measures from two fact tables."
+      },
+      {
+        "title": "Graded",
+        "body": "Net sales by category and month, including a month with returns but no sales for that category."
+      }
+    ],
+    "starter_source": "SELECT p.category, d.year_month,\n       SUM(f.net_amount) AS sales,\n       COALESCE(SUM(r.refund_amount), 0) AS refunds,\n       SUM(f.net_amount) - COALESCE(SUM(r.refund_amount), 0) AS net_sales\nFROM gold.fct_sales AS f\nJOIN gold.dim_product AS p ON p.product_key = f.product_key\nJOIN gold.dim_date AS d ON d.date_key = f.date_key\nLEFT JOIN gold.fct_returns AS r ON r.product_key = f.product_key\nGROUP BY p.category, d.year_month;\n",
+    "fixtures": [
+      {
+        "id": "dwh-drill-across-fixtures",
+        "version": "1"
+      }
+    ],
+    "visible_checks": [
+      {
+        "id": "net-sales",
+        "description": "Outcome of the public scenario on an isolated DuckDB catalog."
+      }
+    ],
+    "hidden_check_refs": [
+      "second-return"
+    ],
+    "edge_check_refs": [
+      "returns-only-month"
+    ],
+    "hints": [
+      "Aggregate sales and returns separately to (category, year_month).",
+      "A FULL OUTER JOIN keeps cells that exist on one side only."
+    ],
+    "solution": {
+      "available": true,
+      "reveal": "explicit"
+    },
+    "explanation": "Each fact is summed to the conformed grain (category, month) on its own, so no row is repeated, and the FULL OUTER JOIN keeps cells that only one fact has. Joining the facts first multiplies rows (each return meets every sale of its product) and inflates both sums; a LEFT JOIN from sales drops the months where a category only had returns.",
+    "follow_ups": [
+      "Why must dim_product be the same table (or identical values) for both facts? What breaks if returns used their own product categories?"
+    ],
+    "canonical_placement": {
+      "domain": "bi-data-warehousing",
+      "topic": "conformed-dimensions"
+    },
+    "related_associations": [
+      "bi-lab/warehouse"
+    ],
+    "recommendation": {
+      "rank": 15,
+      "reason": "BI Lab data warehousing progression"
+    },
+    "validator_version": "rows-v2",
+    "validation": {
+      "kind": "rows",
+      "ordered": false,
+      "duplicate_sensitive": true,
+      "relative_tolerance": 1e-09,
+      "absolute_tolerance": 1e-06,
+      "required_columns": [],
+      "exact_schema": null,
+      "forbidden_extra_columns": true,
+      "null_semantics": "equal"
+    },
+    "runtime_requirements": [
+      "duckdb"
+    ],
+    "provenance": {
+      "source": "Authored for Datapass Workbench: dimensional modeling (Kimball) and warehouse loading patterns",
+      "fixtures": "Authored scenarios; expected rows computed by running the reference and reviewed"
+    },
+    "constraints": {
+      "truth": "Real DuckDB execution on an isolated local catalog; column lineage is a static analysis of the SQL text; model checks are real queries."
+    },
+    "truth": "real"
+  },
+  {
+    "schema_version": 1,
+    "id": "dwh-bridge-allocation",
+    "version": "1",
+    "title": "Many-to-many through a bridge table",
+    "difficulty": "hard",
+    "topics": [
+      "bridge-table",
+      "many-to-many",
+      "allocation"
+    ],
+    "tags": [
+      "bi-lab",
+      "data-warehousing",
+      "warehouse-sql"
+    ],
+    "origin": "authored",
+    "language": "warehouse",
+    "runtime": "datapass-warehouse-v1",
+    "prompt": "An account can have several holders and a customer several accounts. gold.bridge_account_holder (account_key, customer_key, allocation_pct) links them, with allocation_pct adding up to 1 per account. gold.fct_account_fees (account_key, month_start, fee_amount) is at the account grain and gold.dim_customer (customer_key, customer_name, segment) describes holders. Write a SELECT of fees by customer segment (columns segment, fees rounded to 2 decimals) that allocates each account's fees to its holders by allocation_pct, so the segments add up to the total fees.",
+    "sections": [
+      {
+        "title": "Warehouse",
+        "body": "Your SQL script runs for real on DuckDB, on an isolated catalog built for each check from the tables the exercise describes; your workspace catalog is never read or written. Name tables with their layer (source., silver., gold.). A script can hold several statements separated by ; (CREATE TABLE/VIEW, INSERT, UPDATE, DELETE, MERGE, DROP, SELECT) and stops at the first error. Column lineage, when graded, is a static analysis of your SQL text (sqlglot)."
+      },
+      {
+        "title": "Bridge tables",
+        "body": "A many-to-many between a fact and a dimension goes through a bridge table. Joining through it repeats each fact row once per holder: fine for 'which accounts does Bruno hold', wrong for sums, which count a joint account's fees once per holder. A weighting (allocation) factor on the bridge splits the measure so totals stay correct; the unweighted join is still useful as an 'impact' view."
+      },
+      {
+        "title": "Graded",
+        "body": "Fees by segment with two joint accounts, then with uneven weights, then with an account whose holders are all in one segment."
+      }
+    ],
+    "starter_source": "SELECT c.segment, ROUND(SUM(f.fee_amount), 2) AS fees\nFROM gold.fct_account_fees AS f\nJOIN gold.bridge_account_holder AS b ON b.account_key = f.account_key\nJOIN gold.dim_customer AS c ON c.customer_key = b.customer_key\nGROUP BY c.segment;\n",
+    "fixtures": [
+      {
+        "id": "dwh-bridge-allocation-fixtures",
+        "version": "1"
+      }
+    ],
+    "visible_checks": [
+      {
+        "id": "by-segment",
+        "description": "Outcome of the public scenario on an isolated DuckDB catalog."
+      }
+    ],
+    "hidden_check_refs": [
+      "uneven-weights"
+    ],
+    "edge_check_refs": [
+      "same-segment-holders"
+    ],
+    "hints": [
+      "Multiply each fee by the holder's allocation_pct before summing.",
+      "Check: the segments' fees must add up to SUM(fee_amount) of the fact."
+    ],
+    "solution": {
+      "available": true,
+      "reveal": "explicit"
+    },
+    "explanation": "Weighting each joined row by allocation_pct splits a joint account's fee among its holders, so every euro is counted exactly once and the segments add up to the fact's total. The plain join counts a joint account once per holder; an equal split ignores the agreed weights; SUM(DISTINCT) merges unrelated fees that happen to have the same amount.",
+    "follow_ups": [
+      "In a Power BI model, how would the bridge relate to dim_customer and to the account dimension so a customer filter reaches the fees? See the bridge model exercise."
+    ],
+    "canonical_placement": {
+      "domain": "bi-data-warehousing",
+      "topic": "bridge-table"
+    },
+    "related_associations": [
+      "bi-lab/warehouse"
+    ],
+    "recommendation": {
+      "rank": 16,
+      "reason": "BI Lab data warehousing progression"
+    },
+    "validator_version": "rows-v2",
+    "validation": {
+      "kind": "rows",
+      "ordered": false,
+      "duplicate_sensitive": true,
+      "relative_tolerance": 1e-09,
+      "absolute_tolerance": 1e-06,
+      "required_columns": [],
+      "exact_schema": null,
+      "forbidden_extra_columns": true,
+      "null_semantics": "equal"
+    },
+    "runtime_requirements": [
+      "duckdb"
+    ],
+    "provenance": {
+      "source": "Authored for Datapass Workbench: dimensional modeling (Kimball) and warehouse loading patterns",
+      "fixtures": "Authored scenarios; expected rows computed by running the reference and reviewed"
+    },
+    "constraints": {
+      "truth": "Real DuckDB execution on an isolated local catalog; column lineage is a static analysis of the SQL text; model checks are real queries."
+    },
+    "truth": "real"
+  },
+  {
+    "schema_version": 1,
+    "id": "dwh-lineage-governed-revenue",
+    "version": "1",
+    "title": "Column lineage: revenue computed from the right source",
+    "difficulty": "medium",
+    "topics": [
+      "sql-lineage",
+      "data-governance",
+      "facts"
+    ],
+    "tags": [
+      "bi-lab",
+      "data-warehousing",
+      "warehouse-sql"
+    ],
+    "origin": "authored",
+    "language": "warehouse",
+    "runtime": "datapass-warehouse-v1",
+    "prompt": "Build gold.fct_order_revenue (order_id, order_date, net_revenue) where net_revenue is the sum of the order's lines: quantity * unit_price - discount_amount (source.shop_order_lines). Finance certifies this column only if its lineage leads to the order lines: source.shop_orders.order_total is typed at the till, includes shipping and is sometimes stale, so no part of net_revenue may come from it (or from shipping_fee), not even as a fallback. The BI Lab's Lineage tab shows the same analysis.",
+    "sections": [
+      {
+        "title": "Warehouse",
+        "body": "Your SQL script runs for real on DuckDB, on an isolated catalog built for each check from the tables the exercise describes; your workspace catalog is never read or written. Name tables with their layer (source., silver., gold.). A script can hold several statements separated by ; (CREATE TABLE/VIEW, INSERT, UPDATE, DELETE, MERGE, DROP, SELECT) and stops at the first error. Column lineage, when graded, is a static analysis of your SQL text (sqlglot)."
+      },
+      {
+        "title": "Column lineage",
+        "body": "Column-level lineage traces each output column back to the source columns its value is computed from, through CTEs, joins and staging tables. It answers 'where does this number come from?' (certification, audits) and 'what breaks if this column changes?' (impact analysis). Here it is computed from your SQL text by sqlglot, the way tools such as dbt, OpenLineage or Purview parse SQL."
+      },
+      {
+        "title": "Graded",
+        "body": "The rows of gold.fct_order_revenue, the source columns of net_revenue (traced back through any staging tables you create), and an order whose header total is stale."
+      }
+    ],
+    "starter_source": "CREATE OR REPLACE TABLE gold.fct_order_revenue AS\nSELECT order_id, order_date, order_total - shipping_fee AS net_revenue\nFROM source.shop_orders;\n",
+    "fixtures": [
+      {
+        "id": "dwh-lineage-governed-revenue-fixtures",
+        "version": "1"
+      }
+    ],
+    "visible_checks": [
+      {
+        "id": "revenue",
+        "description": "Outcome of the public scenario on an isolated DuckDB catalog."
+      }
+    ],
+    "hidden_check_refs": [
+      "net-revenue-lineage"
+    ],
+    "edge_check_refs": [
+      "stale-header"
+    ],
+    "hints": [
+      "Aggregate the lines per order and join them to the orders for order_date.",
+      "A COALESCE fallback to the header still makes net_revenue depend on order_total, even if it never fires."
+    ],
+    "solution": {
+      "available": true,
+      "reveal": "explicit"
+    },
+    "explanation": "net_revenue is computed from the three line columns only, so its lineage is exactly what Finance certifies. The fallback version returns the same numbers today, but its lineage includes order_total and shipping_fee: the day an order arrives without lines, it silently reports the till's figure. Lineage makes that dependency visible before it produces a wrong number.",
+    "follow_ups": [
+      "Open the Lineage tab of the BI Lab on the sample warehouse and find every gold column that depends on source.erp_products.unit_cost. What would a rename of that column break?"
+    ],
+    "canonical_placement": {
+      "domain": "bi-data-warehousing",
+      "topic": "sql-lineage"
+    },
+    "related_associations": [
+      "bi-lab/warehouse"
+    ],
+    "recommendation": {
+      "rank": 17,
+      "reason": "BI Lab data warehousing progression"
+    },
+    "validator_version": "rows-v2",
+    "validation": {
+      "kind": "rows",
+      "ordered": false,
+      "duplicate_sensitive": true,
+      "relative_tolerance": 1e-09,
+      "absolute_tolerance": 1e-06,
+      "required_columns": [],
+      "exact_schema": null,
+      "forbidden_extra_columns": true,
+      "null_semantics": "equal"
+    },
+    "runtime_requirements": [
+      "duckdb"
+    ],
+    "provenance": {
+      "source": "Authored for Datapass Workbench: dimensional modeling (Kimball) and warehouse loading patterns",
+      "fixtures": "Authored scenarios; expected rows computed by running the reference and reviewed"
+    },
+    "constraints": {
+      "truth": "Real DuckDB execution on an isolated local catalog; column lineage is a static analysis of the SQL text; model checks are real queries."
+    },
+    "truth": "real"
+  },
+  {
+    "schema_version": 1,
+    "id": "dwh-lineage-personal-data",
+    "version": "1",
+    "title": "Column lineage: keep personal data out of a shared view",
+    "difficulty": "medium",
+    "topics": [
+      "sql-lineage",
+      "data-governance",
+      "personal-data"
+    ],
+    "tags": [
+      "bi-lab",
+      "data-warehousing",
+      "warehouse-sql"
+    ],
+    "origin": "authored",
+    "language": "warehouse",
+    "runtime": "datapass-warehouse-v1",
+    "prompt": "Analysts get a view without personal data. Create the view gold.dim_customer_public (customer_id, city, segment, email_domain) over source.crm_customers (customer_id, customer_name, email, birth_date, city, segment): segment is 'Unknown' when missing, and email_domain is the part of the email after '@'. The data protection rule is checked on lineage: email_domain is the only column allowed to derive from email, and no column may derive from customer_name or birth_date, even partly.",
+    "sections": [
+      {
+        "title": "Warehouse",
+        "body": "Your SQL script runs for real on DuckDB, on an isolated catalog built for each check from the tables the exercise describes; your workspace catalog is never read or written. Name tables with their layer (source., silver., gold.). A script can hold several statements separated by ; (CREATE TABLE/VIEW, INSERT, UPDATE, DELETE, MERGE, DROP, SELECT) and stops at the first error. Column lineage, when graded, is a static analysis of your SQL text (sqlglot)."
+      },
+      {
+        "title": "Lineage as a control",
+        "body": "Masking or deriving a personal field (initials, age band, a segment guessed from the birth date) still makes the output depend on it, and column lineage shows it. Governance tools tag sensitive source columns and follow their lineage to every report; a view that must stay free of personal data is checked the same way here."
+      },
+      {
+        "title": "Graded",
+        "body": "The rows of the view, the source columns of each of its columns, and a customer without a segment born before 1970."
+      }
+    ],
+    "starter_source": "CREATE OR REPLACE VIEW gold.dim_customer_public AS\nSELECT customer_id, customer_name, email, city, segment\nFROM source.crm_customers;\n",
+    "fixtures": [
+      {
+        "id": "dwh-lineage-personal-data-fixtures",
+        "version": "1"
+      }
+    ],
+    "visible_checks": [
+      {
+        "id": "view",
+        "description": "Outcome of the public scenario on an isolated DuckDB catalog."
+      }
+    ],
+    "hidden_check_refs": [
+      "view-lineage"
+    ],
+    "edge_check_refs": [
+      "older-customer"
+    ],
+    "hints": [
+      "split_part(email, '@', 2) keeps the domain.",
+      "Any expression that reads birth_date or customer_name puts it in the column's lineage, whatever the result."
+    ],
+    "solution": {
+      "available": true,
+      "reveal": "explicit"
+    },
+    "explanation": "Each column of the view derives only from allowed source columns: customer_id, city and segment copy theirs, email_domain derives from email. A segment guessed from the birth date gives the same rows for most customers but makes segment depend on birth_date, which is exactly what the rule forbids; lineage catches it even when the data does not.",
+    "follow_ups": [
+      "Which of these columns would you still classify as personal data under GDPR, even without names? (Think of rare city + segment combinations.)"
+    ],
+    "canonical_placement": {
+      "domain": "bi-data-warehousing",
+      "topic": "sql-lineage"
+    },
+    "related_associations": [
+      "bi-lab/warehouse"
+    ],
+    "recommendation": {
+      "rank": 18,
+      "reason": "BI Lab data warehousing progression"
+    },
+    "validator_version": "rows-v2",
+    "validation": {
+      "kind": "rows",
+      "ordered": false,
+      "duplicate_sensitive": true,
+      "relative_tolerance": 1e-09,
+      "absolute_tolerance": 1e-06,
+      "required_columns": [],
+      "exact_schema": null,
+      "forbidden_extra_columns": true,
+      "null_semantics": "equal"
+    },
+    "runtime_requirements": [
+      "duckdb"
+    ],
+    "provenance": {
+      "source": "Authored for Datapass Workbench: dimensional modeling (Kimball) and warehouse loading patterns",
+      "fixtures": "Authored scenarios; expected rows computed by running the reference and reviewed"
+    },
+    "constraints": {
+      "truth": "Real DuckDB execution on an isolated local catalog; column lineage is a static analysis of the SQL text; model checks are real queries."
+    },
+    "truth": "real"
+  },
+  {
+    "schema_version": 1,
+    "id": "bi-model-relationships",
+    "version": "1",
+    "title": "Star model: keys, cardinality and a role-playing date",
+    "difficulty": "easy",
+    "topics": [
+      "star-schema",
+      "relationships",
+      "role-playing"
+    ],
+    "tags": [
+      "bi-lab",
+      "data-warehousing",
+      "star-model"
+    ],
+    "origin": "authored",
+    "language": "bi-model",
+    "runtime": "datapass-warehouse-v1",
+    "prompt": "Write the star model file for four gold tables. gold.fct_sales (grain: order_id, line_number) has order_date_key, ship_date_key, customer_key, product_key (and a leftover customer_id). gold.dim_date (key date_key), gold.dim_customer (key customer_key, business key customer_id, type 2 with valid_from, valid_to, is_current) and gold.dim_product (key product_key, business key product_id) each have the unknown member -1. Relate the fact to each dimension, many-to-one with single cross-filtering: the order date is the active date relationship and the ship date the inactive one; the customer goes through the surrogate key.",
+    "sections": [
+      {
+        "title": "Model file",
+        "body": "Your answer is the star model file (JSON). Each check seeds the tables in an isolated DuckDB catalog and runs the model checks on them as real queries. Nothing connects to Power BI. The file is the BI Lab's star model (bi/model.json): tables with their role (fact, dimension, bridge), keys, grain, SCD settings, and relationships with the settings a Power BI semantic model uses: cardinality, cross-filter direction (single or both) and active. It is Datapass's own format, not a Power BI file. Each check below runs a real query on the tables."
+      },
+      {
+        "title": "Role-playing dimensions",
+        "body": "One dimension can relate to the same fact several times (order date, ship date). A model allows only one active path between two tables, so the other relationships are inactive and a measure uses them explicitly (USERELATIONSHIP in DAX), or the dimension is copied per role."
+      },
+      {
+        "title": "Graded",
+        "body": "The model checks (keys, grain, SCD2 validity, unknown members, relationships), the relationships with the cardinality the data shows, and the checks again after the customer dimension gets a new version."
+      }
+    ],
+    "starter_source": "{\n  \"name\": \"sales_star\",\n  \"tables\": [\n    {\n      \"name\": \"gold.fct_sales\",\n      \"role\": \"fact\",\n      \"grain\": [\n        \"order_id\",\n        \"line_number\"\n      ]\n    },\n    {\n      \"name\": \"gold.dim_date\",\n      \"role\": \"dimension\",\n      \"key\": \"date_key\",\n      \"unknown_member\": -1\n    },\n    {\n      \"name\": \"gold.dim_customer\",\n      \"role\": \"dimension\",\n      \"key\": \"customer_key\",\n      \"business_key\": [\n        \"customer_id\"\n      ],\n      \"unknown_member\": -1\n    },\n    {\n      \"name\": \"gold.dim_product\",\n      \"role\": \"dimension\",\n      \"key\": \"product_key\",\n      \"business_key\": [\n        \"product_id\"\n      ],\n      \"unknown_member\": -1\n    }\n  ],\n  \"relationships\": [\n    {\n      \"from\": \"gold.fct_sales.order_date_key\",\n      \"to\": \"gold.dim_date.date_key\",\n      \"cardinality\": \"many-to-one\",\n      \"cross_filter\": \"single\",\n      \"active\": true\n    },\n    {\n      \"from\": \"gold.fct_sales.ship_date_key\",\n      \"to\": \"gold.dim_date.date_key\",\n      \"cardinality\": \"many-to-one\",\n      \"cross_filter\": \"single\",\n      \"active\": true\n    },\n    {\n      \"from\": \"gold.fct_sales.customer_id\",\n      \"to\": \"gold.dim_customer.customer_id\",\n      \"cardinality\": \"many-to-one\",\n      \"cross_filter\": \"single\",\n      \"active\": true\n    },\n    {\n      \"from\": \"gold.fct_sales.product_key\",\n      \"to\": \"gold.dim_product.product_key\",\n      \"cardinality\": \"many-to-one\",\n      \"cross_filter\": \"single\",\n      \"active\": true\n    }\n  ]\n}\n",
+    "fixtures": [
+      {
+        "id": "bi-model-relationships-fixtures",
+        "version": "1"
+      }
+    ],
+    "visible_checks": [
+      {
+        "id": "checks",
+        "description": "Outcome of the public scenario on an isolated DuckDB catalog."
+      }
+    ],
+    "hidden_check_refs": [
+      "relationships"
+    ],
+    "edge_check_refs": [
+      "new-version"
+    ],
+    "hints": [
+      "The 'one' side of a many-to-one must be unique: in a type 2 dimension, customer_id repeats.",
+      "Two active relationships between the same two tables make the filter path ambiguous."
+    ],
+    "solution": {
+      "available": true,
+      "reveal": "explicit"
+    },
+    "explanation": "Relating on the surrogate key keeps the 'one' side unique, which a type 2 dimension's business key is not (one row per version). Only one relationship between two tables can be active, so the ship date is modelled as inactive and used on demand. Single-direction filtering from dimensions to the fact is the default star; 'both' adds ambiguous paths and slows the model.",
+    "follow_ups": [
+      "Drop the leftover customer_id from the fact: why do facts keep only surrogate keys and degenerate dimensions such as order_id?"
+    ],
+    "canonical_placement": {
+      "domain": "bi-data-warehousing",
+      "topic": "star-schema"
+    },
+    "related_associations": [
+      "bi-lab/warehouse"
+    ],
+    "recommendation": {
+      "rank": 19,
+      "reason": "BI Lab data warehousing progression"
+    },
+    "validator_version": "rows-v2",
+    "validation": {
+      "kind": "rows",
+      "ordered": false,
+      "duplicate_sensitive": true,
+      "relative_tolerance": 1e-09,
+      "absolute_tolerance": 1e-06,
+      "required_columns": [],
+      "exact_schema": null,
+      "forbidden_extra_columns": true,
+      "null_semantics": "equal"
+    },
+    "runtime_requirements": [
+      "duckdb"
+    ],
+    "provenance": {
+      "source": "Authored for Datapass Workbench: dimensional modeling (Kimball) and warehouse loading patterns",
+      "fixtures": "Authored scenarios; expected rows computed by running the reference and reviewed"
+    },
+    "constraints": {
+      "truth": "Real DuckDB execution on an isolated local catalog; column lineage is a static analysis of the SQL text; model checks are real queries."
+    },
+    "truth": "real"
+  },
+  {
+    "schema_version": 1,
+    "id": "bi-model-bridge",
+    "version": "1",
+    "title": "Star model: a many-to-many through a bridge",
+    "difficulty": "medium",
+    "topics": [
+      "bridge-table",
+      "relationships",
+      "cross-filter"
+    ],
+    "tags": [
+      "bi-lab",
+      "data-warehousing",
+      "star-model"
+    ],
+    "origin": "authored",
+    "language": "bi-model",
+    "runtime": "datapass-warehouse-v1",
+    "prompt": "Model account fees for four gold tables: gold.fct_account_fees (grain: account_key, month_start), gold.dim_account (key account_key), gold.dim_customer (key customer_key) and gold.bridge_account_holder (role bridge, grain: account_key, customer_key). A customer filter must reach the fees: relate the fact to dim_account, the bridge to dim_account and the bridge to dim_customer, all many-to-one and active. Only the bridge-to-account relationship filters in both directions.",
+    "sections": [
+      {
+        "title": "Model file",
+        "body": "Your answer is the star model file (JSON). Each check seeds the tables in an isolated DuckDB catalog and runs the model checks on them as real queries. Nothing connects to Power BI."
+      },
+      {
+        "title": "Bridges in a model",
+        "body": "A fact never relates directly to a table where its key repeats (that is a many-to-many). The bridge sits between the account and its holders: dim_customer filters the bridge, the bridge must filter dim_account (the 'one' side, hence both directions on that relationship only), and dim_account filters the fees. Everywhere else, keep single direction."
+      },
+      {
+        "title": "Graded",
+        "body": "The model checks, including the cross-filter check (both directions only where a bridge is involved), and the relationships with the cardinality the data shows."
+      }
+    ],
+    "starter_source": "{\n  \"name\": \"account_fees\",\n  \"tables\": [\n    {\n      \"name\": \"gold.fct_account_fees\",\n      \"role\": \"fact\",\n      \"grain\": [\n        \"account_key\",\n        \"month_start\"\n      ]\n    },\n    {\n      \"name\": \"gold.dim_customer\",\n      \"role\": \"dimension\",\n      \"key\": \"customer_key\"\n    },\n    {\n      \"name\": \"gold.bridge_account_holder\",\n      \"role\": \"fact\",\n      \"grain\": [\n        \"account_key\",\n        \"customer_key\"\n      ]\n    }\n  ],\n  \"relationships\": [\n    {\n      \"from\": \"gold.fct_account_fees.account_key\",\n      \"to\": \"gold.bridge_account_holder.account_key\",\n      \"cardinality\": \"many-to-many\",\n      \"cross_filter\": \"both\",\n      \"active\": true\n    },\n    {\n      \"from\": \"gold.bridge_account_holder.customer_key\",\n      \"to\": \"gold.dim_customer.customer_key\",\n      \"cardinality\": \"many-to-one\",\n      \"cross_filter\": \"single\",\n      \"active\": true\n    }\n  ]\n}\n",
+    "fixtures": [
+      {
+        "id": "bi-model-bridge-fixtures",
+        "version": "1"
+      }
+    ],
+    "visible_checks": [
+      {
+        "id": "checks",
+        "description": "Outcome of the public scenario on an isolated DuckDB catalog."
+      }
+    ],
+    "hidden_check_refs": [
+      "relationships"
+    ],
+    "edge_check_refs": [
+      "more-holders"
+    ],
+    "hints": [
+      "The fact relates to dim_account, not to the bridge.",
+      "Filters flow from the 'one' side to the 'many' side; the bridge must push the customer filter up to dim_account."
+    ],
+    "solution": {
+      "available": true,
+      "reveal": "explicit"
+    },
+    "explanation": "The bridge turns the many-to-many into two many-to-one relationships. Both-direction filtering on the bridge-to-account relationship lets a customer selection reach dim_account and, through it, the fees; every other relationship stays single-direction, which keeps the filter paths unambiguous. Relating the fact straight to the bridge is a many-to-many that double counts.",
+    "follow_ups": [
+      "With this model, a 'fees' measure summed for one customer counts a joint account's full fee. How do you apply allocation_pct in the measure (see the bridge allocation exercise)?"
+    ],
+    "canonical_placement": {
+      "domain": "bi-data-warehousing",
+      "topic": "bridge-table"
+    },
+    "related_associations": [
+      "bi-lab/warehouse"
+    ],
+    "recommendation": {
+      "rank": 20,
+      "reason": "BI Lab data warehousing progression"
+    },
+    "validator_version": "rows-v2",
+    "validation": {
+      "kind": "rows",
+      "ordered": false,
+      "duplicate_sensitive": true,
+      "relative_tolerance": 1e-09,
+      "absolute_tolerance": 1e-06,
+      "required_columns": [],
+      "exact_schema": null,
+      "forbidden_extra_columns": true,
+      "null_semantics": "equal"
+    },
+    "runtime_requirements": [
+      "duckdb"
+    ],
+    "provenance": {
+      "source": "Authored for Datapass Workbench: dimensional modeling (Kimball) and warehouse loading patterns",
+      "fixtures": "Authored scenarios; expected rows computed by running the reference and reviewed"
+    },
+    "constraints": {
+      "truth": "Real DuckDB execution on an isolated local catalog; column lineage is a static analysis of the SQL text; model checks are real queries."
+    },
+    "truth": "real"
+  }
+]

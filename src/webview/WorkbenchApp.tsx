@@ -22,6 +22,7 @@ import type {
 import { AirflowSurface } from "./AirflowSurface";
 import { DbtSurface } from "./DbtSurface";
 import { FabricSurface } from "./FabricSurface";
+import { BiSurface } from "./BiSurface";
 import { MosaicSurface } from "./MosaicSurface";
 import { PipelineSurface } from "./PipelineSurface";
 import { PracticeSurface } from "./PracticeSurface";
@@ -150,6 +151,8 @@ export function WorkbenchApp({ vscode }: { vscode: VsCodeApi }) {
               <PracticeSurface vscode={vscode} exercises={state.practice?.exercises ?? []} runtime={state.runtime} />
             ) : selected.id === "fabric" ? (
               <FabricSurface vscode={vscode} runtime={state.runtime} factory={state.factory} />
+            ) : selected.id === "bi" ? (
+              <BiSurface vscode={vscode} runtime={state.runtime} bi={state.bi} />
             ) : selected.id === "sparklab" ? (
               <SparkLabSurface vscode={vscode} runtime={state.runtime} profiles={state.sparkProfiles ?? []} />
             ) : selected.id === "pipeline" ? (
