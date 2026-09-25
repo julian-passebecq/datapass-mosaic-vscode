@@ -638,7 +638,22 @@ export async function run(): Promise<void> {
         assert.equal((await missions.progress()).missions[id].lastCheck?.status, "not-yet");
         const terminal = await lab.open(folder, shell, id);
         assert.ok(terminal.name.startsWith(id));
-        terminal.sendText(commandLine, true);
+        // As a learner would: type once the prompt is there (pwsh drops input typed while PSReadLine loads).
+        const integration = terminal.shellIntegration ?? await new Promise<vscode.TerminalShellIntegration | undefined>(resolve => {
+          const timer = setTimeout(() => { listener.dispose(); resolve(undefined); }, 20_000);
+          const listener = vscode.window.onDidChangeTerminalShellIntegration(event => {
+            if (event.terminal !== terminal) return;
+            clearTimeout(timer);
+            listener.dispose();
+            resolve(event.shellIntegration);
+          });
+        });
+        if (integration) {
+          integration.executeCommand(commandLine);
+        } else {
+          await new Promise(resolve => setTimeout(resolve, 5000));
+          terminal.sendText(commandLine, true);
+        }
         let status: string | undefined;
         for (let attempt = 0; attempt < 45 && status !== "passed"; attempt++) {
           await new Promise(resolve => setTimeout(resolve, 2000));
