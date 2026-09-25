@@ -28,6 +28,10 @@ ASSET = re.compile(r'^(source|bronze|silver|gold|warehouse|features|metrics)\.([
 MAX_ROWS = 200
 
 
+def quote_ident(name: str) -> str:
+    return '"' + name.replace('"', '""') + '"'
+
+
 def asset_name(name: str) -> str:
     if not ASSET.fullmatch(name):
         raise ValueError('Use a registered layer and simple table name, for example gold.revenue.')
@@ -544,6 +548,48 @@ class Catalog:
                     item['storage'] = storage
                 items.append(item)
         return items
+
+    def schema(self) -> dict:
+        """Every table and view with its columns, types and row count, for the Catalog tree view.
+
+        Schemas outside the layers (dbt Core may build into `main` or `<target>_<custom>`) are listed too,
+        flagged `layer: false`: the tree shows what is really in the file.
+        """
+        tables = []
+        if self.kind == 'sqlite':
+            for layer in LAYERS:
+                for name, kind in self.db.execute(f"SELECT name, type FROM {layer}.sqlite_master WHERE type IN ('table','view') ORDER BY name").fetchall():
+                    if not IDENT.fullmatch(name):
+                        continue
+                    columns = [{'name': c[1], 'type': c[2] or 'ANY'} for c in self.db.execute(f'PRAGMA {layer}.table_info({name})').fetchall()]
+                    tables.append({'schema': layer, 'name': name, 'kind': 'view' if kind == 'view' else 'table', 'columns': columns})
+        else:
+            rows = self.db.execute(
+                "SELECT table_schema, table_name, table_type FROM information_schema.tables "
+                "WHERE table_catalog=current_database() AND table_schema NOT IN ('information_schema','pg_catalog') "
+                "ORDER BY table_schema, table_name").fetchall()
+            columns: dict[tuple[str, str], list[dict]] = {}
+            for schema, table, column, data_type in self.db.execute(
+                    "SELECT table_schema, table_name, column_name, data_type FROM information_schema.columns "
+                    "WHERE table_catalog=current_database() ORDER BY table_schema, table_name, ordinal_position").fetchall():
+                columns.setdefault((schema, table), []).append({'name': column, 'type': str(data_type)})
+            for schema, table, table_type in rows:
+                tables.append({'schema': schema, 'name': table, 'kind': 'view' if 'VIEW' in str(table_type).upper() else 'table',
+                               'columns': columns.get((schema, table), [])})
+        truncated = len(tables) > 500
+        tables = tables[:500]
+        for item in tables:
+            item['layer'] = item['schema'] in LAYERS
+            item['columns'] = item['columns'][:200]
+            full = f'{quote_ident(item["schema"])}.{quote_ident(item["name"])}'
+            try:
+                item['row_count'] = int(self.db.execute(f'SELECT COUNT(*) FROM {full}').fetchone()[0])
+            except Exception as error:  # a broken view still shows, with its error
+                item['row_count'] = None
+                item['error'] = str(error).splitlines()[0][:300]
+            if item['layer']:
+                item['fresh'] = self.fresh(f'{item["schema"]}.{item["name"]}') if IDENT.fullmatch(item['name']) else False
+        return {'engine': self.kind, 'layers': list(LAYERS), 'tables': tables, 'truncated': truncated}
 
     def runtime_contract(self) -> dict:
         if self.kind == 'ducklake' and self.lakehouse is not None:

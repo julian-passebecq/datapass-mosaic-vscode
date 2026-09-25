@@ -53,6 +53,29 @@
       {
         "command": "datapass.openPipelineLab",
         "title": "Datapass: Open Pipeline Lab"
+      },
+      {
+        "command": "datapass.catalog.refresh",
+        "title": "Refresh Catalog",
+        "category": "Datapass",
+        "icon": "$(refresh)"
+      },
+      {
+        "command": "datapass.catalog.openScratch",
+        "title": "Open SQL Scratch",
+        "category": "Datapass",
+        "icon": "$(go-to-file)"
+      },
+      {
+        "command": "datapass.catalog.previewTable",
+        "title": "Preview Rows",
+        "category": "Datapass",
+        "icon": "$(play)"
+      },
+      {
+        "command": "datapass.catalog.copyName",
+        "title": "Copy Qualified Name",
+        "category": "Datapass"
       }
     ],
     "viewsContainers": {
@@ -69,6 +92,55 @@
         {
           "id": "datapass.labs",
           "name": "Labs"
+        },
+        {
+          "id": "datapass.catalog",
+          "name": "Catalog"
+        }
+      ]
+    },
+    "menus": {
+      "view/title": [
+        {
+          "command": "datapass.catalog.refresh",
+          "when": "view == datapass.catalog",
+          "group": "navigation"
+        }
+      ],
+      "view/item/context": [
+        {
+          "command": "datapass.catalog.previewTable",
+          "when": "view == datapass.catalog && viewItem == datapassCatalogTable",
+          "group": "inline"
+        },
+        {
+          "command": "datapass.catalog.openScratch",
+          "when": "view == datapass.catalog && viewItem == datapassCatalogTable",
+          "group": "1_open@1"
+        },
+        {
+          "command": "datapass.catalog.previewTable",
+          "when": "view == datapass.catalog && viewItem == datapassCatalogTable",
+          "group": "1_open@2"
+        },
+        {
+          "command": "datapass.catalog.copyName",
+          "when": "view == datapass.catalog && viewItem == datapassCatalogTable",
+          "group": "2_copy"
+        }
+      ],
+      "commandPalette": [
+        {
+          "command": "datapass.catalog.openScratch",
+          "when": "false"
+        },
+        {
+          "command": "datapass.catalog.previewTable",
+          "when": "false"
+        },
+        {
+          "command": "datapass.catalog.copyName",
+          "when": "false"
         }
       ]
     }
@@ -81,7 +153,7 @@
     "vscode:prepublish": "npm run compile",
     "test:host": "npm run build && node scripts/extension_host_e2e.mjs",
     "package": "vsce package --skip-license",
-    "test": "node scripts/scaffold_smoke.mjs && node scripts/runtime_endpoint_smoke.mjs && node scripts/package_smoke.mjs && node scripts/runtime_environment_smoke.mjs && node scripts/trust_smoke.mjs && node scripts/mosaic_layout_smoke.mjs && node scripts/csv_import_smoke.mjs && node scripts/airflow_lab_smoke.mjs && node scripts/factory_lab_smoke.mjs && node scripts/sqlpool_lab_smoke.mjs && node scripts/databricks_lab_smoke.mjs && node scripts/bi_lab_smoke.mjs"
+    "test": "node scripts/scaffold_smoke.mjs && node scripts/runtime_endpoint_smoke.mjs && node scripts/package_smoke.mjs && node scripts/runtime_environment_smoke.mjs && node scripts/trust_smoke.mjs && node scripts/mosaic_layout_smoke.mjs && node scripts/csv_import_smoke.mjs && node scripts/airflow_lab_smoke.mjs && node scripts/factory_lab_smoke.mjs && node scripts/sqlpool_lab_smoke.mjs && node scripts/databricks_lab_smoke.mjs && node scripts/bi_lab_smoke.mjs && node scripts/catalog_tree_smoke.mjs"
   },
   "dependencies": {
     "@fluentui/react-components": "^9.68.0",

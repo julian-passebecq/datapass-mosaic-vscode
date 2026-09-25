@@ -133,6 +133,8 @@ Open the SQL and Python scratch files and compare:
 
 Files remain normal VS Code files.
 
+The **Catalog** view in the Datapass sidebar lists every table and view of the local catalog by layer, with columns, types and row counts. Click a table to open a SQL scratch (`SELECT * ... LIMIT 100`) or use the ▶ **Preview Rows** action to see its first rows in Mosaic.
+
 ### SparkLab
 
 Use **SparkLab / ZilaCode** for bounded PySpark DataFrame practice.

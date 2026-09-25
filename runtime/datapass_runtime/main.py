@@ -339,6 +339,12 @@ def local_catalog() -> object:
     return native_command({"op": "catalog"})
 
 
+@app.get("/api/local/catalog/schema")
+def local_catalog_schema() -> object:
+    """Catalog tree view: every schema's tables and views with columns, types and row counts."""
+    return native_command({"op": "catalog_schema"})
+
+
 @app.post("/api/local/query")
 def local_query(body: LocalQueryRequest) -> object:
     return native_command({"op": "read_query", "query": body.query})
