@@ -18,6 +18,13 @@ git files. Nothing connects to Microsoft Fabric, Azure or Databricks.
 
 A dry run (`data_plane: simulated`) simulates every work activity and changes no table.
 
+A scenario can give an activity a duration, failing attempts, failing ForEach
+items, an output merged into its own, or a sequence of outputs, one per run of
+the activity, for polling loops.
+
+Design-time rules follow Data Factory's. One of them: a Set variable cannot
+reference the variable it sets, so count through a second variable.
+
 ## Differences between the products
 
 The same JSON model, with product-specific activities:
@@ -55,6 +62,13 @@ Using an activity in a product that does not have it is a validation error that 
   - `df.count()`;
   - `notebookutils` / `mssparkutils` / `dbutils` `.notebook.exit(value)`;
   - `display` and `print`, which are no-ops.
+
+## Practice exercises
+
+`exercise.py` defines the fixture scenario of the `factory` and `factory-notebook` Practice languages: the product, the
+run settings, the lab files, and tables for an isolated local catalog. It also defines the outcome tables that are
+graded. `datapass_runtime/factory_grading.py` runs them, and the `cloud-pipelines-v1` pack uses them (see
+`docs/EXERCISE_AUTHORING.md`).
 
 ## Limits
 

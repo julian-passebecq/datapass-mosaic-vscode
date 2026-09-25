@@ -67,7 +67,7 @@ The same daily retail load exists for the three products, so you can compare the
 - Azure Data Factory: upsert Copy → Azure Databricks notebook → Stored procedure → Web activity.
 - Synapse: CTAS in a Script activity → SQL pool stored procedure → Lookup.
 
-The **Fabric, Azure Data Factory and Synapse: what differs** table summarizes the differences. Notebooks run on SparkLab statement by statement and are never executed as Python. Parameters work like in each product: Fabric and Synapse inject them after the parameters cell, Databricks reads them with `dbutils.widgets.get`.
+The **Fabric, Azure Data Factory and Synapse: what differs** table summarizes the differences. **Pipeline exercises** opens Practice, where the `cloud-pipelines-v1` pack has 16 guided exercises: you edit a pipeline JSON (or a notebook the pipeline runs), and **Run visible** / **Submit** run it in simulated scenarios. Exercises with local data use an isolated catalog, never your lakehouse. Notebooks run on SparkLab statement by statement and are never executed as Python. Parameters work like in each product: Fabric and Synapse inject them after the parameters cell, Databricks reads them with `dbutils.widgets.get`.
 
 **Lakehouse and notebooks** tab: use the flow diagram to understand the whole project:
 

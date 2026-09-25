@@ -223,6 +223,10 @@ def _check_references(loader: _Loader, pipeline: Pipeline) -> None:
                 elif activity.type == 'AppendVariable' and pipeline.variables[variable].type != 'Array':
                     loader.error(activity.path, f"AppendVariable needs an Array variable; '{variable}' is "
                                                 f"{pipeline.variables[variable].type}")
+                elif activity.type == 'SetVariable' and variable in found['variables']:
+                    loader.error(activity.path, f"the value of '{variable}' references variables('{variable}'): a "
+                                                "variable cannot reference itself; compute into a second variable, "
+                                                "then copy it back")
                 elif activity.type == 'SetVariable' and in_foreach and loader.parallel_foreach_depth:
                     loader.warnings.append(Issue(activity.path, "SetVariable inside a parallel ForEach: variables are "
                                                                 "pipeline-scoped, so iterations overwrite each other",

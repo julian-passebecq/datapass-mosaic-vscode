@@ -1,0 +1,10 @@
+{
+  "schema_version": 1,
+  "id": "cloud-pipelines-v1",
+  "version": "1",
+  "title": "Cloud Lab: Data Factory pipelines for Fabric, Azure Data Factory and Synapse (simulated)",
+  "enabled": true,
+  "provenance": {
+    "source": "Authored for Datapass Workbench"
+  }
+}

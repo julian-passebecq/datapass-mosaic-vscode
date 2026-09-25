@@ -157,10 +157,25 @@ loop = fx([fx_act("Loop", "ForEach", items="@pipeline().parameters.tables", isSe
           {"activities": {"CopyTable": {"fail_on_items": ["orders"]}}},
           parameters={"tables": {"type": "array", "defaultValue": ["customers", "orders", "products"]}})
 assert loop.status == "Failed" and [r.status for r in loop.runs if r.name == "CopyTable"] == ["Succeeded", "Failed", "Succeeded"]
+# A variable cannot reference itself (Data Factory rejects it): count through a second variable.
 until = fx([fx_act("Loop", "Until", expression="@greaterOrEquals(int(variables('i')), 3)",
-                   activities=[fx_act("Inc", "SetVariable", variableName="i", value="@string(add(int(variables('i')), 1))")])],
-           variables={"i": {"type": "String", "defaultValue": "0"}})
-assert until.status == "Succeeded" and until.variables == {"i": "3"}, until.variables
+                   activities=[fx_act("Next", "SetVariable", variableName="next", value="@string(add(int(variables('i')), 1))"),
+                               fx_act("Inc", "SetVariable", ["Next"], variableName="i", value="@variables('next')")])],
+           variables={"i": {"type": "String", "defaultValue": "0"}, "next": {"type": "String"}})
+assert until.status == "Succeeded" and until.variables == {"i": "3", "next": "3"}, until.variables
+polled = fx([fx_act("Poll", "Until", expression="@equals(variables('state'), 'READY')",
+                    activities=[fx_act("Check", "WebActivity", url="https://status.example.invalid", method="GET"),
+                                fx_act("Keep", "SetVariable", ["Check"], variableName="state",
+                                       value="@activity('Check').output.status")])],
+            {"activities": {"Check": {"outputs": [{"status": "RUNNING"}, {"status": "RUNNING"}, {"status": "READY"}]}}},
+            variables={"state": {"type": "String"}})
+assert polled.status == "Succeeded" and polled.runs[0].output == {"iterations": 3}, polled.runs[0]
+try:
+    fx([fx_act("Inc", "SetVariable", variableName="i", value="@string(add(int(variables('i')), 1))")],
+       variables={"i": {"type": "String", "defaultValue": "0"}})
+    raise AssertionError("a self-referencing SetVariable must be rejected")
+except FactoryLabError as error:
+    assert "cannot reference itself" in str(error.issues), error.issues
 typed = fx([fx_act("Set", "SetVariable", variableName="n", value="@add(1, 2)")], variables={"n": {"type": "String"}})
 assert typed.status == "Failed" and "cannot be updated" in typed.runs[0].error["message"], typed.runs[0].error
 retried = simulate_pipeline({"properties": {"activities": [{"name": "C", "type": "Copy", "policy": {"retry": 2, "retryIntervalInSeconds": 60},
