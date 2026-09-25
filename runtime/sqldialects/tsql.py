@@ -52,7 +52,8 @@ CAST_TYPES = {exp.DataType.Type.INT, exp.DataType.Type.BIGINT, exp.DataType.Type
               exp.DataType.Type.BOOLEAN, exp.DataType.Type.DECIMAL, exp.DataType.Type.MONEY,
               exp.DataType.Type.SMALLMONEY, exp.DataType.Type.FLOAT, exp.DataType.Type.DOUBLE,
               exp.DataType.Type.DATE, exp.DataType.Type.TIME, exp.DataType.Type.DATETIME,
-              exp.DataType.Type.DATETIME2, exp.DataType.Type.SMALLDATETIME, exp.DataType.Type.VARCHAR,
+              exp.DataType.Type.DATETIME2, exp.DataType.Type.SMALLDATETIME, exp.DataType.Type.TIMESTAMP,
+              exp.DataType.Type.VARCHAR,
               exp.DataType.Type.NVARCHAR, exp.DataType.Type.CHAR, exp.DataType.Type.NCHAR, exp.DataType.Type.TEXT,
               exp.DataType.Type.UUID}
 # CONVERT styles for dates and times: style -> strftime format; time styles need a DATETIME value.

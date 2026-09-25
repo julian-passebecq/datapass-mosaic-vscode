@@ -397,6 +397,13 @@ with TemporaryDirectory(prefix="datapass-sqlpool-smoke-") as temp:
         "SELECT DATEADD(day, 30, '2026-01-01') AS d, EOMONTH('2026-02-10') AS e, DATEDIFF(day, '2026-01-01', '2026-03-01') AS n;\n")
     assert [r.status for r in idioms] == ["ok"] * 3 and idioms[1].message == "Best: Public Sector", idioms
     assert idioms[2].rows == [{"d": "2026-01-31T00:00:00", "e": "2026-02-28", "n": 59}], idioms[2].rows
+    # Expressions go through the shared T-SQL dialect (runtime/sqldialects): its semantics and its refusals by name.
+    shared = pool_run("DECLARE @n INT = 7;\nSELECT @n / 2 AS i, @n / 2.0 AS d, LEN('ab  ') AS l, DATEPART(weekday, '2026-03-08') AS w, "
+                      "GETDATE() AS now;\nSELECT PATINDEX('%a%', segment_name) AS p FROM dbo.dim_segment;\n")
+    assert [r.status for r in shared] == ["ok", "ok", "error"], [(r.kind, r.message) for r in shared]
+    assert shared[1].rows == [{"i": 3, "d": 3.5, "l": 2, "w": 1, "now": "2026-03-05T12:00:00"}], shared[1].rows
+    assert "7 // 2" in shared[1].sql and any("truncates" in note for note in shared[1].notes), (shared[1].sql, shared[1].notes)
+    assert "PATINDEX is not in the supported T-SQL subset" in shared[2].message and shared[2].line == 3, shared[2]
 
     # Partition switching moves a whole partition; TRUNCATE_TARGET replaces what the target partition held.
     switched = pool_run(

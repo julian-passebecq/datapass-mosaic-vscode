@@ -48,6 +48,8 @@ class Translation:
 class Hooks(Protocol):
     """Caller-specific resolution (the SQL pool): variables, the lab's fixed clock and its schema names."""
 
+    default_schema: str | None  # the schema of unqualified table names, for types
+
     def parameter(self, node: exp.Parameter) -> exp.Expression: ...
 
     def now(self) -> exp.Expression | None: ...
@@ -84,6 +86,16 @@ STRING = {Type.VARCHAR, Type.NVARCHAR, Type.CHAR, Type.NCHAR, Type.TEXT, Type.NA
 DATE = {Type.DATE, Type.DATE32}
 TIMESTAMP = {Type.TIMESTAMP, Type.TIMESTAMPNTZ, Type.DATETIME, Type.DATETIME2, Type.SMALLDATETIME, Type.TIMESTAMP_S,
              Type.TIMESTAMP_MS, Type.TIMESTAMP_NS, Type.DATETIME64}
+
+
+# Return types sqlglot's annotation may leave unknown (T-SQL's LEFT and RIGHT, for example).
+STRING_RESULTS = tuple(getattr(exp, name) for name in (
+    'Left', 'Right', 'Substring', 'Upper', 'Lower', 'Trim', 'Replace', 'Concat', 'ConcatWs', 'DPipe', 'Repeat',
+    'Reverse', 'Pad', 'TimeToStr', 'GroupConcat', 'Chr', 'SplitPart', 'RegexpExtract', 'RegexpReplace', 'Stuff',
+    'Space') if hasattr(exp, name))
+INTEGER_RESULTS = tuple(getattr(exp, name) for name in (
+    'Length', 'StrPosition', 'Count', 'CountIf', 'Year', 'Month', 'Day', 'Quarter', 'DayOfWeek', 'DayOfYear',
+    'DateDiff', 'RowNumber', 'Rank', 'DenseRank', 'Ntile', 'Ascii', 'Unicode', 'IntDiv') if hasattr(exp, name))
 
 
 def category(data_type: exp.DataType | None) -> str | None:
@@ -134,6 +146,12 @@ class Context:
         if isinstance(node, (exp.Cast, exp.TryCast)):
             return node.to
         if isinstance(node, exp.Neg):
+            return self.type_of(node.this)
+        if isinstance(node, STRING_RESULTS):
+            return exp.DataType.build('VARCHAR')
+        if isinstance(node, INTEGER_RESULTS):
+            return exp.DataType.build('BIGINT')
+        if isinstance(node, (exp.Coalesce, exp.Abs, exp.Nullif)):
             return self.type_of(node.this)
         return None
 
@@ -316,8 +334,9 @@ def _schema(schema: dict[str, Any] | None, read: str) -> Any:
         return None
 
 
-def _annotate(tree: exp.Expression, schema: Any, read: str, decimal_literals: bool) -> None:
-    """Store each node's type in node.meta['dp_type'] (a copy is qualified and annotated; ids map it back)."""
+def _annotate(tree: exp.Expression, schema: Any, read: str, decimal_literals: bool, db: str | None = None) -> None:
+    """Store each node's type in node.meta['dp_type'] (a copy is qualified and annotated; ids map it back).
+    `db` is the schema of unqualified table names (the SQL pool's warehouse); only the typed copy is qualified."""
     from sqlglot.optimizer.annotate_types import annotate_types
     from sqlglot.optimizer.qualify import qualify
 
@@ -336,7 +355,7 @@ def _annotate(tree: exp.Expression, schema: Any, read: str, decimal_literals: bo
             queries = [copy] if isinstance(copy, exp.Query) else [
                 q for q in copy.find_all(exp.Query) if not isinstance(q.parent, (exp.Query, exp.Subquery, exp.CTE, exp.Union))]
             for query in queries:
-                qualified = qualify(query, schema=schema, dialect=read, validate_qualify_columns=False,
+                qualified = qualify(query, schema=schema, dialect=read, db=db, validate_qualify_columns=False,
                                     quote_identifiers=False, identify=False, infer_schema=True)
                 if query is copy:
                     copy = qualified
@@ -358,10 +377,10 @@ def _annotate(tree: exp.Expression, schema: Any, read: str, decimal_literals: bo
         if found is not None:
             node.meta['dp_type'] = found
     if schema is not None:
-        _column_fallback(tree, schema)
+        _column_fallback(tree, schema, db)
 
 
-def _column_fallback(tree: exp.Expression, schema: Any) -> None:
+def _column_fallback(tree: exp.Expression, schema: Any, db: str | None) -> None:
     """Columns the annotation left untyped (UPDATE, DELETE, MERGE): the type of the one table of the statement that
     has that column (or the table its qualifier names)."""
     tables = list(tree.find_all(exp.Table))
@@ -371,6 +390,8 @@ def _column_fallback(tree: exp.Expression, schema: Any) -> None:
         candidates = [t for t in tables if not column.table or column.table.lower() in (t.alias_or_name.lower(), t.name.lower())]
         found = []
         for table in candidates:
+            if db and not table.db:
+                table = exp.table_(table.name, db=db)
             try:
                 if column.name.lower() in [c.lower() for c in schema.column_names(table)]:
                     found.append(schema.get_column_type(table, column.name))
@@ -432,7 +453,7 @@ def _generate(tree: exp.Expression, ctx: Context) -> str:
 def _translate_tree(tree: exp.Expression, ctx: Context, schema: Any, extra: frozenset[type]) -> str:
     tree = ctx.dialect.prepare(tree, ctx)
     if ctx.dialect.uses_types:
-        _annotate(tree, schema, ctx.dialect.read, ctx.dialect.decimal_literals)
+        _annotate(tree, schema, ctx.dialect.read, ctx.dialect.decimal_literals, getattr(ctx.hooks, 'default_schema', None))
     _check(tree, ctx, extra)
     return _generate(_rewrite(tree, ctx), ctx)
 
