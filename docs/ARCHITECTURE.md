@@ -233,6 +233,19 @@ dbt in the runtime and never approximates it (the emulation lives in the BI Lab)
   server keeps its terminal busy); commands in one terminal are queued until the previous one ends, because
   `executeCommand` would interrupt it. The PNG reaches the webview as a `data:` image (already allowed by the CSP);
   rendered HTML is never injected: it opens with `vscode.env.openExternal`, and the live server in the Simple Browser.
+- **Missions** (`runtime/missionlab`, README there; `content/missions/dbt-v1`; `src/missions.ts`,
+  `src/platform/missions.ts`, `src/webview/MissionsPanel.tsx`): ticket-style tasks done with the real tools on a
+  project folder `missions/<id>/` (the pack's `base/` project plus the mission's `project/` overlay, copied once,
+  never overwritten). The runtime loads each mission's fixture batches into its own raw schema from the shipped SQL
+  (`POST /api/local/missions/setup`, kernel op `mission_setup`; the first batch drops the mission's raw and dev
+  schemas) and runs the hidden checker (`POST /api/local/missions/check`): read-only SQL through the catalog's query
+  contract (kernel op `mission_sql`, the Projects module's `compare_rows`), and, in the API process, the learner's
+  `target/manifest.json`, `run_results.json` and `sources.json`, board and render files, and an Airflow DAG parsed and
+  simulated by `airflowlab` (never executed). `dct validate` results come from the host, which runs the real dct.
+  Missions build with the dbt Lab's profile into `dbt_dev_<custom>` schemas, so they never collide with each other or
+  with the catalog layers. Reference solutions and mutants (plausible wrong answers) are excluded from the VSIX and
+  played by `scripts/missions_smoke.py` with real dbt Core and dct (CI installs them). The panel is lab-agnostic so
+  the Terminal and Infra labs can reuse it with their own check kinds.
 - **Artifacts** (`src/platform/dbtArtifacts.ts`): `target/manifest.json` + `target/run_results.json` of the selected
   project → command (from `args`), counts, DAG, problems, node details; a manifest newer than the results (after
   `dbt parse` or `docs generate`) is flagged. Labelled "dbt Core (real)".

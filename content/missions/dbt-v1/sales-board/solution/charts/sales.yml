@@ -1,0 +1,41 @@
+# Net sales by month and category, for the sales team.
+title: Net sales
+source: db
+
+variables:
+  category:
+    input: select
+    column: fct_order_lines.category
+
+queries:
+  monthly: |
+    SELECT strftime(order_date, '%Y-%m') AS month, SUM(net_amount) AS net_sales
+    FROM {{ ref('fct_order_lines') }}
+    WHERE {{ filter('category', category) }}
+    GROUP BY 1
+    ORDER BY 1
+  top_products: |
+    SELECT product_name, category, SUM(net_amount) AS net_sales
+    FROM {{ ref('fct_order_lines') }}
+    WHERE {{ filter('category', category) }}
+    GROUP BY 1, 2
+    ORDER BY 3 DESC
+    LIMIT 5
+
+charts:
+  net_sales_by_month:
+    title: Net sales by month
+    type: bar
+    query: monthly
+    x: month
+    y: net_sales
+    style:
+      number_format: "$,.0f"
+  top_products:
+    title: Top products
+    type: table
+    query: top_products
+
+rows:
+  - net_sales_by_month
+  - top_products

@@ -1,0 +1,211 @@
+{
+  "id": "backfill-daily-sales",
+  "version": "1",
+  "lab": "dbt",
+  "title": "Backfill three days the scheduler missed, then schedule the job",
+  "level": "intermediate",
+  "estimate": "30-45 min",
+  "skills": [
+    "--vars",
+    "node selection with tags",
+    "backfills",
+    "Airflow schedule and catchup"
+  ],
+  "ticket": {
+    "from": "Leo (analytics engineering)",
+    "subject": "fct_daily_sales stopped at 9 March",
+    "body": [
+      "The scheduler VM was down from 10 to 12 March, so the nightly `dbt build --select tag:daily` never ran",
+      "and `fct_daily_sales` stops at 9 March. The landing tables already have the orders of those days (and",
+      "today's, 13 March, which are not complete yet).",
+      "",
+      "1. Backfill 10, 11 and 12 March, one day per run as the nightly job does (the model reads the day in the",
+      "   `run_date` variable). Do not touch 9 March and do not load 13 March.",
+      "2. We are moving the job to Airflow 3. Write `airflow/dags/dbt_daily.py` in the mission folder: a DAG that",
+      "   runs every night at midnight and whose BashOperator runs `dbt build --select tag:daily` for the day that",
+      "   just ended. With catchup it must replay the nights of 11, 12 and 13 March, which load 10, 11 and 12",
+      "   March. Datapass parses the file and simulates the schedule; nothing in it is executed."
+    ]
+  },
+  "acceptance": [
+    {
+      "id": "backfilled",
+      "text": "fct_daily_sales has the right rows for 10, 11 and 12 March.",
+      "checks": [
+        {
+          "kind": "sql",
+          "sql": "SELECT CAST(sales_date AS VARCHAR) AS sales_date, category, orders, CAST(net_sales AS DOUBLE) AS net_sales FROM dbt_dev_bkfl.fct_daily_sales WHERE sales_date BETWEEN DATE '2026-03-10' AND DATE '2026-03-12'",
+          "expected": [
+            {
+              "sales_date": "2026-03-10",
+              "category": "Camping",
+              "orders": 1,
+              "net_sales": 300.0
+            },
+            {
+              "sales_date": "2026-03-10",
+              "category": "Climbing",
+              "orders": 1,
+              "net_sales": 208.0
+            },
+            {
+              "sales_date": "2026-03-10",
+              "category": "Apparel",
+              "orders": 1,
+              "net_sales": 149.0
+            },
+            {
+              "sales_date": "2026-03-11",
+              "category": "Camping",
+              "orders": 1,
+              "net_sales": 300.0
+            },
+            {
+              "sales_date": "2026-03-11",
+              "category": "Other",
+              "orders": 1,
+              "net_sales": 50.0
+            },
+            {
+              "sales_date": "2026-03-12",
+              "category": "Apparel",
+              "orders": 1,
+              "net_sales": 99.0
+            },
+            {
+              "sales_date": "2026-03-12",
+              "category": "Camping",
+              "orders": 1,
+              "net_sales": 179.0
+            },
+            {
+              "sales_date": "2026-03-12",
+              "category": "Climbing",
+              "orders": 1,
+              "net_sales": 138.0
+            }
+          ],
+          "fail": "Some days or categories are missing, doubled or wrong."
+        }
+      ]
+    },
+    {
+      "id": "nothing-else",
+      "text": "9 March is untouched and 13 March is not loaded.",
+      "checks": [
+        {
+          "kind": "sql",
+          "sql": "SELECT CAST(min(sales_date) AS VARCHAR) AS first_day, CAST(max(sales_date) AS VARCHAR) AS last_day, count(*) FILTER (WHERE sales_date = DATE '2026-03-09') AS rows_9_march, CAST(sum(net_sales) FILTER (WHERE sales_date = DATE '2026-03-09') AS DOUBLE) AS sales_9_march FROM dbt_dev_bkfl.fct_daily_sales",
+          "expected": [
+            {
+              "first_day": "2026-03-09",
+              "last_day": "2026-03-12",
+              "rows_9_march": 2,
+              "sales_9_march": 397.0
+            }
+          ],
+          "fail": "Days outside the backfill changed."
+        }
+      ]
+    },
+    {
+      "id": "like-the-job",
+      "text": "Your backfill ran like the nightly job: dbt build --select tag:daily with run_date set to one of the missing days.",
+      "checks": [
+        {
+          "kind": "run",
+          "command": "build",
+          "select_includes": [
+            "tag:daily"
+          ],
+          "vars": {
+            "run_date": [
+              "2026-03-10",
+              "2026-03-11",
+              "2026-03-12"
+            ]
+          },
+          "no_failures": true,
+          "nodes": {
+            "fct_daily_sales": [
+              "success"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "id": "airflow",
+      "text": "Up to 13 March 00:30, airflow/dags/dbt_daily.py runs the nights of 11, 12 and 13 March, each with dbt build --select tag:daily for the day before.",
+      "checks": [
+        {
+          "kind": "airflow",
+          "dag": "airflow/dags/dbt_daily.py",
+          "now": "2026-03-13T00:30:00+00:00",
+          "runs": [
+            {
+              "logical_date": "2026-03-11",
+              "command_contains": [
+                "dbt build",
+                "--select tag:daily",
+                "2026-03-10"
+              ]
+            },
+            {
+              "logical_date": "2026-03-12",
+              "command_contains": [
+                "dbt build",
+                "--select tag:daily",
+                "2026-03-11"
+              ]
+            },
+            {
+              "logical_date": "2026-03-13",
+              "command_contains": [
+                "dbt build",
+                "--select tag:daily",
+                "2026-03-12"
+              ]
+            }
+          ],
+          "fail": "The simulated schedule does not replay the three nights with the right days."
+        }
+      ]
+    }
+  ],
+  "hints": [
+    "Try `dbt build --select tag:daily` first and read the error: the model needs a variable.",
+    "`--vars '{run_date: 2026-03-10}'` passes a variable on the command line (quote it for your shell).",
+    "In Airflow 3, `@daily` runs at midnight and the run's logical date is that midnight: `{{ ds }}` is the day that is starting, not the one that ended.",
+    "`{{ macros.ds_add(ds, -1) }}` renders the day before; `yesterday_ds` no longer exists in Airflow 3. `catchup=True` replays missed runs from `start_date`.",
+    "Open the DAG in the Airflow Lab to see each simulated run's rendered command."
+  ],
+  "workspace": {
+    "raw_schema": "bkfl_raw",
+    "dev_schema": "dbt_dev_bkfl"
+  },
+  "batches": [
+    {
+      "id": "landing",
+      "label": "Landing tables 9-13 March; the fact as of 9 March",
+      "sql": [
+        "fixtures/erp.sql",
+        "backfill-daily-sales/fixtures/landing.sql"
+      ]
+    }
+  ],
+  "reference": [
+    {
+      "batch": "landing"
+    },
+    {
+      "dbt": "build --select tag:daily --vars \"{run_date: 2026-03-10}\""
+    },
+    {
+      "dbt": "build --select tag:daily --vars \"{run_date: 2026-03-11}\""
+    },
+    {
+      "dbt": "build --select tag:daily --vars \"{run_date: 2026-03-12}\""
+    }
+  ]
+}

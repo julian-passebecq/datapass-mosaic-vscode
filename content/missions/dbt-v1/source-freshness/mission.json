@@ -1,0 +1,117 @@
+{
+  "id": "source-freshness",
+  "version": "1",
+  "lab": "dbt",
+  "title": "Know when a source stops arriving",
+  "level": "intro",
+  "estimate": "20 min",
+  "skills": [
+    "source freshness",
+    "loaded_at_field",
+    "dbt source freshness",
+    "target/sources.json"
+  ],
+  "ticket": {
+    "from": "Priya (finance analytics)",
+    "subject": "Product categories were wrong for three weeks",
+    "body": [
+      "We found out today that the product catalogue in the warehouse was three weeks old: the ERP export job",
+      "had been disabled during a migration and nothing told us.",
+      "",
+      "Can you add freshness checks to the landing tables so this cannot happen silently again?",
+      "",
+      "- `shop.shop_orders` lands every night: warn after 12 hours, error after 24 hours.",
+      "- `erp.erp_products` lands once a week: warn after 7 days, error after 14 days.",
+      "",
+      "Both tables have a `loaded_at` column (when the export landed). Then run the freshness check the way the",
+      "orchestrator will, and confirm what it says about the ERP today."
+    ]
+  },
+  "acceptance": [
+    {
+      "id": "shop-rules",
+      "text": "shop.shop_orders: freshness on loaded_at, warn after 12 hours, error after 24 hours.",
+      "checks": [
+        {
+          "kind": "freshness_config",
+          "source": "shop.shop_orders",
+          "loaded_at_field": "loaded_at",
+          "warn_after": [
+            12,
+            "hour"
+          ],
+          "error_after": [
+            24,
+            "hour"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "erp-rules",
+      "text": "erp.erp_products: freshness on loaded_at, warn after 7 days, error after 14 days.",
+      "checks": [
+        {
+          "kind": "freshness_config",
+          "source": "erp.erp_products",
+          "loaded_at_field": "loaded_at",
+          "warn_after": [
+            7,
+            "day"
+          ],
+          "error_after": [
+            14,
+            "day"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "checked",
+      "text": "You ran dbt source freshness: the shop is fresh and the ERP is flagged as an error.",
+      "checks": [
+        {
+          "kind": "freshness_result",
+          "expect": {
+            "shop.shop_orders": [
+              "pass",
+              "warn"
+            ],
+            "erp.erp_products": [
+              "error"
+            ]
+          }
+        }
+      ]
+    }
+  ],
+  "hints": [
+    "Freshness is declared on a source table, with the column that says when the data landed (`loaded_at_field`).",
+    "Since dbt 1.10 both go under `config:` (the older top-level keys still work, with a deprecation warning).",
+    "The command is `dbt source freshness`; it writes `target/sources.json`."
+  ],
+  "workspace": {
+    "raw_schema": "fresh_raw",
+    "dev_schema": "dbt_dev_fresh"
+  },
+  "batches": [
+    {
+      "id": "landing",
+      "label": "The landing tables right now",
+      "sql": [
+        "fixtures/erp.sql",
+        "fixtures/shop.sql",
+        "source-freshness/fixtures/landing.sql"
+      ]
+    }
+  ],
+  "reference": [
+    {
+      "batch": "landing"
+    },
+    {
+      "dbt": "source freshness",
+      "exit_code": 1
+    }
+  ]
+}

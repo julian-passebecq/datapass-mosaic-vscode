@@ -19,20 +19,19 @@ import { JOB_NAME } from "./platform/databricksRun";
 import { FACTORY_FLAVORS, PIPELINE_NAME, pipelineRelativePath } from "./platform/factoryRun";
 import { SQLPOOL_FLAVORS, SQLPOOL_LIMITS, isValidScale } from "./platform/sqlpoolRun";
 import { findDbtProjects, projectFolder } from "./dbtState";
-import { writeDbtProfiles, type DbtTerminalSession, type DbtToolsManager } from "./dbtLab";
+import { dctValidate, writeDbtProfiles, type DbtTerminalSession, type DbtToolsManager } from "./dbtLab";
+import type { MissionsService } from "./missions";
+import { missionFolder } from "./platform/missions";
 import {
   buildDbtCommand,
   buildDctCommand,
-  dbtTerminalEnv,
   isBoardPath,
   renderPath,
-  toDctValidation,
   type DbtCommand,
   type DctFormat,
   type DctValidationView
 } from "./platform/dbtTools";
 import { findFreePort } from "./platform/runtimeEndpoint";
-import { execFile } from "node:child_process";
 import * as http from "node:http";
 import * as path from "node:path";
 import { MODULES, type ModuleId } from "./modules";
@@ -74,6 +73,7 @@ import type {
 export interface DbtLabServices {
   tools: DbtToolsManager;
   terminal: DbtTerminalSession;
+  missions: MissionsService;
 }
 
 const DBT_SELECTED_KEY = "datapass.dbt.selectedProject";
@@ -371,6 +371,14 @@ export class WorkbenchPanel {
         return;
       case "openDctHtml":
         await this.openDctHtml(message.board);
+        return;
+      case "startMission":
+      case "restartMission":
+      case "openMission":
+      case "loadMissionBatch":
+      case "revealMissionHint":
+      case "checkMission":
+        await this.missionAction(message.type, message.missionId);
         return;
       case "reattachCatalog":
         if (!(await this.runtimeManager.reattachCatalog())) {
@@ -1288,6 +1296,46 @@ export class WorkbenchPanel {
     await this.refresh();
   }
 
+  /** Missions: start, start over, open, load the next batch, reveal a hint, or run the hidden checker. */
+  private async missionAction(action: string, missionId: string): Promise<void> {
+    const missions = this.dbtLab.missions;
+    try {
+      if (action === "restartMission") {
+        const choice = await vscode.window.showWarningMessage(
+          "Start the mission over? Its data in the catalog is reloaded from the first batch and the tables dbt built for it are dropped. Your files in the mission folder stay as they are.",
+          { modal: true }, "Start over");
+        if (choice !== "Start over") return;
+      }
+      if (action === "startMission" || action === "restartMission") {
+        await missions.start(missionId);
+        await this.openMission(missionId);
+      } else if (action === "openMission") {
+        await this.openMission(missionId);
+      } else if (action === "loadMissionBatch") {
+        const label = await missions.loadNextBatch(missionId);
+        if (label) void vscode.window.showInformationMessage(`Loaded: ${label}. Run dbt again, as the nightly job would.`);
+      } else if (action === "revealMissionHint") {
+        await missions.revealHint(missionId);
+      } else if (action === "checkMission") {
+        await vscode.window.withProgress({ location: vscode.ProgressLocation.Notification, title: "Checking the mission…" },
+          () => missions.check(missionId));
+      }
+    } catch (error) {
+      void vscode.window.showErrorMessage(`Mission: ${error instanceof Error ? error.message : String(error)}`);
+    }
+    await this.refresh();
+  }
+
+  /** Select the mission's project in the dbt Lab and open its TICKET.md. */
+  private async openMission(missionId: string): Promise<void> {
+    const root = vscode.workspace.workspaceFolders?.[0]?.uri;
+    if (!root) return;
+    const folder = missionFolder(missionId);
+    await this.context.workspaceState.update(DBT_SELECTED_KEY, folder);
+    const ticket = vscode.Uri.joinPath(root, ...folder.split("/"), "TICKET.md");
+    if (await exists(ticket)) await this.openBeside(ticket);
+  }
+
   /** The selected dbt project and its folder, or undefined (with a message) when there is none. */
   private async selectedDbtProject(): Promise<{ path: string; folder: vscode.Uri; files: vscode.Uri[] } | undefined> {
     const projects = await findDbtProjects();
@@ -1332,17 +1380,7 @@ export class WorkbenchPanel {
     if (action === "render") await vscode.workspace.fs.createDirectory(vscode.Uri.joinPath(project.folder, "renders"));
     await this.dbtLab.terminal.run(project.folder, profilesDir, commandLine);
     if (action === "validate") {
-      const output = await runTool(path.join(this.dbtLab.tools.binDir, process.platform === "win32" ? "dct.exe" : "dct"),
-        ["--no-workspace-guard", "validate", "--json", board], project.folder.fsPath,
-        dbtTerminalEnv(process.env, this.dbtLab.tools.binDir, this.dbtLab.tools.venvRoot, profilesDir.fsPath, path.delimiter));
-      try {
-        this.dctValidations.set(`${project.path}::${board}`, toDctValidation(JSON.parse(output), board, new Date().toISOString()));
-      } catch {
-        this.dctValidations.set(`${project.path}::${board}`, {
-          board, success: false, checkedAt: new Date().toISOString(), warnings: [],
-          errors: [{ code: "", message: output.trim().split(/\r?\n/).slice(-3).join(" ") || "dct validate gave no JSON." }]
-        });
-      }
+      this.dctValidations.set(`${project.path}::${board}`, await dctValidate(this.dbtLab.tools, project.folder, profilesDir, board));
     }
     await this.refresh();
   }
@@ -1553,7 +1591,10 @@ export class WorkbenchPanel {
           selected: this.context.workspaceState.get<string>(DBT_SELECTED_KEY),
           shellIntegration: this.dbtLab.terminal.hasShellIntegration,
           validations: this.dctValidations,
-          serveUrl: this.dbtLab.terminal.serveUrl
+          serveUrl: this.dbtLab.terminal.serveUrl,
+          missions: this.selectedModule === "dbt"
+            ? { missions: await this.dbtLab.missions.list("dbt"), progress: (await this.dbtLab.missions.progress()).missions }
+            : undefined
         }
       }
     );
@@ -1712,14 +1753,6 @@ async function exists(uri: vscode.Uri): Promise<boolean> {
   } catch {
     return false;
   }
-}
-
-/** Run a managed tool without a shell and return its stdout (or stderr), never throwing. */
-function runTool(command: string, args: string[], cwd: string, env: Record<string, string>): Promise<string> {
-  return new Promise(resolve => {
-    execFile(command, args, { cwd, env: { ...process.env, ...env, PYTHONIOENCODING: "utf-8" }, timeout: 60_000, windowsHide: true,
-      maxBuffer: 4_000_000 }, (_error, stdout, stderr) => resolve(String(stdout || stderr || "")));
-  });
 }
 
 /** Poll a loopback URL until it answers (any HTTP status) or the time runs out. */

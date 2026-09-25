@@ -11,6 +11,8 @@ from fastapi.responses import JSONResponse
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
 from airflowlab.lab import lab_view
+from missionlab.check import evaluate as evaluate_mission, fixture_statements, sql_queries as mission_queries
+from missionlab.model import find_mission
 
 from .catalog_lease import CatalogLease, CatalogLocked, CatalogReleased, is_lock_error
 from .pipeline_compiler import compile_response
@@ -259,6 +261,26 @@ class CatalogReleaseRequest(BaseModel):
         return value
 
 
+class MissionSetupRequest(BaseModel):
+    """Missions: load one fixture batch of a shipped mission (the SQL comes from the content, not the request)."""
+    model_config = ConfigDict(extra="forbid", strict=True)
+    mission_id: str = Field(pattern=r"^[a-z0-9][a-z0-9-]{0,47}$")
+    batch_id: str = Field(pattern=r"^[a-z0-9-]{1,40}$")
+
+
+class MissionCheckRequest(BaseModel):
+    """Missions: run the hidden checker. `dct` carries the real `dct validate --json` results the host ran."""
+    model_config = ConfigDict(extra="forbid")
+    mission_id: str = Field(pattern=r"^[a-z0-9][a-z0-9-]{0,47}$")
+    dct: dict[str, dict[str, Any]] = Field(default_factory=dict, max_length=10)
+
+    @model_validator(mode="after")
+    def bounded(self) -> "MissionCheckRequest":
+        if len(json.dumps(self.dct)) > 200_000:
+            raise ValueError("dct results exceed 200 KB")
+        return self
+
+
 class RetailDemoRequest(BaseModel):
     model_config = ConfigDict(extra="forbid", strict=True)
     dataset_path: str = Field(min_length=1, max_length=500)
@@ -378,6 +400,11 @@ def capabilities() -> dict[str, object]:
             "checks": "catalog state (tables, read-only SQL, SQL pool designs, MLflow models) and the run journal of what the labs really ran",
             "manual_steps": "declared by the learner, never marked verified",
         },
+        "missions": {
+            "labs": ["dbt"],
+            "work": "real tools on a real project folder (missions/<id>/): dbt Core, dbt Charts, an Airflow DAG file",
+            "checker": "read-only SQL on the catalog, the learner's dbt artifacts and files, dct validate, the Airflow simulator",
+        },
         "pipeline_lab": {
             "mode": "hybrid",
             "compiler": "bounded-ast-design",
@@ -441,6 +468,36 @@ def reattach_catalog() -> dict[str, object]:
             catalog_lease.hold(previous or "another process")
             raise CatalogLocked(f"The catalog could not be reopened yet: {error}") from None
     return catalog_lease.view()
+
+
+def _mission(mission_id: str):
+    try:
+        return find_mission(mission_id)
+    except KeyError as error:
+        raise HTTPException(status_code=404, detail=str(error)) from error
+    except ValueError as error:
+        raise HTTPException(status_code=400, detail=str(error)) from error
+
+
+@app.post("/api/local/missions/setup")
+def mission_setup(body: MissionSetupRequest) -> dict[str, object]:
+    """Load a mission's fixture batch into the catalog. The first batch starts the mission over."""
+    mission, pack_dir = _mission(body.mission_id)
+    try:
+        statements = fixture_statements(mission, pack_dir, body.batch_id)
+    except ValueError as error:
+        raise HTTPException(status_code=400, detail=str(error)) from error
+    result = native_command({"op": "mission_setup", "statements": statements})
+    return {"mission_id": mission.id, "batch_id": body.batch_id, "statements": result["executed"]}
+
+
+@app.post("/api/local/missions/check")
+def mission_check(body: MissionCheckRequest) -> dict[str, object]:
+    """The hidden checker: read-only SQL on the catalog, the learner's dbt artifacts and files, dct, Airflow."""
+    mission, _pack_dir = _mission(body.mission_id)
+    queries = mission_queries(mission)
+    results = native_command({"op": "mission_sql", "queries": queries}) if queries else []
+    return evaluate_mission(mission, workspace_root() / mission.folder, dict(zip(queries, results)), body.dct)
 
 
 @app.post("/api/local/query")

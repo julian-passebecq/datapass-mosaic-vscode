@@ -1,0 +1,132 @@
+{
+  "id": "prod-unique-failure",
+  "version": "1",
+  "lab": "dbt",
+  "title": "Last night's build failed on a unique test",
+  "level": "intro",
+  "estimate": "20-30 min",
+  "skills": [
+    "reading dbt test failures",
+    "dbt build gating",
+    "deduplication",
+    "window functions"
+  ],
+  "ticket": {
+    "from": "On-call alert, #data-incidents",
+    "subject": "[FAILED] nightly dbt build: unique_stg_shop__orders_order_id",
+    "body": [
+      "```",
+      "03:12:09  Failure in test unique_stg_shop__orders_order_id (models/staging/_staging.yml)",
+      "03:12:09    Got 2 results, configured to fail if != 0",
+      "03:12:09  Done. PASS=6 WARN=0 ERROR=1 SKIP=4 NO-OP=0 TOTAL=11",
+      "```",
+      "",
+      "The marts were skipped, so the revenue dashboards still show yesterday. The landing tables of last night",
+      "are in the mission's raw schema. Please find out why the test failed and fix the project so the nightly",
+      "build is green again. The test stays: it protects every join on orders downstream."
+    ]
+  },
+  "acceptance": [
+    {
+      "id": "tests-kept",
+      "text": "The unique and not_null tests on stg_shop__orders.order_id are still there, as errors.",
+      "checks": [
+        {
+          "kind": "test",
+          "test": "unique",
+          "model": "stg_shop__orders",
+          "column": "order_id"
+        },
+        {
+          "kind": "test",
+          "test": "not_null",
+          "model": "stg_shop__orders",
+          "column": "order_id"
+        }
+      ]
+    },
+    {
+      "id": "green",
+      "text": "Your last dbt build ran every node and test, and all of them passed.",
+      "checks": [
+        {
+          "kind": "run",
+          "command": "build",
+          "no_failures": true,
+          "nodes": {
+            "unique_stg_shop__orders_order_id": [
+              "pass"
+            ],
+            "fct_order_lines": [
+              "success"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "id": "latest-delivery",
+      "text": "stg_shop__orders keeps one row per order: the latest delivery.",
+      "checks": [
+        {
+          "kind": "sql",
+          "sql": "SELECT count(*) AS orders, count(DISTINCT order_id) AS distinct_orders, max(CASE WHEN order_id = 'SO1006' THEN payment_type END) AS so1006_payment FROM dbt_dev_uniq.stg_shop__orders",
+          "expected": [
+            {
+              "orders": 11,
+              "distinct_orders": 11,
+              "so1006_payment": "paypal"
+            }
+          ],
+          "fail": "Orders are duplicated, missing, or not the latest delivery."
+        }
+      ]
+    },
+    {
+      "id": "no-fan-out",
+      "text": "fct_order_lines has each of the 16 order lines once (no line doubled by the duplicates).",
+      "checks": [
+        {
+          "kind": "sql",
+          "sql": "SELECT count(*) AS order_lines, count(DISTINCT order_id || '/' || line_number) AS distinct_lines FROM dbt_dev_uniq.fct_order_lines",
+          "expected": [
+            {
+              "order_lines": 16,
+              "distinct_lines": 16
+            }
+          ],
+          "fail": "The fact is missing lines or has doubled ones."
+        }
+      ]
+    }
+  ],
+  "hints": [
+    "Reproduce it first: run dbt build and read which test fails and what was skipped because of it.",
+    "Look at the raw orders: which order_id values appear more than once, and what differs between the copies?",
+    "`loaded_at` says which delivery is the newer one.",
+    "DuckDB supports `qualify` with window functions such as `row_number() over (partition by ... order by ...)`."
+  ],
+  "workspace": {
+    "raw_schema": "uniq_raw",
+    "dev_schema": "dbt_dev_uniq"
+  },
+  "batches": [
+    {
+      "id": "landing",
+      "label": "Last night's landing tables",
+      "sql": [
+        "fixtures/erp.sql",
+        "fixtures/shop.sql",
+        "prod-unique-failure/fixtures/landing.sql"
+      ]
+    }
+  ],
+  "reference": [
+    {
+      "batch": "landing"
+    },
+    {
+      "dbt": "build"
+    }
+  ]
+}

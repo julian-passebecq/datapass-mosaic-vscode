@@ -1328,3 +1328,31 @@ h2 { margin-bottom: 8px; font-size: 28px; }
 .dct-board { display: grid; gap: 6px; padding-top: 8px; border-top: 1px solid var(--vscode-panel-border); }
 .dct-render { margin: 0; }
 .dct-render img { display: block; max-width: min(100%, 720px); height: auto; border-radius: 6px; background: #fff; }
+
+/* Missions: a list of tickets and the selected ticket (dbt Lab; reusable by other labs). */
+.missions { display: grid; grid-template-columns: minmax(200px, 280px) minmax(0, 1fr); gap: 14px; min-width: 0; }
+@media (max-width: 760px) { .missions { grid-template-columns: minmax(0, 1fr); } }
+.missions-list { display: grid; gap: 6px; align-content: start; }
+.mission-card {
+  display: grid; gap: 2px; padding: 8px 10px; text-align: left; cursor: pointer;
+  color: inherit; background: transparent; border: 1px solid var(--vscode-panel-border); border-radius: 6px;
+}
+.mission-card:hover { background: var(--vscode-list-hoverBackground); }
+.mission-card.is-selected { border-color: var(--vscode-focusBorder); background: var(--vscode-list-inactiveSelectionBackground); }
+.mission-card-title { font-weight: 600; font-size: 13px; }
+.mission-card-meta { font-size: 11px; opacity: 0.85; }
+.mission-status-passed { color: var(--vscode-charts-green, #2e7d32); font-weight: 600; }
+.mission-status-in-progress { color: var(--vscode-charts-blue, #1e88e5); }
+.mission-detail { display: grid; gap: 10px; min-width: 0; padding: 12px 14px; border: 1px solid var(--vscode-panel-border); border-radius: 7px; }
+.mission-ticket-head { display: grid; gap: 4px; }
+.mission-ticket-body { max-width: 860px; font-size: 13px; line-height: 1.5; }
+.mission-ticket-body p, .mission-ticket-body ul, .mission-ticket-body ol { margin: 6px 0; }
+.mission-ticket-body pre { white-space: pre-wrap; }
+.mission-actions { flex-wrap: wrap; }
+.mission-criteria ul { list-style: none; padding: 0; margin: 6px 0; display: grid; gap: 6px; }
+.mission-criteria li { display: grid; grid-template-columns: 18px minmax(0, 1fr); column-gap: 4px; }
+.mission-criteria li small { grid-column: 2; opacity: 0.85; }
+.criterion-pass > span { color: var(--vscode-charts-green, #2e7d32); }
+.criterion-fail > span { color: var(--vscode-errorForeground); }
+.mission-passed { color: var(--vscode-charts-green, #2e7d32); font-weight: 600; }
+.mission-hint { padding: 6px 10px; border-left: 3px solid var(--vscode-textLink-foreground); background: var(--vscode-textBlockQuote-background, transparent); }

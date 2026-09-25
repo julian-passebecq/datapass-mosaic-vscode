@@ -1,0 +1,26 @@
+title: Net sales
+source: db
+
+variables:
+  category:
+    input: select
+    options:
+      static: [Camping, Climbing, Apparel, Other]
+
+queries:
+  monthly: |
+    SELECT strftime(o.order_date, '%Y-%m') AS month, SUM(l.quantity * l.unit_price) AS net_sales
+    FROM board_raw.shop_order_lines AS l
+    JOIN board_raw.shop_orders AS o ON o.order_id = l.order_id
+    GROUP BY 1
+    ORDER BY 1
+
+charts:
+  net_sales_by_month:
+    type: bar
+    query: monthly
+    x: month
+    y: net_sales
+
+rows:
+  - net_sales_by_month

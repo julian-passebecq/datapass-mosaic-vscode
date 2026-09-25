@@ -537,6 +537,22 @@ class Engine:
             return self.catalog.listing()
         if op == 'catalog_schema':
             return self.catalog.schema()
+        if op == 'mission_setup':
+            # Fixture SQL of a mission batch: read by the API from the shipped content, never from a request.
+            if self.catalog.kind == 'sqlite':
+                raise ValueError('Missions need the DuckDB catalog.')
+            for statement in request['statements']:
+                self.catalog.db.execute(statement)
+            return {'executed': len(request['statements'])}
+        if op == 'mission_sql':
+            # The hidden checker's queries: one SELECT each, through the read-only query contract.
+            results = []
+            for query in request['queries']:
+                try:
+                    results.append(self.catalog.query(query))
+                except Exception as error:  # a missing table is a failed check, not an outage
+                    results.append({'error': str(error).splitlines()[0][:400]})
+            return results
         if op == 'lakehouse':
             return self.catalog.lakehouse_overview()
         if op == 'spark_verify_fixture':

@@ -266,6 +266,21 @@ catalog. (The BI Lab keeps the guided dbt emulation.)
    (`--host 127.0.0.1`) in its own terminal and opens it in VS Code's Simple Browser; **Stop dct serve** closes it and
    the catalog comes back. Build the models first: boards read what dbt built. If you installed the dbt tools before
    dbt Charts was added, use **Update dbt tools**.
+8. **Missions** (the dbt Lab's second tab). Five tickets from the analytics team, less guided than Practice: context
+   and a request, acceptance criteria, hints one at a time when you ask, no pre-chewed starter.
+   - *Last night's build failed on a unique test* (intro): reproduce, diagnose, fix without weakening the test.
+   - *Know when a source stops arriving* (intro): source freshness, then `dbt source freshness`.
+   - *Keep order history when the shop exports only what changed* (intermediate): an incremental model, then
+     **Load next batch** (tomorrow's export) and run it again.
+   - *Backfill three days the scheduler missed, then schedule the job* (intermediate): `--select tag:daily --vars`, then
+     an Airflow 3 DAG file that the Airflow Lab's simulator replays (parsed, never executed).
+   - *A sales board in dbt Charts* (intermediate): a board on the mart that validates and renders.
+
+   **Start mission** copies the team's project to `missions/<id>/` (never overwriting your files), writes `TICKET.md`,
+   loads the mission's data into its own schemas and selects the project. Work with the real tools, then **Check my
+   work**: a hidden checker runs read-only SQL on your catalog and reads your own dbt artifacts, your files, the real
+   `dct validate` and the simulated Airflow schedule. **Start over** reloads the data and drops what dbt built for the
+   mission; your files stay. Progress lives in `.datapass/missions/progress.json`.
 
 ## 4. Runtime
 

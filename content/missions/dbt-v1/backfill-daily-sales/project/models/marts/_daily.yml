@@ -1,0 +1,8 @@
+version: 2
+
+models:
+  - name: fct_daily_sales
+    description: Net sales per day and category, loaded one day at a time.
+    columns:
+      - name: sales_date
+        data_tests: [not_null]

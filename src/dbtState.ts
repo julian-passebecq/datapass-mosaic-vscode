@@ -47,6 +47,7 @@ export async function loadDbtState(options: {
   shellIntegration?: boolean;
   validations?: ReadonlyMap<string, DctValidationView>;
   serveUrl?: string;
+  missions?: DbtViewState["missions"];
 }): Promise<DbtViewState> {
   const projects = (await findDbtProjects()).map(({ path, name, profile }) => ({ path, name, profile }));
   const selected = projects.find(project => project.path === options.selected)?.path ?? projects[0]?.path;
@@ -55,7 +56,8 @@ export async function loadDbtState(options: {
     selected,
     tools: options.tools,
     profilesPath: ".datapass/dbt/profiles.yml",
-    shellIntegration: options.shellIntegration
+    shellIntegration: options.shellIntegration,
+    missions: options.missions
   };
   const folder = selected !== undefined ? projectFolder(selected) : undefined;
   if (!folder) return state;

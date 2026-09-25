@@ -545,6 +545,36 @@ export class RuntimeManager implements vscode.Disposable {
     return true;
   }
 
+  /** Missions: load one fixture batch of a shipped mission (the first one starts the mission over). */
+  async missionSetup(missionId: string, batchId: string): Promise<void> {
+    const url = this.requireAttached("load a mission's data");
+    try {
+      await requestJson<unknown>(`${url}/api/local/missions/setup`, "POST", { mission_id: missionId, batch_id: batchId }, 60000);
+    } catch (error) {
+      throw new Error(runtimeErrorDetail(error));
+    }
+    await this.refreshCatalog();
+  }
+
+  /** Missions: the hidden checker. `dct` carries the real `dct validate --json` results for the mission's boards. */
+  async missionCheck(missionId: string, dct: Record<string, unknown>): Promise<unknown> {
+    const url = this.requireAttached("check a mission");
+    try {
+      return await requestJson<unknown>(`${url}/api/local/missions/check`, "POST", { mission_id: missionId, dct }, 60000);
+    } catch (error) {
+      throw new Error(runtimeErrorDetail(error));
+    }
+  }
+
+  private requireAttached(action: string): string {
+    const url = this.state.status === "running" ? this.state.url : undefined;
+    if (!url) throw new Error(`Start the Datapass runtime to ${action}.`);
+    if (this.state.catalogLease) {
+      throw new Error(`The catalog is lent to ${this.state.catalogLease.holder}: wait for it to end (or Reattach catalog), then retry.`);
+    }
+    return url;
+  }
+
   /** Catalog tree view: every schema's tables and views with columns, types and row counts. */
   async fetchCatalogSchema(): Promise<unknown> {
     const url = this.state.status === "running" ? this.state.url : undefined;

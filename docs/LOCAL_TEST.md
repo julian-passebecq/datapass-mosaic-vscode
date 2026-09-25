@@ -91,6 +91,10 @@ npm run test:host
 
 The runtime steps also cover the catalog handoff (release, a second process writing the file, a refused reattach while it is held, then a reattach that sees its table) and the Catalog tree. With `DATAPASS_DBT_PYTHON` set to a Python that has dbt-core and dbt-duckdb, one more step types `dbt build` for the BI project in a real terminal and checks that the catalog was lent and reattached through shell integration and that the artifacts read back as a clean dbt Core run (CI installs them in a venv for this).
 
+With both variables, a mission step starts *Last night's build failed on a unique test* through the missions service, reproduces the failing `dbt build` in a real terminal, applies the fix, rebuilds and gets a passing verdict from the hidden checker. Without `DATAPASS_DBT_PYTHON` it only checks the project copy, `TICKET.md`, the progress file and a first "not yet" verdict.
+
+`scripts/missions_smoke.py` plays every mission of `content/missions` through the runtime API with real dbt Core and dct (`DATAPASS_DBT_PYTHON` must point to a Python that has dbt-core, dbt-duckdb and dbt-charts): each reference solution passes, each untouched project and each mutant fails. Without the variable it only validates the pack.
+
 Without `DATAPASS_E2E_PYTHON` steps 5–11 are reported as skipped. The suite does not click webview buttons: it drives the same host classes the panel uses. Manual F5 inspection of the webview UI is still required for user-facing changes.
 
 The extension must stay green before deeper Mosaic/Pipeline/Fabric surfaces are promoted from migration sources.

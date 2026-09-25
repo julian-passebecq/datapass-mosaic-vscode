@@ -1,0 +1,6 @@
+# dbt Charts project config: boards in charts/ read the dbt project through its profile.
+sources:
+  db:
+    type: dbt_profile
+    profile: datapass_missions
+    target: dev

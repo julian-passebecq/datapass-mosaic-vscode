@@ -1,0 +1,10 @@
+version: 2
+
+models:
+  - name: fct_order_lines
+    description: One row per order line.
+    columns:
+      - name: order_id
+        data_tests: [not_null]
+      - name: category
+        data_tests: [not_null]
