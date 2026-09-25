@@ -34,6 +34,12 @@ holds the code-debt audit of 2026-09-25). One PR per item, merged on green CI.
   in a real VS Code window with Pylance, 0 problems on five exercises while a control file with a missing import
   was flagged. `.vscodeignore` now excludes `.claude/**` and `.venv/**`: from the main checkout, `vsce` would
   otherwise have packaged the parallel sessions' worktrees (185 040 files).
+- **V1-5** (`feature/setup-runtime-uv`): Setup runtime uses uv when it answers `uv --version` (PATH, `~/.local/bin`,
+  `~/.cargo/bin`): `uv venv --seed` from the absolute path of the configured Python, then `uv pip install` with
+  `--refresh-package/--reinstall-package datapass-runtime` (the runtime keeps version 0.1.0 across releases). Any uv
+  failure falls back to `python -m venv` + pip. Real VS Code, fresh profile, this Windows machine: Setup runtime
+  162 s with pip, 23 s with uv. Harness note: keep the Playwright profile path short; a deep scratch path pushed
+  DuckDB's DLL past MAX_PATH ("DLL load failed ... filename or extension is too long").
 
 ## 0. Projects: end-to-end stories across the labs — Claude, 2026-09-25
 
