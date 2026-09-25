@@ -719,7 +719,7 @@ export async function run(): Promise<void> {
       assert.equal(semantic.status, "passed", JSON.stringify(semantic.checks));
 
       // Engine lab: named tables reach SparkLab; Python variants stay behind the trust gate.
-      assert.equal(catalog.filter(item => item.packId === "engine-lab-v1").length, 68);
+      assert.equal(catalog.filter(item => item.packId === "engine-lab-v1").length, 103, "68 variants + 17 T-SQL + 18 BigQuery");
       assert.equal(catalog.filter(item => item.packId === "python-lab-v1").length, 12);
       const engine = JSON.parse(new TextDecoder().decode(await vscode.workspace.fs.readFile(
         vscode.Uri.joinPath(extension.extensionUri, "content", "exercise-packs", "engine-lab-v1", "grading.server.json")
