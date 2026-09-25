@@ -36,6 +36,12 @@ h2 { margin-bottom: 8px; font-size: 28px; }
   border-bottom: 1px solid var(--vscode-panel-border);
   overflow-x: auto;
 }
+/* Lab sub-tabs (Cloud Lab, BI Lab) wrap in a narrow Workbench instead of widening the page.
+   Doubled class: Fluent's TabList sets flex-wrap: nowrap in a style injected after this sheet. */
+.lab-subtabs.lab-subtabs {
+  flex-wrap: wrap;
+  min-width: 0;
+}
 .content-grid {
   display: grid;
   grid-template-columns: minmax(0, 1fr) 320px;
@@ -53,6 +59,9 @@ h2 { margin-bottom: 8px; font-size: 28px; }
 }
 /* Badges are single-line labels everywhere; wrap the surrounding row, never the pill. */
 .fui-Badge { flex-shrink: 0; white-space: nowrap; }
+/* The execution-model pill may be longer than a narrow Workbench: shrink it with an ellipsis (full text in its title). */
+.module-heading .execution-badge { flex-shrink: 1; min-width: 0; max-width: 100%; }
+.execution-badge > span { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
 .module-heading p {
   max-width: 780px;
   color: var(--vscode-descriptionForeground);

@@ -31,7 +31,7 @@ export function FabricSurface({
           {running ? "local runtime connected" : "runtime stopped"}
         </Badge>
       </div>
-      <TabList selectedValue={tab} onTabSelect={(_, data) => setTab(data.value as typeof tab)} size="small">
+      <TabList className="lab-subtabs" selectedValue={tab} onTabSelect={(_, data) => setTab(data.value as typeof tab)} size="small">
         <Tab value="pipelines">Pipelines</Tab>
         <Tab value="sqlpool">SQL pool</Tab>
         <Tab value="databricks">Databricks</Tab>

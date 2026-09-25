@@ -136,7 +136,9 @@ export function WorkbenchApp({ vscode }: { vscode: VsCodeApi }) {
                 <h2>{selected.label}</h2>
                 <p>{selected.description}</p>
               </div>
-              <Badge appearance="outline">{selected.execution}</Badge>
+              <Badge appearance="outline" className="execution-badge" title={selected.execution}>
+                <span>{selected.execution}</span>
+              </Badge>
             </div>
 
             {selected.id === "mosaic" ? (
