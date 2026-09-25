@@ -1,0 +1,1197 @@
+[
+  {
+    "schema_version": 1,
+    "id": "sp-replicate-dimension",
+    "version": "1",
+    "title": "Replicate a small dimension",
+    "difficulty": "easy",
+    "topics": [
+      "distribution",
+      "replicated-tables",
+      "data-movement"
+    ],
+    "tags": [
+      "cloud-lab",
+      "sql-pool",
+      "synapse",
+      "simulated"
+    ],
+    "origin": "authored",
+    "language": "sqlpool",
+    "runtime": "datapass-sqlpool-sim-v1",
+    "prompt": "dbo.fact_sales (1.2 billion rows) is hash distributed on order_id. The revenue-by-region report joins it to dbo.dim_store, which you create from bronze.stores (8 stores). Choose dim_store's distribution so the join itself needs no data movement: today every run broadcasts the stores.",
+    "sections": [
+      {
+        "title": "Simulator",
+        "body": "Your T-SQL script runs on the lab's simulated Azure Synapse dedicated SQL pool: the statements are translated to DuckDB for a documented subset and the data really runs, on an isolated catalog built for each check. Distributions (60), partitions, columnstore rowgroups and the data movement of plans are modelled from Synapse's design rules; they are not Synapse telemetry. Nothing connects to Azure or Fabric. End statements with ; (procedures take their own GO batch)."
+      },
+      {
+        "title": "Graded",
+        "body": "The data movement of the report query (SELECT s.region, SUM(f.amount) ... JOIN dbo.dim_store ... GROUP BY s.region), the distribution of dbo.dim_store, and the report's rows."
+      }
+    ],
+    "starter_source": "-- dim_store has 8 rows; the sales report joins every sale (1.2 billion) to its store.\nCREATE TABLE dbo.dim_store\nWITH ( DISTRIBUTION = ROUND_ROBIN, CLUSTERED COLUMNSTORE INDEX )\nAS\nSELECT store_id, store_name, region\nFROM bronze.stores;\n",
+    "fixtures": [
+      {
+        "id": "sp-replicate-dimension-fixtures",
+        "version": "1"
+      }
+    ],
+    "visible_checks": [
+      {
+        "id": "report-movement",
+        "description": "Simulated SQL pool outcome for the public scenario."
+      }
+    ],
+    "hidden_check_refs": [
+      "dim-design"
+    ],
+    "edge_check_refs": [
+      "report-rows"
+    ],
+    "hints": [
+      "A replicated table keeps a full copy on every compute node, so any distribution can join to it locally.",
+      "The GROUP BY on region still shuffles: the fact is distributed on order_id. Only the join's movement goes away."
+    ],
+    "solution": {
+      "available": true,
+      "reveal": "explicit"
+    },
+    "explanation": "DISTRIBUTION = REPLICATE copies the 8 stores to every compute node, so the join runs inside each distribution. A round-robin or HASH(store_id) dimension has to be broadcast on every run, because the fact is distributed on order_id. The aggregation still shuffles on region; that is a separate step.",
+    "follow_ups": [
+      "When does a replicated table stop being a good idea? Think about size (the guidance says under 2 GB) and how often it changes."
+    ],
+    "canonical_placement": {
+      "domain": "cloud-sql-pool",
+      "topic": "distribution"
+    },
+    "related_associations": [
+      "cloud-lab/sql-pool"
+    ],
+    "recommendation": {
+      "rank": 1,
+      "reason": "Cloud Lab SQL pool progression"
+    },
+    "validator_version": "rows-v2",
+    "validation": {
+      "kind": "rows",
+      "ordered": false,
+      "duplicate_sensitive": true,
+      "relative_tolerance": 1e-09,
+      "absolute_tolerance": 1e-06,
+      "required_columns": [],
+      "exact_schema": null,
+      "forbidden_extra_columns": true,
+      "null_semantics": "equal"
+    },
+    "runtime_requirements": [
+      "sqlpool-simulator"
+    ],
+    "provenance": {
+      "source": "Authored for Datapass Workbench: Synapse dedicated SQL pool and Fabric Warehouse design rules",
+      "fixtures": "Authored scenarios; expected rows computed by running the reference and reviewed"
+    },
+    "constraints": {
+      "truth": "Simulated Azure Synapse dedicated SQL pool: data statements run on an isolated local DuckDB catalog; distributions, partitions and data movement are modelled."
+    },
+    "truth": "simulated"
+  },
+  {
+    "schema_version": 1,
+    "id": "sp-colocate-fact-join",
+    "version": "1",
+    "title": "Co-locate two fact tables on their join key",
+    "difficulty": "medium",
+    "topics": [
+      "distribution",
+      "ctas",
+      "data-movement"
+    ],
+    "tags": [
+      "cloud-lab",
+      "sql-pool",
+      "synapse",
+      "simulated"
+    ],
+    "origin": "authored",
+    "language": "sqlpool",
+    "runtime": "datapass-sqlpool-sim-v1",
+    "prompt": "dbo.fact_sales is hash distributed on order_id; dbo.fact_returns is ROUND_ROBIN, so joining them on order_id shuffles 300 million returns on every run. Rebuild dbo.fact_returns with CTAS so the join and its GROUP BY f.order_id need no data movement, swap the names with RENAME OBJECT so it is still called dbo.fact_returns, and drop the old table.",
+    "sections": [
+      {
+        "title": "Simulator",
+        "body": "Your T-SQL script runs on the lab's simulated Azure Synapse dedicated SQL pool: the statements are translated to DuckDB for a documented subset and the data really runs, on an isolated catalog built for each check. Distributions (60), partitions, columnstore rowgroups and the data movement of plans are modelled from Synapse's design rules; they are not Synapse telemetry. Nothing connects to Azure or Fabric. End statements with ; (procedures take their own GO batch)."
+      },
+      {
+        "title": "Graded",
+        "body": "The data movement of the join query, the distribution of dbo.fact_returns, whether the rows are all still there, and that no old copy is left behind."
+      }
+    ],
+    "starter_source": "-- dbo.fact_returns (300 million rows) is ROUND_ROBIN: the join to dbo.fact_sales shuffles it on every run.\nCREATE TABLE dbo.fact_returns_new\nWITH ( DISTRIBUTION = ROUND_ROBIN, CLUSTERED COLUMNSTORE INDEX )\nAS\nSELECT *\nFROM dbo.fact_returns;\n",
+    "fixtures": [
+      {
+        "id": "sp-colocate-fact-join-fixtures",
+        "version": "1"
+      }
+    ],
+    "visible_checks": [
+      {
+        "id": "join-movement",
+        "description": "Simulated SQL pool outcome for the public scenario."
+      }
+    ],
+    "hidden_check_refs": [
+      "returns-design",
+      "no-leftover"
+    ],
+    "edge_check_refs": [
+      "rows-kept"
+    ],
+    "hints": [
+      "You can't change a table's distribution in place: CTAS a new table, then swap names.",
+      "Both sides of the join must be hash distributed on the join column, with the same data type."
+    ],
+    "solution": {
+      "available": true,
+      "reveal": "explicit"
+    },
+    "explanation": "CTAS with DISTRIBUTION = HASH(order_id) puts every return on the same distribution as its sale, so the join runs locally, and so does GROUP BY f.order_id. Two RENAME OBJECT statements swap the names as a metadata operation. Changing order_id's type to BIGINT would break the alignment again: the data types of the join columns must match.",
+    "follow_ups": [
+      "Why re-create statistics after a CTAS swap in a real pool?"
+    ],
+    "canonical_placement": {
+      "domain": "cloud-sql-pool",
+      "topic": "distribution"
+    },
+    "related_associations": [
+      "cloud-lab/sql-pool"
+    ],
+    "recommendation": {
+      "rank": 2,
+      "reason": "Cloud Lab SQL pool progression"
+    },
+    "validator_version": "rows-v2",
+    "validation": {
+      "kind": "rows",
+      "ordered": false,
+      "duplicate_sensitive": true,
+      "relative_tolerance": 1e-09,
+      "absolute_tolerance": 1e-06,
+      "required_columns": [],
+      "exact_schema": null,
+      "forbidden_extra_columns": true,
+      "null_semantics": "equal"
+    },
+    "runtime_requirements": [
+      "sqlpool-simulator"
+    ],
+    "provenance": {
+      "source": "Authored for Datapass Workbench: Synapse dedicated SQL pool and Fabric Warehouse design rules",
+      "fixtures": "Authored scenarios; expected rows computed by running the reference and reviewed"
+    },
+    "constraints": {
+      "truth": "Simulated Azure Synapse dedicated SQL pool: data statements run on an isolated local DuckDB catalog; distributions, partitions and data movement are modelled."
+    },
+    "truth": "simulated"
+  },
+  {
+    "schema_version": 1,
+    "id": "sp-skew-free-key",
+    "version": "1",
+    "title": "Choose a distribution column without skew",
+    "difficulty": "medium",
+    "topics": [
+      "distribution",
+      "data-skew"
+    ],
+    "tags": [
+      "cloud-lab",
+      "sql-pool",
+      "synapse",
+      "simulated"
+    ],
+    "origin": "authored",
+    "language": "sqlpool",
+    "runtime": "datapass-sqlpool-sim-v1",
+    "prompt": "Create dbo.fact_web_events from bronze.web_events, hash distributed on a column that spreads the rows evenly over the 60 distributions: less than 10% difference between the fullest and the emptiest one. A bot account makes 35% of the events, 10% of the events have no customer, and there are only a few days and three devices.",
+    "sections": [
+      {
+        "title": "Simulator",
+        "body": "Your T-SQL script runs on the lab's simulated Azure Synapse dedicated SQL pool: the statements are translated to DuckDB for a documented subset and the data really runs, on an isolated catalog built for each check. Distributions (60), partitions, columnstore rowgroups and the data movement of plans are modelled from Synapse's design rules; they are not Synapse telemetry. Nothing connects to Azure or Fabric. End statements with ; (procedures take their own GO batch)."
+      },
+      {
+        "title": "Graded",
+        "body": "The distribution of dbo.fact_web_events: HASH, and whether its skew is 10% or more; its distribution column; and its row count."
+      },
+      {
+        "title": "The lab's skew model",
+        "body": "Every key value that repeats and holds at least 1% of the rows is placed on a distribution by a stable hash; NULL keys all land on one distribution; values seen once and rarer values spread evenly, since each stands for many distinct values at scale. Skew is (max - min) / max rows per distribution, the check the Synapse guidance uses."
+      }
+    ],
+    "starter_source": "-- 4.5 billion events a year. Analysts filter by event_date and join to customers, but a bot account\n-- (C000) produces 35% of the events and 10% have no customer at all.\nCREATE TABLE dbo.fact_web_events\nWITH ( DISTRIBUTION = HASH(customer_id), CLUSTERED COLUMNSTORE INDEX )\nAS\nSELECT event_id, customer_id, event_date, device\nFROM bronze.web_events;\n",
+    "fixtures": [
+      {
+        "id": "sp-skew-free-key-fixtures",
+        "version": "1"
+      }
+    ],
+    "visible_checks": [
+      {
+        "id": "skew",
+        "description": "Simulated SQL pool outcome for the public scenario."
+      }
+    ],
+    "hidden_check_refs": [
+      "key"
+    ],
+    "edge_check_refs": [
+      "rows"
+    ],
+    "hints": [
+      "All rows with the same key value land on the same distribution, and so do all NULLs.",
+      "A date column concentrates each day on one distribution, and few distinct values leave distributions empty."
+    ],
+    "solution": {
+      "available": true,
+      "reveal": "explicit"
+    },
+    "explanation": "Only a column with many distinct values and no NULLs spreads evenly: event_id. customer_id puts the bot's 35% and every NULL on single distributions; event_date and device have too few values, so most distributions stay empty. Queries that filter on one date would also run on a single distribution.",
+    "follow_ups": [
+      "When would you accept some skew to avoid data movement on a frequent join?"
+    ],
+    "canonical_placement": {
+      "domain": "cloud-sql-pool",
+      "topic": "distribution"
+    },
+    "related_associations": [
+      "cloud-lab/sql-pool"
+    ],
+    "recommendation": {
+      "rank": 3,
+      "reason": "Cloud Lab SQL pool progression"
+    },
+    "validator_version": "rows-v2",
+    "validation": {
+      "kind": "rows",
+      "ordered": false,
+      "duplicate_sensitive": true,
+      "relative_tolerance": 1e-09,
+      "absolute_tolerance": 1e-06,
+      "required_columns": [],
+      "exact_schema": null,
+      "forbidden_extra_columns": true,
+      "null_semantics": "equal"
+    },
+    "runtime_requirements": [
+      "sqlpool-simulator"
+    ],
+    "provenance": {
+      "source": "Authored for Datapass Workbench: Synapse dedicated SQL pool and Fabric Warehouse design rules",
+      "fixtures": "Authored scenarios; expected rows computed by running the reference and reviewed"
+    },
+    "constraints": {
+      "truth": "Simulated Azure Synapse dedicated SQL pool: data statements run on an isolated local DuckDB catalog; distributions, partitions and data movement are modelled."
+    },
+    "truth": "simulated"
+  },
+  {
+    "schema_version": 1,
+    "id": "sp-staging-heap",
+    "version": "1",
+    "title": "Design a staging table for fast loads",
+    "difficulty": "easy",
+    "topics": [
+      "indexes",
+      "staging",
+      "distribution"
+    ],
+    "tags": [
+      "cloud-lab",
+      "sql-pool",
+      "synapse",
+      "simulated"
+    ],
+    "origin": "authored",
+    "language": "sqlpool",
+    "runtime": "datapass-sqlpool-sim-v1",
+    "prompt": "Create the staging table dbo.stg_orders from bronze.orders_raw. It is emptied and reloaded every night and read once by the next step, which joins nothing on it. Use the table design the Synapse guidance recommends for such staging tables.",
+    "sections": [
+      {
+        "title": "Simulator",
+        "body": "Your T-SQL script runs on the lab's simulated Azure Synapse dedicated SQL pool: the statements are translated to DuckDB for a documented subset and the data really runs, on an isolated catalog built for each check. Distributions (60), partitions, columnstore rowgroups and the data movement of plans are modelled from Synapse's design rules; they are not Synapse telemetry. Nothing connects to Azure or Fabric. End statements with ; (procedures take their own GO batch)."
+      },
+      {
+        "title": "Graded",
+        "body": "The distribution and index of dbo.stg_orders, and that it holds every row."
+      }
+    ],
+    "starter_source": "-- dbo.stg_orders is emptied and reloaded every night, then read once by the transformation.\nCREATE TABLE dbo.stg_orders\nWITH ( DISTRIBUTION = HASH(order_id) )\nAS\nSELECT order_id, payload, loaded_at\nFROM bronze.orders_raw;\n",
+    "fixtures": [
+      {
+        "id": "sp-staging-heap-fixtures",
+        "version": "1"
+      }
+    ],
+    "visible_checks": [
+      {
+        "id": "design",
+        "description": "Simulated SQL pool outcome for the public scenario."
+      }
+    ],
+    "hidden_check_refs": [
+      "rows"
+    ],
+    "edge_check_refs": [
+      "other-night"
+    ],
+    "hints": [
+      "Leaving out the index option gives a clustered columnstore index, the default.",
+      "Round-robin distribution needs no key and spreads rows evenly; a heap is the fastest structure to load."
+    ],
+    "solution": {
+      "available": true,
+      "reveal": "explicit"
+    },
+    "explanation": "ROUND_ROBIN avoids hashing every row on load, and HEAP skips building columnstore rowgroups. That is the recommended combination for a staging table that is reloaded and read once. The default (a clustered columnstore index) pays off for large tables that are queried many times.",
+    "follow_ups": [
+      "Which design would you give the final fact table this staging data feeds?"
+    ],
+    "canonical_placement": {
+      "domain": "cloud-sql-pool",
+      "topic": "indexes"
+    },
+    "related_associations": [
+      "cloud-lab/sql-pool"
+    ],
+    "recommendation": {
+      "rank": 4,
+      "reason": "Cloud Lab SQL pool progression"
+    },
+    "validator_version": "rows-v2",
+    "validation": {
+      "kind": "rows",
+      "ordered": false,
+      "duplicate_sensitive": true,
+      "relative_tolerance": 1e-09,
+      "absolute_tolerance": 1e-06,
+      "required_columns": [],
+      "exact_schema": null,
+      "forbidden_extra_columns": true,
+      "null_semantics": "equal"
+    },
+    "runtime_requirements": [
+      "sqlpool-simulator"
+    ],
+    "provenance": {
+      "source": "Authored for Datapass Workbench: Synapse dedicated SQL pool and Fabric Warehouse design rules",
+      "fixtures": "Authored scenarios; expected rows computed by running the reference and reviewed"
+    },
+    "constraints": {
+      "truth": "Simulated Azure Synapse dedicated SQL pool: data statements run on an isolated local DuckDB catalog; distributions, partitions and data movement are modelled."
+    },
+    "truth": "simulated"
+  },
+  {
+    "schema_version": 1,
+    "id": "sp-partition-range-right",
+    "version": "1",
+    "title": "Monthly partitions: RANGE LEFT or RIGHT",
+    "difficulty": "medium",
+    "topics": [
+      "partitioning",
+      "boundaries"
+    ],
+    "tags": [
+      "cloud-lab",
+      "sql-pool",
+      "synapse",
+      "simulated"
+    ],
+    "origin": "authored",
+    "language": "sqlpool",
+    "runtime": "datapass-sqlpool-sim-v1",
+    "prompt": "Create dbo.fact_sales_q1 partitioned on order_date with the boundary values '2026-02-01' and '2026-03-01', so January, February and March each get their own partition, and the 1st of February and the 1st of March belong to their own month.",
+    "sections": [
+      {
+        "title": "Simulator",
+        "body": "Your T-SQL script runs on the lab's simulated Azure Synapse dedicated SQL pool: the statements are translated to DuckDB for a documented subset and the data really runs, on an isolated catalog built for each check. Distributions (60), partitions, columnstore rowgroups and the data movement of plans are modelled from Synapse's design rules; they are not Synapse telemetry. Nothing connects to Azure or Fabric. End statements with ; (procedures take their own GO batch)."
+      },
+      {
+        "title": "Graded",
+        "body": "The number of rows in each partition, for Q1 orders that include the first and last day of each month."
+      }
+    ],
+    "starter_source": "CREATE TABLE dbo.fact_sales_q1\nWITH\n(   DISTRIBUTION = HASH(order_id)\n,   CLUSTERED COLUMNSTORE INDEX\n,   PARTITION ( order_date RANGE FOR VALUES ('2026-02-01', '2026-03-01') )\n)\nAS\nSELECT order_id, order_date, amount\nFROM bronze.sales_q1;\n",
+    "fixtures": [
+      {
+        "id": "sp-partition-range-right-fixtures",
+        "version": "1"
+      }
+    ],
+    "visible_checks": [
+      {
+        "id": "q1-orders",
+        "description": "Simulated SQL pool outcome for the public scenario."
+      }
+    ],
+    "hidden_check_refs": [
+      "month-ends"
+    ],
+    "edge_check_refs": [
+      "only-boundaries"
+    ],
+    "hints": [
+      "Two boundaries make three partitions; the question is which side each boundary value falls on.",
+      "RANGE is LEFT by default: the boundary value belongs to the partition on its left."
+    ],
+    "solution": {
+      "available": true,
+      "reveal": "explicit"
+    },
+    "explanation": "With RANGE RIGHT, each boundary value starts the partition on its right: 2026-02-01 is the first day of partition 2. With RANGE LEFT (the default), 2026-02-01 would be the last value of the January partition. For date boundaries on the first day of a month, RANGE RIGHT is what you want.",
+    "follow_ups": [
+      "Which boundaries would give the same partitions with RANGE LEFT?"
+    ],
+    "canonical_placement": {
+      "domain": "cloud-sql-pool",
+      "topic": "partitioning"
+    },
+    "related_associations": [
+      "cloud-lab/sql-pool"
+    ],
+    "recommendation": {
+      "rank": 5,
+      "reason": "Cloud Lab SQL pool progression"
+    },
+    "validator_version": "rows-v2",
+    "validation": {
+      "kind": "rows",
+      "ordered": false,
+      "duplicate_sensitive": true,
+      "relative_tolerance": 1e-09,
+      "absolute_tolerance": 1e-06,
+      "required_columns": [
+        "table",
+        "partition_number",
+        "rows"
+      ],
+      "exact_schema": [
+        "table",
+        "partition_number",
+        "rows"
+      ],
+      "forbidden_extra_columns": true,
+      "null_semantics": "equal"
+    },
+    "runtime_requirements": [
+      "sqlpool-simulator"
+    ],
+    "provenance": {
+      "source": "Authored for Datapass Workbench: Synapse dedicated SQL pool and Fabric Warehouse design rules",
+      "fixtures": "Authored scenarios; expected rows computed by running the reference and reviewed"
+    },
+    "constraints": {
+      "truth": "Simulated Azure Synapse dedicated SQL pool: data statements run on an isolated local DuckDB catalog; distributions, partitions and data movement are modelled."
+    },
+    "truth": "simulated"
+  },
+  {
+    "schema_version": 1,
+    "id": "sp-partition-elimination",
+    "version": "1",
+    "title": "Let the pool skip partitions",
+    "difficulty": "medium",
+    "topics": [
+      "partitioning",
+      "partition-elimination",
+      "sargable-predicates"
+    ],
+    "tags": [
+      "cloud-lab",
+      "sql-pool",
+      "synapse",
+      "simulated"
+    ],
+    "origin": "authored",
+    "language": "sqlpool",
+    "runtime": "datapass-sqlpool-sim-v1",
+    "prompt": "This February report works, but it scans all 12 monthly partitions of dbo.fact_sales_m. Rewrite its WHERE clause so the pool only scans February's partition, with the same result.",
+    "sections": [
+      {
+        "title": "Simulator",
+        "body": "Your T-SQL script runs on the lab's simulated Azure Synapse dedicated SQL pool: the statements are translated to DuckDB for a documented subset and the data really runs, on an isolated catalog built for each check. Distributions (60), partitions, columnstore rowgroups and the data movement of plans are modelled from Synapse's design rules; they are not Synapse telemetry. Nothing connects to Azure or Fabric. End statements with ; (procedures take their own GO batch)."
+      },
+      {
+        "title": "Graded",
+        "body": "How many partitions the query scans, and its result, including a day with orders on the 1st of March."
+      }
+    ],
+    "starter_source": "-- dbo.fact_sales_m is partitioned by month on order_date (12 partitions for 2026).\nSELECT COUNT(*) AS orders, SUM(amount) AS revenue\nFROM dbo.fact_sales_m\nWHERE YEAR(order_date) = 2026 AND MONTH(order_date) = 2;\n",
+    "fixtures": [
+      {
+        "id": "sp-partition-elimination-fixtures",
+        "version": "1"
+      }
+    ],
+    "visible_checks": [
+      {
+        "id": "scans",
+        "description": "Simulated SQL pool outcome for the public scenario."
+      }
+    ],
+    "hidden_check_refs": [
+      "result"
+    ],
+    "edge_check_refs": [
+      "march-first"
+    ],
+    "hints": [
+      "The pool can only skip partitions when the partition column itself is compared with constants.",
+      "BETWEEN includes both ends: '2026-03-01' is already March."
+    ],
+    "solution": {
+      "available": true,
+      "reveal": "explicit"
+    },
+    "explanation": "YEAR(order_date) and MONTH(order_date) hide the partition column inside functions, so every partition is scanned. order_date >= '2026-02-01' AND order_date < '2026-03-01' compares the column itself with constants, so only February's partition is read. With BETWEEN ... AND '2026-03-01', March 1st would be counted and its partition scanned too.",
+    "follow_ups": [
+      "With a clustered columnstore index, what else can skip data inside a partition?"
+    ],
+    "canonical_placement": {
+      "domain": "cloud-sql-pool",
+      "topic": "partitioning"
+    },
+    "related_associations": [
+      "cloud-lab/sql-pool"
+    ],
+    "recommendation": {
+      "rank": 6,
+      "reason": "Cloud Lab SQL pool progression"
+    },
+    "validator_version": "rows-v2",
+    "validation": {
+      "kind": "rows",
+      "ordered": false,
+      "duplicate_sensitive": true,
+      "relative_tolerance": 1e-09,
+      "absolute_tolerance": 1e-06,
+      "required_columns": [],
+      "exact_schema": null,
+      "forbidden_extra_columns": true,
+      "null_semantics": "equal"
+    },
+    "runtime_requirements": [
+      "sqlpool-simulator"
+    ],
+    "provenance": {
+      "source": "Authored for Datapass Workbench: Synapse dedicated SQL pool and Fabric Warehouse design rules",
+      "fixtures": "Authored scenarios; expected rows computed by running the reference and reviewed"
+    },
+    "constraints": {
+      "truth": "Simulated Azure Synapse dedicated SQL pool: data statements run on an isolated local DuckDB catalog; distributions, partitions and data movement are modelled."
+    },
+    "truth": "simulated"
+  },
+  {
+    "schema_version": 1,
+    "id": "sp-columnstore-partition-size",
+    "version": "1",
+    "title": "Partitions big enough for columnstore",
+    "difficulty": "hard",
+    "topics": [
+      "partitioning",
+      "columnstore",
+      "rowgroups"
+    ],
+    "tags": [
+      "cloud-lab",
+      "sql-pool",
+      "synapse",
+      "simulated"
+    ],
+    "origin": "authored",
+    "language": "sqlpool",
+    "runtime": "datapass-sqlpool-sim-v1",
+    "prompt": "bronze.sales_3y stands for 2.4 billion sales spread evenly over 2024, 2025 and 2026. Create dbo.fact_sales_3y (HASH(order_id), clustered columnstore) partitioned on order_date with calendar boundaries (RANGE RIGHT, on the first day of a period). Choose the finest granularity (day, week, month, quarter or year) that keeps at least 1 million rows per distribution in every populated partition.",
+    "sections": [
+      {
+        "title": "Simulator",
+        "body": "Your T-SQL script runs on the lab's simulated Azure Synapse dedicated SQL pool: the statements are translated to DuckDB for a documented subset and the data really runs, on an isolated catalog built for each check. Distributions (60), partitions, columnstore rowgroups and the data movement of plans are modelled from Synapse's design rules; they are not Synapse telemetry. Nothing connects to Azure or Fabric. End statements with ; (procedures take their own GO batch)."
+      },
+      {
+        "title": "Graded",
+        "body": "The number of populated partitions and whether every one of them reaches 1 million rows per distribution (the lab counts rows at scale: 60 distributions per partition); the partition column; the row count."
+      },
+      {
+        "title": "Rule of thumb",
+        "body": "Columnstore compresses best with about 1 million rows per rowgroup, and a dedicated SQL pool already splits every partition into 60 distributions: a partition needs 60 million rows or more."
+      }
+    ],
+    "starter_source": "-- 2.4 billion sales over 2024-2026. Daily partitions would leave a few thousand rows per\n-- distribution and partition: far too few for columnstore rowgroups.\nCREATE TABLE dbo.fact_sales_3y\nWITH\n(   DISTRIBUTION = HASH(order_id)\n,   CLUSTERED COLUMNSTORE INDEX\n,   PARTITION ( order_date RANGE RIGHT FOR VALUES ('2025-01-01', '2026-01-01') )\n)\nAS\nSELECT order_id, order_date, amount\nFROM bronze.sales_3y;\n",
+    "fixtures": [
+      {
+        "id": "sp-columnstore-partition-size-fixtures",
+        "version": "1"
+      }
+    ],
+    "visible_checks": [
+      {
+        "id": "health",
+        "description": "Simulated SQL pool outcome for the public scenario."
+      }
+    ],
+    "hidden_check_refs": [
+      "column"
+    ],
+    "edge_check_refs": [
+      "rows"
+    ],
+    "hints": [
+      "2.4 billion rows over 36 months is about 67 million a month: divide by 60 distributions.",
+      "Weekly partitions hold about 15 million rows each; is that enough for 60 distributions?"
+    ],
+    "solution": {
+      "available": true,
+      "reveal": "explicit"
+    },
+    "explanation": "Monthly partitions hold about 67 million rows, so about 1.1 million per distribution: every rowgroup can be full. Weekly partitions fall to about 256,000 rows per distribution, and daily ones to a few thousand: columnstore compression suffers. Quarters and years also reach the target, but they are coarser than needed for monthly loads and switching.",
+    "follow_ups": [
+      "How many partitions would you keep if the table grew to 10 billion rows?"
+    ],
+    "canonical_placement": {
+      "domain": "cloud-sql-pool",
+      "topic": "partitioning"
+    },
+    "related_associations": [
+      "cloud-lab/sql-pool"
+    ],
+    "recommendation": {
+      "rank": 7,
+      "reason": "Cloud Lab SQL pool progression"
+    },
+    "validator_version": "rows-v2",
+    "validation": {
+      "kind": "rows",
+      "ordered": false,
+      "duplicate_sensitive": true,
+      "relative_tolerance": 1e-09,
+      "absolute_tolerance": 1e-06,
+      "required_columns": [],
+      "exact_schema": null,
+      "forbidden_extra_columns": true,
+      "null_semantics": "equal"
+    },
+    "runtime_requirements": [
+      "sqlpool-simulator"
+    ],
+    "provenance": {
+      "source": "Authored for Datapass Workbench: Synapse dedicated SQL pool and Fabric Warehouse design rules",
+      "fixtures": "Authored scenarios; expected rows computed by running the reference and reviewed"
+    },
+    "constraints": {
+      "truth": "Simulated Azure Synapse dedicated SQL pool: data statements run on an isolated local DuckDB catalog; distributions, partitions and data movement are modelled."
+    },
+    "truth": "simulated"
+  },
+  {
+    "schema_version": 1,
+    "id": "sp-ctas-upsert",
+    "version": "1",
+    "title": "Upsert a dimension with CTAS",
+    "difficulty": "hard",
+    "topics": [
+      "ctas",
+      "upsert",
+      "rename-object"
+    ],
+    "tags": [
+      "cloud-lab",
+      "sql-pool",
+      "synapse",
+      "simulated"
+    ],
+    "origin": "authored",
+    "language": "sqlpool",
+    "runtime": "datapass-sqlpool-sim-v1",
+    "prompt": "Apply bronze.product_changes to dbo.dim_product: changed products take their new values, new products are added, the others stay as they are. Use the dedicated SQL pool pattern: CTAS the new version of the table (the changes UNION ALL the untouched rows), swap the names with RENAME OBJECT and drop the old table. Keep the table's distribution and index.",
+    "sections": [
+      {
+        "title": "Simulator",
+        "body": "Your T-SQL script runs on the lab's simulated Azure Synapse dedicated SQL pool: the statements are translated to DuckDB for a documented subset and the data really runs, on an isolated catalog built for each check. Distributions (60), partitions, columnstore rowgroups and the data movement of plans are modelled from Synapse's design rules; they are not Synapse telemetry. Nothing connects to Azure or Fabric. End statements with ; (procedures take their own GO batch)."
+      },
+      {
+        "title": "Graded",
+        "body": "The rows of dbo.dim_product after your script, its design, and a second batch of changes."
+      }
+    ],
+    "starter_source": "-- Apply bronze.product_changes to dbo.dim_product with the pool's CTAS pattern.\nCREATE TABLE dbo.dim_product_upsert\nWITH ( DISTRIBUTION = HASH(product_id), CLUSTERED COLUMNSTORE INDEX )\nAS\nSELECT s.product_id, s.product_name, s.color, s.list_price\nFROM bronze.product_changes AS s\nUNION ALL\nSELECT p.product_id, p.product_name, p.color, p.list_price\nFROM dbo.dim_product AS p\n;\n\nRENAME OBJECT dbo.dim_product TO dim_product_old;\nRENAME OBJECT dbo.dim_product_upsert TO dim_product;\nDROP TABLE dbo.dim_product_old;\n",
+    "fixtures": [
+      {
+        "id": "sp-ctas-upsert-fixtures",
+        "version": "1"
+      }
+    ],
+    "visible_checks": [
+      {
+        "id": "rows",
+        "description": "Simulated SQL pool outcome for the public scenario."
+      }
+    ],
+    "hidden_check_refs": [
+      "design"
+    ],
+    "edge_check_refs": [
+      "new-only"
+    ],
+    "hints": [
+      "The untouched rows are the products that do not appear in the changes: NOT EXISTS.",
+      "A CTAS doesn't copy the old table's design: state DISTRIBUTION and the index again."
+    ],
+    "solution": {
+      "available": true,
+      "reveal": "explicit"
+    },
+    "explanation": "The CTAS writes the complete new version in one fully parallel statement: all changed and new rows, plus the existing rows that no change touches (NOT EXISTS). Two renames swap the tables. A MERGE gives the same rows; CTAS is the classic dedicated pool pattern for large tables because it writes in parallel and needs little logging.",
+    "follow_ups": [
+      "How would you also remove products that the source marks as deleted?"
+    ],
+    "canonical_placement": {
+      "domain": "cloud-sql-pool",
+      "topic": "ctas"
+    },
+    "related_associations": [
+      "cloud-lab/sql-pool"
+    ],
+    "recommendation": {
+      "rank": 8,
+      "reason": "Cloud Lab SQL pool progression"
+    },
+    "validator_version": "rows-v2",
+    "validation": {
+      "kind": "rows",
+      "ordered": false,
+      "duplicate_sensitive": true,
+      "relative_tolerance": 1e-09,
+      "absolute_tolerance": 1e-06,
+      "required_columns": [],
+      "exact_schema": null,
+      "forbidden_extra_columns": true,
+      "null_semantics": "equal"
+    },
+    "runtime_requirements": [
+      "sqlpool-simulator"
+    ],
+    "provenance": {
+      "source": "Authored for Datapass Workbench: Synapse dedicated SQL pool and Fabric Warehouse design rules",
+      "fixtures": "Authored scenarios; expected rows computed by running the reference and reviewed"
+    },
+    "constraints": {
+      "truth": "Simulated Azure Synapse dedicated SQL pool: data statements run on an isolated local DuckDB catalog; distributions, partitions and data movement are modelled."
+    },
+    "truth": "simulated"
+  },
+  {
+    "schema_version": 1,
+    "id": "sp-partition-switch",
+    "version": "1",
+    "title": "Load a month with a partition switch",
+    "difficulty": "hard",
+    "topics": [
+      "partitioning",
+      "partition-switching",
+      "loading"
+    ],
+    "tags": [
+      "cloud-lab",
+      "sql-pool",
+      "synapse",
+      "simulated"
+    ],
+    "origin": "authored",
+    "language": "sqlpool",
+    "runtime": "datapass-sqlpool-sim-v1",
+    "prompt": "dbo.fact_sales_p is partitioned by month (RANGE RIGHT on '2026-02-01', '2026-03-01', '2026-04-01': partition 3 is March). Load bronze.march_orders through a staging table and a partition switch. The starter already creates dbo.fact_sales_stage with the same design and loads it; finish with the switch. If March already has rows in the fact table, the switch must replace them.",
+    "sections": [
+      {
+        "title": "Simulator",
+        "body": "Your T-SQL script runs on the lab's simulated Azure Synapse dedicated SQL pool: the statements are translated to DuckDB for a documented subset and the data really runs, on an isolated catalog built for each check. Distributions (60), partitions, columnstore rowgroups and the data movement of plans are modelled from Synapse's design rules; they are not Synapse telemetry. Nothing connects to Azure or Fabric. End statements with ; (procedures take their own GO batch)."
+      },
+      {
+        "title": "Graded",
+        "body": "The orders and revenue per month in dbo.fact_sales_p, that the staging table is left empty, and a fact table that already has two stale March orders."
+      },
+      {
+        "title": "Switch rules",
+        "body": "Both tables need the same columns, distribution, index and partition boundaries; the target partition must be empty unless you ask for WITH (TRUNCATE_TARGET = ON)."
+      }
+    ],
+    "starter_source": "-- Stage March with exactly the design of dbo.fact_sales_p (the partitions must line up), load it, then\n-- switch the March partition in.\nCREATE TABLE dbo.fact_sales_stage\nWITH\n(   DISTRIBUTION = HASH(order_id)\n,   CLUSTERED COLUMNSTORE INDEX\n,   PARTITION ( order_date RANGE RIGHT FOR VALUES ('2026-02-01', '2026-03-01', '2026-04-01') )\n)\nAS\nSELECT * FROM dbo.fact_sales_p WHERE 1 = 2;\n\nINSERT INTO dbo.fact_sales_stage\nSELECT order_id, customer_id, order_date, amount FROM bronze.march_orders;\n\n-- TODO: switch March into dbo.fact_sales_p\n",
+    "fixtures": [
+      {
+        "id": "sp-partition-switch-fixtures",
+        "version": "1"
+      }
+    ],
+    "visible_checks": [
+      {
+        "id": "months",
+        "description": "Simulated SQL pool outcome for the public scenario."
+      }
+    ],
+    "hidden_check_refs": [
+      "stage-empty"
+    ],
+    "edge_check_refs": [
+      "stale-march"
+    ],
+    "hints": [
+      "ALTER TABLE <stage> SWITCH PARTITION n TO <fact> PARTITION n moves a whole partition as metadata.",
+      "WITH (TRUNCATE_TARGET = ON) replaces what the target partition held."
+    ],
+    "solution": {
+      "available": true,
+      "reveal": "explicit"
+    },
+    "explanation": "Partition switching moves a staged partition into the fact table as a metadata operation: no rows are copied and nothing is logged row by row. It needs identical designs and boundaries. TRUNCATE_TARGET replaces stale rows of the target partition. An INSERT ... SELECT copies the rows and leaves the staging table full.",
+    "follow_ups": [
+      "How would you remove the oldest month of a 36-month fact table with a switch?"
+    ],
+    "canonical_placement": {
+      "domain": "cloud-sql-pool",
+      "topic": "partitioning"
+    },
+    "related_associations": [
+      "cloud-lab/sql-pool"
+    ],
+    "recommendation": {
+      "rank": 9,
+      "reason": "Cloud Lab SQL pool progression"
+    },
+    "validator_version": "rows-v2",
+    "validation": {
+      "kind": "rows",
+      "ordered": false,
+      "duplicate_sensitive": true,
+      "relative_tolerance": 1e-09,
+      "absolute_tolerance": 1e-06,
+      "required_columns": [],
+      "exact_schema": null,
+      "forbidden_extra_columns": true,
+      "null_semantics": "equal"
+    },
+    "runtime_requirements": [
+      "sqlpool-simulator"
+    ],
+    "provenance": {
+      "source": "Authored for Datapass Workbench: Synapse dedicated SQL pool and Fabric Warehouse design rules",
+      "fixtures": "Authored scenarios; expected rows computed by running the reference and reviewed"
+    },
+    "constraints": {
+      "truth": "Simulated Azure Synapse dedicated SQL pool: data statements run on an isolated local DuckDB catalog; distributions, partitions and data movement are modelled."
+    },
+    "truth": "simulated"
+  },
+  {
+    "schema_version": 1,
+    "id": "sp-not-enforced-key",
+    "version": "1",
+    "title": "A primary key that doesn't stop duplicates",
+    "difficulty": "medium",
+    "topics": [
+      "keys",
+      "constraints",
+      "deduplication"
+    ],
+    "tags": [
+      "cloud-lab",
+      "sql-pool",
+      "synapse",
+      "simulated"
+    ],
+    "origin": "authored",
+    "language": "sqlpool",
+    "runtime": "datapass-sqlpool-sim-v1",
+    "prompt": "Load bronze.customer_updates into the empty dbo.dim_customer. Its PRIMARY KEY on customer_id is NOT ENFORCED (the only kind a dedicated SQL pool accepts), so the pool will happily store duplicate keys. Keep exactly one row per customer: the one with the latest updated_at.",
+    "sections": [
+      {
+        "title": "Simulator",
+        "body": "Your T-SQL script runs on the lab's simulated Azure Synapse dedicated SQL pool: the statements are translated to DuckDB for a documented subset and the data really runs, on an isolated catalog built for each check. Distributions (60), partitions, columnstore rowgroups and the data movement of plans are modelled from Synapse's design rules; they are not Synapse telemetry. Nothing connects to Azure or Fabric. End statements with ; (procedures take their own GO batch)."
+      },
+      {
+        "title": "Graded",
+        "body": "The rows of dbo.dim_customer after your load, for two batches of updates."
+      },
+      {
+        "title": "Keys in a dedicated pool (and Fabric Warehouse)",
+        "body": "PRIMARY KEY and UNIQUE are only allowed as NONCLUSTERED NOT ENFORCED: the optimizer uses them as hints, but nothing checks them. Your load has to guarantee uniqueness."
+      }
+    ],
+    "starter_source": "        -- dbo.dim_customer declares PRIMARY KEY NONCLUSTERED (customer_id) NOT ENFORCED.\n        INSERT INTO dbo.dim_customer (customer_id, customer_name, city, updated_at)\n        SELECT customer_id, customer_name, city, updated_at\nFROM bronze.customer_updates;\n",
+    "fixtures": [
+      {
+        "id": "sp-not-enforced-key-fixtures",
+        "version": "1"
+      }
+    ],
+    "visible_checks": [
+      {
+        "id": "latest-rows",
+        "description": "Simulated SQL pool outcome for the public scenario."
+      }
+    ],
+    "hidden_check_refs": [
+      "other-batch"
+    ],
+    "edge_check_refs": [
+      "key-kept"
+    ],
+    "hints": [
+      "ROW_NUMBER() OVER (PARTITION BY customer_id ORDER BY updated_at DESC) numbers each customer's rows from the latest.",
+      "DISTINCT only removes rows that are identical in every column."
+    ],
+    "solution": {
+      "available": true,
+      "reveal": "explicit"
+    },
+    "explanation": "NOT ENFORCED means the pool never rejects a duplicate key, so deduplication is the load's job. Numbering each customer's rows from the latest and keeping row 1 loads one row per customer. DISTINCT keeps both versions of a customer whose city changed.",
+    "follow_ups": [
+      "What can go wrong in queries when a NOT ENFORCED primary key is in fact violated?"
+    ],
+    "canonical_placement": {
+      "domain": "cloud-sql-pool",
+      "topic": "keys"
+    },
+    "related_associations": [
+      "cloud-lab/sql-pool"
+    ],
+    "recommendation": {
+      "rank": 10,
+      "reason": "Cloud Lab SQL pool progression"
+    },
+    "validator_version": "rows-v2",
+    "validation": {
+      "kind": "rows",
+      "ordered": false,
+      "duplicate_sensitive": true,
+      "relative_tolerance": 1e-09,
+      "absolute_tolerance": 1e-06,
+      "required_columns": [],
+      "exact_schema": null,
+      "forbidden_extra_columns": true,
+      "null_semantics": "equal"
+    },
+    "runtime_requirements": [
+      "sqlpool-simulator"
+    ],
+    "provenance": {
+      "source": "Authored for Datapass Workbench: Synapse dedicated SQL pool and Fabric Warehouse design rules",
+      "fixtures": "Authored scenarios; expected rows computed by running the reference and reviewed"
+    },
+    "constraints": {
+      "truth": "Simulated Azure Synapse dedicated SQL pool: data statements run on an isolated local DuckDB catalog; distributions, partitions and data movement are modelled."
+    },
+    "truth": "simulated"
+  },
+  {
+    "schema_version": 1,
+    "id": "sp-procedure-daily-rebuild",
+    "version": "1",
+    "title": "A stored procedure that reloads one day",
+    "difficulty": "medium",
+    "topics": [
+      "stored-procedures",
+      "idempotence",
+      "parameters"
+    ],
+    "tags": [
+      "cloud-lab",
+      "sql-pool",
+      "synapse",
+      "simulated"
+    ],
+    "origin": "authored",
+    "language": "sqlpool",
+    "runtime": "datapass-sqlpool-sim-v1",
+    "prompt": "Write dbo.usp_load_daily_sales @day DATE. It recomputes one day of dbo.daily_sales (order_date, orders, revenue) from dbo.fact_sales_d. The pipeline may run it again for the same day after a failure, so a rerun must replace the day, never add it twice.",
+    "sections": [
+      {
+        "title": "Simulator",
+        "body": "Your T-SQL script runs on the lab's simulated Azure Synapse dedicated SQL pool: the statements are translated to DuckDB for a documented subset and the data really runs, on an isolated catalog built for each check. Distributions (60), partitions, columnstore rowgroups and the data movement of plans are modelled from Synapse's design rules; they are not Synapse telemetry. Nothing connects to Azure or Fabric. End statements with ; (procedures take their own GO batch)."
+      },
+      {
+        "title": "Graded",
+        "body": "The rows of dbo.daily_sales after the check runs your procedure for 2026-03-05, again for 2026-03-05, then for 2026-03-06."
+      },
+      {
+        "title": "Lab procedures",
+        "body": "The procedure body is T-SQL translated for the lab's subset. Parameters are substituted as values, and procedures are created in their own batch."
+      }
+    ],
+    "starter_source": "    CREATE PROCEDURE dbo.usp_load_daily_sales @day DATE\n    AS\n    BEGIN\n        INSERT INTO dbo.daily_sales (order_date, orders, revenue)\nSELECT @day, COUNT(*), SUM(amount)\nFROM dbo.fact_sales_d\nWHERE order_date = @day;\n    END\n",
+    "fixtures": [
+      {
+        "id": "sp-procedure-daily-rebuild-fixtures",
+        "version": "1"
+      }
+    ],
+    "visible_checks": [
+      {
+        "id": "rerun-safe",
+        "description": "Simulated SQL pool outcome for the public scenario."
+      }
+    ],
+    "hidden_check_refs": [
+      "three-days"
+    ],
+    "edge_check_refs": [
+      "day-without-sales"
+    ],
+    "hints": [
+      "Delete the day before inserting it: running the procedure twice then gives the same table.",
+      "@day is replaced by its value everywhere in the body."
+    ],
+    "solution": {
+      "available": true,
+      "reveal": "explicit"
+    },
+    "explanation": "Deleting the day before inserting it makes the procedure idempotent: a rerun for the same day replaces the row instead of duplicating it. Deleting everything would wipe the other days, and a >= filter would mix later days into this one.",
+    "follow_ups": [
+      "How would the Synapse pipeline call this procedure (SQL pool stored procedure activity)?"
+    ],
+    "canonical_placement": {
+      "domain": "cloud-sql-pool",
+      "topic": "stored-procedures"
+    },
+    "related_associations": [
+      "cloud-lab/sql-pool"
+    ],
+    "recommendation": {
+      "rank": 11,
+      "reason": "Cloud Lab SQL pool progression"
+    },
+    "validator_version": "rows-v2",
+    "validation": {
+      "kind": "rows",
+      "ordered": false,
+      "duplicate_sensitive": true,
+      "relative_tolerance": 1e-09,
+      "absolute_tolerance": 1e-06,
+      "required_columns": [],
+      "exact_schema": null,
+      "forbidden_extra_columns": true,
+      "null_semantics": "equal"
+    },
+    "runtime_requirements": [
+      "sqlpool-simulator"
+    ],
+    "provenance": {
+      "source": "Authored for Datapass Workbench: Synapse dedicated SQL pool and Fabric Warehouse design rules",
+      "fixtures": "Authored scenarios; expected rows computed by running the reference and reviewed"
+    },
+    "constraints": {
+      "truth": "Simulated Azure Synapse dedicated SQL pool: data statements run on an isolated local DuckDB catalog; distributions, partitions and data movement are modelled."
+    },
+    "truth": "simulated"
+  },
+  {
+    "schema_version": 1,
+    "id": "sp-fabric-port",
+    "version": "1",
+    "title": "Port a dedicated pool table to Fabric Warehouse",
+    "difficulty": "medium",
+    "topics": [
+      "fabric-warehouse",
+      "migration",
+      "data-types"
+    ],
+    "tags": [
+      "cloud-lab",
+      "sql-pool",
+      "fabric",
+      "simulated"
+    ],
+    "origin": "authored",
+    "language": "sqlpool",
+    "runtime": "datapass-sqlpool-sim-v1",
+    "prompt": "This script comes from an Azure Synapse dedicated SQL pool. Port it to Microsoft Fabric Data Warehouse: remove what Fabric manages itself, and replace the data types a Fabric table can't use by their migration equivalents, keeping the values exact. Keep the column names and load the same rows.",
+    "sections": [
+      {
+        "title": "Simulator",
+        "body": "Your T-SQL script runs on the lab's simulated Microsoft Fabric Data Warehouse: the statements are translated to DuckDB for a documented subset and the data really runs, on an isolated catalog built for each check. Distributions (60), partitions, columnstore rowgroups and the data movement of plans are modelled from Synapse's design rules; they are not Synapse telemetry. Nothing connects to Azure or Fabric. End statements with ; (procedures take their own GO batch)."
+      },
+      {
+        "title": "Graded",
+        "body": "The rows of dbo.fact_orders (the amounts keep their 4 decimals), its column types in the lab's DuckDB catalog, and the total amount."
+      },
+      {
+        "title": "Fabric Data Warehouse",
+        "body": "No DISTRIBUTION, index or PARTITION options: Fabric stores tables as Delta in OneLake and manages the layout; WITH (CLUSTER BY (...)) sets data clustering. Types to replace: money, smallmoney, datetime, smalldatetime, nvarchar, nchar, tinyint, binary, datetimeoffset."
+      }
+    ],
+    "starter_source": "        CREATE TABLE dbo.fact_orders\n        (   order_id INT NOT NULL\n,   customer_name NVARCHAR(60) NOT NULL\n,   amount MONEY NOT NULL\n,   ordered_at DATETIME NOT NULL\n        )\nWITH ( DISTRIBUTION = HASH(order_id), CLUSTERED COLUMNSTORE INDEX );\n\n        INSERT INTO dbo.fact_orders (order_id, customer_name, amount, ordered_at)\n        SELECT order_id, customer_name, amount, ordered_at\n        FROM bronze.orders_export;\n",
+    "fixtures": [
+      {
+        "id": "sp-fabric-port-fixtures",
+        "version": "1"
+      }
+    ],
+    "visible_checks": [
+      {
+        "id": "rows",
+        "description": "Simulated SQL pool outcome for the public scenario."
+      }
+    ],
+    "hidden_check_refs": [
+      "types"
+    ],
+    "edge_check_refs": [
+      "total"
+    ],
+    "hints": [
+      "money becomes decimal(19,4), nvarchar becomes varchar and datetime becomes datetime2.",
+      "Fabric refuses WITH (DISTRIBUTION ...); CLUSTER BY is its only table option here."
+    ],
+    "solution": {
+      "available": true,
+      "reveal": "explicit"
+    },
+    "explanation": "Fabric Data Warehouse manages distribution, file layout and indexing itself, so the Synapse table options go, and CLUSTER BY is the only layout option. money keeps 4 decimals as decimal(19,4); nvarchar becomes varchar (Fabric strings are UTF-8) and datetime becomes datetime2. A decimal with fewer decimals would silently round the amounts.",
+    "follow_ups": [
+      "Add WITH (CLUSTER BY (ordered_at)): what kind of query does data clustering help?"
+    ],
+    "canonical_placement": {
+      "domain": "cloud-sql-pool",
+      "topic": "fabric-warehouse"
+    },
+    "related_associations": [
+      "cloud-lab/sql-pool"
+    ],
+    "recommendation": {
+      "rank": 12,
+      "reason": "Cloud Lab SQL pool progression"
+    },
+    "validator_version": "rows-v2",
+    "validation": {
+      "kind": "rows",
+      "ordered": false,
+      "duplicate_sensitive": true,
+      "relative_tolerance": 1e-09,
+      "absolute_tolerance": 1e-06,
+      "required_columns": [],
+      "exact_schema": null,
+      "forbidden_extra_columns": true,
+      "null_semantics": "equal"
+    },
+    "runtime_requirements": [
+      "sqlpool-simulator"
+    ],
+    "provenance": {
+      "source": "Authored for Datapass Workbench: Synapse dedicated SQL pool and Fabric Warehouse design rules",
+      "fixtures": "Authored scenarios; expected rows computed by running the reference and reviewed"
+    },
+    "constraints": {
+      "truth": "Simulated Microsoft Fabric Data Warehouse: data statements run on an isolated local DuckDB catalog; distributions, partitions and data movement are modelled."
+    },
+    "truth": "simulated"
+  }
+]

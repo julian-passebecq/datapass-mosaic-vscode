@@ -9,7 +9,8 @@ import type {
   FactoryFlavor,
   FactoryScenarioInput,
   RuntimeEnvironmentView,
-  RuntimeViewState
+  RuntimeViewState,
+  SqlPoolFlavor
 } from "./webview/contracts";
 import { findFreePort, waitForDatapassHealth } from "./platform/runtimeEndpoint";
 import {
@@ -23,6 +24,7 @@ import { toSparkLabRunView } from "./platform/sparkLabRun";
 import { toAirflowLabView, toRuntimeScenario } from "./platform/airflowRun";
 import { toFactoryLabView, toRuntimeScenario as toFactoryScenario } from "./platform/factoryRun";
 import type { FactoryFilesPayload } from "./factoryState";
+import { toSqlPoolView } from "./platform/sqlpoolRun";
 
 const HOST = "127.0.0.1";
 // A cold start in a fresh managed venv (FastAPI, DuckDB, Polars, pandas; first
@@ -525,6 +527,34 @@ export class RuntimeManager implements vscode.Disposable {
       factoryRun
     });
     if (factoryRun.tablesChanged.length) await this.refreshCatalog();
+  }
+
+  /**
+   * SQL pool Lab: the runtime translates the T-SQL script for a documented subset and runs the data
+   * statements on the local catalog; distributions, partitions and plans are modelled. An empty
+   * script only describes the pool's tables.
+   */
+  async runSqlPool(request: { flavor: SqlPoolFlavor; script: string; scale: number; source: string; warnings?: string[] }): Promise<void> {
+    const url = this.state.status === "running" ? this.state.url : undefined;
+    if (!url) throw new Error("Start the Datapass runtime before running a SQL pool script.");
+    const raw = await requestJson<unknown>(
+      `${url}/api/local/sqlpool/run`,
+      "POST",
+      { flavor: request.flavor, script: request.script, scale: request.scale },
+      60000
+    );
+    const sqlpoolRun = toSqlPoolView(raw, request);
+    const failed = sqlpoolRun.statements.find(statement => statement.status === "error");
+    this.setState({
+      ...this.state,
+      detail: !request.script.trim()
+        ? `SQL pool tables described (${sqlpoolRun.flavorLabel}).`
+        : failed
+          ? `SQL pool script stopped at statement ${failed.index} (line ${failed.line}): ${failed.message}`
+          : `SQL pool script ran: ${sqlpoolRun.statements.length} statement(s) on the simulated ${sqlpoolRun.flavorLabel}.`,
+      sqlpoolRun
+    });
+    if (request.script.trim()) await this.refreshCatalog();
   }
 
   async runPipeline(source: string): Promise<void> {

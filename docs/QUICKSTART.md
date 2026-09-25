@@ -69,6 +69,14 @@ The same daily retail load exists for the three products, so you can compare the
 
 The **Fabric, Azure Data Factory and Synapse: what differs** table summarizes the differences. **Pipeline exercises** opens Practice, where the `cloud-pipelines-v1` pack has 16 guided exercises: you edit a pipeline JSON (or a notebook the pipeline runs), and **Run visible** / **Submit** run it in simulated scenarios. Exercises with local data use an isolated catalog, never your lakehouse. Notebooks run on SparkLab statement by statement and are never executed as Python. Parameters work like in each product: Fabric and Synapse inject them after the parameters cell, Databricks reads them with `dbutils.widgets.get`.
 
+**SQL pool** tab: T-SQL on a simulated Azure Synapse dedicated SQL pool or Microsoft Fabric Data Warehouse.
+
+1. **Create lab files** (or **Restore sample files**) also writes `factory/sql/pool/*.sql`: a star schema, monthly partitions with a partition switch, a stored procedure, and the same kind of tables in Fabric Warehouse. A `-- flavor: synapse|fabric` comment at the top of a script selects its product.
+2. Choose the product, a script and the scale (how many real rows one lab row stands for), then **Run script**, or **Run active .sql** for the editor you are working in. **Describe tables** only refreshes the tables.
+3. Each statement shows its result. SELECT and EXPLAIN also show a distributed plan: the data movement (ShuffleMove, BroadcastMove, PartitionMove) and the partitions scanned. The tables panel shows each table's design, its rows on the 60 distributions with the skew, its partitions and whether columnstore rowgroups can be full.
+
+Data statements really run on the local catalog (`dbo` is the `warehouse` layer), translated from T-SQL for a documented subset. Distributions, partitions and plans are modelled from the dedicated SQL pool's design rules; they are not Synapse telemetry. **SQL pool exercises** opens Practice, where the `sqlpool-v1` pack has 12 guided exercises graded on an isolated catalog.
+
 **Lakehouse and notebooks** tab: use the flow diagram to understand the whole project:
 
 ```text
@@ -171,7 +179,7 @@ The runtime is a local IPC/control plane, not a separate Datapass web applicatio
 | --- | --- | --- |
 | Mosaic | VS Code files, DuckDB SQL; Python/Polars only after trusted-Python opt-in | optional teaching overlays |
 | Practice | VS Code files, local tests/runners | exercise scenarios where explicitly marked |
-| Cloud Lab | local files, DuckDB/DuckLake; pipeline Copy, Lookup, Script, stored procedures and SparkLab notebooks on the local catalog | Fabric UI, pipeline orchestration (Data Factory semantics), every other activity (Web, Teams, Outlook, dataflows...) |
+| Cloud Lab | local files, DuckDB/DuckLake; pipeline Copy, Lookup, Script, stored procedures and SparkLab notebooks on the local catalog; SQL pool data statements (T-SQL translated to DuckDB) | Fabric UI, pipeline orchestration (Data Factory semantics), every other activity (Web, Teams, Outlook, dataflows...); SQL pool distributions, partitions, rowgroups and data movement |
 | SparkLab | whitelist parser, compiled SQL and result rows computed locally | stages, shuffle, duration, credits, cluster behavior |
 | dbt Lab | dbt Core + DuckDB when installed | static lineage fallback is not execution |
 | Airflow Lab | DAG files (Lab and Practice) are parsed, never executed | scheduler/executor/task runtime, runs, task states, logs, rendered templates |

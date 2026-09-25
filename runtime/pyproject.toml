@@ -18,9 +18,10 @@ dependencies = [
 
 [tool.setuptools.packages.find]
 where = ["."]
-include = ["datapass_runtime*", "sparklab*", "airflowlab*", "factorylab*"]
+include = ["datapass_runtime*", "sparklab*", "airflowlab*", "factorylab*", "sqlpoollab*"]
 
 [tool.setuptools.package-data]
 sparklab = ["*.json", "README.md"]
 airflowlab = ["README.md"]
 factorylab = ["README.md"]
+sqlpoollab = ["README.md"]

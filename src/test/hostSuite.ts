@@ -17,7 +17,7 @@ import * as vscode from "vscode";
 import { loadAirflowState } from "../airflowState";
 import { loadDbtState } from "../dbtState";
 import { loadExerciseCatalog } from "../exerciseCatalog";
-import { collectFactoryFiles, copyFactorySamples, loadFactoryState } from "../factoryState";
+import { collectFactoryFiles, copyFactorySamples, loadFactoryState, readPoolScript } from "../factoryState";
 import { MODULES } from "../modules";
 import { decodeCsvBytes, suggestBronzeAsset, validateBronzeAsset } from "../platform/csvImport";
 import { readMosaicLayout, writeMosaicLayout } from "../mosaicLayoutStore";
@@ -116,6 +116,12 @@ export async function run(): Promise<void> {
       assert.deepEqual(Object.keys(files.datasets).sort(), ["ds_bronze_orders", "ds_source_orders"]);
       assert.deepEqual(Object.keys(files.procedures), ["warehouse.usp_load_gold_revenue"]);
       assert.deepEqual(Object.keys(files.notebooks).sort(), ["databricks:/Shared/nb_silver_orders_dbx", "fabric:nb_silver_orders"]);
+      assert.deepEqual(factory.poolScripts.map(script => `${script.name}:${script.flavor}`),
+        ["01_star_schema:synapse", "02_partitions:synapse", "03_procedures:synapse", "04_fabric_warehouse:fabric"]);
+      assert.ok((await readPoolScript("factory/sql/pool/01_star_schema.sql")).text?.includes("DISTRIBUTION = REPLICATE"));
+      for (const outside of ["factory/sql/procedures/warehouse.usp_load_gold_revenue.sql", "factory/../x.sql", "other/sql/pool/x.sql"]) {
+        assert.match((await readPoolScript(outside)).error ?? "", /is not a script/, outside);
+      }
     }],
     ["Airflow starter is a Python DAG file under airflow/dags", async () => {
       assert.equal((await loadAirflowState()).starterExists, false);
@@ -235,6 +241,47 @@ export async function run(): Promise<void> {
       const wrongProduct = runtime!.snapshot().factoryRun!;
       assert.equal(wrongProduct.status, "invalid");
       assert.ok(wrongProduct.issues.some(issue => issue.message.includes("DatabricksNotebook")));
+    }],
+    ["Cloud Lab SQL pool runs the sample T-SQL scripts on the simulated pool", async () => {
+      const script = async (name: string) => (await readPoolScript(`factory/sql/pool/${name}.sql`)).text!;
+      const errors = (lab: { statements: { status: string; message: string }[] }) =>
+        JSON.stringify(lab.statements.filter(statement => statement.status === "error"));
+      await runtime!.runSqlPool({ flavor: "synapse", script: await script("01_star_schema"), scale: 1_000_000, source: "01" });
+      const star = runtime!.snapshot().sqlpoolRun!;
+      assert.equal(star.status, "ok", errors(star));
+      assert.equal(star.statements.length, 9);
+      const report = star.statements.find(statement => statement.kind === "SELECT")!;
+      assert.deepEqual(report.plan?.steps.map(step => step.operation), ["ShuffleMoveOperation", "ReturnOperation"]);
+      assert.ok(report.plan?.notes.some(note => note.includes("dbo.dim_segment is replicated")), JSON.stringify(report.plan));
+      const tables = new Map(star.tables.map(table => [table.name, table]));
+      assert.equal(tables.get("dbo.dim_segment")?.distribution, "REPLICATE");
+      assert.equal(tables.get("dbo.fact_orders")?.distributionStats?.skewPct, 0, "a unique key spreads evenly");
+      assert.ok((tables.get("dbo.fact_orders_by_customer")?.distributionStats?.skewPct ?? 0) >= 10, "one account dominates");
+      assert.equal(tables.get("dbo.fact_orders")?.distributionStats?.shares.length, 60);
+      assert.ok(runtime!.snapshot().catalog?.some(item => item.name === "warehouse.fact_orders"));
+
+      await runtime!.runSqlPool({ flavor: "synapse", script: await script("02_partitions"), scale: 1_000_000, source: "02" });
+      const partitioned = runtime!.snapshot().sqlpoolRun!;
+      assert.equal(partitioned.status, "ok", errors(partitioned));
+      const scans = partitioned.statements.filter(statement => statement.kind === "SELECT").map(s => s.plan?.scans[0]?.partitionsScanned);
+      assert.deepEqual(scans.slice(0, 2), [12, 1], "a function around the partition column scans every partition");
+      assert.equal(partitioned.tables.find(table => table.name === "dbo.fact_sales_2026")?.partitions.length, 12);
+
+      await runtime!.runSqlPool({ flavor: "synapse", script: await script("03_procedures"), scale: 1_000_000, source: "03" });
+      const procedures = runtime!.snapshot().sqlpoolRun!;
+      assert.equal(procedures.status, "ok", errors(procedures));
+      assert.equal(procedures.statements.at(-1)?.message, "Top segment: Corporate");
+
+      await runtime!.runSqlPool({ flavor: "fabric", script: await script("04_fabric_warehouse"), scale: 1_000_000, source: "04" });
+      const fabric = runtime!.snapshot().sqlpoolRun!;
+      assert.equal(fabric.status, "ok", errors(fabric));
+      assert.equal(fabric.flavorLabel, "Microsoft Fabric Data Warehouse");
+      assert.match(fabric.tables.find(table => table.name === "dbo.fact_orders_fw")?.label ?? "", /managed layout/);
+
+      await runtime!.runSqlPool({ flavor: "fabric", script: await script("01_star_schema"), scale: 1_000_000, source: "01" });
+      const refused = runtime!.snapshot().sqlpoolRun!;
+      assert.equal(refused.status, "error");
+      assert.match(refused.statements.at(-1)!.message, /takes no DISTRIBUTION/);
     }],
     ["Practice exercise: visible run and submission grade for real", async () => {
       const catalog = await loadExerciseCatalog(extension.extensionUri);
@@ -373,6 +420,23 @@ export async function run(): Promise<void> {
       const injected = await submit(parametersCell, cloudGrading[parametersCell.id].solution);
       assert.equal(injected.status, "passed", JSON.stringify(injected.checks));
       assert.equal((await submit(parametersCell, parametersCell.starterSource)).status, "failed");
+
+      // SQL pool: T-SQL graded on the simulated pool; each check also uses an isolated catalog.
+      const sqlpool = catalog.filter(item => item.packId === "sqlpool-v1");
+      assert.equal(sqlpool.length, 12);
+      assert.ok(sqlpool.every(item => item.language === "sqlpool" && item.truth === "simulated"));
+      const poolGrading = JSON.parse(new TextDecoder().decode(await vscode.workspace.fs.readFile(
+        vscode.Uri.joinPath(extension.extensionUri, "content", "exercise-packs", "sqlpool-v1", "grading.server.json")
+      ))) as Record<string, { solution: string }>;
+      const replicate = sqlpool.find(item => item.id === "sp-replicate-dimension")!;
+      const replicated = await submit(replicate, poolGrading[replicate.id].solution);
+      assert.equal(replicated.status, "passed", JSON.stringify(replicated.checks));
+      assert.equal(replicated.truth, "simulated");
+      assert.equal((await submit(replicate, replicate.starterSource)).status, "failed", "a round-robin dimension is broadcast");
+      const fabricPort = sqlpool.find(item => item.id === "sp-fabric-port")!;
+      const synapseOptions = await submit(fabricPort, fabricPort.starterSource);
+      assert.equal(synapseOptions.status, "failed");
+      assert.match(synapseOptions.checks[0].message, /takes no DISTRIBUTION/);
       await runtime!.refreshCatalog();
       assert.equal(JSON.stringify(runtime!.snapshot().catalog?.map(item => [item.name, item.row_count])), catalogBefore,
         "exercise grading must not touch the workspace catalog");

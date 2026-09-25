@@ -171,6 +171,7 @@ export interface RuntimeViewState {
   sparkRun?: SparkLabRunView;
   airflowRun?: AirflowLabView;
   factoryRun?: FactoryLabView;
+  sqlpoolRun?: SqlPoolLabView;
   retailDemo?: RetailDemoRunView;
   catalog?: readonly LocalCatalogAssetView[];
   lastRun?: LocalCellRunView;
@@ -434,6 +435,8 @@ export interface FactoryViewState {
   folder: string;
   exists: boolean;
   pipelines: FactoryDesignView[];
+  /** T-SQL scripts for the SQL pool tab (factory/sql/pool/*.sql). */
+  poolScripts: SqlPoolScriptView[];
   warnings: string[];
 }
 
@@ -504,6 +507,119 @@ export interface FactoryLabView {
   run?: FactoryRunView;
   tablesChanged: { name: string; rows: number; producer?: string }[];
   scenario: FactoryScenarioInput;
+}
+
+/** Cloud Lab › SQL pool: a simulated Azure Synapse dedicated SQL pool or Microsoft Fabric Data Warehouse. */
+export type SqlPoolFlavor = "synapse" | "fabric";
+
+export interface SqlPoolScriptView {
+  name: string;
+  /** Workspace-relative path. */
+  path: string;
+  /** From a "-- flavor: synapse|fabric" comment at the top of the script. */
+  flavor?: SqlPoolFlavor;
+}
+
+export interface SqlPoolPlanStepView {
+  operation: string;
+  tables: string[];
+  columns: string[];
+  /** Rows moved, at scale. */
+  rows: number;
+  reason: string;
+}
+
+export interface SqlPoolScanView {
+  table: string;
+  alias: string;
+  partitionsScanned: number;
+  partitionsTotal: number;
+  eliminated: boolean;
+  reason: string;
+}
+
+export interface SqlPoolPlanView {
+  analyzed: boolean;
+  steps: SqlPoolPlanStepView[];
+  scans: SqlPoolScanView[];
+  notes: string[];
+  dataMovement: boolean;
+}
+
+export interface SqlPoolStatementView {
+  index: number;
+  line: number;
+  kind: string;
+  status: "ok" | "error";
+  message: string;
+  target?: string;
+  /** The DuckDB SQL the statement was translated to, when it ran SQL. */
+  sql?: string;
+  columns: string[];
+  rows: Record<string, string | number | boolean | null>[];
+  truncated: boolean;
+  plan?: SqlPoolPlanView;
+  notes: string[];
+  children: SqlPoolStatementView[];
+}
+
+export interface SqlPoolDistributionView {
+  /** Share of the rows on each of the 60 distributions (0..1). */
+  shares: number[];
+  skewPct: number;
+  maxSharePct: number;
+  minSharePct: number;
+  emptyDistributions: number;
+  distinctKeys?: number;
+  nullSharePct: number;
+  heavyValues: { value: string; sharePct: number }[];
+}
+
+export interface SqlPoolPartitionView {
+  number: number;
+  lower?: string;
+  upper?: string;
+  rows: number;
+  rowsAtScale: number;
+  rowsPerDistribution?: number;
+  columnstoreOk?: boolean;
+}
+
+export interface SqlPoolTableView {
+  name: string;
+  label: string;
+  distribution: string;
+  hashColumns: string[];
+  index: string;
+  indexColumns: string[];
+  partition?: { column: string; range: string; boundaries: string[]; count: number };
+  clusterBy: string[];
+  constraints: { kind: string; columns: string[]; enforced: boolean }[];
+  nonclusteredIndexes: { name: string; columns: string[] }[];
+  statistics: { name: string; columns: string[] }[];
+  rows: number;
+  scaleFactor: number;
+  rowsAtScale: number;
+  createdBy: string;
+  distributionStats?: SqlPoolDistributionView;
+  partitions: SqlPoolPartitionView[];
+  /** Unpartitioned clustered columnstore tables: at least 1 million rows per distribution. */
+  columnstoreOk?: boolean;
+}
+
+export interface SqlPoolLabView {
+  flavor: SqlPoolFlavor;
+  flavorLabel: string;
+  status: "ok" | "error";
+  truth: string;
+  scale: number;
+  distributions: number;
+  rowgroupTarget: number;
+  /** What ran: a script path, "active editor" or "" when the tables were only described. */
+  source: string;
+  statements: SqlPoolStatementView[];
+  tables: SqlPoolTableView[];
+  warnings: string[];
 }
 
 export interface DbtCliView {
@@ -581,6 +697,8 @@ export type WebviewToHostMessage =
   | { type: "openFactoryFile"; path: string }
   | { type: "revealFactoryActivity"; path: string; activity: string }
   | { type: "simulateFactory"; flavor: FactoryFlavor; name: string; scenario: FactoryScenarioInput }
+  | { type: "runSqlPool"; flavor: SqlPoolFlavor; scale: number; source: "file" | "active" | "describe"; path?: string }
+  | { type: "revealSqlPoolLine"; line: number }
   | { type: "openDbtProject" }
   | { type: "refreshDbt" }
   | { type: "runDbtBuild" };

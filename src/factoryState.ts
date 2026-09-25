@@ -9,6 +9,7 @@ import {
   parseJsonDocument,
   pipelineRelativePath
 } from "./platform/factoryRun";
+import { SQLPOOL_LIMITS, flavorHint } from "./platform/sqlpoolRun";
 import type { FactoryFlavor, FactoryViewState } from "./webview/contracts";
 
 const MAX_FILES = 400;
@@ -35,12 +36,19 @@ export function factoryRoot(): vscode.Uri | undefined {
 /** Every pipeline of the lab, parsed for the canvas (the runtime validates them when they run). */
 export async function loadFactoryState(): Promise<FactoryViewState> {
   const root = factoryRoot();
-  const state: FactoryViewState = { folder: FACTORY_FOLDER, exists: false, pipelines: [], warnings: [] };
+  const state: FactoryViewState = { folder: FACTORY_FOLDER, exists: false, pipelines: [], poolScripts: [], warnings: [] };
   if (!root || !(await exists(root))) return state;
   state.exists = true;
   const files = await listFiles(root, state.warnings);
   for (const file of files) {
     const role = classifyFactoryPath(file.relative);
+    if (role?.role === "poolScript") {
+      if (state.poolScripts.length < SQLPOOL_LIMITS.scripts) {
+        const path = `${FACTORY_FOLDER}/${file.relative}`;
+        state.poolScripts.push({ name: role.name, path, flavor: flavorHint(await readText(file.uri)) });
+      }
+      continue;
+    }
     if (role?.role !== "pipeline") continue;
     if (!PIPELINE_NAME.test(role.name)) {
       state.warnings.push(`${file.relative}: pipeline names use letters, digits, spaces, _ and - (at most 140)`);
@@ -65,7 +73,7 @@ export async function collectFactoryFiles(flavor: FactoryFlavor): Promise<{ file
   if (!root || !(await exists(root))) return { files, warnings };
   for (const file of await listFiles(root, warnings)) {
     const role = classifyFactoryPath(file.relative);
-    if (!role) continue;
+    if (!role || role.role === "poolScript") continue;
     const text = await readText(file.uri);
     const tooLong = text.length > FACTORY_LIMITS.textChars;
     if (role.role === "pipeline" || role.role === "dataset") {
@@ -102,6 +110,19 @@ export function factoryFileUri(relative: string): vscode.Uri | undefined {
     return undefined;
   }
   return vscode.Uri.joinPath(root, ...parts);
+}
+
+/** A SQL pool script's text (an open editor wins over the file on disk), or an error to show. */
+export async function readPoolScript(relative: string): Promise<{ text?: string; error?: string }> {
+  const uri = factoryFileUri(relative);
+  const role = classifyFactoryPath(relative.replaceAll("\\", "/").split("/").slice(1).join("/"));
+  if (!uri || role?.role !== "poolScript") return { error: `${relative} is not a script of ${FACTORY_FOLDER}/sql/pool/` };
+  if (!(await exists(uri))) return { error: `SQL pool script not found: ${relative}` };
+  const text = await readText(uri);
+  if (text.length > SQLPOOL_LIMITS.scriptChars) {
+    return { error: `${relative} is longer than ${SQLPOOL_LIMITS.scriptChars} characters` };
+  }
+  return { text };
 }
 
 export async function copyFactorySamples(extensionUri: vscode.Uri): Promise<vscode.Uri | undefined> {

@@ -1065,7 +1065,44 @@ h2 { margin-bottom: 8px; font-size: 28px; }
 .factory-differences th,
 .factory-differences td { padding: 4px 6px; border-bottom: 1px solid var(--vscode-panel-border); text-align: left; vertical-align: top; }
 .factory-differences tbody th { white-space: nowrap; }
+.sqlpool-scale { display: inline-flex; align-items: center; gap: 4px; color: var(--vscode-descriptionForeground); font-size: 11px; }
+.sqlpool-run { display: grid; grid-template-columns: minmax(0, 1.1fr) minmax(0, 1fr); gap: 10px; align-items: start; min-width: 0; }
+.sqlpool-statements td small { white-space: normal; }
+.sqlpool-statements tr.is-selected { background: var(--vscode-list-inactiveSelectionBackground); }
+.sqlpool-line {
+  display: block;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--vscode-textLink-foreground);
+  cursor: pointer;
+  font: inherit;
+  font-size: 10px;
+}
+.sqlpool-details,
+.sqlpool-plan { display: grid; gap: 6px; min-width: 0; }
+.sqlpool-details { padding: 8px 10px; border: 1px solid var(--vscode-panel-border); border-radius: 6px; }
+.sqlpool-details p { margin: 0; }
+.sqlpool-tables { display: grid; grid-template-columns: repeat(auto-fill, minmax(360px, 1fr)); gap: 10px; min-width: 0; }
+.sqlpool-table { display: grid; gap: 8px; padding: 10px 12px; border: 1px solid var(--vscode-panel-border); border-radius: 7px; min-width: 0; }
+.sqlpool-table code { font-size: 11px; }
+.sqlpool-distribution { display: grid; gap: 6px; }
+.sqlpool-bars {
+  position: relative;
+  display: flex;
+  align-items: flex-end;
+  gap: 1px;
+  height: 64px;
+  padding: 0 1px;
+  border-bottom: 1px solid var(--vscode-panel-border);
+}
+.sqlpool-bars span { flex: 1; min-width: 2px; background: var(--vscode-charts-blue, #1e88e5); border-radius: 1px 1px 0 0; }
+.sqlpool-bars i { position: absolute; left: 0; right: 0; border-top: 1px dashed var(--vscode-charts-green, #2e7d32); }
+.sqlpool-skew { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 10px; color: var(--vscode-descriptionForeground); font-size: 11px; }
+.sqlpool-partitions td { white-space: nowrap; }
+.sqlpool-sql summary { cursor: pointer; color: var(--vscode-descriptionForeground); font-size: 11px; }
 @media (max-width: 900px) {
   .factory-io { grid-template-columns: 1fr; }
   .factory-legend { margin-left: 0; }
+  .sqlpool-run { grid-template-columns: 1fr; }
 }

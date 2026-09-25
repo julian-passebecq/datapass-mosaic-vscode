@@ -84,6 +84,9 @@ def grade(engine, request):
     if spec.runtime == 'datapass-factory-sim-v1':
         from .factory_grading import grade_factory
         return grade_factory(engine, request, spec, private)
+    if spec.runtime == 'datapass-sqlpool-sim-v1':
+        from .sqlpool_grading import grade_sqlpool
+        return grade_sqlpool(engine, request, spec, private)
     fixtures = [f for f in private.fixtures if request['mode'] == 'submit' or f.visibility == 'visible']
     evidence, runs = [], []
     available = next(k['available'] for k in engine.capabilities()['kernels'] if k['id'] == spec.language)
