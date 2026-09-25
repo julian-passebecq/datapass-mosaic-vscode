@@ -238,10 +238,12 @@ With `dbt-core` and `dbt-duckdb` available, choose **Run dbt build**. Datapass t
 
 ## 4. Runtime
 
-The extension starts one loopback FastAPI runtime at:
+**Setup runtime** creates a private Python environment for the runtime and installs its engines, once per machine. It uses [uv](https://docs.astral.sh/uv/) when it is installed and pip otherwise; the setup card says which one it uses. On Windows, uv made the first setup about ten times faster (about 14 s instead of about 146 s).
+
+The extension starts one loopback FastAPI runtime on a free local port:
 
 ```text
-127.0.0.1:8765
+127.0.0.1:<free port>
 ```
 
 The runtime currently owns local services such as:
