@@ -2,8 +2,9 @@ import * as vscode from "vscode";
 import { AIRFLOW_STARTER_FILE, airflowPaths } from "./airflowState";
 import { loadExerciseCatalog } from "./exerciseCatalog";
 import { decodeCsvBytes, suggestBronzeAsset, validateBronzeAsset } from "./platform/csvImport";
-import { collectFactoryFiles, copyFactorySamples, factoryFileUri, factoryRoot, pipelineUri } from "./factoryState";
+import { collectFactoryFiles, copyFactorySamples, factoryFileUri, factoryRoot, pipelineUri, readPoolScript } from "./factoryState";
 import { FACTORY_FLAVORS, PIPELINE_NAME, pipelineRelativePath } from "./platform/factoryRun";
+import { SQLPOOL_FLAVORS, SQLPOOL_LIMITS, isValidScale } from "./platform/sqlpoolRun";
 import { probeDbtCli } from "./dbtState";
 import { MODULES, type ModuleId } from "./modules";
 import { writeMosaicLayout } from "./mosaicLayoutStore";
@@ -20,6 +21,7 @@ import type {
   FactoryFlavor,
   FactoryScenarioInput,
   ScratchKind,
+  SqlPoolFlavor,
   WebviewToHostMessage
 } from "./webview/contracts";
 
@@ -65,6 +67,8 @@ export class WorkbenchPanel {
   private readonly lastDocuments = new Map<string, vscode.Uri>();
   /** The DAG file Airflow Lab last simulated, to reveal a parser error line in it. */
   private lastAirflowFile?: vscode.Uri;
+  /** The T-SQL script the SQL pool tab last ran, to reveal a statement's line in it. */
+  private lastSqlPoolFile?: vscode.Uri;
 
   private constructor(
     private readonly panel: vscode.WebviewPanel,
@@ -215,6 +219,12 @@ export class WorkbenchPanel {
         break;
       case "simulateFactory":
         await this.simulateFactory(message.flavor, message.name, message.scenario);
+        break;
+      case "runSqlPool":
+        await this.runSqlPool(message.flavor, message.scale, message.source, message.path);
+        break;
+      case "revealSqlPoolLine":
+        await this.revealSqlPoolLine(message.line);
         break;
       case "openDbtProject":
         await this.openDbtProject();
@@ -761,7 +771,7 @@ export class WorkbenchPanel {
     const starter = pipelineUri("fabric", "pl_retail_daily");
     if (starter && (await exists(starter))) await this.openBeside(starter);
     void vscode.window.showInformationMessage(
-      "Cloud Lab files are in factory/: the same daily load for Fabric, Azure Data Factory and Synapse, with notebooks and a stored procedure. Existing files were kept."
+      "Cloud Lab files are in factory/: the same daily load for Fabric, Azure Data Factory and Synapse, with notebooks, a stored procedure and T-SQL scripts for the SQL pool tab (factory/sql/pool). Existing files were kept."
     );
     await this.refresh();
   }
@@ -813,6 +823,62 @@ export class WorkbenchPanel {
       );
     }
     await this.refresh();
+  }
+
+  /**
+   * SQL pool tab: run a script of factory/sql/pool, the active .sql editor, or nothing (describe the
+   * tables). The runtime translates the T-SQL; data statements run on the local catalog.
+   */
+  private async runSqlPool(
+    flavor: SqlPoolFlavor,
+    scale: number,
+    source: "file" | "active" | "describe",
+    path?: string
+  ): Promise<void> {
+    if (!SQLPOOL_FLAVORS.includes(flavor) || !isValidScale(scale)) return;
+    let script = "";
+    let label = "";
+    if (source === "file") {
+      const read = path ? await readPoolScript(path) : { error: "No script selected." };
+      if (read.error || read.text === undefined) {
+        void vscode.window.showWarningMessage(read.error ?? "No script selected.");
+        return;
+      }
+      const uri = factoryFileUri(path!)!;
+      const open = vscode.workspace.textDocuments.find(document => document.uri.toString() === uri.toString());
+      if (open?.isDirty) await open.save();  // a run uses the file as saved, like the other labs
+      script = read.text;
+      label = path!;
+      this.lastSqlPoolFile = uri;
+    } else if (source === "active") {
+      const document = await activeSavedDocument(".sql", "SQL", this.lastDocuments.get(".sql"));
+      if (!document) return;
+      script = document.getText();
+      if (script.length > SQLPOOL_LIMITS.scriptChars) {
+        void vscode.window.showWarningMessage(`The script is longer than ${SQLPOOL_LIMITS.scriptChars} characters.`);
+        return;
+      }
+      label = vscode.workspace.asRelativePath(document.uri);
+      this.lastSqlPoolFile = document.uri;
+    }
+    try {
+      await this.runtimeManager.runSqlPool({ flavor, script, scale, source: label });
+    } catch (error) {
+      void vscode.window.showErrorMessage(
+        `SQL pool run failed: ${error instanceof Error ? error.message : String(error)}`
+      );
+    }
+    await this.refresh();
+  }
+
+  private async revealSqlPoolLine(line: number): Promise<void> {
+    if (!this.lastSqlPoolFile || !Number.isInteger(line) || line < 1) return;
+    const document = await vscode.workspace.openTextDocument(this.lastSqlPoolFile);
+    const column = this.panel.viewColumn === vscode.ViewColumn.Two ? vscode.ViewColumn.One : vscode.ViewColumn.Two;
+    const editor = await vscode.window.showTextDocument(document, { preview: false, viewColumn: column });
+    const position = new vscode.Position(Math.min(line, document.lineCount) - 1, 0);
+    editor.selection = new vscode.Selection(position, position);
+    editor.revealRange(new vscode.Range(position, position), vscode.TextEditorRevealType.InCenter);
   }
 
   private async openDbtProject(): Promise<void> {
@@ -929,6 +995,7 @@ function extensionFor(language: string): string {
   switch (language.toLowerCase()) {
     case "sql":
     case "dbt":
+    case "sqlpool":
       return "sql";
     case "python":
     case "pandas":

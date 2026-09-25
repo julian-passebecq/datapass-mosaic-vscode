@@ -63,6 +63,14 @@ Cloud Lab is separate from Mosaic. Its **Pipelines** tab is the Factory Lab (`ru
 - Every other activity follows the scenario. A dry run simulates all of them.
 - The host sends the pipeline and the files it references with each run (`POST /api/local/factory/simulate`, kernel op `factory_simulate`). The webview renders the canvas from its own parse of the JSON, so the canvas shows even when the runtime is stopped.
 
+The **SQL pool** tab is the SQL pool Lab (`runtime/sqlpoollab`): a simulated Azure Synapse dedicated SQL pool and Microsoft Fabric Data Warehouse.
+
+- `tsql.py` splits scripts (`;`, `GO` batches; a procedure takes its batch) and translates a documented T-SQL subset to DuckDB SQL. Nothing is eval'd; every data statement still goes through the catalog's SQL validation (`datapass_runtime/sqlpool_database.py`), so file and network functions stay blocked.
+- `engine.py` runs statements one by one and keeps table designs (distribution, index, partitions, CLUSTER BY, constraints, statistics, scale) in `sqlpool.json` next to the catalog. Platform rules are enforced per flavor with the platform's messages.
+- `physical.py` models the 60 distributions (skew), partitions and columnstore rowgroups from the real rows; `planner.py` decides the data movement of a SELECT from DuckDB's parse tree (`json_serialize_sql`).
+- The host reads scripts from `factory/sql/pool/` (an open editor wins) or the active `.sql` editor and sends the text (`POST /api/local/sqlpool/run`, kernel op `sqlpool_run`). The webview shows statements, plans, the distribution chart and partitions.
+- Practice language `sqlpool` grades scripts on an isolated temporary catalog (`datapass_runtime/sqlpool_grading.py`).
+
 The **Lakehouse and notebooks** tab keeps the original workflow of lakehouse + notebook + pipeline, reproduced locally:
 
 - Fabric-inspired notebook surface.

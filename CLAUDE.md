@@ -18,7 +18,7 @@ Datapass owns:
 
 - Mosaic workspace composition;
 - Practice/exercise UX and grading;
-- Cloud Lab (formerly Fabric Lab): Fabric-inspired local learning UX and the Fabric / Azure Data Factory / Synapse pipeline simulator;
+- Cloud Lab (formerly Fabric Lab): Fabric-inspired local learning UX, the Fabric / Azure Data Factory / Synapse pipeline simulator and the SQL pool simulator (Synapse dedicated SQL pool, Fabric Warehouse);
 - bounded SparkLab/ZilaCode semantics;
 - dbt learning/lineage integration;
 - Airflow scheduling simulation;
@@ -34,7 +34,7 @@ Never blur real execution and simulation.
 - Mosaic SQL: real local DuckDB execution.
 - Mosaic Python/Polars: real local execution only when explicitly trusted local Python is enabled.
 - Practice: native VS Code solution files with real local grading through the shared runtime.
-- Cloud Lab (module id `fabric`, formerly Fabric Lab): Fabric-inspired UX; local DuckDB/DuckLake and selected real-local operations; no implicit Microsoft Fabric, Azure or Databricks connection. Its Pipelines tab (`runtime/factorylab`) reads real Fabric / Azure Data Factory / Synapse pipeline JSON and simulates the orchestration deterministically (dependency conditions, leaf rule, retries, containers, expressions); Copy, Lookup, Script, stored procedures and notebooks run on the local catalog, notebooks through SparkLab's whitelisted AST interpreter (NEVER eval/exec'd); every other activity follows the scenario.
+- Cloud Lab (module id `fabric`, formerly Fabric Lab): Fabric-inspired UX; local DuckDB/DuckLake and selected real-local operations; no implicit Microsoft Fabric, Azure or Databricks connection. Its Pipelines tab (`runtime/factorylab`) reads real Fabric / Azure Data Factory / Synapse pipeline JSON and simulates the orchestration deterministically (dependency conditions, leaf rule, retries, containers, expressions); Copy, Lookup, Script, stored procedures and notebooks run on the local catalog, notebooks through SparkLab's whitelisted AST interpreter (NEVER eval/exec'd); every other activity follows the scenario. Its SQL pool tab (`runtime/sqlpoollab`) translates a documented T-SQL subset to DuckDB and really runs the data statements on the local catalog; distributions, partitions, columnstore rowgroups and data movement plans are modelled teaching data, not Synapse or Fabric telemetry.
 - SparkLab/ZilaCode: bounded PySpark-style semantics; distributed Spark behavior and telemetry are simulated/teaching data.
 - dbt Lab: prefer real dbt Core + dbt-duckdb; static lineage is a fallback, not execution.
 - Airflow Lab: deterministic scheduling simulator; it is not an Airflow scheduler/executor. Airflow DAG files (the Airflow Lab panel and Practice `airflow` exercises) are parsed by a whitelisted AST reader (`runtime/airflowlab`) and NEVER eval/exec'd; scheduler and task outcomes are simulated with Airflow 3 semantics.
@@ -72,7 +72,7 @@ npm install --no-audit --no-fund
 npm run compile
 npm test
 python -m pip install ./runtime
-python -m compileall -q runtime/datapass_runtime runtime/sparklab runtime/airflowlab runtime/factorylab
+python -m compileall -q runtime/datapass_runtime runtime/sparklab runtime/airflowlab runtime/factorylab runtime/sqlpoollab
 python scripts/runtime_smoke.py
 python scripts/exercise_packs_smoke.py
 npm run test:host   # with DATAPASS_E2E_PYTHON set; see docs/LOCAL_TEST.md

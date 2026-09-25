@@ -290,6 +290,131 @@ with TemporaryDirectory(prefix="datapass-factory-notebook-smoke-") as temp:
             pass
     nb_catalog.close()
 
+# SQL pool Lab: T-SQL translated to DuckDB runs for real; designs, distributions, partitions and plans are modelled.
+with TemporaryDirectory(prefix="datapass-sqlpool-smoke-") as temp:
+    from datapass_runtime.catalog import Catalog
+    from datapass_runtime.sqlpool_database import CatalogDatabase
+    from sqlpoollab.engine import SqlPool
+    from sqlpoollab.model import Metadata, TableDesign
+    from sqlpoollab.physical import distribution_stats
+
+    pool_catalog = Catalog(Path(temp), "duckdb")
+    pool_db = CatalogDatabase(pool_catalog)
+    pool_meta = Metadata(Path(temp) / "sqlpool.json")
+
+    def pool_run(script, flavor="synapse"):
+        return SqlPool(pool_db, pool_meta, flavor, scale=1_000_000).run(script)
+
+    def moves(result):
+        return [(s["operation"], s["columns"]) for s in result.plan["steps"] if s["operation"] != "ReturnOperation"]
+
+    built = pool_run(
+        "CREATE TABLE dbo.dim_segment WITH (DISTRIBUTION = REPLICATE, CLUSTERED INDEX (segment_id)) AS\n"
+        "SELECT segment_id, segment_name FROM source.dim_customer_segment;\n"
+        "CREATE TABLE [dbo].[fact_orders] WITH (DISTRIBUTION = HASH([customer_id]), CLUSTERED COLUMNSTORE INDEX,\n"
+        "    PARTITION (order_date RANGE RIGHT FOR VALUES ('2026-09-17', '2026-09-18'))) AS\n"
+        "SELECT order_id, customer_id, segment_id, net_amount, CAST(LEFT(loaded_at, 10) AS DATE) AS order_date\n"
+        "FROM source.orders OPTION (LABEL = 'CTAS : fact_orders');\n"
+        "CREATE TABLE dbo.fact_rr WITH (DISTRIBUTION = ROUND_ROBIN) AS SELECT * FROM dbo.fact_orders;\n"
+        "SELECT TOP 3 s.segment_name, SUM(f.net_amount) AS revenue FROM dbo.fact_orders AS f\n"
+        "JOIN dbo.dim_segment AS s ON f.segment_id = s.segment_id\n"
+        "WHERE f.order_date >= '2026-09-17' AND ISNULL(f.net_amount, 0) > 0 GROUP BY s.segment_name ORDER BY revenue DESC;\n"
+        "EXPLAIN SELECT r.customer_id, COUNT(*) AS n FROM fact_rr r JOIN fact_orders o ON r.order_id = o.order_id\n"
+        "GROUP BY r.customer_id;\n")
+    assert [r.status for r in built] == ["ok"] * 5, [(r.kind, r.message) for r in built]
+    assert moves(built[1]) == [("ShuffleMoveOperation", ["customer_id"])], built[1].plan
+    report = built[3]
+    assert report.rows == [{"segment_name": "Corporate", "revenue": 4500.0}, {"segment_name": "Small Business", "revenue": 325.0},
+                           {"segment_name": "Consumer", "revenue": 150.0}], report.rows
+    assert moves(report) == [("ShuffleMoveOperation", ["segment_name"])], report.plan  # the replicated join is local
+    assert [(x["partitions_scanned"], x["partitions_total"]) for x in report.plan["scans"]] == [(2, 3)], report.plan
+    explained = built[4]
+    assert explained.kind == "EXPLAIN" and explained.rows == [], explained
+    assert moves(explained) == [("ShuffleMoveOperation", ["order_id"])] * 2 + [("ShuffleMoveOperation", ["customer_id"])], explained.plan
+    saved = json.loads((Path(temp) / "sqlpool.json").read_text(encoding="utf-8"))["tables"]["warehouse.fact_orders"]
+    assert saved["distribution"] == "HASH" and saved["partition"]["boundaries"] == ["2026-09-17", "2026-09-18"], saved
+    skew = distribution_stats(pool_db, pool_meta.tables["warehouse.fact_orders"], 12, 1_000_000)
+    assert skew.skew_pct >= 10 and skew.heavy_values[0] == ("CORPORATE_ACCOUNT_01", 0.25), skew
+    # A key seen once stands for many distinct values at scale: a unique key spreads evenly.
+    unique = distribution_stats(pool_db, TableDesign("warehouse.fact_orders", "HASH", ["order_id"]), 12, 1_000_000)
+    assert unique.skew_pct == 0 and unique.heavy_values == [] and unique.empty_distributions == 0, unique
+
+    # Joins on hash columns: local only when the data types match; otherwise the smaller side moves.
+    typed = pool_run(
+        "CREATE TABLE dbo.k_int WITH (DISTRIBUTION = HASH(k)) AS SELECT CAST(1 AS INT) AS k;\n"
+        "CREATE TABLE dbo.k_int2 WITH (DISTRIBUTION = HASH(k)) AS SELECT CAST(1 AS INT) AS k;\n"
+        "CREATE TABLE dbo.k_big WITH (DISTRIBUTION = HASH(k)) AS SELECT CAST(1 AS BIGINT) AS k;\n"
+        "EXPLAIN SELECT a.k, COUNT(*) AS n FROM dbo.k_int AS a JOIN dbo.k_int2 AS b ON a.k = b.k GROUP BY a.k;\n"
+        "EXPLAIN SELECT a.k, COUNT(*) AS n FROM dbo.k_int AS a JOIN dbo.k_big AS b ON a.k = b.k GROUP BY a.k;\n")
+    assert [r.status for r in typed] == ["ok"] * 5, [(r.kind, r.message) for r in typed]
+    assert moves(typed[3]) == [], typed[3].plan
+    assert moves(typed[4]) == [("ShuffleMoveOperation", ["k"])], typed[4].plan
+    assert any("data types must match" in note for note in typed[4].plan["notes"]), typed[4].plan
+
+    # Stored procedures: parameters with defaults, SQL Server style argument errors, nesting in one session.
+    proc = pool_run(
+        "CREATE PROCEDURE dbo.usp_daily @day DATE, @min_amount DECIMAL(10,2) = 0\nAS\nBEGIN\n"
+        "    IF OBJECT_ID('dbo.daily_revenue') IS NOT NULL DROP TABLE dbo.daily_revenue;\n"
+        "    CREATE TABLE dbo.daily_revenue WITH (DISTRIBUTION = ROUND_ROBIN, HEAP)\n"
+        "    AS SELECT order_date, COUNT_BIG(*) AS orders FROM dbo.fact_orders\n"
+        "       WHERE order_date = @day AND net_amount >= @min_amount GROUP BY order_date;\nEND\nGO\n"
+        "EXEC dbo.usp_daily @day = '2026-09-17';\nSELECT orders FROM daily_revenue;\n"
+        "EXEC dbo.usp_daily '2026-09-17', 100;\nSELECT orders FROM daily_revenue;\n"
+        "DECLARE @n INT = (SELECT COUNT(*) FROM dbo.fact_orders);\nSELECT @n AS n;\n"
+        "RENAME OBJECT dbo.daily_revenue TO daily_revenue_v1;\n")
+    assert [r.status for r in proc] == ["ok"] * 8, [(r.kind, r.message) for r in proc]
+    assert [c.kind for c in proc[1].children] == ["DROP TABLE", "CTAS"], proc[1].children
+    assert proc[2].rows == [{"orders": 11}] and proc[4].rows[0]["orders"] < 11 and proc[6].rows == [{"n": 12}], proc
+    assert "warehouse.daily_revenue_v1" in pool_meta.tables and "warehouse.daily_revenue" not in pool_meta.tables
+    missing = pool_run("EXEC dbo.usp_daily;")[-1]
+    assert missing.status == "error" and "expects parameter '@day'" in missing.message, missing
+
+    # T-SQL idioms: TOP in a subquery, string dates in date functions, PRINT of an expression.
+    idioms = pool_run(
+        "DECLARE @best VARCHAR(40) = (SELECT TOP 1 segment_name FROM dbo.dim_segment ORDER BY segment_id DESC);\n"
+        "PRINT CONCAT('Best: ', @best);\n"
+        "SELECT DATEADD(day, 30, '2026-01-01') AS d, EOMONTH('2026-02-10') AS e, DATEDIFF(day, '2026-01-01', '2026-03-01') AS n;\n")
+    assert [r.status for r in idioms] == ["ok"] * 3 and idioms[1].message == "Best: Public Sector", idioms
+    assert idioms[2].rows == [{"d": "2026-01-31T00:00:00", "e": "2026-02-28", "n": 59}], idioms[2].rows
+
+    # Partition switching moves a whole partition; TRUNCATE_TARGET replaces what the target partition held.
+    switched = pool_run(
+        "CREATE TABLE dbo.p_fact (id INT, d DATE) WITH (DISTRIBUTION = HASH(id), PARTITION (d RANGE RIGHT FOR VALUES ('2026-02-01')));\n"
+        "CREATE TABLE dbo.p_stage (id INT, d DATE) WITH (DISTRIBUTION = HASH(id), PARTITION (d RANGE RIGHT FOR VALUES ('2026-02-01')));\n"
+        "INSERT INTO dbo.p_fact VALUES (1, '2026-02-03');\n"
+        "INSERT INTO dbo.p_stage VALUES (2, '2026-02-04'), (3, '2026-02-05');\n"
+        "ALTER TABLE dbo.p_stage SWITCH PARTITION 2 TO dbo.p_fact PARTITION 2 WITH (TRUNCATE_TARGET = ON);\n"
+        "SELECT COUNT(*) AS n, MIN(id) AS first_id FROM dbo.p_fact;\nSELECT COUNT(*) AS staged FROM dbo.p_stage;\n")
+    assert [r.status for r in switched] == ["ok"] * 7, [(r.kind, r.message) for r in switched]
+    assert switched[5].rows == [{"n": 2, "first_id": 2}] and switched[6].rows == [{"staged": 0}], switched
+    refill = pool_run("INSERT INTO dbo.p_stage VALUES (4, '2026-02-06');\n"
+                      "ALTER TABLE dbo.p_stage SWITCH PARTITION 2 TO dbo.p_fact PARTITION 2;\n")
+    assert refill[-1].status == "error", refill[-1]
+
+    # Platform rules are enforced with the platform's messages; learner SQL still goes through catalog validation.
+    for flavor, script, expected in [
+        ("synapse", "CREATE TABLE dbo.q AS SELECT * FROM source.orders;", "requires a DISTRIBUTION option"),
+        ("synapse", "SELECT * INTO dbo.t2 FROM source.orders;", "use CREATE TABLE AS SELECT"),
+        ("synapse", "CREATE TABLE dbo.p (d DATE) WITH (PARTITION (d RANGE RIGHT FOR VALUES ('2026-02-01', '2026-01-01')));",
+         "ascending order"),
+        ("synapse", "ALTER TABLE dbo.fact_orders SPLIT RANGE ('2026-09-17 12:00');", "Only empty partitions can be split"),
+        ("synapse", "CREATE TABLE dbo.fk (a INT, CONSTRAINT f FOREIGN KEY (a) REFERENCES dbo.k_int (k) NOT ENFORCED);",
+         "FOREIGN KEY constraints are not supported"),
+        ("synapse", "CREATE SCHEMA staging;", "schemas are fixed"),
+        ("synapse", "GRANT SELECT ON dbo.fact_orders TO analyst;", "not simulated"),
+        ("synapse", "SELECT * FROM read_csv('secrets.csv');", "not filesystem or network table functions"),
+        ("fabric", "CREATE TABLE dbo.fx (a INT) WITH (DISTRIBUTION = HASH(a));", "takes no DISTRIBUTION option"),
+        ("fabric", "CREATE TABLE dbo.fy (a NVARCHAR(10));", "use varchar"),
+        ("fabric", "CREATE TABLE dbo.fw (a INT PRIMARY KEY);", "NOT ENFORCED"),
+        ("fabric", "RENAME OBJECT dbo.fact_rr TO fact_rr2;", "Synapse flavor only"),
+    ]:
+        refused = pool_run(script, flavor)[-1]
+        assert refused.status == "error" and expected in refused.message, (script, refused)
+    fabric = pool_run("CREATE TABLE dbo.fz WITH (CLUSTER BY (order_id)) AS SELECT order_id, net_amount FROM source.orders;",
+                      "fabric")[-1]
+    assert fabric.status == "ok" and "managed layout (Fabric), CLUSTER BY (order_id)" in fabric.message, fabric
+    pool_catalog.close()
+
 source = """pipeline("ci")
 a = sql("a", "SELECT 1")
 b = quality("b", "SELECT 1 WHERE FALSE")
@@ -538,6 +663,33 @@ with TemporaryDirectory(prefix="datapass-csv-import-smoke-") as temp:
                 "flavor": "fabric", "name": "p", "document": {"properties": {"activities": []}},
                 "files": {"notebooks": {"fabric:big": "x" * 40001}}})
             assert oversized.status_code == 422, oversized.status_code
+            # SQL pool Lab: the route runs T-SQL on the workspace catalog and describes the pool's tables.
+            pool = client.post("/api/local/sqlpool/run", json={"flavor": "synapse", "scale": 1000000, "script": (
+                "CREATE TABLE dbo.dim_segment WITH (DISTRIBUTION = REPLICATE) AS\n"
+                "SELECT segment_id, segment_name FROM source.dim_customer_segment;\n"
+                "CREATE TABLE dbo.fact_orders WITH (DISTRIBUTION = HASH(customer_id)) AS SELECT * FROM source.orders;\n"
+                "SELECT s.segment_name, COUNT(*) AS orders FROM dbo.fact_orders AS o\n"
+                "JOIN dbo.dim_segment AS s ON o.segment_id = s.segment_id GROUP BY s.segment_name;\n")})
+            assert pool.status_code == 200, pool.text
+            pool = pool.json()
+            assert pool["status"] == "ok" and pool["distributions"] == 60 and "Simulated SQL pool" in pool["truth"], pool
+            assert [s["kind"] for s in pool["statements"]] == ["CTAS", "CTAS", "SELECT"], pool["statements"]
+            tables = {t["name"]: t for t in pool["tables"]}
+            assert tables["dbo.dim_segment"]["distribution"] == "REPLICATE", tables
+            fact = tables["dbo.fact_orders"]
+            assert fact["rows"] == 12 and len(fact["distribution_stats"]["shares"]) == 60, fact
+            assert fact["columnstore_ok"] is False, fact  # 12 million rows at scale: 200,000 per distribution
+            assert [s["operation"] for s in pool["plan"]["steps"]] == ["ShuffleMoveOperation", "ReturnOperation"], pool["plan"]
+            again = client.post("/api/local/sqlpool/run", json={"flavor": "synapse", "script": ""}).json()
+            assert {t["name"] for t in again["tables"]} >= {"dbo.dim_segment", "dbo.fact_orders"}, again  # designs persist
+            failed = client.post("/api/local/sqlpool/run", json={"flavor": "fabric", "script": (
+                "CREATE TABLE dbo.f1 (a INT);\nCREATE TABLE dbo.f2 (a INT) WITH (DISTRIBUTION = ROUND_ROBIN);\n"
+                "CREATE TABLE dbo.f3 (a INT);\n")}).json()
+            assert failed["status"] == "error" and [s["status"] for s in failed["statements"]] == ["ok", "error"], failed
+            for bad in ({"flavor": "oracle", "script": "SELECT 1;"}, {"script": "x" * 60001}, {"script": "SELECT 1;", "scale": 0},
+                        {"script": "SELECT 1;", "path": "/etc/passwd"}):
+                assert client.post("/api/local/sqlpool/run", json=bad).status_code == 422, bad
+            assert capabilities()["sqlpool_lab"]["cloud_connection"] is False
     finally:
         if previous_workspace is None:
             os.environ.pop("DATAPASS_WORKSPACE_ROOT", None)

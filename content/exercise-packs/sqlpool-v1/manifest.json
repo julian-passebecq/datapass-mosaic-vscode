@@ -1,0 +1,10 @@
+{
+  "schema_version": 1,
+  "id": "sqlpool-v1",
+  "version": "1",
+  "title": "Cloud Lab: SQL pool design (simulated Synapse dedicated SQL pool and Fabric Warehouse)",
+  "enabled": true,
+  "provenance": {
+    "source": "Authored for Datapass Workbench"
+  }
+}

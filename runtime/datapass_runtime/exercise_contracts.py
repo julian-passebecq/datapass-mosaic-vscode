@@ -104,7 +104,7 @@ class ExerciseDefinition(Contract):
     topics: list[str]
     tags: list[str]
     origin: Literal['internal-demo','authored','migrated']
-    language: Literal['sql','sparklab','python','polars','dbt','airflow','factory','factory-notebook']
+    language: Literal['sql','sparklab','python','polars','dbt','airflow','factory','factory-notebook','sqlpool']
     runtime: str
     semantic: SemanticExercise | None = None
     prompt: str
@@ -175,7 +175,7 @@ class ExerciseAttempt(Contract):
     source_revision: int
     validator_version: str
     fixtures: list[VersionRef]
-    language: Literal['sql','sparklab','python','polars','dbt','airflow','factory','factory-notebook']
+    language: Literal['sql','sparklab','python','polars','dbt','airflow','factory','factory-notebook','sqlpool']
     status: Literal['passed','failed','error']
     checks: list[ExerciseCheck]
     truth: Literal['real','semantic-emulation','simulated','unsupported','design-only']

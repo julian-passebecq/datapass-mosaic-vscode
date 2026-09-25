@@ -106,6 +106,7 @@ class Engine:
                 {'id':'dbt','available':True,'truth':'literal ref/source teaching adapter; SQL executes; not dbt Core'},
                 {'id':'airflow','available':True,'truth':'DAG file parsed, never executed; deterministic Airflow 3 scheduler/task simulation'},
                 {'id':'factory','available':self.catalog.kind != 'sqlite','truth':'Data Factory orchestration simulated; Copy, Lookup, Script, procedures and SparkLab notebooks run on the local catalog'},
+                {'id':'sqlpool','available':self.catalog.kind != 'sqlite','truth':'T-SQL translated to DuckDB for a documented subset; distributions, partitions and data movement modelled'},
             ],
             'session_generation': self.generation,
             'distributed_spark': False,
@@ -538,6 +539,13 @@ class Engine:
         if op == 'factory_simulate':
             from .factory_workspace import simulate as factory_simulate
             return factory_simulate(self.catalog, request)
+        if op == 'sqlpool_run':
+            from sqlpoollab.lab import pool_view
+            from sqlpoollab.model import Metadata
+            from .sqlpool_database import CatalogDatabase
+            warehouse = [a['name'] for a in self.catalog.listing() if a['layer'] == 'warehouse']
+            return pool_view(CatalogDatabase(self.catalog), Metadata(self.catalog.directory / 'sqlpool.json'),
+                             request['script'], request['flavor'], float(request['scale']), warehouse)
         if op == 'check':
             case = get_case(request['case_id'])
             return {step['id']:self.check(step.get('check')) for step in case['steps']}

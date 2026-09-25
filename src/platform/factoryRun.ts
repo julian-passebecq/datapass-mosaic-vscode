@@ -23,7 +23,8 @@ export type FactoryFileRole =
   | { role: "pipeline"; flavor: FactoryFlavor; name: string }
   | { role: "dataset"; flavor: "adf" | "synapse"; name: string }
   | { role: "procedure"; name: string }
-  | { role: "notebook"; key: string };
+  | { role: "notebook"; key: string }
+  | { role: "poolScript"; name: string };
 
 /**
  * Classify a path relative to the factory folder:
@@ -31,6 +32,7 @@ export type FactoryFileRole =
  * - adf|synapse/pipeline/<name>.json and adf|synapse/dataset/<name>.json (Data Factory / Synapse git)
  * - synapse/notebook/<name>.py, databricks/<workspace path>.py (Databricks source format)
  * - sql/procedures/<schema>.<name>.sql
+ * - sql/pool/<name>.sql (T-SQL scripts of the SQL pool tab)
  */
 export function classifyFactoryPath(relative: string): FactoryFileRole | undefined {
   const parts = relative.replaceAll("\\", "/").split("/").filter(Boolean);
@@ -56,6 +58,9 @@ export function classifyFactoryPath(relative: string): FactoryFileRole | undefin
   }
   if (top === "sql" && second === "procedures" && parts.length === 3 && third.endsWith(".sql")) {
     return { role: "procedure", name: third.slice(0, -4) };
+  }
+  if (top === "sql" && second === "pool" && parts.length === 3 && third.endsWith(".sql")) {
+    return { role: "poolScript", name: third.slice(0, -4) };
   }
   return undefined;
 }

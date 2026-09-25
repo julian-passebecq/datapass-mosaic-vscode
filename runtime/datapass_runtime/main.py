@@ -101,6 +101,15 @@ class FactorySimulateRequest(BaseModel):
         return self
 
 
+class SqlPoolRunRequest(BaseModel):
+    """SQL pool Lab: a T-SQL script's TEXT, translated for a documented subset; data statements run on the local catalog."""
+    model_config = ConfigDict(extra="forbid")
+    flavor: Literal["synapse", "fabric"] = "synapse"
+    script: str = Field(default="", max_length=60000)
+    # How many real rows one lab row stands for, for tables without their own scale.
+    scale: float = Field(default=1.0, ge=1, le=1e12)
+
+
 class RetailDemoRequest(BaseModel):
     model_config = ConfigDict(extra="forbid", strict=True)
     dataset_path: str = Field(min_length=1, max_length=500)
@@ -115,7 +124,7 @@ class ExerciseGradeRequest(BaseModel):
     model_config = ConfigDict(extra="forbid", strict=True)
     exercise_id: str = Field(pattern=r"^[A-Za-z0-9_-]{1,100}$")
     exercise_version: str = Field(min_length=1, max_length=40)
-    language: Literal["sql", "sparklab", "python", "polars", "dbt", "airflow", "factory", "factory-notebook"]
+    language: Literal["sql", "sparklab", "python", "polars", "dbt", "airflow", "factory", "factory-notebook", "sqlpool"]
     code: str = Field(min_length=1, max_length=40000)
     mode: Literal["run", "submit"]
     notebook_id: str = Field(pattern=r"^[A-Za-z0-9_-]{1,100}$")
@@ -181,6 +190,13 @@ def capabilities() -> dict[str, object]:
             "scheduler": "deterministic-local",
             "dag_source": "Airflow DAG files parsed by a whitelisted AST reader; never executed",
             "semantics": "Airflow 3 timetables, catchup, trigger rules, retries, sensors, branching and templates for the supported subset",
+        },
+        "sqlpool_lab": {
+            "mode": "hybrid",
+            "flavors": ["synapse", "fabric"],
+            "data": "T-SQL translated to DuckDB for a documented subset; data statements run on the local catalog",
+            "physical_model": "60 distributions, partitions, columnstore rowgroups and data movement, modelled for teaching",
+            "cloud_connection": False,
         },
         "pipeline_lab": {
             "mode": "hybrid",
@@ -293,6 +309,12 @@ def simulate_factory(body: FactorySimulateRequest) -> object:
         "scenario": body.scenario,
         "data_plane": body.data_plane,
     })
+
+
+@app.post("/api/local/sqlpool/run")
+def run_sqlpool(body: SqlPoolRunRequest) -> object:
+    """SQL pool Lab: run a script on the simulated dedicated SQL pool (or Fabric Warehouse) and describe its tables."""
+    return native_command({"op": "sqlpool_run", "flavor": body.flavor, "script": body.script, "scale": body.scale})
 
 
 @app.post("/api/demo/retail/run")

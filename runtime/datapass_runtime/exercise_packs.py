@@ -40,7 +40,7 @@ NAMED_TABLE_LANGUAGES = {'sql', 'python', 'polars', 'sparklab'}
 CLUSTER_PROFILES = set(json.loads((Path(__file__).resolve().parents[1] / 'sparklab' / 'cluster_profiles.json').read_text(encoding='utf-8')))
 # Languages graded on simulation scenarios, with the runtime adapter that grades them.
 SCENARIO_LANGUAGES = {'airflow': 'datapass-airflow-sim-v1', 'factory': 'datapass-factory-sim-v1',
-                      'factory-notebook': 'datapass-factory-sim-v1'}
+                      'factory-notebook': 'datapass-factory-sim-v1', 'sqlpool': 'datapass-sqlpool-sim-v1'}
 
 
 def _check_factory_scenario(definition, raw):
@@ -54,6 +54,17 @@ def _check_factory_scenario(definition, raw):
     if any(not COLUMN_TYPE.fullmatch(t) for table in scenario.tables for t in table.types.values()):
         raise ValueError('Unsupported fixture column type in '+definition.id)
     for table in scenario.tables:
+        if any(not isinstance(v,(str,int,float,bool,type(None))) or isinstance(v,float) and not math.isfinite(v)
+               for row in table.rows for v in row.values()):
+            raise ValueError('Fixture values must be finite JSON scalars: '+definition.id)
+
+
+def _check_pool_scenario(definition, raw):
+    from sqlpoollab.exercise import PoolScenario
+    scenario = PoolScenario.model_validate(raw)
+    for table in scenario.tables:
+        if any(not COLUMN_TYPE.fullmatch(t) for t in table.types.values()):
+            raise ValueError('Unsupported fixture column type in '+definition.id)
         if any(not isinstance(v,(str,int,float,bool,type(None))) or isinstance(v,float) and not math.isfinite(v)
                for row in table.rows for v in row.values()):
             raise ValueError('Fixture values must be finite JSON scalars: '+definition.id)
@@ -84,7 +95,7 @@ class PackRegistry:
                 raise ValueError('Exercise identity must fit a shared notebook ID')
             if definition.canonical_placement.topic not in definition.topics:
                 raise ValueError('Canonical topic must belong to exercise topics')
-            if definition.language not in {'sql','python','polars','sparklab','dbt','airflow','factory','factory-notebook'}:
+            if definition.language not in {'sql','python','polars','sparklab','dbt','airflow','factory','factory-notebook','sqlpool'}:
                 raise ValueError('No grading adapter for '+definition.language)
             private = GradingDefinition.model_validate(grading[definition.id])
             refs = {'visible': [c.id for c in definition.visible_checks], 'hidden': definition.hidden_check_refs, 'edge': definition.edge_check_refs}
@@ -134,6 +145,8 @@ class PackRegistry:
                     if definition.language == 'airflow':
                         from airflowlab.simulate import Scenario
                         Scenario.model_validate(fixture.scenario)
+                    elif definition.language == 'sqlpool':
+                        _check_pool_scenario(definition, fixture.scenario)
                     else:
                         _check_factory_scenario(definition, fixture.scenario)
             for fixture in private.fixtures:

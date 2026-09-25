@@ -25,13 +25,16 @@ SKIP_RUNTIMES = {"fastapispark-guided-v1"}  # requires an explicitly qualified r
 # Packs whose starters must run cleanly and fail only on their results, so a
 # learner never starts from a parse error.
 RUNNABLE_STARTER_PACKS = {"sql-lab-v1", "engine-lab-v1", "python-lab-v1", "de-patterns-v1", "spark-lab-v1", "airflow-lab-v1",
-                          "cloud-pipelines-v1"}
+                          "cloud-pipelines-v1", "sqlpool-v1"}
 # SparkLab plan lessons: the starter returns the right rows and must fail only on
 # its simulated plan, so the lesson is about the plan, not the result.
 PLAN_ONLY_STARTERS = {
     "spark-coalesce-output-partitions", "spark-one-pass-aggregation", "spark-broadcast-dimension",
     "spark-remove-random-repartition", "spark-window-instead-of-self-join",
 }
+# Starters whose lesson is that the platform refuses them (a Synapse table script
+# run on Fabric Warehouse): they must fail, with the platform's error.
+STARTERS_REFUSED_BY_DESIGN = {"sp-fabric-port"}
 
 # Plausible wrong answers per exercise id. Each must fail submission.
 MUTANTS: dict[str, list[str]] = {
@@ -636,6 +639,56 @@ MUTANTS: dict[str, list[str]] = {
         '# Databricks notebook source\ndbutils.widgets.text("min_orders", "2")\ndbutils.widgets.text("target_table", "gold.top_customers")\n\n# COMMAND ----------\n\nfrom pyspark.sql import functions as F\n\nmin_orders = int(dbutils.widgets.get("min_orders"))\ntarget_table = dbutils.widgets.get("target_table")\n\norders = spark.table("silver.orders")\ntop = (\n    orders.groupBy("customer_id")\n    .agg(F.count("order_id").alias("orders"), F.sum("net_amount").alias("revenue"))\n    .filter(F.col("orders") >= min_orders)\n)\ntop.write.saveAsTable(target_table)\n\n# COMMAND ----------\n\ndbutils.notebook.exit(str(top.count()))\n',
         '# Databricks notebook source\ndbutils.widgets.text("min_orders", "2")\ndbutils.widgets.text("target_table", "gold.top_customers")\n\n# COMMAND ----------\n\nfrom pyspark.sql import functions as F\n\nmin_orders = 2\ntarget_table = dbutils.widgets.get("target_table")\n\norders = spark.table("silver.orders")\ntop = (\n    orders.groupBy("customer_id")\n    .agg(F.count("order_id").alias("orders"), F.sum("net_amount").alias("revenue"))\n    .filter(F.col("orders") >= min_orders)\n)\ntop.write.mode("overwrite").saveAsTable(target_table)\n\n# COMMAND ----------\n\ndbutils.notebook.exit(str(top.count()))\n',
     ],
+    # --- sqlpool-v1: T-SQL scripts on the simulated dedicated SQL pool and Fabric Warehouse ---
+    'sp-replicate-dimension': [
+        '-- dim_store has 8 rows; the sales report joins every sale (1.2 billion) to its store.\nCREATE TABLE dbo.dim_store\nWITH ( DISTRIBUTION = HASH(store_id), CLUSTERED COLUMNSTORE INDEX )\nAS\nSELECT store_id, store_name, region\nFROM bronze.stores;\n',
+        "        -- dim_store has 8 rows; the sales report joins every sale (1.2 billion) to its store.\n        CREATE TABLE dbo.dim_store\n        WITH ( DISTRIBUTION = REPLICATE, CLUSTERED INDEX (store_id) )\n        AS\n        SELECT store_id, store_name, region\n        FROM bronze.stores\nWHERE store_id <> 'S08';\n",
+    ],
+    'sp-colocate-fact-join': [
+        '-- dbo.fact_returns (300 million rows) is ROUND_ROBIN: the join to dbo.fact_sales shuffles it on every run.\nCREATE TABLE dbo.fact_returns_new\nWITH ( DISTRIBUTION = HASH(return_id), CLUSTERED COLUMNSTORE INDEX )\nAS\nSELECT *\nFROM dbo.fact_returns;\n\nRENAME OBJECT dbo.fact_returns TO fact_returns_old;\nRENAME OBJECT dbo.fact_returns_new TO fact_returns;\n\nDROP TABLE dbo.fact_returns_old;\n',
+        '-- dbo.fact_returns (300 million rows) is ROUND_ROBIN: the join to dbo.fact_sales shuffles it on every run.\nCREATE TABLE dbo.fact_returns_new\nWITH ( DISTRIBUTION = HASH(order_id), CLUSTERED COLUMNSTORE INDEX )\nAS\nSELECT return_id, CAST(order_id AS BIGINT) AS order_id, refund_amount\nFROM dbo.fact_returns;\n\nRENAME OBJECT dbo.fact_returns TO fact_returns_old;\nRENAME OBJECT dbo.fact_returns_new TO fact_returns;\n\nDROP TABLE dbo.fact_returns_old;\n',
+        '-- dbo.fact_returns (300 million rows) is ROUND_ROBIN: the join to dbo.fact_sales shuffles it on every run.\nCREATE TABLE dbo.fact_returns_new\nWITH ( DISTRIBUTION = HASH(order_id), CLUSTERED COLUMNSTORE INDEX )\nAS\nSELECT *\nFROM dbo.fact_returns;\n\nRENAME OBJECT dbo.fact_returns TO fact_returns_old;\nRENAME OBJECT dbo.fact_returns_new TO fact_returns;\n',
+    ],
+    'sp-skew-free-key': [
+        '-- 4.5 billion events a year. Analysts filter by event_date and join to customers, but a bot account\n-- (C000) produces 35% of the events and 10% have no customer at all.\nCREATE TABLE dbo.fact_web_events\nWITH ( DISTRIBUTION = HASH(event_date), CLUSTERED COLUMNSTORE INDEX )\nAS\nSELECT event_id, customer_id, event_date, device\nFROM bronze.web_events;\n',
+        '-- 4.5 billion events a year. Analysts filter by event_date and join to customers, but a bot account\n-- (C000) produces 35% of the events and 10% have no customer at all.\nCREATE TABLE dbo.fact_web_events\nWITH ( DISTRIBUTION = HASH(device), CLUSTERED COLUMNSTORE INDEX )\nAS\nSELECT event_id, customer_id, event_date, device\nFROM bronze.web_events;\n',
+    ],
+    'sp-staging-heap': [
+        '-- dbo.stg_orders is emptied and reloaded every night, then read once by the transformation.\nCREATE TABLE dbo.stg_orders\nWITH ( DISTRIBUTION = ROUND_ROBIN )\nAS\nSELECT order_id, payload, loaded_at\nFROM bronze.orders_raw;\n',
+        '-- dbo.stg_orders is emptied and reloaded every night, then read once by the transformation.\nCREATE TABLE dbo.stg_orders\nWITH ( DISTRIBUTION = HASH(order_id), HEAP )\nAS\nSELECT order_id, payload, loaded_at\nFROM bronze.orders_raw;\n',
+    ],
+    'sp-partition-range-right': [
+        "CREATE TABLE dbo.fact_sales_q1\nWITH\n(   DISTRIBUTION = HASH(order_id)\n,   CLUSTERED COLUMNSTORE INDEX\n,   PARTITION ( order_date RANGE LEFT FOR VALUES ('2026-02-01', '2026-03-01') )\n)\nAS\nSELECT order_id, order_date, amount\nFROM bronze.sales_q1;\n",
+        "CREATE TABLE dbo.fact_sales_q1\nWITH\n(   DISTRIBUTION = HASH(order_id)\n,   CLUSTERED COLUMNSTORE INDEX\n,   PARTITION ( order_date RANGE RIGHT FOR VALUES ('2026-01-31', '2026-02-28') )\n)\nAS\nSELECT order_id, order_date, amount\nFROM bronze.sales_q1;\n",
+    ],
+    'sp-partition-elimination': [
+        "-- dbo.fact_sales_m is partitioned by month on order_date (12 partitions for 2026).\nSELECT COUNT(*) AS orders, SUM(amount) AS revenue\nFROM dbo.fact_sales_m\nWHERE order_date BETWEEN '2026-02-01' AND '2026-03-01';\n",
+        "-- dbo.fact_sales_m is partitioned by month on order_date (12 partitions for 2026).\nSELECT COUNT(*) AS orders, SUM(amount) AS revenue\nFROM dbo.fact_sales_m\nWHERE CAST(order_date AS VARCHAR(10)) LIKE '2026-02%';\n",
+    ],
+    'sp-columnstore-partition-size': [
+        "-- 2.4 billion sales over 2024-2026. Daily partitions would leave a few thousand rows per\n-- distribution and partition: far too few for columnstore rowgroups.\nCREATE TABLE dbo.fact_sales_3y\nWITH\n(   DISTRIBUTION = HASH(order_id)\n,   CLUSTERED COLUMNSTORE INDEX\n,   PARTITION ( order_date RANGE RIGHT FOR VALUES ('2024-01-08', '2024-01-15', '2024-01-22', '2024-01-29', '2024-02-05', '2024-02-12', '2024-02-19', '2024-02-26', '2024-03-04', '2024-03-11', '2024-03-18', '2024-03-25', '2024-04-01', '2024-04-08', '2024-04-15', '2024-04-22', '2024-04-29', '2024-05-06', '2024-05-13', '2024-05-20', '2024-05-27', '2024-06-03', '2024-06-10', '2024-06-17', '2024-06-24', '2024-07-01', '2024-07-08', '2024-07-15', '2024-07-22', '2024-07-29', '2024-08-05', '2024-08-12', '2024-08-19', '2024-08-26', '2024-09-02', '2024-09-09', '2024-09-16', '2024-09-23', '2024-09-30', '2024-10-07', '2024-10-14', '2024-10-21', '2024-10-28', '2024-11-04', '2024-11-11', '2024-11-18', '2024-11-25', '2024-12-02', '2024-12-09', '2024-12-16', '2024-12-23', '2024-12-30', '2025-01-06', '2025-01-13', '2025-01-20', '2025-01-27', '2025-02-03', '2025-02-10', '2025-02-17', '2025-02-24', '2025-03-03', '2025-03-10', '2025-03-17', '2025-03-24', '2025-03-31', '2025-04-07', '2025-04-14', '2025-04-21', '2025-04-28', '2025-05-05', '2025-05-12', '2025-05-19', '2025-05-26', '2025-06-02', '2025-06-09', '2025-06-16', '2025-06-23', '2025-06-30', '2025-07-07', '2025-07-14', '2025-07-21', '2025-07-28', '2025-08-04', '2025-08-11', '2025-08-18', '2025-08-25', '2025-09-01', '2025-09-08', '2025-09-15', '2025-09-22', '2025-09-29', '2025-10-06', '2025-10-13', '2025-10-20', '2025-10-27', '2025-11-03', '2025-11-10', '2025-11-17', '2025-11-24', '2025-12-01', '2025-12-08', '2025-12-15', '2025-12-22', '2025-12-29', '2026-01-05', '2026-01-12', '2026-01-19', '2026-01-26', '2026-02-02', '2026-02-09', '2026-02-16', '2026-02-23', '2026-03-02', '2026-03-09', '2026-03-16', '2026-03-23', '2026-03-30', '2026-04-06', '2026-04-13', '2026-04-20', '2026-04-27', '2026-05-04', '2026-05-11', '2026-05-18', '2026-05-25', '2026-06-01', '2026-06-08', '2026-06-15', '2026-06-22', '2026-06-29', '2026-07-06', '2026-07-13', '2026-07-20', '2026-07-27', '2026-08-03', '2026-08-10', '2026-08-17', '2026-08-24', '2026-08-31', '2026-09-07', '2026-09-14', '2026-09-21', '2026-09-28', '2026-10-05', '2026-10-12', '2026-10-19', '2026-10-26', '2026-11-02', '2026-11-09', '2026-11-16', '2026-11-23', '2026-11-30', '2026-12-07', '2026-12-14', '2026-12-21', '2026-12-28') )\n)\nAS\nSELECT order_id, order_date, amount\nFROM bronze.sales_3y;\n",
+        "-- 2.4 billion sales over 2024-2026. Daily partitions would leave a few thousand rows per\n-- distribution and partition: far too few for columnstore rowgroups.\nCREATE TABLE dbo.fact_sales_3y\nWITH\n(   DISTRIBUTION = HASH(order_id)\n,   CLUSTERED COLUMNSTORE INDEX\n,   PARTITION ( order_date RANGE RIGHT FOR VALUES ('2024-04-01', '2024-07-01', '2024-10-01', '2025-01-01', '2025-04-01', '2025-07-01', '2025-10-01', '2026-01-01', '2026-04-01', '2026-07-01', '2026-10-01') )\n)\nAS\nSELECT order_id, order_date, amount\nFROM bronze.sales_3y;\n",
+    ],
+    'sp-ctas-upsert': [
+        "-- Apply bronze.product_changes to dbo.dim_product with the pool's CTAS pattern.\nCREATE TABLE dbo.dim_product_upsert\nWITH ( DISTRIBUTION = ROUND_ROBIN, CLUSTERED COLUMNSTORE INDEX )\nAS\nSELECT s.product_id, s.product_name, s.color, s.list_price\nFROM bronze.product_changes AS s\nUNION ALL\nSELECT p.product_id, p.product_name, p.color, p.list_price\nFROM dbo.dim_product AS p\nWHERE NOT EXISTS (SELECT 1 FROM bronze.product_changes AS s WHERE s.product_id = p.product_id);\n\nRENAME OBJECT dbo.dim_product TO dim_product_old;\nRENAME OBJECT dbo.dim_product_upsert TO dim_product;\nDROP TABLE dbo.dim_product_old;\n",
+        "-- Apply bronze.product_changes to dbo.dim_product with the pool's CTAS pattern.\nCREATE TABLE dbo.dim_product_upsert\nWITH ( DISTRIBUTION = HASH(product_id), CLUSTERED COLUMNSTORE INDEX )\nAS\nSELECT s.product_id, s.product_name, s.color, s.list_price\nFROM bronze.product_changes AS s\nUNION ALL\nSELECT p.product_id, p.product_name, p.color, p.list_price\nFROM dbo.dim_product AS p\nWHERE p.product_id NOT IN (SELECT product_id FROM bronze.product_changes WHERE color = 'Green');\n\nRENAME OBJECT dbo.dim_product TO dim_product_old;\nRENAME OBJECT dbo.dim_product_upsert TO dim_product;\nDROP TABLE dbo.dim_product_old;\n",
+    ],
+    'sp-partition-switch': [
+        "-- Stage March with exactly the design of dbo.fact_sales_p (the partitions must line up), load it, then\n-- switch the March partition in.\nCREATE TABLE dbo.fact_sales_stage\nWITH\n(   DISTRIBUTION = HASH(order_id)\n,   CLUSTERED COLUMNSTORE INDEX\n,   PARTITION ( order_date RANGE RIGHT FOR VALUES ('2026-02-01', '2026-03-01', '2026-04-01') )\n)\nAS\nSELECT * FROM dbo.fact_sales_p WHERE 1 = 2;\n\nINSERT INTO dbo.fact_sales_stage\nSELECT order_id, customer_id, order_date, amount FROM bronze.march_orders;\n\nINSERT INTO dbo.fact_sales_p SELECT * FROM dbo.fact_sales_stage;\n",
+        "-- Stage March with exactly the design of dbo.fact_sales_p (the partitions must line up), load it, then\n-- switch the March partition in.\nCREATE TABLE dbo.fact_sales_stage\nWITH\n(   DISTRIBUTION = HASH(order_id)\n,   CLUSTERED COLUMNSTORE INDEX\n,   PARTITION ( order_date RANGE RIGHT FOR VALUES ('2026-02-01', '2026-03-01', '2026-04-01') )\n)\nAS\nSELECT * FROM dbo.fact_sales_p WHERE 1 = 2;\n\nINSERT INTO dbo.fact_sales_stage\nSELECT order_id, customer_id, order_date, amount FROM bronze.march_orders;\n\nALTER TABLE dbo.fact_sales_stage SWITCH PARTITION 4 TO dbo.fact_sales_p PARTITION 4;\n",
+    ],
+    'sp-not-enforced-key': [
+        '        -- dbo.dim_customer declares PRIMARY KEY NONCLUSTERED (customer_id) NOT ENFORCED.\n        INSERT INTO dbo.dim_customer (customer_id, customer_name, city, updated_at)\n        SELECT DISTINCT customer_id, customer_name, city, updated_at\nFROM bronze.customer_updates;\n',
+        '        -- dbo.dim_customer declares PRIMARY KEY NONCLUSTERED (customer_id) NOT ENFORCED.\n        INSERT INTO dbo.dim_customer (customer_id, customer_name, city, updated_at)\n        SELECT customer_id, customer_name, city, updated_at\nFROM (\n    SELECT customer_id, customer_name, city, updated_at,\n           ROW_NUMBER() OVER (PARTITION BY customer_id ORDER BY updated_at ASC) AS rn\n    FROM bronze.customer_updates\n) AS latest\nWHERE rn = 1;\n',
+    ],
+    'sp-procedure-daily-rebuild': [
+        '    CREATE PROCEDURE dbo.usp_load_daily_sales @day DATE\n    AS\n    BEGIN\n        DELETE FROM dbo.daily_sales;\n\nINSERT INTO dbo.daily_sales (order_date, orders, revenue)\nSELECT @day, COUNT(*), SUM(amount)\nFROM dbo.fact_sales_d\nWHERE order_date = @day;\n    END\n',
+        '    CREATE PROCEDURE dbo.usp_load_daily_sales @day DATE\n    AS\n    BEGIN\n        DELETE FROM dbo.daily_sales WHERE order_date = @day;\n\nINSERT INTO dbo.daily_sales (order_date, orders, revenue)\nSELECT @day, COUNT(*), SUM(amount)\nFROM dbo.fact_sales_d\nWHERE order_date >= @day;\n    END\n',
+    ],
+    'sp-fabric-port': [
+        '        CREATE TABLE dbo.fact_orders\n        (   order_id INT NOT NULL\n,   customer_name VARCHAR(60) NOT NULL\n,   amount DECIMAL(10, 0) NOT NULL\n,   ordered_at DATETIME2(6) NOT NULL\n        );\n\n        INSERT INTO dbo.fact_orders (order_id, customer_name, amount, ordered_at)\n        SELECT order_id, customer_name, amount, ordered_at\n        FROM bronze.orders_export;\n',
+        '        CREATE TABLE dbo.fact_orders\n        (   order_id INT NOT NULL\n,   customer_name VARCHAR(60) NOT NULL\n,   amount DECIMAL(19, 1) NOT NULL\n,   ordered_at DATETIME2(6) NOT NULL\n        );\n\n        INSERT INTO dbo.fact_orders (order_id, customer_name, amount, ordered_at)\n        SELECT order_id, customer_name, amount, ordered_at\n        FROM bronze.orders_export;\n',
+    ],
 }
 
 
@@ -685,10 +738,13 @@ def main() -> None:
                 if starter.strip():
                     counts["starters"] += 1
                     graded = grade(manager, workspace, spec, starter)
+                    refused = [check["execution_status"] != "success" for check in graded["checks"]]
                     if graded["status"] == "passed":
                         failures.append(f"{spec['id']}: starter already passes")
-                    elif spec.get("pack", {}).get("id") in RUNNABLE_STARTER_PACKS and any(
-                            check["execution_status"] != "success" for check in graded["checks"]):
+                    elif spec["id"] in STARTERS_REFUSED_BY_DESIGN:
+                        if not all(refused):
+                            failures.append(f"{spec['id']}: starter should be refused ({summary(graded)})")
+                    elif spec.get("pack", {}).get("id") in RUNNABLE_STARTER_PACKS and any(refused):
                         failures.append(f"{spec['id']}: starter does not execute ({summary(graded)})")
                     elif spec["id"] in PLAN_ONLY_STARTERS and not fails_only_on_plan(graded):
                         failures.append(f"{spec['id']}: starter must pass its results and fail a plan check ({summary(graded)})")
