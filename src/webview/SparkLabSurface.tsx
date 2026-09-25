@@ -160,6 +160,12 @@ function SparkRunResult({ run }: { run: SparkLabRunView }) {
               <div className="retail-kpis">
                 <div><span>Virtual duration</span><strong>{fmt(simulation.totalDurationS)} s</strong></div>
                 <div><span>Shuffle / spill</span><strong>{fmt(simulation.shuffleGb)} / {fmt(simulation.spillGb)} GB</strong></div>
+                <div
+                  title={simulation.exchanges?.length ? simulation.exchanges.join("; ") : "No shuffle exchange in the modeled plan"}
+                >
+                  <span>Shuffle exchanges</span>
+                  <strong>{simulation.exchanges?.length ?? 0}</strong>
+                </div>
                 <div>
                   <span>{simulation.credits?.unit ?? "Credits"}{simulation.credits?.fictional ? " (fictional)" : ""}</span>
                   <strong>{fmt(simulation.credits?.total, 4)}</strong>

@@ -80,10 +80,16 @@ def grade(engine, request):
         return grade_design(engine, request, spec, private)
     fixtures = [f for f in private.fixtures if request['mode'] == 'submit' or f.visibility == 'visible']
     evidence, runs = [], []
+    plan = spec.spark_plan if spec.language == 'sparklab' else None
+    plan_run = None
     available = next(k['available'] for k in engine.capabilities()['kernels'] if k['id'] == spec.language)
     for fixture in fixtures:
         namespace = 'grading-' + uuid.uuid4().hex
         internal = {**request, 'notebook_id':namespace, 'output_asset':None}
+        if plan is not None:
+            # The exercise, not the learner's UI selection, fixes the modeled cluster and input scale.
+            internal.update(profile=plan.profile, aqe=plan.aqe,
+                            _exercise_spark_scale={name: scale.model_dump() for name, scale in plan.scale.items()})
         columns = list(spec.data_context[0].columns) if spec.data_context else list(fixture.input_rows[0]) if fixture.input_rows else ['value']
         types = dict(spec.data_context[0].columns) if spec.data_context else {}
         if fixture.tables is not None and spec.language in {'sql', 'sparklab'}:
@@ -120,10 +126,12 @@ def grade(engine, request):
         run['notebook_id'] = request['notebook_id']
         run['source_hash'] = hashlib.sha256(code.encode()).hexdigest()
         run.pop('compiled_sql', None)
+        if plan_run is None and run['status'] == 'success' and (run.get('simulation') or {}).get('status') == 'modeled':
+            plan_run = run
         result = run.get('result', {})
         fresh = all(engine.catalog.fresh(name) for name in run.get('input_versions',{}))
         passed = run['status']=='success' and fresh and validate_result(result,fixture.expected,spec.validation,code,spec.language)
-        check = dict(id=fixture.id, visibility=fixture.visibility, passed=passed,
+        check = dict(id=fixture.id, kind='result', visibility=fixture.visibility, passed=passed,
                      status='passed' if passed else 'failed', execution_id=run['id'],
                      message='Result matches declared contract.' if passed else 'Result differs or execution failed.',
                      execution_status=run['status'], elapsed_ms=run['elapsed_ms'],input_versions=run.get('input_versions',{}) if fixture.visibility=='visible' else {})
@@ -132,6 +140,8 @@ def grade(engine, request):
             if run.get('error'): check['message'] = run['error']['message']
             runs.append(run)
         evidence.append(check)
+    if plan is not None:
+        evidence.extend(_plan_checks(plan, plan_run))
     runtime_engine = 'python' if spec.language == 'python' else 'polars' if spec.language == 'polars' else engine.catalog.kind
     if runtime_engine == 'python':
         engine_version = platform.python_version()
@@ -145,6 +155,22 @@ def grade(engine, request):
                 truth='unsupported' if not available else 'semantic-emulation' if spec.language in {'sparklab','dbt'} else 'real',
                 runtime={'adapter':spec.runtime,'engine':runtime_engine,'engine_version':engine_version,'session_generation':engine.generation},
                 elapsed_ms=round(sum(c['elapsed_ms'] for c in evidence),3))
+
+
+def _plan_checks(plan, run):
+    """Public plan requirements, graded once on the modeled plan of a successful run."""
+    from sparklab.plan_checks import evaluate
+    checks = [c.model_dump() for c in plan.checks]
+    if run is None:
+        results = [dict(id=c['id'], passed=False,
+                        message='No modeled plan: the submission did not run successfully, or the SparkLab simulation was unavailable.')
+                   for c in checks]
+    else:
+        results = evaluate(checks, run['simulation']['metrics']['plan_facts'])
+    return [dict(id=r['id'], kind='plan', visibility='visible', passed=r['passed'],
+                 status='passed' if r['passed'] else 'failed', execution_id=run['id'] if run else '',
+                 execution_status=run['status'] if run else 'error', elapsed_ms=0.0,
+                 message=r['message'], input_versions={}) for r in results]
 
 
 def attempt(request, result):
