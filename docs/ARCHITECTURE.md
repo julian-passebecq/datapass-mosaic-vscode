@@ -64,6 +64,11 @@ host ── applyVerification() ──► .datapass/progress.json (manual ticks,
   ignores a hand-edited `verified` record that does not pass.
 - Each check result carries a truth: real, simulated, emulation, hybrid (simulated orchestration, local activities)
   or static (the BI Lab lineage).
+- Practice keeps its own section in the same file, `practice.exercises["<pack>/<exercise>/<language>"]`
+  (`src/platform/practiceProgress.ts`): `openedAt`, `attempts`, `last` (mode, status, version) and `solved` (the first
+  Submit that passed). Run visible never solves, and a later failure never unsolves. Both modules write through
+  `updateProgress()` (`src/projectState.ts`), one read-modify-write at a time; a file that does not parse is never
+  overwritten.
 - `.datapass/project.json` stays the single project manifest; progress is a separate native file.
 - A future lab adds steps by recording its runs (`record_run` + a summarizer in `run_journal.py`) and using the generic
   `run` check; see `docs/PROJECT_AUTHORING.md`.

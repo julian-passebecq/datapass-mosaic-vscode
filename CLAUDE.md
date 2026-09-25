@@ -16,7 +16,7 @@ VS Code owns:
 
 Datapass owns:
 
-- Projects: end-to-end stories whose steps are done in the labs, verified on the workspace, with progress in `.datapass/progress.json`;
+- Projects: end-to-end stories whose steps are done in the labs, verified on the workspace, with progress in `.datapass/progress.json` (Practice keeps its solved/attempted exercises in the same file);
 - Mosaic workspace composition;
 - Practice/exercise UX and grading;
 - Cloud Lab (formerly Fabric Lab): Fabric-inspired local learning UX, the Fabric / Azure Data Factory / Synapse pipeline simulator, the SQL pool simulator (Synapse dedicated SQL pool, Fabric Warehouse) and the Databricks simulator (jobs, compute, Unity Catalog, MLflow);
