@@ -130,6 +130,7 @@ npm run test:ui
 4. Practice: **Open solution** on the first exercise, then **Submit**; the runtime grades the starter.
 5. Layout at a 520 px Workbench: every module tab and every lab sub-tab. No element may stick out on the right unless a container scrolls or clips it (the PR #17 overflow). The probe first proves it catches a planted 2000 px block.
 6. **Stop runtime**; the port is closed afterwards. Uncaught webview errors fail the pass.
+7. Upgrade: the managed venv is made to look like an older VSIX set it up (another fingerprint in its `datapass-runtime.json` marker, a changed installed `datapass_runtime/__init__.py`). After **Developer: Reload Window** the Workbench must show the environment as "needs update" with **Update runtime** and no **Start runtime**; **Update runtime** must restore the marker and the installed module; the runtime then starts.
 
 Results and one screenshot per step land in `test-results/vscode-ui/` (`results.json`, `layout-<tab>.png`, …). The profile and workspace live under `C:\dpw-ui` on Windows (the managed venv sits in the profile and DuckDB's DLL path must stay under MAX_PATH) and under the temp folder elsewhere; the root is wiped first.
 
@@ -140,6 +141,6 @@ Results and one screenshot per step land in `test-results/vscode-ui/` (`results.
 | `DATAPASS_UI_OUT` | results and screenshots folder |
 | `DATAPASS_UI_PYTHON` | base Python for **Setup runtime**, written to the manifest's `runtime.pythonCommand` |
 | `VSCODE_TEST_VERSION` / `DATAPASS_UI_CODE` | VS Code build to download (default stable) / an installed Code executable instead |
-| `DATAPASS_UI_KEEP=1` | keep the profile, so a rerun skips **Setup runtime**; the kept managed venv still holds the runtime of the VSIX that set it up, so run without it after a runtime change |
+| `DATAPASS_UI_KEEP=1` | keep the profile, so a rerun skips **Setup runtime**; when the new VSIX's runtime differs from the one the kept venv holds, the pass clicks **Update runtime** instead |
 
 The VSIX declares an extension pack, so the install also fetches the Python and Jupyter extensions from the Marketplace. On Linux, give the virtual display a real screen: `xvfb-run -a --server-args="-screen 0 1600x1000x24" npm run test:ui`.

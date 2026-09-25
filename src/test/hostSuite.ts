@@ -12,7 +12,7 @@
 import assert from "node:assert/strict";
 import { spawn } from "node:child_process";
 import { existsSync } from "node:fs";
-import { mkdtemp } from "node:fs/promises";
+import { mkdir, mkdtemp, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import * as path from "node:path";
 import * as vscode from "vscode";
@@ -45,6 +45,8 @@ import {
 } from "../project/projectManifest";
 import { ACKNOWLEDGED_KEY, PythonTrustController } from "../pythonTrustController";
 import { RuntimeManager } from "../runtimeManager";
+import { managedVenvPython } from "../platform/runtimeEnvironment";
+import { runtimeFingerprint, writeRuntimeMarker } from "../platform/runtimeFingerprint";
 import { retailOrdersCsv, retailSqlStarter } from "../scaffold/retailDemo";
 import { airflowStarter, pipelineStarter, scratchSpec } from "../scaffold/starters";
 
@@ -242,6 +244,32 @@ export async function run(): Promise<void> {
       assert.equal(practiceStatus(saved.document.practice?.exercises[second.key]), "solved");
       assert.deepEqual(saved.document.projects["retail-fabric"].steps.runbook.manual, { checked: true, at }, "the Projects write landed too");
       await vscode.commands.executeCommand("datapass.openPractice");
+    }],
+    ["a managed runtime installed by another extension build is reported stale, never ready", async () => {
+      // No interpreter is run here: the decision reads the venv's marker only (scripts/vscode_ui_pass.mjs covers the
+      // real update of a packaged VSIX's venv).
+      const storage = vscode.Uri.file(await mkdtemp(path.join(tmpdir(), "datapass-e2e-venv-")));
+      const environment = () => {
+        const manager = new RuntimeManager(extension.extensionUri, storage);
+        const view = manager.snapshot().environment;
+        manager.dispose();
+        return view;
+      };
+      assert.equal(environment()?.status, "missing");
+      const venvRoot = path.join(storage.fsPath, "runtime-venv");
+      const fakePython = managedVenvPython(venvRoot);
+      await mkdir(path.dirname(fakePython), { recursive: true });
+      await writeFile(fakePython, "");
+      const unrecorded = environment();
+      assert.equal(unrecorded?.status, "stale", "a venv set up before fingerprints existed");
+      assert.match(unrecorded?.detail ?? "", /Update it before starting/);
+      const marker = { schema: 1 as const, extensionVersion: "0.0.9", installedAt: new Date().toISOString() };
+      writeRuntimeMarker(venvRoot, { ...marker, fingerprint: "sha256:" + "0".repeat(64) });
+      const older = environment();
+      assert.equal(older?.status, "stale");
+      assert.match(older?.detail ?? "", /installed by Datapass 0\.0\.9 and does not match/);
+      writeRuntimeMarker(venvRoot, { ...marker, fingerprint: runtimeFingerprint(path.join(extension.extensionPath, "runtime")) });
+      assert.equal(environment()?.status, "ready", "the marker matches this extension's runtime/");
     }],
     ["runtime starts untrusted even with DATAPASS_TRUSTED_PYTHON=1 inherited", async () => {
       assert.equal(process.env.DATAPASS_TRUSTED_PYTHON, "1", "runner must inject the hostile variable");

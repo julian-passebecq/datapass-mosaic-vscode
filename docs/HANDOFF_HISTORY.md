@@ -9,6 +9,28 @@ Add a tranche as a new `## YYYY-MM-DD · Title` section at the top, under this p
 sections, and refer to another section by its heading, not by a position. Keep the "Checked" and "Not checked"
 notes: they say what was really run.
 
+## 2026-09-26 · Stale managed runtime after an extension update
+
+Bug found by the packaged-VSIX UI pass (roadmap T-3): installing a newer VSIX over a profile kept the managed venv's
+runtime package from the OLD VSIX, and `RuntimeManager` called the environment "ready" as soon as the venv's Python
+existed. The kernel worker imports the installed package, so a Practice Submit got 400 from the old runtime.
+
+- `src/platform/runtimeFingerprint.ts`: a `sha256:` content hash of the bundled `runtime/` sources (path + content of
+  every file; bytecode, `build/`, `dist/`, `*.egg-info` and hidden folders ignored, like `.vscodeignore`), the
+  `datapass-runtime.json` marker in the venv (fingerprint, extension version, time), and the missing / ready / stale
+  decision. A venv without a marker (set up before this change) is stale. The runtime keeps version 0.1.0, so the
+  version is shown in messages only.
+- `RuntimeManager`: the environment is `stale` when the marker differs; Setup fingerprints the sources before the
+  install, removes the marker before installing and writes it after the verify step (a half-installed venv never
+  looks current). The same Setup path updates an existing venv ("Datapass runtime update" notification, same step
+  progress; uv `--reinstall-package`, pip reinstalls a local directory). `start()` re-checks and updates a stale venv
+  before starting; it never runs the old install. Unmanaged interpreters (no managed venv) are not checked.
+- Workbench: Environment "needs update", the reason in the Local runtime card, **Update runtime** in the top bar
+  instead of **Start runtime**.
+- Tests: `scripts/runtime_fingerprint_smoke.mjs` (in `npm test`); a host E2E step for the missing / stale / ready
+  decision; the UI pass's new upgrade step (tampered marker and installed module, window reload, Update runtime,
+  start), and `DATAPASS_UI_KEEP=1` now takes the Update runtime path instead of failing.
+
 ## 2026-09-26 · Short handoff: current state split from the history (roadmap T-5)
 
 `docs/CLAUDE_HANDOFF_2026-09-24.md` (1,300 lines) was split:
