@@ -251,6 +251,27 @@ export async function run(): Promise<void> {
       assert.equal(notIn.status, "failed", "NOT IN must fail once orders.customer_id contains NULL");
       assert.deepEqual(notIn.checks.map(check => check.passed), [true, false, true], "only the guest-order fixture catches NOT IN");
 
+      // Spark lab: plan checks grade the simulated SparkLab plan next to the result rows.
+      const sparkLab = catalog.filter(item => item.packId === "spark-lab-v1");
+      assert.equal(sparkLab.length, 12);
+      const sparkGrading = JSON.parse(new TextDecoder().decode(await vscode.workspace.fs.readFile(
+        vscode.Uri.joinPath(extension.extensionUri, "content", "exercise-packs", "spark-lab-v1", "grading.server.json")
+      ))) as Record<string, { solution: string }>;
+      const broadcast = sparkLab.find(item => item.id === "spark-broadcast-dimension")!;
+      assert.deepEqual(broadcast.sparkPlan?.checks.map(check => check.id), ["plan-broadcast-join", "plan-single-shuffle"]);
+      assert.deepEqual(broadcast.sparkPlan?.scale.map(table => table.table), ["sales", "stores"]);
+      const planned = await submit(broadcast, sparkGrading[broadcast.id].solution);
+      assert.equal(planned.status, "passed", JSON.stringify(planned.checks));
+      assert.deepEqual(planned.checks.map(check => check.kind), ["result", "result", "result", "plan", "plan"]);
+      const shuffled = await submit(broadcast, broadcast.starterSource);
+      assert.equal(shuffled.status, "failed", "a sort-merge join must fail the broadcast lesson");
+      assert.ok(shuffled.checks.filter(check => check.kind === "result").every(check => check.passed),
+        "the starter's rows are right; only its plan is wrong");
+      assert.match(shuffled.checks.find(check => check.id === "plan-single-shuffle")!.message, /3 shuffle exchanges/);
+      const visiblePlan = await submit(broadcast, sparkGrading[broadcast.id].solution, "run");
+      assert.deepEqual(visiblePlan.checks.map(check => check.kind), ["result", "plan", "plan"],
+        "Run visible also grades the public plan checks");
+
       // Airflow lab: the DAG file is parsed, never executed; scenarios are simulated.
       const airflowLab = catalog.filter(item => item.packId === "airflow-lab-v1");
       assert.equal(airflowLab.length, 13);
