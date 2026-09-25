@@ -1,0 +1,61 @@
+{
+  "name": "Copy web orders to bronze",
+  "type": "Copy",
+  "dependsOn": [
+    { "activity": "Copy orders to bronze", "dependencyConditions": ["Succeeded"] }
+  ],
+  "policy": {
+    "timeout": "0.01:00:00",
+    "retry": 1,
+    "retryIntervalInSeconds": 60,
+    "secureOutput": false,
+    "secureInput": false
+  },
+  "typeProperties": {
+    "source": {
+      "type": "LakehouseTableSource",
+      "datasetSettings": {
+        "annotations": [],
+        "type": "LakehouseTable",
+        "schema": [],
+        "typeProperties": { "schema": "silver", "table": "web_orders" },
+        "linkedService": {
+          "name": "lh_retail",
+          "properties": {
+            "annotations": [],
+            "type": "Lakehouse",
+            "typeProperties": {
+              "workspaceId": "00000000-0000-0000-0000-000000000000",
+              "artifactId": "00000000-0000-0000-0000-00000000001a",
+              "rootFolder": "Tables"
+            }
+          }
+        }
+      }
+    },
+    "sink": {
+      "type": "LakehouseTableSink",
+      "tableActionOption": "Append",
+      "datasetSettings": {
+        "annotations": [],
+        "type": "LakehouseTable",
+        "schema": [],
+        "typeProperties": { "schema": "bronze", "table": "orders" },
+        "linkedService": {
+          "name": "lh_retail",
+          "properties": {
+            "annotations": [],
+            "type": "Lakehouse",
+            "typeProperties": {
+              "workspaceId": "00000000-0000-0000-0000-000000000000",
+              "artifactId": "00000000-0000-0000-0000-00000000001a",
+              "rootFolder": "Tables"
+            }
+          }
+        }
+      }
+    },
+    "enableStaging": false,
+    "translator": { "type": "TabularTranslator", "typeConversion": true }
+  }
+}

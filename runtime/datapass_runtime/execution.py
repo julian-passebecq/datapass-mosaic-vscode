@@ -568,6 +568,9 @@ class Engine:
             from dbtlab.lab import dbt_view
             return dbt_view(self.catalog, request['files'], request['command'], request.get('select'),
                             request.get('exclude'), bool(request.get('full_refresh')), request.get('vars'))
+        if op == 'project_state_checks':
+            from .projects import evaluate_state_checks
+            return evaluate_state_checks(self.catalog, request['checks'])
         if op == 'check':
             case = get_case(request['case_id'])
             return {step['id']:self.check(step.get('check')) for step in case['steps']}
