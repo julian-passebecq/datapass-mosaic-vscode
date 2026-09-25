@@ -96,6 +96,8 @@ export async function setSqlDialect(document: vscode.TextDocument, dialect: SqlD
   return vscode.workspace.applyEdit(edit);
 }
 
+/** SQL files the learner edits: not read-only views such as the translated SQL tab (datapass-plan:). */
 function isSqlDocument(document: vscode.TextDocument): boolean {
+  if (document.uri.scheme !== "file" && document.uri.scheme !== "untitled") return false;
   return document.languageId === "sql" || document.fileName.toLowerCase().endsWith(".sql");
 }

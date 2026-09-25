@@ -816,6 +816,25 @@ h2 { margin-bottom: 8px; font-size: 28px; }
   display: grid;
   gap: 6px;
   margin-top: 6px;
+  min-width: 0;
+}
+/* The SQL block is narrow: the title, the label and the button wrap instead of widening the block. */
+.dialect-translation .mosaic-result-title {
+  flex-wrap: wrap;
+  justify-content: flex-start;
+  align-items: center;
+  gap: 6px;
+}
+.dialect-translation .mosaic-result-title strong {
+  white-space: nowrap;
+}
+.dialect-translation .fui-Badge {
+  height: auto;
+  white-space: normal;
+  text-align: left;
+}
+.dialect-rewrites li {
+  overflow-wrap: anywhere;
 }
 .dialect-translation summary {
   cursor: pointer;
