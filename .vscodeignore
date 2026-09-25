@@ -8,6 +8,8 @@ workbench-core/**
 node_modules/**
 runtime/**/__pycache__/**
 runtime/**/*.pyc
+# Project reference answers and walkthroughs are for scripts/projects_smoke.py, not for learners.
+content/projects/*/reference/**
 *.vsix
 dist-test/**
 # Local build output from `pip install ./runtime`; the managed venv installs from source.

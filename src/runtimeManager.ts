@@ -592,7 +592,7 @@ export class RuntimeManager implements vscode.Disposable {
     const raw = await requestJson<unknown>(
       `${url}/api/local/sqlpool/run`,
       "POST",
-      { flavor: request.flavor, script: request.script, scale: request.scale },
+      { flavor: request.flavor, script: request.script, scale: request.scale, source: sqlPoolSourceLabel(request.source) },
       60000
     );
     const sqlpoolRun = toSqlPoolView(raw, request);
@@ -748,6 +748,20 @@ export class RuntimeManager implements vscode.Disposable {
     );
   }
 
+  /**
+   * Projects: the runtime verifies steps of a shipped project on the workspace catalog and its run journal.
+   * The caller keeps the result in .datapass/progress.json; manual steps are never verified.
+   */
+  async checkProject(projectId: string, steps: string[]): Promise<unknown> {
+    const url = this.state.status === "running" ? this.state.url : undefined;
+    if (!url) throw new Error("Start the Datapass runtime before verifying project steps.");
+    try {
+      return await requestJson<unknown>(`${url}/api/local/projects/check`, "POST", { project_id: projectId, steps }, 60000);
+    } catch (error) {
+      throw new Error(runtimeErrorDetail(error));
+    }
+  }
+
   /** Stop and wait for the process to exit so a restart never races the old worker. */
   async stopAndWait(timeoutMs = 5000): Promise<void> {
     const child = this.child;
@@ -871,6 +885,11 @@ function requestJson<T>(
   });
 }
 
+
+/** The script's workspace path as the run journal's label; anything the runtime would refuse is dropped. */
+function sqlPoolSourceLabel(source: string): string {
+  return /^[A-Za-z0-9_./ -]{0,200}$/.test(source) ? source : "";
+}
 
 /** Pull FastAPI's `detail` out of a "Runtime request failed with HTTP 4xx: {...}" error. */
 function runtimeErrorDetail(error: unknown): string {

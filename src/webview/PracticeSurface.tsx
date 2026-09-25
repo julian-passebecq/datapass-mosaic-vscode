@@ -1,6 +1,6 @@
 import { Badge, Button, Card, Input, Text } from "@fluentui/react-components";
-import { useMemo, useState } from "react";
-import type { ExerciseSummary, RuntimeViewState } from "./contracts";
+import { useEffect, useMemo, useState } from "react";
+import type { ExerciseSummary, RuntimeViewState, WorkbenchFocus } from "./contracts";
 import type { VsCodeApi } from "./WorkbenchApp";
 
 const PYTHON_LANGUAGES = new Set(["python", "polars"]);
@@ -8,13 +8,19 @@ const PYTHON_LANGUAGES = new Set(["python", "polars"]);
 export function PracticeSurface({
   vscode,
   exercises,
-  runtime
+  runtime,
+  focus
 }: {
   vscode: VsCodeApi;
   exercises: readonly ExerciseSummary[];
   runtime: RuntimeViewState;
+  /** An exercise a project step opened: the list is filtered on it. */
+  focus?: WorkbenchFocus;
 }) {
-  const [query, setQuery] = useState("");
+  const [query, setQuery] = useState(focus?.query ?? "");
+  useEffect(() => {
+    if (focus?.query) setQuery(focus.query);
+  }, [focus?.seq]);
   const runtimeReady = runtime.status === "running";
 
   const filtered = useMemo(() => {
@@ -22,6 +28,7 @@ export function PracticeSurface({
     if (!needle) return exercises;
     return exercises.filter(exercise =>
       [
+        exercise.id,
         exercise.title,
         exercise.packTitle,
         exercise.language,
@@ -82,6 +89,13 @@ export function PracticeSurface({
                 <div className="pipeline-notice">
                   This exercise executes real local Python. Grading reports an error until trusted local Python is
                   enabled for this workspace (Mosaic → Python / Polars).
+                </div>
+              )}
+
+              {exercise.language === "snowflake" && (
+                <div className="pipeline-notice">
+                  Snowflake SQL dialect translated to DuckDB, not Snowflake: your query runs on local DuckDB, and
+                  functions outside the supported subset are refused rather than approximated.
                 </div>
               )}
 

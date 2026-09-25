@@ -10,14 +10,19 @@ import { loadPipelineState } from "./pipelineState";
 import { readProjectManifest } from "./project/projectManifest";
 import type { PythonTrustController } from "./pythonTrustController";
 import type { RuntimeManager } from "./runtimeManager";
-import type { DbtToolsView, SparkLabProfileView, WorkbenchViewState } from "./webview/contracts";
+import { loadProjectsState } from "./projectState";
+import type { DbtToolsView, ProjectsHostState, SparkLabProfileView, WorkbenchFocus, WorkbenchViewState } from "./webview/contracts";
 
 export async function collectWorkbenchState(
   selectedModule: ModuleId,
   runtimeManager: RuntimeManager,
   extensionUri: vscode.Uri,
   pythonTrust: PythonTrustController,
-  dbtLab?: { tools: DbtToolsView; selected?: string; shellIntegration?: boolean }
+  extras: {
+    focus?: WorkbenchFocus;
+    projects?: ProjectsHostState;
+    dbtLab?: { tools: DbtToolsView; selected?: string; shellIntegration?: boolean };
+  } = {}
 ): Promise<WorkbenchViewState> {
   const folder = vscode.workspace.workspaceFolders?.[0];
   const manifest = await readProjectManifest();
@@ -30,14 +35,17 @@ export async function collectWorkbenchState(
   const airflow = selectedModule === "airflow"
     ? await loadAirflowState()
     : undefined;
-  const dbt = selectedModule === "dbt" && dbtLab
-    ? await loadDbtState(dbtLab)
+  const dbt = selectedModule === "dbt" && extras.dbtLab
+    ? await loadDbtState(extras.dbtLab)
     : undefined;
   const factory = selectedModule === "fabric"
     ? await loadFactoryState()
     : undefined;
   const bi = selectedModule === "bi"
     ? await loadBiState()
+    : undefined;
+  const projects = selectedModule === "projects"
+    ? { ...(await loadProjectsState(extensionUri)), ...extras.projects }
     : undefined;
   const mosaicLayout = selectedModule === "mosaic"
     ? await readMosaicLayout()
@@ -70,7 +78,9 @@ export async function collectWorkbenchState(
     airflow,
     factory,
     bi,
-    dbt
+    dbt,
+    projects,
+    focus: extras.focus
   };
 }
 

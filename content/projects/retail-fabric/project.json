@@ -1,0 +1,314 @@
+{
+  "schema_version": 1,
+  "id": "retail-fabric",
+  "version": "1",
+  "order": 1,
+  "title": "Retail de bout en bout sur Fabric / Azure Data Factory",
+  "summary": "Du CSV de la boutique web au schéma en étoile : bronze, silver et gold dans un pipeline Fabric, un entrepôt avec historique client, dbt et un ordonnancement quotidien.",
+  "level": "intermediate",
+  "duration_minutes": 240,
+  "story": [
+    "Contoso Retail vend en magasin et en ligne. L'ERP des magasins alimente déjà `source.orders` ; chaque matin, la boutique web envoie en plus un export CSV de ses commandes de la veille.",
+    "",
+    "Vous êtes l'ingénieur·e data de l'équipe. Votre mission : faire entrer les commandes web dans le chargement quotidien construit sur **Microsoft Fabric** (la version Azure Data Factory du même pipeline est dans le labo), les contrôler, puis livrer aux analystes un entrepôt en étoile qui garde l'historique des clients, sa version dbt et un ordonnancement fiable.",
+    "",
+    "Tout tourne sur votre machine : DuckDB exécute vraiment le SQL, le pipeline Fabric et Airflow sont simulés, SparkLab et dbt sont des émulations bornées. Chaque étape dit ce que Datapass vérifie et avec quelle vérité."
+  ],
+  "goals": [
+    "Importer un CSV en bronze et le typer proprement en silver",
+    "Modifier un vrai pipeline Fabric (Copy, notebook, procédure stockée) et le rejouer sur le lakehouse local",
+    "Construire un schéma en étoile avec une dimension client de type 2 et vérifier le modèle",
+    "Rejouer les marts avec dbt (émulation Datapass)",
+    "Ordonnancer le chargement chaque jour avec rattrapage et nouvelles tentatives, et le protéger par des contrôles qualité"
+  ],
+  "steps": [
+    {
+      "id": "import-web-orders",
+      "title": "Importer l'export web en bronze",
+      "module": "mosaic",
+      "instructions": [
+        "Le fichier `projects/retail-fabric/web_orders_2026-03-05.csv` est l'export de la boutique web du 5 mars.",
+        "",
+        "1. Démarrez le runtime si ce n'est pas fait.",
+        "2. Dans **Mosaic**, cliquez **Import CSV…** et choisissez ce fichier.",
+        "3. Nommez la table `bronze.web_orders`.",
+        "",
+        "L'import ne devine aucun type : toutes les colonnes sont du texte. Regardez l'aperçu : une commande est en double, une autre est un remboursement."
+      ],
+      "open": { "module": "mosaic", "file": "projects/retail-fabric/web_orders_2026-03-05.csv", "scaffold": ["project"] },
+      "checks": [
+        {
+          "kind": "table",
+          "label": "bronze.web_orders existe avec les 5 colonnes de l'export et ses 10 lignes",
+          "table": "bronze.web_orders",
+          "columns": ["order_id", "customer_id", "segment_id", "net_amount", "ordered_at"],
+          "min_rows": 10
+        }
+      ]
+    },
+    {
+      "id": "type-imported-text",
+      "title": "S'entraîner : typer les colonnes d'un CSV importé",
+      "module": "practice",
+      "instructions": [
+        "Avant d'écrire le silver du projet, faites l'exercice **Type the text columns of an imported CSV** (pack de patterns data engineering).",
+        "",
+        "Ouvrez la solution, écrivez votre requête, puis **Run visible** et **Submit**. L'étape est vérifiée quand la soumission passe tous les contrôles (visibles et cachés)."
+      ],
+      "open": { "module": "practice", "exercise": "de-patterns-v1/de-clean-imported-text/sql" },
+      "checks": [
+        { "kind": "exercise", "label": "Exercice réussi à la soumission", "exercise": "de-patterns-v1/de-clean-imported-text/sql" }
+      ]
+    },
+    {
+      "id": "silver-web-orders",
+      "title": "Construire silver.web_orders en SQL",
+      "module": "mosaic",
+      "instructions": [
+        "Ouvrez `projects/retail-fabric/silver_web_orders.sql` et complétez la requête :",
+        "",
+        "- `segment_id` en `INTEGER`, `net_amount` en `DOUBLE` ;",
+        "- `ordered_at` converti en `TIMESTAMP` et renommé `loaded_at`, comme dans les commandes magasin ;",
+        "- une seule ligne par commande, et seulement les montants strictement positifs.",
+        "",
+        "Enregistrez, puis **Run active SQL** dans Mosaic. Vous devez obtenir 7 commandes pour 1 159 € de chiffre d'affaires."
+      ],
+      "open": { "module": "mosaic", "file": "projects/retail-fabric/silver_web_orders.sql", "scaffold": ["project"] },
+      "checks": [
+        {
+          "kind": "table",
+          "label": "silver.web_orders est typée (segment_id entier, net_amount décimal, loaded_at horodatage)",
+          "table": "silver.web_orders",
+          "columns": ["order_id", "customer_id", "segment_id", "net_amount", "loaded_at"],
+          "types": { "segment_id": "INTEGER", "net_amount": "DOUBLE", "loaded_at": "TIMESTAMP" },
+          "min_rows": 1
+        },
+        {
+          "kind": "sql",
+          "label": "7 commandes distinctes, aucune à montant nul ou négatif, 1 159 € au total",
+          "sql": "SELECT COUNT(*) AS orders, COUNT(DISTINCT order_id) AS distinct_orders, COUNT(*) FILTER (WHERE net_amount <= 0) AS non_positive, ROUND(SUM(net_amount), 2) AS revenue FROM silver.web_orders",
+          "expected": [{ "orders": 7, "distinct_orders": 7, "non_positive": 0, "revenue": 1159.0 }]
+        }
+      ]
+    },
+    {
+      "id": "web-segments-sparklab",
+      "title": "Prototyper l'agrégat par segment dans SparkLab",
+      "module": "sparklab",
+      "instructions": [
+        "Ouvrez `projects/retail-fabric/web_segments_sparklab.py`. Joignez les commandes web à la petite table des segments en la diffusant (`F.broadcast`), puis agrégez par `segment_name` : `orders` (nombre de commandes) et `revenue` (somme de `net_amount`).",
+        "",
+        "Lancez **Run active SparkLab file**. Le résultat est calculé localement ; le plan physique (échanges, jointure broadcast) est simulé : regardez combien d'échanges il reste."
+      ],
+      "open": { "module": "sparklab", "file": "projects/retail-fabric/web_segments_sparklab.py", "scaffold": ["project"] },
+      "checks": [
+        {
+          "kind": "sparklab",
+          "label": "Un run SparkLab rend segment_name, orders et revenue avec une jointure broadcast (plan simulé)",
+          "columns": ["segment_name", "orders", "revenue"],
+          "min_broadcast_joins": 1
+        }
+      ]
+    },
+    {
+      "id": "fabric-pipeline-web",
+      "title": "Ajouter les commandes web au pipeline Fabric",
+      "module": "fabric",
+      "instructions": [
+        "Le pipeline `pl_retail_daily` copie les commandes magasin en bronze (**Copy**), les nettoie dans un notebook SparkLab (**Silver orders**) puis agrège le gold avec une procédure stockée (**Gold revenue**).",
+        "",
+        "1. Ouvrez `factory/fabric/pl_retail_daily.DataPipeline/pipeline-content.json` (créé par **Create lab files** si besoin).",
+        "2. Ajoutez une activité **Copy** nommée `Copy web orders to bronze`, qui dépend de `Copy orders to bronze` (Succeeded), lit la table Lakehouse `silver.web_orders` et l'ajoute à `bronze.orders` avec `\"tableActionOption\": \"Append\"`. Partez de l'activité Copy existante : seuls le nom, la dépendance, la source et le mode changent.",
+        "3. Faites dépendre `Silver orders` de la nouvelle activité au lieu de la première copie.",
+        "4. Dans **Cloud Lab › Pipelines**, choisissez Fabric et `pl_retail_daily`, gardez `run_date` = `2026-03-05`, puis **Run on local lakehouse**.",
+        "",
+        "L'orchestration est simulée ; la copie, le notebook et la procédure tournent vraiment sur le catalogue local. Le gold doit maintenant compter 17 commandes pour 6 144 €."
+      ],
+      "open": {
+        "module": "fabric",
+        "tab": "pipelines",
+        "file": "factory/fabric/pl_retail_daily.DataPipeline/pipeline-content.json",
+        "scaffold": ["factory"]
+      },
+      "checks": [
+        {
+          "kind": "cloud_pipeline",
+          "label": "Un run local de pl_retail_daily (Fabric) a réussi avec les deux copies, le notebook et la procédure",
+          "flavor": "fabric",
+          "pipeline": "pl_retail_daily",
+          "activities": ["Copy orders to bronze", "Copy web orders to bronze", "Silver orders", "Gold revenue"]
+        },
+        {
+          "kind": "sql",
+          "label": "silver.orders contient les 7 commandes web",
+          "sql": "SELECT COUNT(*) AS web_orders FROM silver.orders WHERE order_id LIKE 'W-%'",
+          "expected": [{ "web_orders": 7 }]
+        },
+        {
+          "kind": "sql",
+          "label": "gold.revenue_by_segment totalise 17 commandes et 6 144 €",
+          "sql": "SELECT SUM(orders) AS orders, ROUND(SUM(revenue), 2) AS revenue FROM gold.revenue_by_segment",
+          "expected": [{ "orders": 17, "revenue": 6144.0 }]
+        }
+      ]
+    },
+    {
+      "id": "rerunnable-load",
+      "title": "S'entraîner : un chargement qu'on peut rejouer",
+      "module": "practice",
+      "instructions": [
+        "Un chargement quotidien est parfois relancé. Faites l'exercice **Make the customer load safe to rerun** : une copie en upsert qui garde les lignes absentes de la source.",
+        "",
+        "L'exercice est noté sur le simulateur de pipelines (orchestration simulée, données locales)."
+      ],
+      "open": { "module": "practice", "exercise": "cloud-pipelines-v1/cp-upsert-idempotent/factory" },
+      "checks": [
+        { "kind": "exercise", "label": "Exercice réussi à la soumission", "exercise": "cloud-pipelines-v1/cp-upsert-idempotent/factory" }
+      ]
+    },
+    {
+      "id": "warehouse-scd2",
+      "title": "Construire l'étoile avec l'historique client (SCD2)",
+      "module": "bi",
+      "instructions": [
+        "Les analystes veulent le chiffre d'affaires par ville du client **au moment de la vente**, même si le client a déménagé depuis.",
+        "",
+        "1. Dans **BI Lab**, cliquez **Create lab files** si le dossier `bi/` n'existe pas.",
+        "2. Lisez `bi/warehouse/02_dim_customer.sql` : chaque changement de ville ou de segment crée une version, valide de `valid_from` à `valid_to` (exclu).",
+        "3. Cliquez **Build warehouse**, puis ouvrez l'onglet **Star model** : tous les contrôles (clés, grain, validité SCD2, relations) doivent être verts.",
+        "",
+        "Le SQL tourne vraiment sur DuckDB et les contrôles du modèle sont de vraies requêtes."
+      ],
+      "open": { "module": "bi", "tab": "warehouse", "file": "bi/warehouse/02_dim_customer.sql", "scaffold": ["bi"] },
+      "checks": [
+        {
+          "kind": "bi_model",
+          "label": "Les contrôles du modèle en étoile sont tous verts (dernière analyse du BI Lab)",
+          "facts": ["gold.fct_sales"]
+        },
+        {
+          "kind": "sql",
+          "label": "Chaque client a exactement une version courante",
+          "sql": "SELECT COUNT(*) AS customers_without_one_current FROM (SELECT customer_id FROM gold.dim_customer GROUP BY customer_id HAVING COUNT(*) FILTER (WHERE is_current) <> 1) AS t",
+          "expected": [{ "customers_without_one_current": 0 }]
+        },
+        {
+          "kind": "sql",
+          "label": "Au moins un client a plusieurs versions (l'historique est gardé)",
+          "sql": "SELECT COUNT(*) > 0 AS has_history FROM (SELECT customer_id FROM gold.dim_customer GROUP BY customer_id HAVING COUNT(*) > 1) AS t",
+          "expected": [{ "has_history": true }]
+        }
+      ]
+    },
+    {
+      "id": "practice-scd2",
+      "title": "S'entraîner : appliquer une SCD de type 2",
+      "module": "practice",
+      "instructions": [
+        "Faites l'exercice **Slowly changing dimension type 2: keep the history**. Il rejoue votre script sur plusieurs chargements : il doit fermer l'ancienne version, ouvrir la nouvelle et rester sans effet si on le relance."
+      ],
+      "open": { "module": "practice", "exercise": "dwh-v1/dwh-scd2-apply/warehouse" },
+      "checks": [
+        { "kind": "exercise", "label": "Exercice réussi à la soumission", "exercise": "dwh-v1/dwh-scd2-apply/warehouse" }
+      ]
+    },
+    {
+      "id": "dbt-marts",
+      "title": "Rejouer les marts avec dbt",
+      "module": "bi",
+      "instructions": [
+        "Le dossier `bi/dbt` construit le même entrepôt à la manière de dbt : sources testées, staging, un intermédiaire éphémère, des marts, un snapshot et des tests.",
+        "",
+        "Dans **BI Lab › dbt**, choisissez la commande `build`, la sélection `+fct_sales`, puis **Run**. Toutes les dépendances de `fct_sales` et leurs tests doivent réussir.",
+        "",
+        "C'est l'émulation dbt de Datapass (Jinja en bac à sable, SQL réellement exécuté sur DuckDB), pas dbt Core."
+      ],
+      "open": { "module": "bi", "tab": "dbt", "file": "bi/dbt/models/marts/fct_sales.sql", "scaffold": ["bi"] },
+      "checks": [
+        {
+          "kind": "dbt",
+          "label": "Un dbt build a réussi stg_shop__orders, dim_customer et fct_sales (émulation)",
+          "command": "build",
+          "nodes": ["stg_shop__orders", "dim_customer", "fct_sales"]
+        }
+      ]
+    },
+    {
+      "id": "airflow-daily",
+      "title": "Ordonnancer le chargement chaque jour",
+      "module": "airflow",
+      "instructions": [
+        "Ouvrez `projects/retail-fabric/retail_daily_load.py` et complétez le DAG :",
+        "",
+        "- `schedule=\"0 6 * * *\"` (tous les jours à 06:00 UTC) ;",
+        "- `catchup=True` pour rattraper les jours depuis le 1er mars ;",
+        "- `retries=2` et `retry_delay=timedelta(minutes=10)` sur `run_fabric_pipeline`.",
+        "",
+        "Dans **Airflow Lab**, mettez l'horloge du planificateur (**Scheduler clock, UTC**) au 5 mars 2026 07:00, réglez `run_fabric_pipeline` sur **fails try 1**, puis **Simulate with this scenario**. Chaque run doit finir en succès grâce à la nouvelle tentative.",
+        "",
+        "Rien n'est exécuté : le fichier est analysé et le planificateur est simulé avec la sémantique d'Airflow 3."
+      ],
+      "open": { "module": "airflow", "file": "projects/retail-fabric/retail_daily_load.py", "scaffold": ["project"] },
+      "checks": [
+        {
+          "kind": "airflow",
+          "label": "retail_daily_load simulé à 06:00 chaque jour, avec rattrapage : au moins 5 runs, tous réussis après une nouvelle tentative",
+          "dag_id": "retail_daily_load",
+          "schedule": "0 6 * * *",
+          "catchup": true,
+          "min_runs": 5,
+          "min_try_number": 2
+        }
+      ]
+    },
+    {
+      "id": "quality-gate",
+      "title": "Protéger silver.web_orders par des contrôles qualité",
+      "module": "pipeline",
+      "instructions": [
+        "Dans **Pipeline Lab**, remplacez le contenu de `pipelines/main.pipeline.py` par un pipeline `web_orders_quality` :",
+        "",
+        "- trois tâches `quality` qui renvoient les lignes fautives de `silver.web_orders` : commandes en double, montants nuls ou négatifs, segments inconnus de `source.dim_customer_segment` ;",
+        "- une tâche `sql` nommée `publish` qui crée `gold.web_orders_daily` (commandes et chiffre d'affaires par jour), après les trois contrôles.",
+        "",
+        "```",
+        "pipeline(\"web_orders_quality\", schedule=\"0 7 * * *\")",
+        "no_duplicates = quality(\"no_duplicates\", \"SELECT order_id FROM silver.web_orders GROUP BY order_id HAVING COUNT(*) > 1\")",
+        "...",
+        "[no_duplicates, positive_amounts, known_segments] >> publish",
+        "```",
+        "",
+        "Puis **Run pipeline**. La source n'est jamais exécutée comme du Python ; les requêtes des tâches tournent vraiment sur DuckDB."
+      ],
+      "open": { "module": "pipeline", "file": "pipelines/main.pipeline.py", "scaffold": ["pipeline"] },
+      "checks": [
+        {
+          "kind": "pipeline_lab",
+          "label": "Un run de web_orders_quality a réussi avec au moins trois contrôles qualité",
+          "pipeline": "web_orders_quality",
+          "min_quality_tasks": 3,
+          "tasks": ["publish"]
+        },
+        {
+          "kind": "table",
+          "label": "gold.web_orders_daily est publiée",
+          "table": "gold.web_orders_daily",
+          "columns": ["order_date", "orders", "revenue"],
+          "min_rows": 1
+        }
+      ]
+    },
+    {
+      "id": "runbook",
+      "title": "Rédiger le runbook d'astreinte",
+      "module": "mosaic",
+      "instructions": [
+        "Complétez `projects/retail-fabric/RUNBOOK.md` : horaires, nouvelles tentatives, alertes, relance sans risque, contrôles qualité, historique client.",
+        "",
+        "Cette étape n'est pas vérifiable automatiquement : cochez-la vous-même quand le runbook est écrit. Elle apparaîtra comme « coché à la main »."
+      ],
+      "open": { "module": "mosaic", "file": "projects/retail-fabric/RUNBOOK.md", "scaffold": ["project"] },
+      "checks": []
+    }
+  ]
+}

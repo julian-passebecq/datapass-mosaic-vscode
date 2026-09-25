@@ -42,6 +42,34 @@ React / Fluent / React Flow views
 
 The Datapass sidebar has a native VS Code tree view, **Catalog**, next to **Labs**. It reads `GET /api/local/catalog/schema` (kernel op `catalog_schema`): every schema of the local DuckDB file, the catalog layers first (source, bronze, silver, gold, warehouse, features, metrics, even when empty) and then any other schema, such as the ones dbt Core creates. Each table or view shows its row count (a real `COUNT(*)`), its columns and their types; a view that fails to bind still shows, with its error. Clicking a table opens `.datapass/scratch/<schema>.<table>.sql` with `SELECT * ... LIMIT 100` (created once, never overwritten); **Preview Rows** runs that query and shows the result in Mosaic. The tree refreshes when the runtime starts or stops and after any run that changes the catalog listing.
 
+## Projects
+
+Projects (module id `projects`, `datapass.openProjects`) give the labs a story: `content/projects/<id>/project.json`
+(schema and checks in `runtime/datapass_runtime/projects.py`, authoring guide in `docs/PROJECT_AUTHORING.md`) holds a
+story, goals and 8 to 12 steps. Each step names its lab, an open action (lab tab, a file or a Practice exercise, and
+the scaffolds that create the files it needs) and its checks.
+
+```text
+Projects UI ── "Vérifier" ──► POST /api/local/projects/check {project_id, steps}
+                                   │  checks come from shipped content only
+                                   ├─ kernel op project_state_checks: tables, read-only SQL, SQL pool designs, MLflow models
+                                   └─ run journal (.datapass/data/run_journal.json)
+lab routes ── record_run() ────────►  written by the API process when a lab answers (exercise Submit, pipelines,
+                                      SQL pool, Databricks, BI Lab and lineage, dbt emulation, Airflow, Pipeline Lab...)
+host ── applyVerification() ──► .datapass/progress.json (manual ticks, last verification, last passing verification)
+```
+
+- The runtime never marks a manual step as verified; the extension (`src/platform/projects.ts`) keeps ticks by hand
+  (`manual`) apart from verifications (`verified`: the last run where every check passed; `last`: the latest run) and
+  ignores a hand-edited `verified` record that does not pass.
+- Each check result carries a truth: real, simulated, emulation, hybrid (simulated orchestration, local activities)
+  or static (the BI Lab lineage).
+- `.datapass/project.json` stays the single project manifest; progress is a separate native file.
+- A future lab adds steps by recording its runs (`record_run` + a summarizer in `run_journal.py`) and using the generic
+  `run` check; see `docs/PROJECT_AUTHORING.md`.
+- `scripts/projects_smoke.py` replays a reference walkthrough of every project through the API in one workspace and
+  requires every automatic check to fail first and pass after.
+
 ## Mosaic
 
 Mosaic is the free-form local workbench. Default execution is real DuckDB SQL; Python/Polars run for real only after the trusted-local-Python opt-in. It can arrange code/data/charts/docs in flexible panes, while source files remain real VS Code files. Spark simulation is optional, not Mosaic's identity.
@@ -51,6 +79,10 @@ Layout durability: inside a Datapass project the block geometry is saved to `.da
 ## Practice
 
 Practice is the LeetCode-style layer: select challenge, open starter file in native VS Code, run local tests, show pass/fail/hints/explanation/review status.
+
+Practice language `snowflake` takes Snowflake SQL: `runtime/snowflakesql` translates it to DuckDB with sqlglot for a
+documented subset (functions outside it are refused by name) and the result is graded like `sql` on DuckDB. It is
+labelled "Snowflake SQL dialect translated to DuckDB, not Snowflake".
 
 ## Cloud Lab (module id `fabric`, formerly Fabric Lab)
 
