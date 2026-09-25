@@ -230,9 +230,15 @@ class Engine:
         pruning_hints = self._partition_pruning_hints(parsed.dataframe)
         measured_ducklake_inputs = False
         measured_partition_pruning = False
+        # Server-owned exercise scale: plan checks grade the plan at this size, not the tiny fixture.
+        authored_scale = request.get('_exercise_spark_scale') or {}
         for node in logical_plan(parsed.dataframe):
             if node['operation'] == 'scan':
                 name = node['source']
+                if name in authored_scale:
+                    statistics[name] = {**authored_scale[name],
+                                        'input_truth': 'authored exercise scale; not physically processed rows'}
+                    continue
                 fixture_counts = request.get('_exercise_table_counts') or {}
                 if name in fixture_counts or (name == 'input' and request.get('_exercise_fixture_sql')):
                     count = fixture_counts.get(name, request.get('_exercise_input_count', 0))
@@ -327,7 +333,7 @@ class Engine:
                 'profile_id':profile_id, 'aqe':aqe, 'metrics':metrics, 'logical_plan':nodes,
                 'action':parsed.action, 'datapass_credits':credits(job, profile), 'comparisons':comparisons,
                 'assumptions':{'input_statistics':statistics,
-                               'kind':'authored virtual scale' if pack else ('catalog rows + exact DuckLake identity-partition candidate files/bytes' if measured_partition_pruning else ('catalog rows + measured DuckLake Parquet files/bytes' if measured_ducklake_inputs else 'catalog row counts; assumed 128 bytes per row')),
+                               'kind':'authored virtual scale' if pack or authored_scale else ('catalog rows + exact DuckLake identity-partition candidate files/bytes' if measured_partition_pruning else ('catalog rows + measured DuckLake Parquet files/bytes' if measured_ducklake_inputs else 'catalog row counts; assumed 128 bytes per row')),
                                'calibration':'No real Spark benchmark calibration',
                                'intermediates':'Cardinality and bytes carried forward without selectivity estimates; serial operator-stage dispatch, not Spark codegen fusion; scan counts are real only outside virtual truth-pack scale',
                                'cache':'Unavailable; cache/reuse not modeled',

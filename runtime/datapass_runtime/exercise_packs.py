@@ -37,6 +37,7 @@ RESERVED_TABLES = {'source', 'bronze', 'silver', 'gold', 'warehouse', 'features'
                    # Python grading namespace names that a table must not shadow.
                    'input_rows', 'tables', 'display', 'query', 'publish'}
 NAMED_TABLE_LANGUAGES = {'sql', 'python', 'polars', 'sparklab'}
+CLUSTER_PROFILES = set(json.loads((Path(__file__).resolve().parents[1] / 'sparklab' / 'cluster_profiles.json').read_text(encoding='utf-8')))
 # Languages graded on simulation scenarios, with the runtime adapter that grades them.
 SCENARIO_LANGUAGES = {'airflow': 'datapass-airflow-sim-v1', 'factory': 'datapass-factory-sim-v1',
                       'factory-notebook': 'datapass-factory-sim-v1', 'sqlpool': 'datapass-sqlpool-sim-v1',
@@ -140,6 +141,17 @@ class PackRegistry:
                             raise ValueError('Fixture table schema disagrees with data_context: '+definition.id+'.'+context.name)
             if definition.language in SCENARIO_LANGUAGES and definition.runtime != SCENARIO_LANGUAGES[definition.language]:
                 raise ValueError('Runtime '+definition.runtime+' does not grade '+definition.language+': '+definition.id)
+            if definition.spark_plan is not None:
+                plan = definition.spark_plan
+                if definition.language != 'sparklab':
+                    raise ValueError('spark_plan checks require a SparkLab exercise: '+definition.id)
+                if not set(plan.scale) <= {c.name for c in definition.data_context} | {'input'}:
+                    raise ValueError('spark_plan scale names a table the exercise does not read: '+definition.id)
+                check_ids = [c.id for c in plan.checks]
+                if len(check_ids) != len(set(check_ids)) or set(check_ids) & set(ids):
+                    raise ValueError('spark_plan check ids must be unique and distinct from fixture ids: '+definition.id)
+                if plan.profile not in CLUSTER_PROFILES:
+                    raise ValueError('Unknown SparkLab cluster profile in '+definition.id)
             for fixture in private.fixtures:
                 if (fixture.scenario is not None) != (definition.language in SCENARIO_LANGUAGES):
                     raise ValueError('Airflow and pipeline fixtures, and only they, need a simulation scenario: '+definition.id)

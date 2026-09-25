@@ -104,7 +104,8 @@ try {
         total_duration_s: 1.34,
         shuffle_gb: 0,
         spill_gb: 0,
-        stages: [{ stage_id: 0, name: "scan", operator: "scan", tasks: [{ task_id: 0 }], notes: ["n"], dependencies: [] }]
+        stages: [{ stage_id: 0, name: "scan", operator: "scan", tasks: [{ task_id: 0 }], notes: ["n"], dependencies: [] }],
+        plan_facts: { exchanges: 1, exchange_details: [{ reason: "aggregate", partitioning: "hash", keys: ["customer_id"] }] }
       },
       logical_plan: [{ id: 0, operation: "scan", source: "source.orders", parents: [], dependency: "narrow", concept: "c" }],
       datapass_credits: { total: 0.01, unit: "Datapass Credits", fictional: true },
@@ -118,6 +119,7 @@ try {
   assert.equal(view.simulation.credits.fictional, true);
   assert.equal(view.simulation.stages.length, 1);
   assert.ok(!("tasks" in view.simulation.stages[0]), "per-task arrays must not reach the webview");
+  assert.deepEqual(view.simulation.exchanges, ["hash(customer_id) for aggregate"]);
   assert.ok(!("catalog" in view));
   const rejected = spark.toSparkLabRunView({
     status: "error",

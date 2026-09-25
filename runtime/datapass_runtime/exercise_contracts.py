@@ -71,6 +71,30 @@ class SemanticExercise(Contract):
     reflection: str
 
 
+class SparkTableScale(Contract):
+    """Authored size of one input table for the SparkLab plan model. Never processed."""
+    rows: int = Field(ge=0, le=10**13)
+    bytes: int = Field(ge=0, le=10**16)
+    partitions: int = Field(ge=1, le=4096)
+    catalog_statistics_available: bool = True
+    hot_fraction: float = Field(default=0.0, ge=0, lt=1, allow_inf_nan=False)
+
+
+class SparkPlanCheck(Contract):
+    id: str = Field(pattern=r'^plan-[a-z0-9-]{1,60}$')
+    description: str = Field(min_length=1)
+    rule: Literal['max_exchanges', 'min_broadcast_joins', 'max_shuffle_joins', 'max_global_windows', 'max_output_partitions']
+    value: int = Field(ge=0, le=4096)
+
+
+class SparkPlanRequirements(Contract):
+    """Checks on the submission's modeled Spark plan (SparkLab simulation, not Apache Spark)."""
+    profile: str = 'generic_8x8'
+    aqe: bool = True
+    scale: dict[str, SparkTableScale] = Field(default_factory=dict)
+    checks: list[SparkPlanCheck] = Field(min_length=1)
+
+
 class ExerciseDefinition(Contract):
     schema_version: Literal[1]
     id: str
@@ -108,6 +132,7 @@ class ExerciseDefinition(Contract):
     output_schema: dict[str, str] = Field(default_factory=dict)
     context_refs: list[str] = Field(default_factory=list)
     truth: Literal['real','semantic-emulation','simulated','unsupported','design-only'] = 'real'
+    spark_plan: SparkPlanRequirements | None = None
 
 
 class RuntimeIdentity(Contract):
@@ -119,6 +144,8 @@ class RuntimeIdentity(Contract):
 
 class ExerciseCheck(Contract):
     id: str
+    # 'plan' checks grade the modeled SparkLab plan, not result rows.
+    kind: Literal['result','plan'] = 'result'
     visibility: Literal['visible','hidden','edge']
     passed: bool
     status: Literal['passed','failed']
