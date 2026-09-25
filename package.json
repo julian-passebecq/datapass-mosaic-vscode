@@ -190,6 +190,7 @@
     "vscode:prepublish": "npm run compile",
     "test:host": "npm run build && node scripts/extension_host_e2e.mjs",
     "package": "vsce package --skip-license",
+    "test:ui": "node scripts/vscode_ui_pass.mjs",
     "test": "node scripts/scaffold_smoke.mjs && node scripts/runtime_endpoint_smoke.mjs && node scripts/runtime_auth_smoke.mjs && node scripts/package_smoke.mjs && node scripts/runtime_environment_smoke.mjs && node scripts/trust_smoke.mjs && node scripts/mosaic_layout_smoke.mjs && node scripts/csv_import_smoke.mjs && node scripts/airflow_lab_smoke.mjs && node scripts/factory_lab_smoke.mjs && node scripts/sqlpool_lab_smoke.mjs && node scripts/databricks_lab_smoke.mjs && node scripts/bi_lab_smoke.mjs && node scripts/catalog_tree_smoke.mjs && node scripts/projects_ui_smoke.mjs && node scripts/exercise_workspace_smoke.mjs && node scripts/practice_progress_smoke.mjs && node scripts/practice_arena_smoke.mjs && node scripts/dbt_lab_smoke.mjs && node scripts/missions_ui_smoke.mjs && node scripts/practice_feedback_smoke.mjs && node scripts/mosaic_tools_smoke.mjs && node scripts/sql_dialect_smoke.mjs && node scripts/terminal_lab_smoke.mjs"
   },
   "dependencies": {
@@ -208,6 +209,7 @@
     "@vscode/test-electron": "^3.1.0",
     "@vscode/vsce": "^4.0.0",
     "esbuild": "^0.25.9",
+    "playwright-core": "^1.63.0",
     "typescript": "^5.7.2"
   }
 }
