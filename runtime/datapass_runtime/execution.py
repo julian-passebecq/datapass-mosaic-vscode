@@ -528,6 +528,8 @@ class Engine:
             return {'registered':registered,'omitted':omitted}
         if op == 'catalog':
             return self.catalog.listing()
+        if op == 'catalog_schema':
+            return self.catalog.schema()
         if op == 'lakehouse':
             return self.catalog.lakehouse_overview()
         if op == 'spark_verify_fixture':

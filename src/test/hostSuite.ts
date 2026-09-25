@@ -15,6 +15,7 @@ import { tmpdir } from "node:os";
 import * as path from "node:path";
 import * as vscode from "vscode";
 import { loadAirflowState } from "../airflowState";
+import { CatalogTreeProvider, openTableScratch } from "../catalogTree";
 import { biFileUri, collectBiDbtFiles, collectBiScripts, copyBiSamples, loadBiState, readBiModel } from "../biState";
 import { loadDbtState } from "../dbtState";
 import { loadExerciseCatalog } from "../exerciseCatalog";
@@ -54,6 +55,9 @@ export async function run(): Promise<void> {
       await extension.activate();
       const commands = await vscode.commands.getCommands(true);
       for (const module of MODULES) assert.ok(commands.includes(module.command), module.command);
+      for (const command of ["datapass.catalog.refresh", "datapass.catalog.openScratch", "datapass.catalog.previewTable"]) {
+        assert.ok(commands.includes(command), command);
+      }
     }],
     ["Mosaic command opens the Workbench webview", async () => {
       await vscode.commands.executeCommand("datapass.openMosaic");
@@ -371,6 +375,31 @@ export async function run(): Promise<void> {
       const refused = runtime!.snapshot().biDbtRun!.results[0];
       assert.equal(refused.status, "error");
       assert.match(refused.message, /depends_on/);
+    }],
+    ["Catalog tree lists layers, tables, columns and row counts, and opens a SQL scratch", async () => {
+      const tree = new CatalogTreeProvider(runtime!);
+      try {
+        await tree.refresh();
+        const roots = tree.getChildren();
+        const labels = roots.map(node => String(tree.getTreeItem(node).label));
+        assert.deepEqual(labels.slice(0, 7), ["source", "bronze", "silver", "gold", "warehouse", "features", "metrics"]);
+        const warehouse = roots[labels.indexOf("warehouse")];
+        const tables = tree.getChildren(warehouse);
+        const fact = tables.find(node => tree.getTreeItem(node).label === "fct_sales");
+        assert.ok(fact, "warehouse.fct_sales is listed");
+        assert.match(String(tree.getTreeItem(fact!).description), /^\d+ rows?$/);
+        const columns = tree.getChildren(fact).map(node => [tree.getTreeItem(node).label, tree.getTreeItem(node).description]);
+        assert.ok(columns.length > 0 && columns.every(([, type]) => typeof type === "string" && type.length > 0), JSON.stringify(columns));
+        const table = tree.snapshot()!.tables.find(item => item.schema === "warehouse" && item.name === "fct_sales")!;
+        const uri = await openTableScratch(table);
+        assert.ok(uri && uri.path.endsWith("/.datapass/scratch/warehouse.fct_sales.sql"));
+        const text = new TextDecoder().decode(await vscode.workspace.fs.readFile(uri!));
+        assert.ok(text.endsWith("SELECT * FROM warehouse.fct_sales LIMIT 100;\n"), text);
+        await runtime!.runSql(text);
+        assert.equal(runtime!.snapshot().lastRun?.status, "success", runtime!.snapshot().lastRun?.error?.message);
+      } finally {
+        tree.dispose();
+      }
     }],
     ["Practice exercise: visible run and submission grade for real", async () => {
       const catalog = await loadExerciseCatalog(extension.extensionUri);

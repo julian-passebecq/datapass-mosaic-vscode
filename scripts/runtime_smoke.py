@@ -830,6 +830,17 @@ with TemporaryDirectory(prefix="datapass-csv-import-smoke-") as temp:
             catalog = client.get("/api/local/catalog").json()
             assert any(item["name"] == "bronze.city_visits" and item["row_count"] == 2 for item in catalog), catalog
 
+            # Catalog tree: every schema, with columns, types, kinds and row counts; a broken view keeps its error.
+            client.post("/api/local/execute", json={"language": "sql", "code": "CREATE VIEW silver.visits_v AS SELECT city FROM bronze.city_visits"})
+            schema = client.get("/api/local/catalog/schema").json()
+            assert schema["engine"] == "duckdb" and schema["layers"][0] == "source" and not schema["truncated"], schema
+            by_name = {f'{t["schema"]}.{t["name"]}': t for t in schema["tables"]}
+            visits = by_name["bronze.city_visits"]
+            assert visits["kind"] == "table" and visits["row_count"] == 2 and visits["layer"] is True, visits
+            assert visits["columns"] == [{"name": "city", "type": "VARCHAR"}, {"name": "visits", "type": "VARCHAR"}], visits
+            assert by_name["silver.visits_v"]["kind"] == "view" and by_name["silver.visits_v"]["row_count"] == 2, by_name["silver.visits_v"]
+            assert by_name["source.orders"]["row_count"] == 12 and by_name["source.orders"]["fresh"] is True, by_name["source.orders"]
+
             # Imports never overwrite, and only create bronze tables.
             again = client.post("/api/local/import-csv", json={"asset": "bronze.city_visits", "text": "city\nNice\n"})
             assert again.status_code == 400 and "already exists" in again.json()["detail"], again.text

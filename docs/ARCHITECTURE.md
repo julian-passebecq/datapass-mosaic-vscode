@@ -38,6 +38,10 @@ React / Fluent / React Flow views
        └─ dbt adapter
 ```
 
+## Catalog view
+
+The Datapass sidebar has a native VS Code tree view, **Catalog**, next to **Labs**. It reads `GET /api/local/catalog/schema` (kernel op `catalog_schema`): every schema of the local DuckDB file, the catalog layers first (source, bronze, silver, gold, warehouse, features, metrics, even when empty) and then any other schema, such as the ones dbt Core creates. Each table or view shows its row count (a real `COUNT(*)`), its columns and their types; a view that fails to bind still shows, with its error. Clicking a table opens `.datapass/scratch/<schema>.<table>.sql` with `SELECT * ... LIMIT 100` (created once, never overwritten); **Preview Rows** runs that query and shows the result in Mosaic. The tree refreshes when the runtime starts or stops and after any run that changes the catalog listing.
+
 ## Mosaic
 
 Mosaic is the free-form local workbench. Default execution is real DuckDB SQL; Python/Polars run for real only after the trusted-local-Python opt-in. It can arrange code/data/charts/docs in flexible panes, while source files remain real VS Code files. Spark simulation is optional, not Mosaic's identity.

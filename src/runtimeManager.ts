@@ -466,6 +466,13 @@ export class RuntimeManager implements vscode.Disposable {
     }
   }
 
+  /** Catalog tree view: every schema's tables and views with columns, types and row counts. */
+  async fetchCatalogSchema(): Promise<unknown> {
+    const url = this.state.status === "running" ? this.state.url : undefined;
+    if (!url) throw new Error("Start the Datapass runtime to browse the catalog.");
+    return requestGetJson<unknown>(`${url}/api/local/catalog/schema`, 20000);
+  }
+
   /** Airflow Lab: the DAG file's TEXT is parsed and simulated by the runtime, never executed. */
   async simulateAirflow(source: string, fileName: string, scenario: AirflowScenarioInput): Promise<void> {
     const url = this.state.status === "running" ? this.state.url : undefined;
