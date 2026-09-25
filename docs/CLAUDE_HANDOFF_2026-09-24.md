@@ -22,7 +22,15 @@ Workflow from here: branch from `main` for each tranche, keep CI green, merge th
 - **Bug found.** The Cloud Lab sub-tabs and the execution badge overflowed a narrow Workbench. Fixed in PR #17.
 - **Stacked PRs.** Retarget the next PR to `main` before merging its base with `--delete-branch`. Otherwise GitHub closes it.
 
-## 0. Terminal Lab: real bash, PowerShell and Git — Claude, 2026-09-25 (newest)
+## 0. Packaged VSIX UI pass in the repository (roadmap T-3) — Claude, 2026-09-25 (newest)
+
+The Playwright pass that earlier sessions ran from a scratch file is now `scripts/vscode_ui_pass.mjs` (`npm run test:ui`, after `npm run package`) and the CI job `vscode-ui` (Linux, `xvfb-run` with a 1600×1000 screen, screenshots uploaded as `vscode-ui-pass`). See docs/LOCAL_TEST.md, "Packaged VSIX UI pass".
+
+- **Covers.** Fresh-profile VSIX install; Create .datapass project; Setup/Start runtime; raw 401/400 against the live port and no token in the log; Mosaic Run active SQL result; Practice Open solution + Submit graded; every module tab and lab sub-tab at a 520 px Workbench with an overflow probe; Stop runtime and a closed port; no uncaught webview errors.
+- **Overflow probe.** Flags any element whose right edge passes the webview unless an ancestor scrolls or clips it; it must first catch a planted 2000 px block, so it cannot pass blind. First run: all 17 tab/sub-tab layouts (9 module tabs, 8 more lab sub-tabs) clean at 521 px.
+- **Gotchas.** Typing into Monaco through Electron did not reach the editor; the script writes the scratch file on disk and waits for the editor to show it. The first Practice Submit on an exercise without a starter only creates the file, so the pass clicks Open solution first. `locator.evaluate(fn, arg)` passes the element first. The exercise editor tab is titled `<exercise> · <language>`, not `solution.*`.
+
+## 0. Terminal Lab: real bash, PowerShell and Git — Claude, 2026-09-25
 
 Third lab of the map approved on 2026-09-25 (BI Lab, dbt Lab, **Terminal Lab**, then Infra Lab). The learner types
 their own commands in a real VS Code terminal; Datapass runs none of them and checks the resulting folder and Git

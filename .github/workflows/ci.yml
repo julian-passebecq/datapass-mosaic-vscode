@@ -77,3 +77,29 @@ jobs:
         run: DATAPASS_DBT_PYTHON="$RUNNER_TEMP/dbt-tools/bin/python" xvfb-run -a npm run test:host
         env:
           DATAPASS_E2E_PYTHON: python
+
+  # The packaged VSIX in a real VS Code window, driven by Playwright like a learner: Setup/Start runtime, Mosaic SQL,
+  # a Practice Submit, a narrow-width layout check of every module tab, Stop runtime.
+  vscode-ui:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: npm ci --no-audit --no-fund
+      - run: npm run package
+      - name: VS Code UI pass
+        run: xvfb-run -a --server-args="-screen 0 1600x1000x24" npm run test:ui
+        env:
+          DATAPASS_UI_PYTHON: python
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: vscode-ui-pass
+          path: test-results/vscode-ui
+          if-no-files-found: ignore
