@@ -3,6 +3,7 @@ import type { MosaicLayoutItem } from "../platform/mosaicLayout";
 import type { PythonTrustState } from "../platform/pythonTrust";
 import type { DbtCoreRunView } from "../platform/dbtArtifacts";
 import type { MissionProgressView, MissionView } from "../platform/missions";
+import type { GitView, ShellId, ShellView } from "../platform/terminalShells";
 import type { DbtCommand, DctFormat, DctRenderView, DctValidationView } from "../platform/dbtTools";
 import type { ProjectsViewState } from "../platform/projects";
 import type { QueryHistoryEntry } from "../platform/mosaicTools";
@@ -1131,6 +1132,15 @@ export interface DbtViewState {
   missions?: { missions: readonly MissionView[]; progress: Readonly<Record<string, MissionProgressView>> };
 }
 
+/** Terminal Lab: the learner's shells and Git, their choice, and the lab's missions. Datapass runs no command. */
+export interface TerminalViewState {
+  shells: readonly ShellView[];
+  /** The shell the terminal opens with: the learner's choice when installed, otherwise the first one found. */
+  shell?: ShellId;
+  git: GitView;
+  missions: { missions: readonly MissionView[]; progress: Readonly<Record<string, MissionProgressView>> };
+}
+
 export interface DbtBoardView {
   /** Relative to the project: `charts/revenue.yml`. */
   path: string;
@@ -1171,6 +1181,7 @@ export interface WorkbenchViewState {
   factory?: FactoryViewState;
   bi?: BiViewState;
   dbt?: DbtViewState;
+  terminal?: TerminalViewState;
   projects?: ProjectsViewState & ProjectsHostState;
   /** A lab tab or Practice filter to show, set when a project step opens a lab; seq changes on each request. */
   focus?: WorkbenchFocus;
@@ -1260,6 +1271,9 @@ export type WebviewToHostMessage =
   | { type: "serveDct" }
   | { type: "stopDctServe" }
   | { type: "openDctHtml"; board: string }
+  | { type: "selectTerminalShell"; shell: ShellId }
+  | { type: "openLabTerminal"; missionId?: string }
+  | { type: "refreshTerminalLab" }
   | { type: "startMission"; missionId: string }
   | { type: "restartMission"; missionId: string }
   | { type: "openMission"; missionId: string }

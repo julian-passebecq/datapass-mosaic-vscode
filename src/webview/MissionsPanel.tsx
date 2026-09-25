@@ -1,5 +1,5 @@
 import { Badge, Button, Text } from "@fluentui/react-components";
-import { useState } from "react";
+import { useState, type ReactNode } from "react";
 import type { VsCodeApi } from "./WorkbenchApp";
 import {
   missionStatus,
@@ -19,19 +19,24 @@ export interface MissionsPanelState {
 const LEVEL: Record<string, string> = { intro: "Intro", intermediate: "Intermediate", advanced: "Advanced" };
 
 /**
- * Missions: ticket-style tasks, less guided than Practice. Generic over the lab: the dbt Lab shows it today; the
- * Terminal and Infra labs can reuse it with their own missions.
+ * Missions: ticket-style tasks, less guided than Practice. Generic over the lab: the dbt Lab and the Terminal Lab
+ * show it with their own missions and wording (the Infra Lab will too).
  */
 export function MissionsPanel({
   state,
   vscode,
   canRun,
-  blockedReason
+  blockedReason,
+  openLabel = "Open the project",
+  folderNote
 }: {
   state: MissionsPanelState;
   vscode: VsCodeApi;
   canRun: boolean;
   blockedReason?: string;
+  openLabel?: string;
+  /** What to say about the mission's folder once it is started. */
+  folderNote: (mission: MissionView, progress: MissionProgressView) => ReactNode;
 }) {
   const [selected, setSelected] = useState<string | undefined>(state.missions[0]?.id);
   const mission = state.missions.find(item => item.id === selected) ?? state.missions[0];
@@ -75,7 +80,7 @@ export function MissionsPanel({
             <Button appearance="primary" disabled={!canRun} onClick={() => send("startMission")}>Start mission</Button>
           ) : (
             <>
-              <Button appearance="secondary" onClick={() => send("openMission")}>Open the project</Button>
+              <Button appearance="secondary" onClick={() => send("openMission")}>{openLabel}</Button>
               {next && <Button appearance="secondary" disabled={!canRun} onClick={() => send("loadMissionBatch")}>Load next batch: {next.label}</Button>}
               <Button appearance="primary" disabled={!canRun} onClick={() => send("checkMission")}>Check my work</Button>
               <Button appearance="subtle" disabled={!canRun} onClick={() => send("restartMission")}>Start over</Button>
@@ -83,12 +88,7 @@ export function MissionsPanel({
           )}
         </div>
         {!canRun && blockedReason && <p className="factory-note">{blockedReason}</p>}
-        {progress?.started && (
-          <p className="factory-note">
-            Project: <code>missions/{mission.id}</code> (selected in the dbt Lab; TICKET.md is in it). Data loaded:{" "}
-            {progress.batches.map(id => mission.batches.find(b => b.id === id)?.label ?? id).join(", ") || "none"}.
-          </p>
-        )}
+        {progress?.started && <p className="factory-note">{folderNote(mission, progress)}</p>}
 
         <section className="mission-criteria">
           <Text weight="semibold">Acceptance criteria</Text>

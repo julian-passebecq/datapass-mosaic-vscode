@@ -22,6 +22,8 @@ import { biFileUri, collectBiDbtFiles, collectBiScripts, copyBiSamples, loadBiSt
 import { DbtTerminalSession, writeDbtProfiles } from "../dbtLab";
 import { findDbtProjects, loadDbtState } from "../dbtState";
 import { MissionsService } from "../missions";
+import { TerminalLabSession } from "../terminalLab";
+import { ticketPath } from "../platform/missions";
 import { buildDctCommand } from "../platform/dbtTools";
 import { loadExerciseCatalog } from "../exerciseCatalog";
 import { prepareExerciseWorkspace } from "../exerciseWorkspace";
@@ -610,6 +612,67 @@ export async function run(): Promise<void> {
         assert.ok(progress.passedAt);
       } finally {
         session.dispose();
+      }
+    }],
+    ["Terminal Lab: the mission folder is built, a real terminal opens in it, and the checker judges what the commands left", async () => {
+      const tools = { binDir: path.join(root.fsPath, "no-dbt"), venvRoot: root.fsPath, snapshot: () => ({ status: "missing" as const }) };
+      const missions = new MissionsService(extension.extensionUri, runtime!, tools);
+      const list = await missions.list("terminal");
+      assert.equal(list.length, 8);
+      assert.ok(list.every(mission => mission.lab === "terminal" && mission.batches.length === 0));
+      const memory = new Map<string, unknown>();
+      const lab = new TerminalLabSession({ keys: () => [...memory.keys()], get: (key: string) => memory.get(key), update: async (key: string, value: unknown) => { memory.set(key, value); } } as vscode.Memento);
+      const { shells, git } = await lab.detect();
+      assert.ok(git.version, "git is found");
+      const bash = shells.find(shell => shell.id === "bash");
+      assert.ok(bash?.path, `bash is found: ${bash?.note}`);
+      const content = vscode.Uri.joinPath(extension.extensionUri, "content", "missions", "terminal-v1");
+      // Plays the learner: types a line in the real terminal, then asks the checker until it passes.
+      const playInTerminal = async (id: string, shell: "bash" | "powershell", commandLine: string) => {
+        const folder = await missions.start(id);
+        const mission = await missions.mission(id);
+        const ticket = new TextDecoder().decode(await vscode.workspace.fs.readFile(vscode.Uri.joinPath(root, ...ticketPath(mission).split("/"))));
+        assert.match(ticket, /Datapass runs none\s+of your commands/);
+        await assert.rejects(Promise.resolve(vscode.workspace.fs.stat(vscode.Uri.joinPath(folder, "TICKET.md"))), "the ticket stays out of the mission folder");
+        await missions.check(id);
+        assert.equal((await missions.progress()).missions[id].lastCheck?.status, "not-yet");
+        const terminal = await lab.open(folder, shell, id);
+        assert.ok(terminal.name.startsWith(id));
+        terminal.sendText(commandLine, true);
+        let status: string | undefined;
+        for (let attempt = 0; attempt < 45 && status !== "passed"; attempt++) {
+          await new Promise(resolve => setTimeout(resolve, 2000));
+          await missions.check(id);
+          status = (await missions.progress()).missions[id].lastCheck?.status;
+        }
+        const last = (await missions.progress()).missions[id].lastCheck;
+        assert.equal(status, "passed", JSON.stringify(last?.criteria));
+        return folder;
+      };
+      try {
+        const identity = "export GIT_AUTHOR_NAME='Alex Learner' GIT_AUTHOR_EMAIL=alex@example.com GIT_COMMITTER_NAME='Alex Learner' GIT_COMMITTER_EMAIL=alex@example.com";
+        const solve = vscode.Uri.joinPath(content, "merge-conflict", "solution", "solve.sh").fsPath.replaceAll("\\", "/");
+        const folder = await playInTerminal("merge-conflict", "bash", `${identity}; bash '${solve}'`);
+        // Start over, as the panel does it: the terminal and Source Control let go of the folder, which goes to the
+        // attic (never deleted); the fixture is rebuilt.
+        const restore = await lab.release(folder);
+        try {
+          await missions.start("merge-conflict");
+        } finally {
+          await restore();
+        }
+        await missions.check("merge-conflict");
+        assert.equal((await missions.progress()).missions["merge-conflict"].lastCheck?.status, "not-yet");
+        const attic = await vscode.workspace.fs.readDirectory(vscode.Uri.joinPath(root, ".datapass", "missions", "attic"));
+        assert.ok(attic.some(([name]) => name.startsWith("merge-conflict-")), JSON.stringify(attic));
+        assert.ok(folder);
+        const powershell = shells.find(shell => shell.id === "powershell");
+        if (powershell?.path) {
+          const script = vscode.Uri.joinPath(content, "server-inventory-report", "solution", "solve.ps1").fsPath;
+          lab.closeIn(await playInTerminal("server-inventory-report", "powershell", `& '${script.replaceAll("'", "''")}'`));
+        }
+      } finally {
+        lab.dispose();
       }
     }],
     ["Catalog tree lists layers, tables, columns and row counts, and opens a SQL scratch", async () => {

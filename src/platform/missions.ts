@@ -1,5 +1,5 @@
 /**
- * Missions (dbt Lab today; the Terminal and Infra labs reuse them): what the Workbench shows of a mission, the
+ * Missions (dbt Lab and Terminal Lab; the Infra Lab will reuse them): what the Workbench shows of a mission, the
  * learner's progress, and the hidden checker's answer. Pure (no vscode import) for scripts/missions_ui_smoke.mjs.
  *
  * The runtime owns the contract (runtime/missionlab/model.py) and the checker; the extension only reads what it
@@ -57,6 +57,16 @@ const ID = /^[a-z0-9][a-z0-9-]{0,47}$/;
 export function missionFolder(id: string): string {
   if (!ID.test(id)) throw new Error(`Invalid mission id ${id}.`);
   return `missions/${id}`;
+}
+
+/**
+ * Where the ticket is written, relative to the workspace. dbt Lab: TICKET.md in the project folder, next to the code.
+ * Terminal Lab: outside the mission folder, because the mission is about that folder's exact content and its Git
+ * status (a TICKET.md in it would be an untracked file the learner did not make).
+ */
+export function ticketPath(mission: Pick<MissionView, "id" | "lab">): string {
+  const folder = missionFolder(mission.id);
+  return mission.lab === "terminal" ? `.datapass/missions/tickets/${mission.id}.md` : `${folder}/TICKET.md`;
 }
 
 export function toMissionView(raw: unknown, packId: string): MissionView | undefined {
@@ -166,8 +176,16 @@ export function ticketMarkdown(mission: MissionView): string {
     "",
     criteria,
     "",
-    "Check your work from the dbt Lab's Missions tab: a hidden checker looks at your catalog, your dbt artifacts and",
-    "your files. Hints are there too, one at a time.",
+    ...(mission.lab === "terminal"
+      ? [
+        `Work in \`${missionFolder(mission.id)}/\` with your own commands (the Terminal Lab opens a terminal there). Check`,
+        "your work from the Terminal Lab: a hidden checker reads the folder and its Git repository. Datapass runs none",
+        "of your commands and never runs your scripts. Hints are there too, one at a time."
+      ]
+      : [
+        "Check your work from the dbt Lab's Missions tab: a hidden checker looks at your catalog, your dbt artifacts and",
+        "your files. Hints are there too, one at a time."
+      ]),
     ""
   ].join("\n");
 }
