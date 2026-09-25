@@ -38,6 +38,8 @@ import type { DatabricksFilesPayload } from "./factoryState";
 import { toBiDbtView, toBiLabView } from "./platform/biRun";
 
 const HOST = "127.0.0.1";
+/** Catalog listing, including the first one that creates the workspace catalog. */
+const CATALOG_TIMEOUT_MS = 30_000;
 // A cold start in a fresh managed venv (FastAPI, DuckDB, Polars, pandas; first
 // bytecode compilation; antivirus scanning on Windows) can exceed ten seconds.
 const STARTUP_TIMEOUT_MS = 90_000;
@@ -490,8 +492,11 @@ export class RuntimeManager implements vscode.Disposable {
     const url = this.state.status === "running" ? this.state.url : undefined;
     if (!url) return;
     try {
+      // The first call after a start spawns the kernel and creates and seeds the DuckDB catalog: about 4 s on a
+      // Windows machine with antivirus, more than requestGetJson's 3 s default.
       const catalog = await requestGetJson<NonNullable<RuntimeViewState["catalog"]>>(
-        `${url}/api/local/catalog`
+        `${url}/api/local/catalog`,
+        CATALOG_TIMEOUT_MS
       );
       this.setState({ ...this.state, catalog });
     } catch (error) {
