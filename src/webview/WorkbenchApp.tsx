@@ -160,7 +160,7 @@ export function WorkbenchApp({ vscode }: { vscode: VsCodeApi }) {
               />
             ) : selected.id === "practice" ? (
               <PracticeSurface vscode={vscode} runtime={state.runtime}
-                practice={state.practice ?? { exercises: [], progress: { exercises: {} }, canSaveProgress: false }}
+                practice={state.practice ?? { exercises: [], progress: { exercises: {} }, canSaveProgress: false, solutions: {} }}
                 focus={state.focus?.module === "practice" ? state.focus : undefined} />
             ) : selected.id === "fabric" ? (
               <FabricSurface vscode={vscode} runtime={state.runtime} factory={state.factory}

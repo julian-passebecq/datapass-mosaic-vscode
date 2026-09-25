@@ -12,6 +12,7 @@ import {
   type PracticeStatus
 } from "../platform/practiceProgress";
 import type { PracticeViewState, RuntimeViewState, WorkbenchFocus } from "./contracts";
+import { HintsBlock, RowDiffView, SolutionBlock } from "./PracticeFeedback";
 import type { VsCodeApi } from "./WorkbenchApp";
 
 const PYTHON_LANGUAGES = new Set(["python", "polars"]);
@@ -165,24 +166,34 @@ export function PracticeSurface({
                   {result.error && <div className="error-text">{result.error.message}</div>}
                   <div className="practice-checks">
                     {result.checks.map(check => (
-                      <div className="practice-check" key={check.id}>
-                        <div>
-                          <strong>{check.id}</strong>
-                          <small>
-                            {check.kind === "plan" ? "simulated plan" : check.visibility} · {check.message}
-                          </small>
+                      <div className="practice-check-block" key={check.id}>
+                        <div className="practice-check">
+                          <div>
+                            <strong>{check.id}</strong>
+                            <small>
+                              {check.kind === "plan" ? "simulated plan" : check.visibility} · {check.message}
+                            </small>
+                          </div>
+                          <Badge
+                            appearance="outline"
+                            color={check.passed ? "success" : "danger"}
+                          >
+                            {check.status}
+                          </Badge>
                         </div>
-                        <Badge
-                          appearance="outline"
-                          color={check.passed ? "success" : "danger"}
-                        >
-                          {check.status}
-                        </Badge>
+                        {/* Rows only exist for visible fixtures: the runtime never sends hidden ones. */}
+                        {!check.passed && check.visibility === "visible" && check.kind !== "plan" &&
+                          Array.isArray(check.expected) && Array.isArray(check.actual) && (
+                          <RowDiffView check={check} validation={exercise.validation} />
+                        )}
                       </div>
                     ))}
                   </div>
                 </div>
               )}
+
+              <HintsBlock exercise={exercise} record={record} vscode={vscode} />
+              <SolutionBlock exercise={exercise} record={record} code={practice.solutions[exercise.key]} vscode={vscode} />
 
               <div className="practice-footer">
                 <div className="practice-topics">

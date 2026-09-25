@@ -1,4 +1,5 @@
 import * as vscode from "vscode";
+import { rowValidation, type RowValidation } from "./platform/practiceFeedback";
 import type { ExerciseSectionView, ExerciseSummary, ExerciseTableView, SparkPlanView } from "./webview/contracts";
 
 /** Runtimes whose grading needs something Datapass does not provide locally. */
@@ -169,6 +170,9 @@ function teachingDetails(value: Record<string, unknown>): {
   sections: ExerciseSectionView[];
   hints: string[];
   dataContext: ExerciseTableView[];
+  validation: RowValidation;
+  explanation?: string;
+  solutionAvailable: boolean;
 } {
   const sections = (Array.isArray(value.sections) ? value.sections : []).flatMap(raw => {
     const section = objectValue(raw);
@@ -191,7 +195,14 @@ function teachingDetails(value: Record<string, unknown>): {
       sampleRows
     }];
   });
-  return { sections, hints: stringArray(value.hints), dataContext };
+  return {
+    sections,
+    hints: stringArray(value.hints),
+    dataContext,
+    validation: rowValidation(value.validation),
+    explanation: stringValue(value.explanation),
+    solutionAvailable: objectValue(value.solution)?.available === true
+  };
 }
 
 function scalar(value: unknown): string | number | boolean | null {

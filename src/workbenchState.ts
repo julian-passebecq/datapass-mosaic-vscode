@@ -31,12 +31,13 @@ export async function collectWorkbenchState(
       serveUrl?: string;
       missions?: DbtViewState["missions"];
     };
+    practiceSolutions?: Record<string, string>;
   } = {}
 ): Promise<WorkbenchViewState> {
   const folder = vscode.workspace.workspaceFolders?.[0];
   const manifest = await readProjectManifest();
   const practice = selectedModule === "practice"
-    ? await loadPracticeState(extensionUri)
+    ? await loadPracticeState(extensionUri, extras.practiceSolutions ?? {})
     : undefined;
   const pipeline = selectedModule === "pipeline"
     ? await loadPipelineState(runtimeManager)
@@ -93,13 +94,14 @@ export async function collectWorkbenchState(
   };
 }
 
-async function loadPracticeState(extensionUri: vscode.Uri): Promise<PracticeViewState> {
+async function loadPracticeState(extensionUri: vscode.Uri, solutions: Record<string, string>): Promise<PracticeViewState> {
   const progress = await readProgress();
   return {
     exercises: await loadExerciseCatalog(extensionUri),
     progress: progress.document.practice ?? emptyPracticeProgress(),
     progressError: progress.error,
-    canSaveProgress: Boolean(vscode.workspace.workspaceFolders?.length)
+    canSaveProgress: Boolean(vscode.workspace.workspaceFolders?.length),
+    solutions
   };
 }
 

@@ -44,7 +44,9 @@ import { airflowStarter, pipelineStarter, scratchSpec } from "./scaffold/starter
 import { exerciseReadme } from "./scaffold/exerciseReadme";
 import { collectWorkbenchState } from "./workbenchState";
 import { copyProjectFiles, loadProjectContents, progressUri, readProgress, updateProgress, writeProgress } from "./projectState";
-import { recordGrade, recordOpened } from "./platform/practiceProgress";
+import { recordGrade, recordOpened, recordSolutionViewed, revealHint } from "./platform/practiceProgress";
+import { SOLUTION_AFTER_FAILURES, solutionUnlocked } from "./platform/practiceFeedback";
+import { loadReferenceSolution, referenceUri } from "./referenceSolutions";
 import {
   applyVerification,
   emptyProgress,
@@ -126,6 +128,8 @@ export class WorkbenchPanel {
   private lastSqlPoolFile?: vscode.Uri;
   /** `dct validate --json` results per `<project>::<board>`, shown next to each board. */
   private readonly dctValidations = new Map<string, DctValidationView>();
+  /** Reference solutions revealed in this panel, by exercise key (the text is read from the pack on demand). */
+  private readonly revealedSolutions = new Map<string, string>();
   /** A broken progress.json is reported once per panel, not on every grading. */
   private practiceProgressWarned = false;
   /** The active .sql file the BI Lab last ran (not under bi/), to reveal a statement's line in it. */
@@ -266,6 +270,15 @@ export class WorkbenchPanel {
         return;
       case "gradeExercise":
         await this.gradeExercise(message.exerciseKey, message.mode);
+        return;
+      case "revealHint":
+        await this.revealHint(message.exerciseKey);
+        return;
+      case "showSolution":
+        await this.showSolution(message.exerciseKey);
+        return;
+      case "compareSolution":
+        await this.compareSolution(message.exerciseKey);
         return;
       case "openPipelineSource":
         await this.openPipelineSource();
@@ -826,6 +839,65 @@ export class WorkbenchPanel {
       );
     }
     await this.refresh();
+  }
+
+  /** One more hint for an exercise; the count is kept in .datapass/progress.json. */
+  private async revealHint(exerciseKey: string): Promise<void> {
+    const exercise = (await loadExerciseCatalog(this.context.extensionUri)).find(item => item.key === exerciseKey);
+    if (!exercise?.hints.length) return;
+    await this.savePracticeProgress(document => ({
+      ...document,
+      practice: revealHint(document.practice, exercise.key, exercise.hints.length)
+    }));
+    await this.refresh();
+  }
+
+  /**
+   * The pack's reference solution and explanation, once the exercise is solved or after a few failed gradings.
+   * Reference solutions ship in the VSIX: this is a teaching choice, not an exam control.
+   */
+  private async showSolution(exerciseKey: string): Promise<string | undefined> {
+    const exercise = (await loadExerciseCatalog(this.context.extensionUri)).find(item => item.key === exerciseKey);
+    if (!exercise) return undefined;
+    const record = (await readProgress()).document.practice?.exercises[exercise.key];
+    if (!solutionUnlocked(record)) {
+      void vscode.window.showInformationMessage(
+        `The reference solution opens once you solve the exercise, or after ${SOLUTION_AFTER_FAILURES} gradings that do not pass.`
+      );
+      return undefined;
+    }
+    const code = await loadReferenceSolution(this.context.extensionUri, exercise);
+    if (code === undefined) {
+      void vscode.window.showWarningMessage("This exercise has no reference solution to show.");
+      return undefined;
+    }
+    this.revealedSolutions.set(exercise.key, code);
+    await this.savePracticeProgress(document => ({
+      ...document,
+      practice: recordSolutionViewed(document.practice, exercise.key, new Date().toISOString())
+    }));
+    await this.refresh();
+    return code;
+  }
+
+  /** VS Code's diff editor: the reference (read-only) on the left, the learner's solution file on the right. */
+  private async compareSolution(exerciseKey: string): Promise<void> {
+    const root = vscode.workspace.workspaceFolders?.[0]?.uri;
+    const exercise = (await loadExerciseCatalog(this.context.extensionUri)).find(item => item.key === exerciseKey);
+    if (!root || !exercise) return;
+    const code = this.revealedSolutions.get(exerciseKey) ?? await this.showSolution(exerciseKey);
+    if (code === undefined) return;
+    const manifest = await readProjectManifest();
+    const exerciseRoot = safeRelativeParts(manifest.manifest?.assets?.exercises, "exercises");
+    const extension = extensionFor(exercise.language);
+    const mine = vscode.Uri.joinPath(root, ...exerciseRoot, slug(exercise.id), slug(exercise.language), `solution.${extension}`);
+    if (!(await exists(mine))) {
+      void vscode.window.showWarningMessage("Open the exercise first: there is no solution file to compare yet.");
+      return;
+    }
+    await vscode.commands.executeCommand("vscode.diff", referenceUri(exercise, extension), mine, `${exercise.id}: reference ↔ your solution`, {
+      viewColumn: vscode.ViewColumn.Beside
+    });
   }
 
   /** Practice progress lives in .datapass/progress.json next to the Projects progress. Saving it never blocks Practice. */
@@ -1595,7 +1667,8 @@ export class WorkbenchPanel {
           missions: this.selectedModule === "dbt"
             ? { missions: await this.dbtLab.missions.list("dbt"), progress: (await this.dbtLab.missions.progress()).missions }
             : undefined
-        }
+        },
+        practiceSolutions: Object.fromEntries(this.revealedSolutions)
       }
     );
     if (seq !== this.refreshSeq) return;

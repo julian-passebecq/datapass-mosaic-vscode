@@ -121,6 +121,14 @@ holds the code-debt audit of 2026-09-25). One PR per item, merged on green CI.
   attempted = opened or graded. Toolbar counts, filters by difficulty, topic, language and status (kept in the webview
   state; a Projects focus clears them). Checked in a real VS Code window: submit → solved, starter run → "attempted ·
   1 run", counts 1/1/270, status and language filters, progress.json content.
+- **V1-1** (`feature/practice-feedback`): on a failed visible check, expected vs actual rows diffed with the exercise's
+  `validation` (`src/platform/practiceFeedback.ts`, the grader's rules incl. bipartite matching and tolerances); hidden
+  and edge rows never leave the runtime (host E2E asserts it). Hints one at a time (`hintsRevealed` in progress.json;
+  the brief no longer lists them). Reference solution + explanation after a pass or 3 failed gradings (`failures`),
+  served by a `datapass-reference:` read-only document provider for **Compare with my solution** (VS Code diff).
+  Real VS Code: wrong cross join → 4 matching · 12 missing; hint 1 of 2; locked at 1 failure, unlocked at 3; diff tab.
+- **Fix** (`fix/first-catalog-timeout`): the first catalog listing after Start runtime takes ~4 s on Windows (kernel
+  start + DuckDB seeding) and hit the 3 s client timeout; now 30 s.
 
 ## 0a. ZillaCode pack (`zilla-v1`) and the Snowflake SQL dialect — Claude, 2026-09-25
 

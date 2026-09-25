@@ -63,10 +63,13 @@ export function exerciseReadme(exercise: ExerciseSummary): string {
     lines.push(...plan.checks.map(check => `- **${check.id}**: ${check.description}`), "");
   }
   if (exercise.hints.length) {
-    lines.push("## Hints", "");
-    exercise.hints.forEach((hint, index) => {
-      lines.push(`<details><summary>Hint ${index + 1}</summary>`, "", hint, "", "</details>", "");
-    });
+    // The hints themselves stay in Practice, revealed one at a time, so a stuck learner is not handed all of them.
+    lines.push(
+      "## Hints",
+      "",
+      `${exercise.hints.length} ${exercise.hints.length === 1 ? "hint is" : "hints are"} available in Practice: **Show a hint** reveals them one at a time.`,
+      ""
+    );
   }
   lines.push(
     "## Grading",

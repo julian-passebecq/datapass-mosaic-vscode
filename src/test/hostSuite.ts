@@ -25,6 +25,7 @@ import { MissionsService } from "../missions";
 import { buildDctCommand } from "../platform/dbtTools";
 import { loadExerciseCatalog } from "../exerciseCatalog";
 import { prepareExerciseWorkspace } from "../exerciseWorkspace";
+import { loadReferenceSolution, referenceUri } from "../referenceSolutions";
 import { collectDatabricksFiles, collectFactoryFiles, copyFactorySamples, loadFactoryState, readPoolScript } from "../factoryState";
 import { MODULES } from "../modules";
 import { decodeCsvBytes, suggestBronzeAsset, validateBronzeAsset } from "../platform/csvImport";
@@ -666,6 +667,18 @@ export async function run(): Promise<void> {
         source_revision: 2
       });
       assert.equal(runtime!.snapshot().practiceResult?.status, "failed", "a wrong answer must fail");
+      const failed = runtime!.snapshot().practiceResult!.checks.find(check => check.visibility === "visible");
+      assert.ok(Array.isArray(failed?.expected) && Array.isArray(failed?.actual), "visible checks carry their rows for the diff");
+      assert.ok(runtime!.snapshot().practiceResult!.checks.filter(check => check.visibility !== "visible")
+        .every(check => check.expected === undefined && check.actual === undefined), "hidden and edge rows never leave the runtime");
+
+      // The reference solution opens as a read-only document for VS Code's diff editor.
+      const code = await loadReferenceSolution(extension.extensionUri, exercise);
+      assert.equal(code, "SELECT COALESCE(SUM(value), 0) AS total FROM input");
+      const document = await vscode.workspace.openTextDocument(referenceUri(exercise, "sql"));
+      assert.equal(document.getText(), `${code}
+`, "the extension's provider serves the pack's solution");
+      assert.equal(document.uri.scheme, "datapass-reference");
     }],
     ["SQL lab multi-table and semantic-variant exercises grade from the catalog", async () => {
       const catalog = await loadExerciseCatalog(extension.extensionUri);

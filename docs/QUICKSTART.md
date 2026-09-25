@@ -157,6 +157,13 @@ Your progress is saved in `.datapass/progress.json`, next to the Projects progre
 The toolbar counts each status. Filter the list by difficulty, topic, language and status; the filters are kept when
 you come back to Practice.
 
+When a visible check fails, the card shows the expected rows next to yours, compared the way the grader compares them:
+`−` a missing row, `+` an unexpected one, `≠` a row whose marked cells differ when row order matters. Missing, extra or
+reordered columns are named. Hidden and edge-case checks stay hidden: their rows never leave the runtime.
+**Show a hint** reveals the hints one at a time (the brief no longer lists them). **Show the reference solution** opens
+the pack's solution and its explanation once you solve the exercise, or after three gradings that do not pass;
+**Compare with my solution** opens it next to your file in VS Code's diff editor.
+
 ### Mosaic
 
 After **Run local medallion flow** (Cloud Lab › Lakehouse and notebooks) has loaded the CSV into `bronze.orders`, open `notebooks/retail_medallion.sql` and choose **Run active SQL**: it builds `silver.mosaic_orders` and `gold.mosaic_customer_revenue` on real DuckDB. Mosaic SQL works on the shared catalog only; file and network table functions such as `read_csv_auto` are blocked by design.

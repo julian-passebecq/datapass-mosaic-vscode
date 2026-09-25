@@ -6,6 +6,7 @@ import type { MissionProgressView, MissionView } from "../platform/missions";
 import type { DbtCommand, DctFormat, DctRenderView, DctValidationView } from "../platform/dbtTools";
 import type { ProjectsViewState } from "../platform/projects";
 import type { PracticeProgress } from "../platform/practiceProgress";
+import type { RowValidation } from "../platform/practiceFeedback";
 
 export type RuntimeStatus = "stopped" | "starting" | "running" | "error";
 export type ScratchKind = "sql" | "python" | "sparklab" | "notes";
@@ -238,6 +239,12 @@ export interface ExerciseSummary {
   sections: ExerciseSectionView[];
   hints: string[];
   dataContext: ExerciseTableView[];
+  /** How the grader compares result rows; the visible-fixture diff follows it. */
+  validation: RowValidation;
+  /** Why the reference solution works, shown with it. */
+  explanation?: string;
+  /** The pack ships a reference solution the learner may reveal (after a pass, or after a few failures). */
+  solutionAvailable: boolean;
   /** SparkLab exercises only: public checks on the simulated Spark plan. */
   sparkPlan?: SparkPlanView;
   /** Set when Datapass cannot grade the exercise locally; Run/Submit are disabled. */
@@ -317,6 +324,8 @@ export interface PracticeViewState {
   progressError?: string;
   /** False without a workspace folder: progress cannot be kept. */
   canSaveProgress: boolean;
+  /** Reference solutions the learner revealed in this Workbench, by exercise key. */
+  solutions: Record<string, string>;
 }
 
 export interface GraphNodeView {
@@ -1178,6 +1187,9 @@ export type WebviewToHostMessage =
   | { type: "openScratch"; kind: ScratchKind }
   | { type: "openExercise"; exerciseKey: string }
   | { type: "gradeExercise"; exerciseKey: string; mode: "run" | "submit" }
+  | { type: "revealHint"; exerciseKey: string }
+  | { type: "showSolution"; exerciseKey: string }
+  | { type: "compareSolution"; exerciseKey: string }
   | { type: "openPipelineSource" }
   | { type: "refreshPipeline" }
   | { type: "runPipeline" }
