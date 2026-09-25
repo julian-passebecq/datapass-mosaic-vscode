@@ -1,0 +1,255 @@
+{
+  "schema_version": 1,
+  "id": "databricks-ml",
+  "version": "1",
+  "order": 2,
+  "title": "Lakehouse Databricks et machine learning",
+  "summary": "Des mesures d'éoliennes au modèle en production : notebooks SparkLab, un job Databricks sous Unity Catalog, l'entraînement MLflow et des nouvelles tentatives.",
+  "level": "advanced",
+  "duration_minutes": 210,
+  "story": [
+    "Contoso Energy exploite un parc éolien. Les mesures des turbines (`source.turbine_readings`) arrivent dans le lakehouse ; l'équipe data science veut un modèle qui prédit la puissance produite à partir du vent, et des prédictions rafraîchies chaque jour.",
+    "",
+    "Vous préparez le lakehouse, explorez les mesures, construisez les features dans un job Databricks qui tourne sous un principal de service aux droits minimaux, entraînez et promouvez le modèle avec MLflow, puis rendez le job robuste aux pannes passagères.",
+    "",
+    "Rien ne se connecte à Azure Databricks : les jobs, le calcul, Unity Catalog et MLflow sont simulés sur votre machine ; les notebooks tournent sur SparkLab (jamais exécutés comme du Python) et écrivent vraiment dans le catalogue local."
+  ],
+  "goals": [
+    "Comprendre l'architecture en médaillon d'un lakehouse local",
+    "Explorer des données avec l'API DataFrame de SparkLab",
+    "Faire tourner un job Databricks sous un principal de service, avec les droits Unity Catalog minimaux",
+    "Entraîner, enregistrer et promouvoir un modèle avec MLflow et un alias",
+    "Rendre un job robuste avec des nouvelles tentatives, et lire son coût"
+  ],
+  "steps": [
+    {
+      "id": "lakehouse-medallion",
+      "title": "Faire tourner le lakehouse en médaillon",
+      "module": "fabric",
+      "instructions": [
+        "Avant les éoliennes, prenez en main le lakehouse local avec la démo retail.",
+        "",
+        "Dans **Cloud Lab › Lakehouse and notebooks**, cliquez **Create / repair demo files**, démarrez le runtime, puis **Run local medallion flow**. Le CSV passe en bronze, silver puis gold (`gold.customer_revenue`) avec Polars et DuckDB, pour de vrai.",
+        "",
+        "Regardez les couches produites : c'est la même organisation bronze / silver / gold que dans Databricks."
+      ],
+      "open": { "module": "fabric", "tab": "lakehouse", "file": "datasets/retail_orders.csv", "scaffold": ["retail_demo"] },
+      "checks": [
+        { "kind": "lakehouse_demo", "label": "Le flux en médaillon a tourné sur le lakehouse local" },
+        {
+          "kind": "table",
+          "label": "gold.customer_revenue est produite",
+          "table": "gold.customer_revenue",
+          "min_rows": 1
+        }
+      ]
+    },
+    {
+      "id": "explore-turbines",
+      "title": "Explorer les mesures dans SparkLab",
+      "module": "sparklab",
+      "instructions": [
+        "Ouvrez `projects/databricks-ml/explore_turbines.py`. Ajoutez une colonne `wind_band` (`low` sous 8 m/s, `medium` sous 14 m/s, sinon `high`) avec `F.when(...).otherwise(...)`, puis agrégez par `wind_band` : `readings` (nombre de mesures) et `avg_power` (puissance moyenne).",
+        "",
+        "Lancez **Run active SparkLab file**. Le résultat est calculé localement ; le plan et les coûts sont simulés."
+      ],
+      "open": { "module": "sparklab", "file": "projects/databricks-ml/explore_turbines.py", "scaffold": ["project"] },
+      "checks": [
+        {
+          "kind": "sparklab",
+          "label": "Un run SparkLab rend wind_band, readings et avg_power",
+          "columns": ["wind_band", "readings", "avg_power"]
+        }
+      ]
+    },
+    {
+      "id": "features-job",
+      "title": "Construire les features sous un principal de service",
+      "module": "fabric",
+      "instructions": [
+        "Le job `turbine_features` (`factory/databricks/jobs/turbine_features.json`) tourne sous le principal de service `sp-feature-eng`.",
+        "",
+        "1. Complétez le notebook `factory/databricks/Shared/features/nb_turbine_features.py` : gardez les mesures de vent positif, ajoutez `power_per_wind` (puissance divisée par le vent) et `wind_band` (mêmes seuils que dans SparkLab).",
+        "2. Dans **Cloud Lab › Databricks**, choisissez `turbine_features` puis **Run now**. Le run échoue : `sp-feature-eng` n'a aucun droit (Unity Catalog).",
+        "3. Ajoutez à la fin de `factory/databricks/grants.sql` les droits **minimaux** : `USE SCHEMA` sur `main.source` et `SELECT` sur la seule table `main.source.turbine_readings`, puis `USE SCHEMA` et `CREATE TABLE` sur `main.silver`.",
+        "4. Relancez **Run now** : le run réussit et `main.silver.turbine_features` appartient à `sp-feature-eng`.",
+        "",
+        "L'orchestration et Unity Catalog sont simulés ; le notebook tourne sur SparkLab et écrit vraiment la table."
+      ],
+      "open": {
+        "module": "fabric",
+        "tab": "databricks",
+        "file": "factory/databricks/Shared/features/nb_turbine_features.py",
+        "scaffold": ["factory", "project"]
+      },
+      "checks": [
+        {
+          "kind": "databricks_job",
+          "label": "Un run local de turbine_features a réussi en tant que sp-feature-eng",
+          "job": "turbine_features",
+          "principal": "sp-feature-eng",
+          "tasks": ["build_features"]
+        },
+        {
+          "kind": "table",
+          "label": "silver.turbine_features a les colonnes power_per_wind et wind_band",
+          "table": "silver.turbine_features",
+          "columns": ["sample_id", "turbine_id", "wind_speed", "actual_power", "power_per_wind", "wind_band"],
+          "min_rows": 1
+        },
+        {
+          "kind": "sql",
+          "label": "18 mesures réparties en 4 low, 6 medium et 8 high, power_per_wind juste",
+          "sql": "SELECT wind_band, COUNT(*) AS readings, COUNT(*) FILTER (WHERE ABS(power_per_wind * wind_speed - actual_power) > 0.000001) AS wrong_ratio FROM silver.turbine_features GROUP BY wind_band",
+          "expected": [
+            { "wind_band": "low", "readings": 4, "wrong_ratio": 0 },
+            { "wind_band": "medium", "readings": 6, "wrong_ratio": 0 },
+            { "wind_band": "high", "readings": 8, "wrong_ratio": 0 }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "least-privilege",
+      "title": "S'entraîner : les droits minimaux d'un job",
+      "module": "practice",
+      "instructions": [
+        "Faites l'exercice **Least privileges for a job's service principal** : donnez à un principal de service exactement les droits Unity Catalog dont son job a besoin, ni plus ni moins."
+      ],
+      "open": { "module": "practice", "exercise": "databricks-v1/uc-least-privilege-job/databricks-grants" },
+      "checks": [
+        { "kind": "exercise", "label": "Exercice réussi à la soumission", "exercise": "databricks-v1/uc-least-privilege-job/databricks-grants" }
+      ]
+    },
+    {
+      "id": "train-model",
+      "title": "Entraîner et promouvoir le modèle avec MLflow",
+      "module": "fabric",
+      "instructions": [
+        "Le job `power_model_training` entraîne une régression linéaire (puissance selon le vent), la suit dans MLflow, l'enregistre dans Unity Catalog sous `main.ml.power_model`, lui donne l'alias `champion` si l'erreur est assez faible, puis note toutes les turbines avec la version `champion`.",
+        "",
+        "1. Dans **Cloud Lab › Databricks**, choisissez `power_model_training` puis **Run now**. Ouvrez **Experiments and models** : une version 1, alias `champion`.",
+        "2. Relancez le job : une version 2 est enregistrée et l'alias passe sur elle. Le scoring charge `models:/main.ml.power_model@champion` : il n'a pas changé de code.",
+        "",
+        "MLflow et le registre sont simulés et gardés localement ; l'entraînement est un vrai calcul (moindres carrés) sur les lignes du labo."
+      ],
+      "open": {
+        "module": "fabric",
+        "tab": "databricks",
+        "file": "factory/databricks/jobs/power_model_training.json",
+        "scaffold": ["factory"]
+      },
+      "checks": [
+        {
+          "kind": "databricks_job",
+          "label": "Un run local de power_model_training a entraîné, promu et noté",
+          "job": "power_model_training",
+          "tasks": ["train", "promote", "score_turbines"]
+        },
+        {
+          "kind": "mlflow_model",
+          "label": "main.ml.power_model a au moins 2 versions et un alias champion",
+          "model": "main.ml.power_model",
+          "alias": "champion",
+          "min_versions": 2
+        },
+        {
+          "kind": "table",
+          "label": "gold.turbine_power_scored contient les prédictions",
+          "table": "gold.turbine_power_scored",
+          "columns": ["sample_id", "turbine_id", "wind_speed", "actual_power", "prediction"],
+          "min_rows": 18
+        }
+      ]
+    },
+    {
+      "id": "mlflow-tracking",
+      "title": "S'entraîner : suivre un entraînement avec MLflow",
+      "module": "practice",
+      "instructions": [
+        "Faites l'exercice **Track a training run with MLflow** : un run nommé, ses paramètres, sa métrique et le modèle journalisé."
+      ],
+      "open": { "module": "practice", "exercise": "databricks-v1/dbx-mlflow-tracking/databricks-notebook" },
+      "checks": [
+        { "kind": "exercise", "label": "Exercice réussi à la soumission", "exercise": "databricks-v1/dbx-mlflow-tracking/databricks-notebook" }
+      ]
+    },
+    {
+      "id": "retries",
+      "title": "Résister aux pannes passagères",
+      "module": "fabric",
+      "instructions": [
+        "La nuit, le cluster perd parfois un nœud et la tâche `build_features` échoue une fois. Ajoutez à cette tâche, dans `factory/databricks/jobs/turbine_features.json` :",
+        "",
+        "```",
+        "\"max_retries\": 2,",
+        "\"min_retry_interval_millis\": 60000",
+        "```",
+        "",
+        "Dans **Cloud Lab › Databricks**, choisissez `turbine_features`, réglez `build_features` sur **fails attempt 1**, puis **Run now**. Le run réussit à la deuxième tentative ; regardez aussi ce que la tentative ratée coûte en DBU de labo."
+      ],
+      "open": { "module": "fabric", "tab": "databricks", "file": "factory/databricks/jobs/turbine_features.json", "scaffold": ["factory", "project"] },
+      "checks": [
+        {
+          "kind": "databricks_job",
+          "label": "turbine_features a réussi après au moins deux tentatives de build_features",
+          "job": "turbine_features",
+          "principal": "sp-feature-eng",
+          "tasks": ["build_features"],
+          "min_attempts": 2
+        }
+      ]
+    },
+    {
+      "id": "retries-exercise",
+      "title": "S'entraîner : nouvelles tentatives et délai maximum",
+      "module": "practice",
+      "instructions": [
+        "Faites l'exercice **Retry transient failures, not slow runs** : des nouvelles tentatives pour les pannes passagères, un délai maximum pour les runs bloqués."
+      ],
+      "open": { "module": "practice", "exercise": "databricks-v1/dbx-retries-timeout/databricks-job" },
+      "checks": [
+        { "kind": "exercise", "label": "Exercice réussi à la soumission", "exercise": "databricks-v1/dbx-retries-timeout/databricks-job" }
+      ]
+    },
+    {
+      "id": "residuals-polars",
+      "title": "Contrôler les prédictions avec Polars",
+      "module": "mosaic",
+      "optional": true,
+      "instructions": [
+        "Étape facultative : elle exécute du **vrai Python local**. Activez-la seulement si vous faites confiance au code : dans **Mosaic**, **Enable trusted local Python…** (le runtime redémarre).",
+        "",
+        "Ouvrez `projects/databricks-ml/residuals.py`, calculez l'erreur absolue de chaque prédiction, puis par turbine `readings` et `max_abs_error`, et publiez le résultat dans `metrics.turbine_residuals` avec `publish(...)`. Lancez **Run active Python**."
+      ],
+      "open": { "module": "mosaic", "file": "projects/databricks-ml/residuals.py", "scaffold": ["project"] },
+      "checks": [
+        {
+          "kind": "mosaic",
+          "label": "Un run Python local rend turbine_id, readings et max_abs_error",
+          "language": "python",
+          "columns": ["turbine_id", "readings", "max_abs_error"]
+        },
+        {
+          "kind": "table",
+          "label": "metrics.turbine_residuals est publiée",
+          "table": "metrics.turbine_residuals",
+          "columns": ["turbine_id", "readings", "max_abs_error"],
+          "min_rows": 1
+        }
+      ]
+    },
+    {
+      "id": "cost-review",
+      "title": "Relire le calcul, les droits et le coût",
+      "module": "fabric",
+      "instructions": [
+        "Dans **Cloud Lab › Databricks**, relisez le calcul et le coût de vos runs, les droits Unity Catalog et le registre MLflow, puis répondez aux questions de `projects/databricks-ml/NOTES.md`.",
+        "",
+        "Cette étape n'est pas vérifiable automatiquement : cochez-la vous-même quand vos notes sont écrites."
+      ],
+      "open": { "module": "fabric", "tab": "databricks", "file": "projects/databricks-ml/NOTES.md", "scaffold": ["project"] },
+      "checks": []
+    }
+  ]
+}

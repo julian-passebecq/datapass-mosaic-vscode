@@ -90,8 +90,9 @@ def scaffold_files(project: Project, name: str) -> dict[str, Path | str]:
 
 # Together, the projects must use every lab and these lab tabs.
 REQUIRED_MODULES = {"mosaic", "practice", "fabric", "bi", "sparklab", "airflow", "pipeline"}
-REQUIRED_TABS = {("fabric", "pipelines"), ("bi", "warehouse"), ("bi", "dbt")}
-MIN_PROJECTS = 1
+REQUIRED_TABS = {("fabric", "pipelines"), ("fabric", "sqlpool"), ("fabric", "databricks"), ("fabric", "lakehouse"),
+                 ("bi", "warehouse"), ("bi", "model"), ("bi", "lineage"), ("bi", "dbt")}
+MIN_PROJECTS = 3
 
 
 def validate_content(projects: list[Project], exercises: dict[str, dict]) -> None:

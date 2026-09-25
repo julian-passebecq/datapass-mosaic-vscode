@@ -1,0 +1,29 @@
+{
+  "name": "turbine_features",
+  "description": "Daily turbine features for the power model, run as the feature engineering service principal.",
+  "run_as": {
+    "service_principal_name": "sp-feature-eng"
+  },
+  "job_clusters": [
+    {
+      "job_cluster_key": "features_cluster",
+      "new_cluster": {
+        "spark_version": "15.4.x-scala2.12",
+        "node_type_id": "Standard_DS3_v2",
+        "num_workers": 1
+      }
+    }
+  ],
+  "tasks": [
+    {
+      "task_key": "build_features",
+      "job_cluster_key": "features_cluster",
+      "notebook_task": {
+        "notebook_path": "/Workspace/Shared/features/nb_turbine_features"
+      }
+    }
+  ],
+  "tags": {
+    "domain": "ml"
+  }
+}
