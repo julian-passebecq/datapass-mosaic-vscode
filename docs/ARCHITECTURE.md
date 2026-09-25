@@ -127,6 +127,8 @@ Direct workflow: the learner edits a native `.py` file (e.g. `notebooks/sparklab
 
 Unsupported syntax (SQL-string filters, arbitrary imports, file access, ...) is rejected with a `SparkLabSyntaxError`.
 
+Shuffle exchanges are placed by Spark's planning rules (`runtime/sparklab/physical.py`, model `plan-driven-v2`): an operator whose required clustering is already satisfied by an existing hash partitioning adds no exchange, a broadcast join keeps the streamed side's partitioning, a broadcast above 8 GB is refused, and Catalyst's EliminateSorts drops a sort under a join or an order-insensitive aggregate. The resulting `plan_facts` (exchanges and their reasons, join strategies, windows without `partitionBy`, output partitions) feed the SparkLab panel and Practice **plan checks**: a SparkLab exercise can declare `spark_plan` limits that are graded on the modeled plan at authored input sizes, next to the real result-row checks. Plan checks are labeled as the SparkLab model, not Apache Spark.
+
 ## Trusted local Python
 
 Python/Polars files are real local code. The runtime worker is a separate process for lifecycle management (timeouts, restarts) and is **not** a security sandbox. Trusted Python is therefore effective only when all of these hold:

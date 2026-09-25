@@ -24,9 +24,15 @@ from datapass_runtime.kernels import KernelManager
 SKIP_RUNTIMES = {"fastapispark-guided-v1"}  # requires an explicitly qualified remote connection
 # Packs whose starters must run cleanly and fail only on their results, so a
 # learner never starts from a parse error.
-RUNNABLE_STARTER_PACKS = {"sql-lab-v1", "engine-lab-v1", "python-lab-v1", "de-patterns-v1", "airflow-lab-v1",
+RUNNABLE_STARTER_PACKS = {"sql-lab-v1", "engine-lab-v1", "python-lab-v1", "de-patterns-v1", "spark-lab-v1", "airflow-lab-v1",
                           "cloud-pipelines-v1", "sqlpool-v1",
                           "databricks-v1", "dwh-v1"}
+# SparkLab plan lessons: the starter returns the right rows and must fail only on
+# its simulated plan, so the lesson is about the plan, not the result.
+PLAN_ONLY_STARTERS = {
+    "spark-coalesce-output-partitions", "spark-one-pass-aggregation", "spark-broadcast-dimension",
+    "spark-remove-random-repartition", "spark-window-instead-of-self-join",
+}
 # Starters whose lesson is that the platform refuses them (a Synapse table script
 # run on Fabric Warehouse): they must fail, with the platform's error.
 STARTERS_REFUSED_BY_DESIGN = {"sp-fabric-port"}
@@ -464,6 +470,46 @@ MUTANTS: dict[str, list[str]] = {
     "de-pivot-status-filter": [
         "SELECT opened_on, COUNT(status = 'open') AS open_count, COUNT(status = 'closed') AS closed_count, COUNT(*) AS total FROM tickets GROUP BY opened_on",
     ],
+    'spark-left-join-filter-placement': [
+        'from pyspark.sql import functions as F\ncustomers = spark.table("customers")\norders = spark.table("orders")\njoined = customers.join(orders, on="customer_id", how="left")\nkept = joined.filter((F.col("status") == "COMPLETED") | F.col("status").isNull())\nresult = kept.select("customer_id", "customer_name", "order_id", "amount")\n',
+    ],
+    'spark-semi-join-existence': [
+        'from pyspark.sql import functions as F\ncustomers = spark.table("customers")\norders = spark.table("orders")\nresult = customers.join(orders, on="customer_id", how="left_semi")\n',
+        'from pyspark.sql import functions as F\ncustomers = spark.table("customers")\norders = spark.table("orders")\norders_2026 = orders.filter((F.col("order_date") > "2026-01-01") & (F.col("order_date") < "2026-12-31"))\nresult = customers.join(orders_2026, on="customer_id", how="left_semi")\n',
+    ],
+    'spark-count-column-vs-star': [
+        'from pyspark.sql import functions as F\nevents = spark.table("events")\nresult = events.groupBy("campaign_id").agg(F.count("*").alias("impressions"), F.countDistinct("clicked_at").alias("clicks"))\n',
+    ],
+    'spark-null-safe-change-detection': [
+        'from pyspark.sql import functions as F\nold = spark.table("yesterday").withColumnRenamed("email", "old_email")\nnew = spark.table("today").withColumnRenamed("email", "new_email")\njoined = old.join(new, on="customer_id", how="inner")\nresult = joined.filter((F.col("old_email") != F.col("new_email")) | F.col("old_email").isNull())\n',
+    ],
+    'spark-full-outer-reconcile': [
+        'from pyspark.sql import functions as F\nbilling = spark.table("billing")\nledger = spark.table("ledger")\njoined = billing.join(ledger, on="invoice_id", how="inner")\nresult = joined.withColumn(\n    "status",\n    F.when(F.col("billed_amount") != F.col("booked_amount"), "amount_mismatch").otherwise("match"),\n)\n',
+    ],
+    'spark-join-fanout-before-sum': [
+        'from pyspark.sql import functions as F\norders = spark.table("orders")\npromos = spark.table("order_promos")\npromo_counts = promos.groupBy("order_id").agg(F.count("*").alias("promo_count"))\nresult = (\n    orders.join(promo_counts, on="order_id", how="inner")\n    .groupBy("customer_id")\n    .agg(F.sum("amount").alias("revenue"), F.sum("promo_count").alias("promo_uses"))\n)\n',
+    ],
+    'spark-running-total-ties': [
+        'from pyspark.sql import functions as F\nfrom pyspark.sql.window import Window\ntransactions = spark.table("transactions")\nw = Window.orderBy("txn_date", "txn_id").rowsBetween(Window.unboundedPreceding, Window.currentRow)\nresult = transactions.withColumn("running_balance", F.sum("amount").over(w))\n',
+    ],
+    'spark-coalesce-output-partitions': [
+        'from pyspark.sql import functions as F\nevents = spark.table("events")\nresult = events.filter(F.col("country") == "FR").select("event_id", "event_date", "amount").coalesce(64)\n',
+        'from pyspark.sql import functions as F\nevents = spark.table("events")\nresult = events.filter(F.col("country") == "FR").select("event_id", "event_date", "amount")\n',
+    ],
+    'spark-one-pass-aggregation': [
+        'from pyspark.sql import functions as F\norders = spark.table("orders")\nresult = orders.groupBy("customer_id").agg(F.count("amount").alias("order_count"), F.sum("amount").alias("revenue"))\n',
+    ],
+    'spark-broadcast-dimension': [
+        'from pyspark.sql import functions as F\nsales = spark.table("sales")\nstores = spark.table("stores")\nresult = stores.join(F.broadcast(sales), on="store_id", how="inner").groupBy("region").agg(F.sum("amount").alias("revenue"))\n',
+        'from pyspark.sql import functions as F\nsales = spark.table("sales")\nstores = spark.table("stores")\nresult = sales.join(F.broadcast(stores), on="store_id", how="left").groupBy("region").agg(F.sum("amount").alias("revenue"))\n',
+    ],
+    'spark-remove-random-repartition': [
+        'from pyspark.sql import functions as F\nfrom pyspark.sql.window import Window\norders = spark.table("orders")\nw = Window.partitionBy("customer_id").orderBy("order_ts", "order_id")\nresult = orders.repartition(400, "order_id").withColumn("order_seq", F.row_number().over(w))\n',
+        'from pyspark.sql import functions as F\nfrom pyspark.sql.window import Window\norders = spark.table("orders")\nw = Window.partitionBy("customer_id").orderBy(F.col("order_ts").desc(), F.col("order_id").desc())\nresult = orders.withColumn("order_seq", F.row_number().over(w))\n',
+    ],
+    'spark-window-instead-of-self-join': [
+        'from pyspark.sql import functions as F\nfrom pyspark.sql.window import Window\norders = spark.table("orders")\nw = Window.partitionBy("customer_id").orderBy("order_id")\nresult = (\n    orders.withColumn("customer_total", F.sum("amount").over(w))\n    .withColumn("amount_share", F.col("amount") / F.col("customer_total"))\n)\n',
+    ],
     'af-fan-in-fan-out': [
         'from datetime import datetime\n\nfrom airflow.sdk import DAG\nfrom airflow.providers.standard.operators.empty import EmptyOperator\n\nwith DAG(dag_id="customer_360", schedule="@daily", start_date=datetime(2026, 3, 1)) as dag:\n\n    extract_orders = EmptyOperator(task_id="extract_orders")\n    extract_customers = EmptyOperator(task_id="extract_customers")\n    transform = EmptyOperator(task_id="transform")\n    load_warehouse = EmptyOperator(task_id="load_warehouse")\n    load_search = EmptyOperator(task_id="load_search")\n    notify = EmptyOperator(task_id="notify")\n\n    extract_orders >> extract_customers >> transform >> [load_warehouse, load_search] >> notify\n',
         'from datetime import datetime\n\nfrom airflow.sdk import DAG\nfrom airflow.providers.standard.operators.empty import EmptyOperator\n\nwith DAG(dag_id="customer_360", schedule="@daily", start_date=datetime(2026, 3, 1)) as dag:\n\n    extract_orders = EmptyOperator(task_id="extract_orders")\n    extract_customers = EmptyOperator(task_id="extract_customers")\n    transform = EmptyOperator(task_id="transform")\n    load_warehouse = EmptyOperator(task_id="load_warehouse")\n    load_search = EmptyOperator(task_id="load_search")\n    notify = EmptyOperator(task_id="notify")\n\n    [extract_orders, extract_customers] >> transform >> [load_warehouse, load_search]\n    load_warehouse >> notify\n',
@@ -806,6 +852,12 @@ def grade(manager, workspace: Path, spec: dict, code: str) -> dict:
     }, cwd=workspace)
 
 
+def fails_only_on_plan(result: dict) -> bool:
+    rows = [check for check in result["checks"] if check.get("kind") != "plan"]
+    plan = [check for check in result["checks"] if check.get("kind") == "plan"]
+    return all(check["passed"] for check in rows) and bool(plan) and not all(check["passed"] for check in plan)
+
+
 def summary(result: dict) -> str:
     return ", ".join(f"{c['id']}={c['status']}" for c in result.get("checks", [])) or str(result.get("status"))
 
@@ -838,6 +890,8 @@ def main() -> None:
                             failures.append(f"{spec['id']}: starter should be refused ({summary(graded)})")
                     elif spec.get("pack", {}).get("id") in RUNNABLE_STARTER_PACKS and any(refused):
                         failures.append(f"{spec['id']}: starter does not execute ({summary(graded)})")
+                    elif spec["id"] in PLAN_ONLY_STARTERS and not fails_only_on_plan(graded):
+                        failures.append(f"{spec['id']}: starter must pass its results and fail a plan check ({summary(graded)})")
                 for index, mutant in enumerate(MUTANTS.get(spec["id"], [])):
                     counts["mutants"] += 1
                     graded = grade(manager, workspace, spec, mutant)
