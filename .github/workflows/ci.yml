@@ -38,6 +38,7 @@ jobs:
       - run: python -m compileall -q runtime/datapass_runtime runtime/sparklab runtime/airflowlab runtime/factorylab runtime/sqlpoollab runtime/databrickslab runtime/bilab runtime/dbtlab
       - run: python scripts/runtime_smoke.py
       - run: python scripts/exercise_packs_smoke.py
+      - run: python scripts/projects_smoke.py
 
   extension-host:
     runs-on: ubuntu-latest

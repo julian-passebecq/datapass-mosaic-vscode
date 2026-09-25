@@ -1,0 +1,184 @@
+{
+  "description": "Reference walkthrough replayed by scripts/projects_smoke.py. Each step's open action (scaffolds) runs first; the 'starters' actions run the untouched starter files and must leave the step unverified; then the 'steps' actions complete it, as a learner would in the Workbench.",
+  "starters": {
+    "silver-web-orders": [
+      {
+        "do": "sql",
+        "file": "projects/retail-fabric/silver_web_orders.sql"
+      }
+    ],
+    "web-segments-sparklab": [
+      {
+        "do": "sparklab",
+        "file": "projects/retail-fabric/web_segments_sparklab.py"
+      }
+    ],
+    "fabric-pipeline-web": [
+      {
+        "do": "factory",
+        "flavor": "fabric",
+        "pipeline": "pl_retail_daily",
+        "scenario": {
+          "parameters": {
+            "run_date": "2026-03-05"
+          }
+        }
+      }
+    ],
+    "airflow-daily": [
+      {
+        "do": "airflow",
+        "file": "projects/retail-fabric/retail_daily_load.py",
+        "scenario": {
+          "now": "2026-03-05T07:00:00Z",
+          "tasks": {
+            "run_fabric_pipeline": {
+              "fail_attempts": [
+                1
+              ]
+            }
+          }
+        }
+      }
+    ],
+    "quality-gate": [
+      {
+        "do": "pipeline_lab"
+      }
+    ]
+  },
+  "steps": {
+    "import-web-orders": [
+      {
+        "do": "import_csv",
+        "file": "projects/retail-fabric/web_orders_2026-03-05.csv",
+        "asset": "bronze.web_orders"
+      }
+    ],
+    "type-imported-text": [
+      {
+        "do": "exercise",
+        "exercise": "de-patterns-v1/de-clean-imported-text/sql"
+      }
+    ],
+    "silver-web-orders": [
+      {
+        "do": "write",
+        "file": "projects/retail-fabric/silver_web_orders.sql",
+        "from": "reference/silver_web_orders.sql"
+      },
+      {
+        "do": "sql",
+        "file": "projects/retail-fabric/silver_web_orders.sql"
+      }
+    ],
+    "web-segments-sparklab": [
+      {
+        "do": "write",
+        "file": "projects/retail-fabric/web_segments_sparklab.py",
+        "from": "reference/web_segments_sparklab.py"
+      },
+      {
+        "do": "sparklab",
+        "file": "projects/retail-fabric/web_segments_sparklab.py"
+      }
+    ],
+    "fabric-pipeline-web": [
+      {
+        "do": "json_insert",
+        "file": "factory/fabric/pl_retail_daily.DataPipeline/pipeline-content.json",
+        "array": "properties.activities",
+        "after": {
+          "name": "Copy orders to bronze"
+        },
+        "from": "reference/copy_web_orders_activity.json"
+      },
+      {
+        "do": "json_set",
+        "file": "factory/fabric/pl_retail_daily.DataPipeline/pipeline-content.json",
+        "array": "properties.activities",
+        "where": {
+          "name": "Silver orders"
+        },
+        "key": "dependsOn",
+        "value": [
+          {
+            "activity": "Copy web orders to bronze",
+            "dependencyConditions": [
+              "Succeeded"
+            ]
+          }
+        ]
+      },
+      {
+        "do": "factory",
+        "flavor": "fabric",
+        "pipeline": "pl_retail_daily",
+        "scenario": {
+          "parameters": {
+            "run_date": "2026-03-05"
+          }
+        }
+      }
+    ],
+    "rerunnable-load": [
+      {
+        "do": "exercise",
+        "exercise": "cloud-pipelines-v1/cp-upsert-idempotent/factory"
+      }
+    ],
+    "warehouse-scd2": [
+      {
+        "do": "bi",
+        "mode": "build"
+      }
+    ],
+    "practice-scd2": [
+      {
+        "do": "exercise",
+        "exercise": "dwh-v1/dwh-scd2-apply/warehouse"
+      }
+    ],
+    "dbt-marts": [
+      {
+        "do": "dbt",
+        "command": "build",
+        "select": [
+          "+fct_sales"
+        ]
+      }
+    ],
+    "airflow-daily": [
+      {
+        "do": "write",
+        "file": "projects/retail-fabric/retail_daily_load.py",
+        "from": "reference/retail_daily_load.py"
+      },
+      {
+        "do": "airflow",
+        "file": "projects/retail-fabric/retail_daily_load.py",
+        "scenario": {
+          "now": "2026-03-05T07:00:00Z",
+          "tasks": {
+            "run_fabric_pipeline": {
+              "fail_attempts": [
+                1
+              ]
+            }
+          }
+        }
+      }
+    ],
+    "quality-gate": [
+      {
+        "do": "write",
+        "file": "pipelines/main.pipeline.py",
+        "from": "reference/main.pipeline.py"
+      },
+      {
+        "do": "pipeline_lab"
+      }
+    ],
+    "runbook": []
+  }
+}

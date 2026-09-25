@@ -2,6 +2,7 @@ from contextlib import asynccontextmanager
 import json
 import os
 import re
+import sys
 from pathlib import Path
 from typing import Any, Literal
 
@@ -14,6 +15,8 @@ from .pipeline_compiler import compile_response
 from .kernels import KernelManager
 from .retail_demo import run_retail_demo
 from .native_pipeline import run_native_pipeline
+from .projects import load_project, verify as verify_project
+from .run_journal import RunJournal, summarize
 
 NATIVE_WORKSPACE_ID = "vscode-native"
 kernel_manager = KernelManager(
@@ -52,6 +55,17 @@ def workspace_data_dir() -> Path:
 def native_command(body: dict[str, object]) -> object:
     # Trusted Python resolves relative paths from the workspace root, like `python file.py`.
     return kernel_manager.call(NATIVE_WORKSPACE_ID, workspace_data_dir(), body, cwd=workspace_root())
+
+
+def record_run(lab: str, request: dict[str, Any], response: object) -> object:
+    """Journal what a lab really ran; Projects verify steps with it. A journal problem never fails the lab."""
+    try:
+        entry = summarize(lab, request, response)
+        if entry is not None:
+            RunJournal(workspace_data_dir()).record(entry)
+    except Exception as error:  # noqa: BLE001 - the lab's answer matters more than its journal entry
+        print(f"Datapass run journal: {error}", file=sys.stderr)
+    return response
 
 
 class PipelineCompileRequest(BaseModel):
@@ -109,6 +123,8 @@ class SqlPoolRunRequest(BaseModel):
     script: str = Field(default="", max_length=60000)
     # How many real rows one lab row stands for, for tables without their own scale.
     scale: float = Field(default=1.0, ge=1, le=1e12)
+    # The script's workspace-relative path, a label for the run journal only: the runtime never reads it.
+    source: str = Field(default="", max_length=200, pattern=r"^[A-Za-z0-9_./ -]{0,200}$")
 
 
 class DatabricksFiles(BaseModel):
@@ -244,6 +260,14 @@ class CsvImportRequest(BaseModel):
     text: str = Field(min_length=1, max_length=1_000_000)
 
 
+class ProjectCheckRequest(BaseModel):
+    """Projects: verify steps of a project shipped in content/projects. Checks come from the content only."""
+    model_config = ConfigDict(extra="forbid", strict=True)
+    project_id: str = Field(pattern=r"^[a-z0-9][a-z0-9-]{0,63}$")
+    # Step ids to verify; empty verifies every step.
+    steps: list[str] = Field(default_factory=list, max_length=40)
+
+
 class LocalExecuteRequest(BaseModel):
     model_config = ConfigDict(extra="forbid", strict=True)
     language: Literal["sql", "sparklab", "python", "polars"]
@@ -316,6 +340,11 @@ def capabilities() -> dict[str, object]:
             "power_bi": False,
             "dbt": "Datapass dbt emulation: sandboxed Jinja, real DuckDB SQL, dbt Core semantics for a documented subset; not dbt Core",
         },
+        "projects": {
+            "mode": "verification",
+            "checks": "catalog state (tables, read-only SQL, SQL pool designs, MLflow models) and the run journal of what the labs really ran",
+            "manual_steps": "declared by the learner, never marked verified",
+        },
         "pipeline_lab": {
             "mode": "hybrid",
             "compiler": "bounded-ast-design",
@@ -348,7 +377,7 @@ def local_query(body: LocalQueryRequest) -> object:
 def local_import_csv(body: CsvImportRequest) -> object:
     """Create a NEW bronze table from CSV text. Never overwrites; every column is VARCHAR."""
     try:
-        return native_command({"op": "import_csv", "asset": body.asset, "text": body.text})
+        return record_run("csv_import", {}, native_command({"op": "import_csv", "asset": body.asset, "text": body.text}))
     except ValueError as error:
         raise HTTPException(status_code=400, detail=str(error)) from error
 
@@ -356,7 +385,7 @@ def local_import_csv(body: CsvImportRequest) -> object:
 @app.post("/api/local/exercise")
 def local_exercise(body: ExerciseGradeRequest) -> object:
     try:
-        return native_command({
+        result = native_command({
             "op": "exercise",
             "exercise_id": body.exercise_id,
             "exercise_version": body.exercise_version,
@@ -371,11 +400,12 @@ def local_exercise(body: ExerciseGradeRequest) -> object:
         })
     except (KeyError, ValueError, RuntimeError) as error:
         raise HTTPException(status_code=400, detail=str(error)) from error
+    return record_run("exercise", body.model_dump(include={"exercise_id", "exercise_version", "language", "mode"}), result)
 
 
 @app.post("/api/local/execute")
 def local_execute(body: LocalExecuteRequest) -> object:
-    return native_command({
+    return record_run("execute", body.model_dump(include={"language", "profile", "aqe"}), native_command({
         "op": "execute",
         "language": body.language,
         "code": body.code,
@@ -384,7 +414,7 @@ def local_execute(body: LocalExecuteRequest) -> object:
         "output_asset": body.output_asset,
         "profile": body.profile,
         "aqe": body.aqe,
-    })
+    }))
 
 
 @app.post("/api/local/restart")
@@ -395,7 +425,7 @@ def local_restart() -> object:
 @app.post("/api/pipeline/run")
 def execute_pipeline(body: PipelineCompileRequest) -> dict[str, object]:
     try:
-        return run_native_pipeline(body.source, native_command)
+        return record_run("pipeline", {}, run_native_pipeline(body.source, native_command))
     except (ValueError, RuntimeError) as error:
         raise HTTPException(status_code=400, detail=str(error)) from error
 
@@ -409,7 +439,7 @@ def compile_pipeline(body: PipelineCompileRequest) -> dict[str, object]:
 @app.post("/api/local/airflow/simulate")
 def simulate_airflow(body: AirflowSimulateRequest) -> dict[str, object]:
     """Airflow Lab: parse the DAG file (never executed) and simulate the scenario deterministically."""
-    return lab_view(body.source, body.scenario)
+    return record_run("airflow", {}, lab_view(body.source, body.scenario))
 
 
 @app.post("/api/local/factory/simulate")
@@ -418,7 +448,7 @@ def simulate_factory(body: FactorySimulateRequest) -> object:
 
     Supported work activities run on the local catalog (notebooks on SparkLab); the rest follows the scenario.
     """
-    return native_command({
+    return record_run("factory", body.model_dump(include={"flavor", "name"}), native_command({
         "op": "factory_simulate",
         "flavor": body.flavor,
         "name": body.name,
@@ -426,34 +456,38 @@ def simulate_factory(body: FactorySimulateRequest) -> object:
         "files": body.files.model_dump(),
         "scenario": body.scenario,
         "data_plane": body.data_plane,
-    })
+    }))
 
 
 @app.post("/api/local/sqlpool/run")
 def run_sqlpool(body: SqlPoolRunRequest) -> object:
     """SQL pool Lab: run a script on the simulated dedicated SQL pool (or Fabric Warehouse) and describe its tables."""
-    return native_command({"op": "sqlpool_run", "flavor": body.flavor, "script": body.script, "scale": body.scale})
+    return record_run("sqlpool", body.model_dump(include={"flavor", "script", "source"}),
+                      native_command({"op": "sqlpool_run", "flavor": body.flavor, "script": body.script, "scale": body.scale}))
 
 
 @app.post("/api/local/bi/lab")
 def bi_lab(body: BiLabRequest) -> object:
     """BI Lab: run the warehouse scripts on the local catalog, then report tables, SQL lineage and model checks."""
-    return native_command({"op": "bi_lab", "scripts": [s.model_dump() for s in body.scripts],
-                           "model": body.model, "run": body.run})
+    return record_run("bi", {}, native_command({"op": "bi_lab", "scripts": [s.model_dump() for s in body.scripts],
+                                               "model": body.model, "run": body.run}))
 
 
 @app.post("/api/local/bi/dbt")
 def bi_dbt(body: BiDbtRequest) -> object:
     """BI Lab dbt tab: run a dbt command with the emulation on the local catalog; report nodes, results, lineage."""
-    return native_command({"op": "bi_dbt", "files": body.files, "command": body.command, "select": body.select,
-                           "exclude": body.exclude, "full_refresh": body.full_refresh, "vars": body.vars})
+    return record_run("dbt", body.model_dump(include={"command", "select", "full_refresh"}),
+                      native_command({"op": "bi_dbt", "files": body.files, "command": body.command, "select": body.select,
+                                      "exclude": body.exclude, "full_refresh": body.full_refresh, "vars": body.vars}))
 
 
 @app.post("/api/local/databricks/run")
 def run_databricks_job(body: DatabricksRunRequest) -> object:
     """Databricks Lab: validate and simulate a job; notebook and SQL tasks run on the local catalog."""
-    return native_command({"op": "databricks_run", "name": body.name, "document": body.document,
-                           "files": body.files.model_dump(), "scenario": body.scenario, "data_plane": body.data_plane})
+    return record_run("databricks", body.model_dump(include={"name"}),
+                      native_command({"op": "databricks_run", "name": body.name, "document": body.document,
+                                      "files": body.files.model_dump(), "scenario": body.scenario,
+                                      "data_plane": body.data_plane}))
 
 
 @app.post("/api/local/databricks/state")
@@ -467,6 +501,19 @@ def execute_retail_demo(body: RetailDemoRequest) -> dict[str, object]:
     """Execute the local retail medallion path with Polars + DuckDB."""
     try:
         kernel_manager.restart(NATIVE_WORKSPACE_ID)
-        return run_retail_demo(body.dataset_path)
+        return record_run("lakehouse", {}, run_retail_demo(body.dataset_path))
     except (ValueError, FileNotFoundError, RuntimeError) as error:
+        raise HTTPException(status_code=400, detail=str(error)) from error
+
+
+@app.post("/api/local/projects/check")
+def check_project(body: ProjectCheckRequest) -> dict[str, object]:
+    """Projects: verify steps on the workspace catalog and the run journal. Manual steps are never verified."""
+    try:
+        project = load_project(body.project_id)
+    except KeyError as error:
+        raise HTTPException(status_code=404, detail=str(error)) from error
+    try:
+        return verify_project(project, body.steps, RunJournal(workspace_data_dir()), native_command)
+    except ValueError as error:
         raise HTTPException(status_code=400, detail=str(error)) from error
