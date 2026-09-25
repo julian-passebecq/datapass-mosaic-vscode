@@ -26,6 +26,7 @@ import { BiSurface } from "./BiSurface";
 import { MosaicSurface } from "./MosaicSurface";
 import { PipelineSurface } from "./PipelineSurface";
 import { PracticeSurface } from "./PracticeSurface";
+import { ProjectsSurface } from "./ProjectsSurface";
 import { SparkLabSurface } from "./SparkLabSurface";
 
 export interface VsCodeApi {
@@ -53,6 +54,12 @@ export function WorkbenchApp({ vscode }: { vscode: VsCodeApi }) {
       observer.disconnect();
     };
   }, [vscode]);
+
+  // A project step opened a lab: show it from the top, not at the Projects page's scroll position.
+  const focusSeq = state?.focus?.seq;
+  useEffect(() => {
+    if (focusSeq !== undefined) window.scrollTo({ top: 0 });
+  }, [focusSeq]);
 
   const selected = useMemo(
     () => state?.modules.find(module => module.id === state.selectedModule),
@@ -141,7 +148,9 @@ export function WorkbenchApp({ vscode }: { vscode: VsCodeApi }) {
               </Badge>
             </div>
 
-            {selected.id === "mosaic" ? (
+            {selected.id === "projects" ? (
+              <ProjectsSurface vscode={vscode} projects={state.projects} runtime={state.runtime} />
+            ) : selected.id === "mosaic" ? (
               <MosaicSurface
                 vscode={vscode}
                 runtime={state.runtime}
@@ -150,11 +159,14 @@ export function WorkbenchApp({ vscode }: { vscode: VsCodeApi }) {
                 canPersist={state.workspace.manifestExists}
               />
             ) : selected.id === "practice" ? (
-              <PracticeSurface vscode={vscode} exercises={state.practice?.exercises ?? []} runtime={state.runtime} />
+              <PracticeSurface vscode={vscode} exercises={state.practice?.exercises ?? []} runtime={state.runtime}
+                focus={state.focus?.module === "practice" ? state.focus : undefined} />
             ) : selected.id === "fabric" ? (
-              <FabricSurface vscode={vscode} runtime={state.runtime} factory={state.factory} />
+              <FabricSurface vscode={vscode} runtime={state.runtime} factory={state.factory}
+                focus={state.focus?.module === "fabric" ? state.focus : undefined} />
             ) : selected.id === "bi" ? (
-              <BiSurface vscode={vscode} runtime={state.runtime} bi={state.bi} />
+              <BiSurface vscode={vscode} runtime={state.runtime} bi={state.bi}
+                focus={state.focus?.module === "bi" ? state.focus : undefined} />
             ) : selected.id === "sparklab" ? (
               <SparkLabSurface vscode={vscode} runtime={state.runtime} profiles={state.sparkProfiles ?? []} />
             ) : selected.id === "pipeline" ? (

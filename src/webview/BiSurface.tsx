@@ -1,6 +1,6 @@
 import { Badge, Button, Tab, TabList, Text } from "@fluentui/react-components";
-import { useMemo, useState } from "react";
-import type { BiCheckView, BiDbtCommand, BiDbtView, BiLabView, BiLineageView, BiViewState, RuntimeViewState } from "./contracts";
+import { useEffect, useMemo, useState } from "react";
+import type { BiCheckView, BiDbtCommand, BiDbtView, BiLabView, BiLineageView, BiViewState, RuntimeViewState, WorkbenchFocus } from "./contracts";
 import { SharedGraphCanvas } from "./SharedGraphCanvas";
 import type { VsCodeApi } from "./WorkbenchApp";
 import {
@@ -16,10 +16,20 @@ import {
 
 type BiTab = "warehouse" | "model" | "lineage" | "dbt" | "concepts";
 
+function asBiTab(value: string | undefined): BiTab | undefined {
+  return value === "warehouse" || value === "model" || value === "lineage" || value === "dbt" || value === "concepts" ? value : undefined;
+}
+
 /** BI Lab: a local data warehouse to learn dimensional modeling, SCD, SQL lineage and star models. */
-export function BiSurface({ vscode, bi, runtime }: { vscode: VsCodeApi; bi: BiViewState | undefined; runtime: RuntimeViewState }) {
+export function BiSurface({ vscode, bi, runtime, focus }: {
+  vscode: VsCodeApi; bi: BiViewState | undefined; runtime: RuntimeViewState; focus?: WorkbenchFocus;
+}) {
   const lab = runtime.biRun;
-  const [tab, setTab] = useState<BiTab>(lab?.model ? "model" : "warehouse");
+  const [tab, setTab] = useState<BiTab>(() => asBiTab(focus?.tab) ?? (lab?.model ? "model" : "warehouse"));
+  useEffect(() => {
+    const requested = asBiTab(focus?.tab);
+    if (requested) setTab(requested);
+  }, [focus?.seq]);
   const running = runtime.status === "running";
   const run = (mode: "build" | "analyze" | "active") => vscode.postMessage({ type: "runBiLab", mode });
 

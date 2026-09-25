@@ -24,6 +24,8 @@ import { MODULES } from "../modules";
 import { decodeCsvBytes, suggestBronzeAsset, validateBronzeAsset } from "../platform/csvImport";
 import { readMosaicLayout, writeMosaicLayout } from "../mosaicLayoutStore";
 import { loadPipelineState } from "../pipelineState";
+import { applyVerification, setManual } from "../platform/projects";
+import { copyProjectFiles, loadProjectContents, loadProjectsState, readProgress, writeProgress } from "../projectState";
 import {
   createDefaultProjectManifest,
   readProjectManifest,
@@ -156,6 +158,31 @@ export async function run(): Promise<void> {
   ];
 
   const runtimeSteps: Step[] = !python ? [] : [
+    ["Projects: content loads, starter files never overwrite, a tick by hand is only a declaration", async () => {
+      const { projects, errors } = await loadProjectContents(extension.extensionUri);
+      assert.deepEqual(errors, []);
+      assert.deepEqual(projects.map(project => project.id), ["retail-fabric", "databricks-ml", "synapse-to-fabric"]);
+      const written = await copyProjectFiles(extension.extensionUri, "retail-fabric");
+      assert.ok(written.includes("projects/retail-fabric/web_orders_2026-03-05.csv"), written.join(", "));
+      await write("projects/retail-fabric/silver_web_orders.sql", "-- mine\n");
+      assert.deepEqual(await copyProjectFiles(extension.extensionUri, "retail-fabric"), [], "existing files are kept");
+      const kept = new TextDecoder().decode(await vscode.workspace.fs.readFile(vscode.Uri.joinPath(root, "projects", "retail-fabric", "silver_web_orders.sql")));
+      assert.equal(kept, "-- mine\n");
+      await vscode.workspace.fs.delete(vscode.Uri.joinPath(root, "projects", "retail-fabric", "silver_web_orders.sql"));
+      await copyProjectFiles(extension.extensionUri, "retail-fabric");
+
+      const retail = projects[0];
+      const progress = await readProgress();
+      assert.equal(progress.error, undefined);
+      await writeProgress(setManual(progress.document, retail, "runbook", true, new Date().toISOString()));
+      const state = await loadProjectsState(extension.extensionUri);
+      const runbook = state.projects[0].steps.find(step => step.id === "runbook")!;
+      assert.equal(runbook.state, "manual");
+      assert.equal(runbook.verified, undefined);
+      assert.equal(state.projects[0].progress.manual, 1);
+      assert.equal(state.projects[0].nextStepId, "import-web-orders");
+      await vscode.commands.executeCommand("datapass.openProjects");
+    }],
     ["runtime starts untrusted even with DATAPASS_TRUSTED_PYTHON=1 inherited", async () => {
       assert.equal(process.env.DATAPASS_TRUSTED_PYTHON, "1", "runner must inject the hostile variable");
       const storage = vscode.Uri.file(await mkdtemp(path.join(tmpdir(), "datapass-e2e-storage-")));
@@ -686,6 +713,36 @@ export async function run(): Promise<void> {
       const sum = runtime!.snapshot();
       assert.deepEqual(sum.lastRun?.result?.rows, [{ visits: 8 }], sum.lastRun?.error?.message);
       assert.equal(sum.csvImport, undefined, "a newer SQL run replaces the import preview");
+    }],
+    ["Projects: the runtime verifies steps on the workspace and progress.json keeps them", async () => {
+      const retail = (await loadProjectContents(extension.extensionUri)).projects[0];
+      const csv = new TextDecoder().decode(await vscode.workspace.fs.readFile(
+        vscode.Uri.joinPath(root, "projects", "retail-fabric", "web_orders_2026-03-05.csv")));
+      await runtime!.importCsv("bronze.web_orders", decodeCsvBytes(new TextEncoder().encode(csv)), "web_orders_2026-03-05.csv");
+      const result = await runtime!.checkProject("retail-fabric", ["import-web-orders", "silver-web-orders"]) as {
+        steps: { id: string; status: string; checks: { truth: string }[] }[];
+      };
+      assert.deepEqual(result.steps.map(step => [step.id, step.status]), [["import-web-orders", "passed"], ["silver-web-orders", "failed"]]);
+      assert.equal(result.steps[0].checks[0].truth, "real");
+      const progress = await readProgress();
+      await writeProgress(applyVerification(progress.document, retail, result, new Date().toISOString()));
+      const state = (await loadProjectsState(extension.extensionUri)).projects[0];
+      const byId = Object.fromEntries(state.steps.map(step => [step.id, step]));
+      assert.equal(byId["import-web-orders"].state, "verified");
+      assert.equal(byId["silver-web-orders"].state, "failed");
+      assert.equal(byId["runbook"].state, "manual", "the tick by hand is kept apart");
+      assert.equal(state.progress.verified, 1);
+      assert.equal(state.nextStepId, "type-imported-text");
+
+      // The exercise step is verified by a real Submit, recorded by the runtime's journal.
+      const exercise = (await loadExerciseCatalog(extension.extensionUri)).find(item => item.key === "de-patterns-v1/de-clean-imported-text/sql")!;
+      await runtime!.gradeExercise(exercise.key, {
+        exercise_id: exercise.id, exercise_version: exercise.version, language: exercise.language,
+        code: exercise.starterSource, mode: "submit", notebook_id: "e2e-project", cell_id: "solution", source_revision: 0
+      });
+      const starter = await runtime!.checkProject("retail-fabric", ["type-imported-text"]) as { steps: { status: string }[] };
+      assert.equal(starter.steps[0].status, "failed", "a failing submission does not verify the step");
+      await assert.rejects(runtime!.checkProject("nope", []), /Unknown project/);
     }],
     ["explicit trust restarts the runtime and runs Python for real", async () => {
       await runtime!.stopAndWait();
