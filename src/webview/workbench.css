@@ -1561,3 +1561,38 @@ h2 { margin-bottom: 8px; font-size: 28px; }
 .criterion-fail > span { color: var(--vscode-errorForeground); }
 .mission-passed { color: var(--vscode-charts-green, #2e7d32); font-weight: 600; }
 .mission-hint { padding: 6px 10px; border-left: 3px solid var(--vscode-textLink-foreground); background: var(--vscode-textBlockQuote-background, transparent); }
+
+.practice-languages {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+.practice-language {
+  padding: 2px 9px;
+  border: 1px solid var(--vscode-panel-border);
+  border-radius: 999px;
+  background: transparent;
+  color: var(--vscode-foreground);
+  font: inherit;
+  font-size: 11px;
+  cursor: pointer;
+}
+.practice-language:hover {
+  border-color: var(--vscode-focusBorder);
+}
+.practice-language:focus-visible {
+  outline: 1px solid var(--vscode-focusBorder);
+  outline-offset: 1px;
+}
+.practice-language.solved {
+  color: var(--vscode-testing-iconPassed, var(--vscode-charts-green));
+}
+.practice-language.selected {
+  border-color: var(--vscode-button-background);
+  background: var(--vscode-button-background);
+  color: var(--vscode-button-foreground);
+}
+.practice-languages small {
+  margin-left: 6px;
+}

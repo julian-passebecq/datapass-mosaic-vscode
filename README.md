@@ -55,6 +55,8 @@ See `docs/ARCHITECTURE.md` for the target architecture and `docs/HARVEST_AUDIT.m
 
 Practice grades native solution files on the local runtime (see `docs/EXERCISE_AUTHORING.md` for every pack). `zilla-v1` brings the 52 ZillaCode problems (Apache-2.0) with one result contract per problem in DuckDB SQL, Snowflake SQL, pandas, Polars, SparkLab and dbt. The Snowflake variant is labelled "Snowflake SQL dialect translated to DuckDB, not Snowflake": the query is translated with sqlglot for a documented subset (`runtime/sqldialects/README.md`) and runs on local DuckDB; nothing connects to Snowflake.
 
+Practice shows one card per problem: the languages of a semantic scenario (`<scenario>-<language>` variants) are grouped by `semantic.id` behind a language switch. Progress is kept per language variant in the `practice` section of `.datapass/progress.json`, and the card summarizes it.
+
 ## Terminal Lab
 
 The Terminal Lab is a real bash, PowerShell and Git terminal, opened by VS Code in a mission folder. The learner types
