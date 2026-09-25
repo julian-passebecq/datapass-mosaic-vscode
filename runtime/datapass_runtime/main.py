@@ -1,10 +1,11 @@
 from contextlib import asynccontextmanager
+import json
 import os
 from pathlib import Path
 from typing import Any, Literal
 
 from fastapi import FastAPI, HTTPException
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 from airflowlab.lab import lab_view
 
@@ -62,6 +63,42 @@ class AirflowSimulateRequest(BaseModel):
     model_config = ConfigDict(extra="forbid", strict=True)
     source: str = Field(min_length=1, max_length=60000)
     scenario: dict[str, Any] = Field(default_factory=dict)
+
+
+class FactoryFiles(BaseModel):
+    """Lab files the host sends with a pipeline: invoked pipelines, datasets, procedures and notebooks."""
+    model_config = ConfigDict(extra="forbid", strict=True)
+    pipelines: dict[str, dict[str, Any]] = Field(default_factory=dict, max_length=40)
+    datasets: dict[str, dict[str, Any]] = Field(default_factory=dict, max_length=80)
+    procedures: dict[str, str] = Field(default_factory=dict, max_length=40)
+    notebooks: dict[str, str] = Field(default_factory=dict, max_length=40)
+
+    @model_validator(mode="after")
+    def bounded(self) -> "FactoryFiles":
+        for text in (*self.procedures.values(), *self.notebooks.values()):
+            if len(text) > 40000:
+                raise ValueError("a procedure or notebook exceeds 40,000 characters")
+        if len(json.dumps([self.pipelines, self.datasets])) > 600_000:
+            raise ValueError("pipeline and dataset files exceed 600 KB")
+        return self
+
+
+class FactorySimulateRequest(BaseModel):
+    """Factory Lab: a pipeline JSON document, the lab files it references and a scenario. Nothing connects to a cloud."""
+    model_config = ConfigDict(extra="forbid", strict=True)
+    flavor: Literal["fabric", "adf", "synapse"]
+    name: str = Field(pattern=r"^[A-Za-z0-9][A-Za-z0-9 _-]{0,139}$")
+    document: dict[str, Any]
+    files: FactoryFiles = Field(default_factory=FactoryFiles)
+    scenario: dict[str, Any] = Field(default_factory=dict)
+    # "local": Copy, Lookup, Script, procedures and notebooks act on the local catalog; "simulated": dry run.
+    data_plane: Literal["local", "simulated"] = "local"
+
+    @model_validator(mode="after")
+    def bounded(self) -> "FactorySimulateRequest":
+        if len(json.dumps([self.document, self.scenario])) > 400_000:
+            raise ValueError("pipeline document and scenario exceed 400 KB")
+        return self
 
 
 class RetailDemoRequest(BaseModel):
@@ -129,6 +166,14 @@ def capabilities() -> dict[str, object]:
         },
         "practice": {"mode": "local-tests", "editors": "vscode-native"},
         "fabric_lab": {"mode": "simulation", "notebook": "fabric-inspired", "lakehouse": "duckdb-ducklake", "kernel": "sparklab", "cloud_connection": False},
+        "factory_lab": {
+            "mode": "hybrid",
+            "flavors": ["fabric", "adf", "synapse"],
+            "orchestration": "deterministic Data Factory semantics: dependency conditions, leaf evaluation, retries, timeouts, containers, expressions",
+            "local_activities": ["Copy", "Lookup", "Script", "SqlServerStoredProcedure", "SqlPoolStoredProcedure", "TridentNotebook", "SynapseNotebook", "DatabricksNotebook"],
+            "notebooks": "SparkLab whitelisted AST interpreter; never eval/exec",
+            "cloud_connection": False,
+        },
         "sparklab": {"mode": "simulation", "goal": "pyspark-dataframe-concepts"},
         "dbt_lab": {"mode": "hybrid", "runner": "dbt-core", "lineage": "manifest"},
         "airflow_lab": {
@@ -231,6 +276,23 @@ def compile_pipeline(body: PipelineCompileRequest) -> dict[str, object]:
 def simulate_airflow(body: AirflowSimulateRequest) -> dict[str, object]:
     """Airflow Lab: parse the DAG file (never executed) and simulate the scenario deterministically."""
     return lab_view(body.source, body.scenario)
+
+
+@app.post("/api/local/factory/simulate")
+def simulate_factory(body: FactorySimulateRequest) -> object:
+    """Factory Lab: validate and simulate a Fabric / Azure Data Factory / Synapse pipeline.
+
+    Supported work activities run on the local catalog (notebooks on SparkLab); the rest follows the scenario.
+    """
+    return native_command({
+        "op": "factory_simulate",
+        "flavor": body.flavor,
+        "name": body.name,
+        "document": body.document,
+        "files": body.files.model_dump(),
+        "scenario": body.scenario,
+        "data_plane": body.data_plane,
+    })
 
 
 @app.post("/api/demo/retail/run")

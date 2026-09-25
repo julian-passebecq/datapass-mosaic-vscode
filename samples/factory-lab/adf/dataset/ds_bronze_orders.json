@@ -1,0 +1,16 @@
+{
+  "name": "ds_bronze_orders",
+  "properties": {
+    "linkedServiceName": {
+      "referenceName": "ls_lab_sql",
+      "type": "LinkedServiceReference"
+    },
+    "annotations": [],
+    "type": "AzureSqlTable",
+    "schema": [],
+    "typeProperties": {
+      "schema": "bronze",
+      "table": "orders"
+    }
+  }
+}

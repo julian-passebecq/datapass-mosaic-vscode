@@ -32,6 +32,8 @@ interface Props {
   graph: GraphView;
   vscode: VsCodeApi;
   storageKey: string;
+  /** Called with the node id when a node is clicked (Factory Lab opens its details). */
+  onNodeClick?: (id: string) => void;
 }
 
 function DatapassGraphNode({ data, selected }: NodeProps) {
@@ -48,7 +50,7 @@ function DatapassGraphNode({ data, selected }: NodeProps) {
 
 const nodeTypes = { datapass: DatapassGraphNode };
 
-function InnerGraph({ graph, vscode, storageKey }: Props) {
+function InnerGraph({ graph, vscode, storageKey, onNodeClick }: Props) {
   // Read persisted view state once per graph surface. Recreating it on every render
   // produced new dependencies each time and an endless setNodes/render loop.
   const stored = useMemo(() => readGraphView(vscode, storageKey), [vscode, storageKey]);
@@ -101,6 +103,7 @@ function InnerGraph({ graph, vscode, storageKey }: Props) {
         edges={edges}
         nodeTypes={nodeTypes}
         onNodesChange={onNodesChange}
+        onNodeClick={onNodeClick ? (_, node) => onNodeClick(node.id) : undefined}
         onNodeDragStop={(_, node) => {
           const view = readGraphView(vscode, storageKey);
           save({

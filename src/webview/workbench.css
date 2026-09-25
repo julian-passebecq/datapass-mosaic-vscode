@@ -978,3 +978,104 @@ h2 { margin-bottom: 8px; font-size: 28px; }
   border: 1px dashed var(--vscode-editorWarning-foreground);
   border-radius: 7px;
 }
+
+/* Cloud Lab › Pipelines (Factory Lab) */
+.factory-pipelines { display: grid; gap: 10px; min-width: 0; margin-top: 12px; }
+.factory-empty { display: grid; gap: 8px; justify-items: start; margin-top: 12px; padding: 14px; border: 1px dashed var(--vscode-panel-border); border-radius: 7px; }
+.factory-empty p { margin: 0; color: var(--vscode-descriptionForeground); }
+.factory-toolbar { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 10px; }
+.factory-toolbar select,
+.factory-details select,
+.factory-scenario input,
+.factory-scenario select {
+  padding: 3px 6px;
+  border: 1px solid var(--vscode-input-border, var(--vscode-panel-border));
+  border-radius: 3px;
+  background: var(--vscode-input-background);
+  color: var(--vscode-input-foreground);
+  font: inherit;
+  font-size: 12px;
+}
+.factory-flavors { display: inline-flex; overflow: hidden; border: 1px solid var(--vscode-panel-border); border-radius: 6px; }
+.factory-flavors button {
+  padding: 5px 12px;
+  border: 0;
+  border-right: 1px solid var(--vscode-panel-border);
+  background: transparent;
+  color: var(--vscode-foreground);
+  cursor: pointer;
+  font: inherit;
+  font-size: 12px;
+}
+.factory-flavors button:last-child { border-right: 0; }
+.factory-flavors button.is-active { background: var(--vscode-button-background); color: var(--vscode-button-foreground); }
+.factory-flavors small { margin-left: 6px; opacity: 0.75; }
+.factory-note,
+.factory-description { margin: 0; color: var(--vscode-descriptionForeground); font-size: 11px; }
+.factory-description { font-size: 12px; }
+.factory-warning { margin: 0; color: var(--vscode-editorWarning-foreground); font-size: 11px; }
+.factory-error { margin: 0; color: var(--vscode-errorForeground); font-size: 11px; }
+.factory-hint { margin: 0; padding: 6px 8px; border-left: 3px solid var(--vscode-textLink-foreground); font-size: 11px; }
+.factory-breadcrumb { display: flex; flex-wrap: wrap; align-items: center; gap: 2px; font-size: 12px; }
+.factory-breadcrumb button { padding: 0; border: 0; background: none; color: var(--vscode-textLink-foreground); cursor: pointer; font: inherit; }
+.factory-legend { display: inline-flex; align-items: center; gap: 4px; margin-left: auto; color: var(--vscode-descriptionForeground); font-size: 10px; }
+.factory-legend i { display: inline-block; width: 16px; height: 3px; margin-left: 6px; border-radius: 2px; background: var(--factory-cond); }
+.cond-succeeded { --factory-cond: var(--vscode-charts-green, #2e7d32); }
+.cond-failed { --factory-cond: var(--vscode-charts-red, #c62828); }
+.cond-completed { --factory-cond: var(--vscode-charts-blue, #1e88e5); }
+.cond-skipped { --factory-cond: var(--vscode-disabledForeground, #9e9e9e); }
+.cond-mixed { --factory-cond: var(--vscode-charts-purple, #8e24aa); }
+.react-flow__edge.factory-edge .react-flow__edge-path { stroke: var(--factory-cond); stroke-width: 2px; }
+.react-flow__edge.factory-edge.cond-skipped .react-flow__edge-path { stroke-dasharray: 5 4; }
+.factory-details,
+.factory-result { display: grid; gap: 8px; padding: 10px 12px; border: 1px solid var(--vscode-panel-border); border-radius: 7px; min-width: 0; }
+.factory-details-head,
+.factory-result-head { display: flex; flex-wrap: wrap; align-items: flex-start; justify-content: space-between; gap: 8px; }
+.factory-details-head code { font-size: 11px; }
+.factory-io { display: grid; grid-template-columns: minmax(180px, 1fr) minmax(0, 1.4fr) minmax(0, 1.4fr); gap: 10px; min-width: 0; }
+.factory-io p { margin: 4px 0; font-size: 12px; }
+.factory-json {
+  max-height: 260px;
+  margin: 4px 0 0;
+  overflow: auto;
+  padding: 6px 8px;
+  border-radius: 4px;
+  background: var(--vscode-textCodeBlock-background);
+  font-family: var(--vscode-editor-font-family);
+  font-size: 11px;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+.factory-scenario { padding: 8px 12px; border: 1px solid var(--vscode-panel-border); border-radius: 7px; }
+.factory-scenario summary { cursor: pointer; font-weight: 600; }
+.factory-scenario-grid { display: flex; flex-wrap: wrap; gap: 10px 16px; margin: 10px 0; }
+.factory-scenario-grid label { display: grid; gap: 3px; font-size: 11px; }
+.factory-scenario-grid small { color: var(--vscode-descriptionForeground); }
+.factory-scenario-activities { width: 100%; margin-bottom: 8px; border-collapse: collapse; font-size: 11px; }
+.factory-scenario-activities th,
+.factory-scenario-activities td { padding: 4px 6px; border-bottom: 1px solid var(--vscode-panel-border); text-align: left; }
+.factory-scenario-activities td small { display: block; color: var(--vscode-descriptionForeground); font-size: 10px; }
+.factory-scenario-activities input[type="number"] { width: 72px; }
+.factory-scenario-activities td:last-child input { width: 100%; min-width: 160px; box-sizing: border-box; }
+.factory-explanation { margin: 0; font-size: 12px; }
+.factory-runs { width: 100%; border-collapse: collapse; font-size: 11px; }
+.factory-runs th,
+.factory-runs td { padding: 4px 6px; border-bottom: 1px solid var(--vscode-panel-border); text-align: left; vertical-align: top; }
+.factory-runs td small { display: block; color: var(--vscode-descriptionForeground); font-size: 10px; }
+.factory-runs tbody tr { cursor: pointer; }
+.factory-runs tbody tr:hover { background: var(--vscode-list-hoverBackground); }
+.factory-runs tr.is-inner td:first-child { color: var(--vscode-descriptionForeground); }
+.factory-child { display: grid; gap: 4px; padding-left: 10px; border-left: 2px solid var(--vscode-panel-border); font-size: 12px; }
+.factory-variables,
+.factory-tables { display: flex; flex-wrap: wrap; gap: 6px 14px; font-size: 11px; }
+.factory-tables strong { flex-basis: 100%; font-size: 12px; }
+.factory-differences { padding: 8px 12px; border: 1px solid var(--vscode-panel-border); border-radius: 7px; font-size: 11px; }
+.factory-differences summary { cursor: pointer; font-weight: 600; font-size: 12px; }
+.factory-differences table { width: 100%; margin: 8px 0; border-collapse: collapse; }
+.factory-differences th,
+.factory-differences td { padding: 4px 6px; border-bottom: 1px solid var(--vscode-panel-border); text-align: left; vertical-align: top; }
+.factory-differences tbody th { white-space: nowrap; }
+@media (max-width: 900px) {
+  .factory-io { grid-template-columns: 1fr; }
+  .factory-legend { margin-left: 0; }
+}

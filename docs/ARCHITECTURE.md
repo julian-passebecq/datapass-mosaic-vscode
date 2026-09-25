@@ -48,9 +48,22 @@ Layout durability: inside a Datapass project the block geometry is saved to `.da
 
 Practice is the LeetCode-style layer: select challenge, open starter file in native VS Code, run local tests, show pass/fail/hints/explanation/review status.
 
-## Fabric Lab
+## Cloud Lab (module id `fabric`, formerly Fabric Lab)
 
-Fabric Lab is separate from Mosaic. It reproduces the learning workflow of lakehouse + notebook + pipeline locally:
+Cloud Lab is separate from Mosaic. Its **Pipelines** tab is the Factory Lab (`runtime/factorylab`): real pipeline JSON for Microsoft Fabric Data Factory, Azure Data Factory and Azure Synapse. The files are read from `factory/` in each product's git layout, with notebooks under `fabric/*.Notebook`, `databricks/` and `synapse/notebook/`, and procedures under `sql/procedures/`.
+
+- The loader validates the documents with design-time rules:
+  - activity availability per product, naming the equivalent;
+  - required settings;
+  - sibling-only dependencies, cycles and loop nesting;
+  - declared parameters and variables;
+  - `activity()` readable only from ancestors.
+- The simulator orchestrates deterministically: dependency conditions, skip propagation, the leaf rule for the run status, retries and timeouts, Inactive activities, ForEach/If/Switch/Until/Filter, variables, and Execute/Invoke pipeline. Expressions go through a bounded parser.
+- Through `datapass_runtime/factory_workspace.py`, Copy, Lookup, Script and stored procedures run on the shared catalog. Notebooks run on SparkLab in *pipeline notebook* mode: parameters cell injection, `dbutils.widgets`, `saveAsTable` save modes, `spark.sql`, `count()` and `notebook.exit`. Nothing is eval'd or exec'd.
+- Every other activity follows the scenario. A dry run simulates all of them.
+- The host sends the pipeline and the files it references with each run (`POST /api/local/factory/simulate`, kernel op `factory_simulate`). The webview renders the canvas from its own parse of the JSON, so the canvas shows even when the runtime is stopped.
+
+The **Lakehouse and notebooks** tab keeps the original workflow of lakehouse + notebook + pipeline, reproduced locally:
 
 - Fabric-inspired notebook surface.
 - Lakehouse explorer backed by DuckDB/DuckLake.

@@ -149,7 +149,7 @@ export function WorkbenchApp({ vscode }: { vscode: VsCodeApi }) {
             ) : selected.id === "practice" ? (
               <PracticeSurface vscode={vscode} exercises={state.practice?.exercises ?? []} runtime={state.runtime} />
             ) : selected.id === "fabric" ? (
-              <FabricSurface vscode={vscode} runtime={state.runtime} />
+              <FabricSurface vscode={vscode} runtime={state.runtime} factory={state.factory} />
             ) : selected.id === "sparklab" ? (
               <SparkLabSurface vscode={vscode} runtime={state.runtime} profiles={state.sparkProfiles ?? []} />
             ) : selected.id === "pipeline" ? (

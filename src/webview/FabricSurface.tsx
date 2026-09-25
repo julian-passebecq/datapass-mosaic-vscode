@@ -1,29 +1,50 @@
-import { Badge, Button, Card, CardHeader, Text } from "@fluentui/react-components";
-import type { RuntimeViewState } from "./contracts";
+import { Badge, Button, Card, CardHeader, Tab, TabList, Text } from "@fluentui/react-components";
+import { useState } from "react";
+import type { FactoryViewState, RuntimeViewState } from "./contracts";
+import { FactoryPipelines } from "./FactoryPipelines";
 import type { VsCodeApi } from "./WorkbenchApp";
 
+/** Cloud Lab: Fabric / Azure Data Factory / Synapse pipelines and the local lakehouse, all simulated locally. */
 export function FabricSurface({
   vscode,
-  runtime
+  runtime,
+  factory
 }: {
   vscode: VsCodeApi;
   runtime: RuntimeViewState;
+  factory: FactoryViewState | undefined;
 }) {
   const running = runtime.status === "running";
-  const retailDemo = runtime.retailDemo;
+  const [tab, setTab] = useState<"pipelines" | "lakehouse">("pipelines");
 
   return (
     <section className="lab-surface">
       <div className="lab-toolbar">
         <div>
-          <div className="eyebrow">Fabric-inspired · local execution</div>
-          <Text size={500} weight="semibold">Lakehouse + notebook + pipeline without a Fabric dependency</Text>
+          <div className="eyebrow">Simulated cloud data platform · runs on this machine</div>
+          <Text size={500} weight="semibold">Pipelines, notebooks and stored procedures for Fabric, Azure Data Factory and Synapse</Text>
         </div>
         <Badge appearance="tint" color={running ? "success" : "informative"}>
           {running ? "local runtime connected" : "runtime stopped"}
         </Badge>
       </div>
+      <TabList selectedValue={tab} onTabSelect={(_, data) => setTab(data.value as typeof tab)} size="small">
+        <Tab value="pipelines">Pipelines</Tab>
+        <Tab value="lakehouse">Lakehouse and notebooks</Tab>
+      </TabList>
+      {tab === "pipelines"
+        ? <FactoryPipelines vscode={vscode} factory={factory} runtime={runtime} />
+        : <LakehouseOverview vscode={vscode} runtime={runtime} />}
+    </section>
+  );
+}
 
+function LakehouseOverview({ vscode, runtime }: { vscode: VsCodeApi; runtime: RuntimeViewState }) {
+  const running = runtime.status === "running";
+  const retailDemo = runtime.retailDemo;
+
+  return (
+    <>
       <div className="demo-banner">
         <div>
           <strong>Start with a connected sample</strong>
@@ -43,7 +64,7 @@ export function FabricSurface({
         </div>
       </div>
 
-      <div className="lab-flow" aria-label="Fabric Lab learning flow">
+      <div className="lab-flow" aria-label="Cloud Lab learning flow">
         <FlowStep index="1" title="Lakehouse" detail="DuckDB / DuckLake files and tables" truth="Real local" />
         <FlowArrow />
         <FlowStep index="2" title="Notebook" detail="Python, SQL and bounded Spark practice" truth="Hybrid" />
@@ -57,7 +78,7 @@ export function FabricSurface({
         <Card className="lab-card">
           <CardHeader
             header={<Text weight="semibold">Notebook workspace</Text>}
-            description={<Text>Use native VS Code files for code. Fabric Lab supplies the teaching workflow, not another editor.</Text>}
+            description={<Text>Use native VS Code files for code. Cloud Lab supplies the teaching workflow, not another editor.</Text>}
           />
           <div className="lab-card-body">
             <div className="button-row">
@@ -147,9 +168,10 @@ export function FabricSurface({
         <TruthRow capability="DuckLake storage" truth="Real local" note="Local lakehouse profile; not OneLake." />
         <TruthRow capability="Fabric notebook chrome" truth="Simulated UI" note="Teaching experience only; no Fabric workspace is required." />
         <TruthRow capability="PySpark" truth="Bounded simulation" note="SparkLab covers an explicit DataFrame subset." />
-        <TruthRow capability="Pipeline service" truth="Deterministic simulation" note="Models orchestration semantics without Azure Data Factory/Fabric execution." />
+        <TruthRow capability="Pipeline service" truth="Deterministic simulation" note="Data Factory orchestration semantics for Fabric, Azure Data Factory and Synapse pipeline JSON; no cloud execution." />
+        <TruthRow capability="Pipeline activities" truth="Real local where supported" note="Copy, Lookup, Script, stored procedures and notebooks run on the local catalog (DuckDB, SparkLab); other activities follow the scenario." />
       </div>
-    </section>
+    </>
   );
 }
 

@@ -2,6 +2,7 @@ import * as vscode from "vscode";
 import { loadAirflowState } from "./airflowState";
 import { loadDbtState } from "./dbtState";
 import { loadExerciseCatalog } from "./exerciseCatalog";
+import { loadFactoryState } from "./factoryState";
 import { MODULES, type ModuleId } from "./modules";
 import { readMosaicLayout } from "./mosaicLayoutStore";
 import { loadPipelineState } from "./pipelineState";
@@ -29,6 +30,9 @@ export async function collectWorkbenchState(
     : undefined;
   const dbt = selectedModule === "dbt"
     ? await loadDbtState()
+    : undefined;
+  const factory = selectedModule === "fabric"
+    ? await loadFactoryState()
     : undefined;
   const mosaicLayout = selectedModule === "mosaic"
     ? await readMosaicLayout()
@@ -59,6 +63,7 @@ export async function collectWorkbenchState(
     practice,
     pipeline,
     airflow,
+    factory,
     dbt
   };
 }

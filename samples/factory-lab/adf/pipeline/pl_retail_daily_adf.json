@@ -1,0 +1,139 @@
+{
+  "name": "pl_retail_daily_adf",
+  "properties": {
+    "description": "The same daily retail load in Azure Data Factory: upsert to bronze, Azure Databricks notebook to silver, stored procedure to gold, then a webhook.",
+    "activities": [
+      {
+        "name": "Copy orders to bronze",
+        "type": "Copy",
+        "dependsOn": [],
+        "policy": {
+          "timeout": "0.01:00:00",
+          "retry": 1,
+          "retryIntervalInSeconds": 60,
+          "secureOutput": false,
+          "secureInput": false
+        },
+        "userProperties": [],
+        "typeProperties": {
+          "source": {
+            "type": "AzureSqlSource",
+            "sqlReaderQuery": "SELECT * FROM source.orders",
+            "queryTimeout": "02:00:00",
+            "partitionOption": "None"
+          },
+          "sink": {
+            "type": "AzureSqlSink",
+            "writeBehavior": "upsert",
+            "upsertSettings": {
+              "useTempDB": true,
+              "keys": ["order_id"]
+            },
+            "sqlWriterUseTableLock": false,
+            "tableOption": "autoCreate",
+            "disableMetricsCollection": false
+          },
+          "enableStaging": false,
+          "translator": { "type": "TabularTranslator", "typeConversion": true }
+        },
+        "inputs": [
+          { "referenceName": "ds_source_orders", "type": "DatasetReference" }
+        ],
+        "outputs": [
+          { "referenceName": "ds_bronze_orders", "type": "DatasetReference" }
+        ]
+      },
+      {
+        "name": "Silver orders",
+        "type": "DatabricksNotebook",
+        "dependsOn": [
+          { "activity": "Copy orders to bronze", "dependencyConditions": ["Succeeded"] }
+        ],
+        "policy": {
+          "timeout": "0.02:00:00",
+          "retry": 0,
+          "retryIntervalInSeconds": 30,
+          "secureOutput": false,
+          "secureInput": false
+        },
+        "userProperties": [],
+        "typeProperties": {
+          "notebookPath": "/Shared/nb_silver_orders_dbx",
+          "baseParameters": {
+            "run_date": {
+              "value": "@pipeline().parameters.run_date",
+              "type": "Expression"
+            },
+            "min_amount": {
+              "value": "@string(pipeline().parameters.min_amount)",
+              "type": "Expression"
+            }
+          }
+        },
+        "linkedServiceName": {
+          "referenceName": "ls_lab_databricks",
+          "type": "LinkedServiceReference"
+        }
+      },
+      {
+        "name": "Gold revenue",
+        "type": "SqlServerStoredProcedure",
+        "dependsOn": [
+          { "activity": "Silver orders", "dependencyConditions": ["Succeeded"] }
+        ],
+        "policy": {
+          "timeout": "0.00:30:00",
+          "retry": 0,
+          "retryIntervalInSeconds": 30,
+          "secureOutput": false,
+          "secureInput": false
+        },
+        "userProperties": [],
+        "typeProperties": {
+          "storedProcedureName": "[warehouse].[usp_load_gold_revenue]",
+          "storedProcedureParameters": {
+            "run_date": {
+              "value": {
+                "value": "@pipeline().parameters.run_date",
+                "type": "Expression"
+              },
+              "type": "String"
+            }
+          }
+        },
+        "linkedServiceName": {
+          "referenceName": "ls_lab_sql",
+          "type": "LinkedServiceReference"
+        }
+      },
+      {
+        "name": "Notify webhook",
+        "type": "WebActivity",
+        "dependsOn": [
+          { "activity": "Gold revenue", "dependencyConditions": ["Succeeded"] }
+        ],
+        "policy": {
+          "timeout": "0.00:05:00",
+          "retry": 2,
+          "retryIntervalInSeconds": 30,
+          "secureOutput": false,
+          "secureInput": false
+        },
+        "userProperties": [],
+        "typeProperties": {
+          "url": "https://hooks.example.invalid/retail-load",
+          "method": "POST",
+          "body": {
+            "value": "@concat('{\"pipeline\":\"', pipeline().Pipeline, '\",\"run_date\":\"', pipeline().parameters.run_date, '\",\"silver_rows\":\"', activity('Silver orders').output.runOutput, '\"}')",
+            "type": "Expression"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "run_date": { "type": "string", "defaultValue": "2026-03-05" },
+      "min_amount": { "type": "int", "defaultValue": 0 }
+    },
+    "annotations": []
+  }
+}

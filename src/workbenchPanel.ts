@@ -2,6 +2,8 @@ import * as vscode from "vscode";
 import { AIRFLOW_STARTER_FILE, airflowPaths } from "./airflowState";
 import { loadExerciseCatalog } from "./exerciseCatalog";
 import { decodeCsvBytes, suggestBronzeAsset, validateBronzeAsset } from "./platform/csvImport";
+import { collectFactoryFiles, copyFactorySamples, factoryFileUri, factoryRoot, pipelineUri } from "./factoryState";
+import { FACTORY_FLAVORS, PIPELINE_NAME, pipelineRelativePath } from "./platform/factoryRun";
 import { probeDbtCli } from "./dbtState";
 import { MODULES, type ModuleId } from "./modules";
 import { writeMosaicLayout } from "./mosaicLayoutStore";
@@ -13,7 +15,13 @@ import { airflowStarter, pipelineStarter, scratchSpec } from "./scaffold/starter
 import { exerciseReadme } from "./scaffold/exerciseReadme";
 import { collectWorkbenchState } from "./workbenchState";
 import { contentSecurityPolicy, makeNonce } from "./webview/security";
-import type { AirflowScenarioInput, ScratchKind, WebviewToHostMessage } from "./webview/contracts";
+import type {
+  AirflowScenarioInput,
+  FactoryFlavor,
+  FactoryScenarioInput,
+  ScratchKind,
+  WebviewToHostMessage
+} from "./webview/contracts";
 
 export class WorkbenchPanel {
   private static current?: WorkbenchPanel;
@@ -94,6 +102,7 @@ export class WorkbenchPanel {
           document.uri.path.endsWith("/.datapass/project.json") ||
           this.selectedModule === "pipeline" ||
           this.selectedModule === "airflow" ||
+          this.selectedModule === "fabric" ||
           this.selectedModule === "dbt"
         ) {
           void this.refresh();
@@ -192,6 +201,21 @@ export class WorkbenchPanel {
       case "revealAirflowLine":
         await this.revealAirflowLine(message.line);
         return;
+      case "createFactoryLab":
+        await this.createFactoryLab();
+        break;
+      case "refreshFactory":
+        await this.refresh();
+        break;
+      case "openFactoryFile":
+        await this.openFactoryFile(message.path);
+        break;
+      case "revealFactoryActivity":
+        await this.revealFactoryActivity(message.path, message.activity);
+        break;
+      case "simulateFactory":
+        await this.simulateFactory(message.flavor, message.name, message.scenario);
+        break;
       case "openDbtProject":
         await this.openDbtProject();
         return;
@@ -727,6 +751,70 @@ export class WorkbenchPanel {
     editor.revealRange(new vscode.Range(position, position), vscode.TextEditorRevealType.InCenter);
   }
 
+  /** Copy the Cloud Lab sample files (Fabric, ADF, Synapse, notebooks, procedures) into factory/, keeping existing files. */
+  private async createFactoryLab(): Promise<void> {
+    const root = await copyFactorySamples(this.context.extensionUri);
+    if (!root) {
+      void vscode.window.showWarningMessage("Open a workspace folder before creating the Cloud Lab files.");
+      return;
+    }
+    const starter = pipelineUri("fabric", "pl_retail_daily");
+    if (starter && (await exists(starter))) await this.openBeside(starter);
+    void vscode.window.showInformationMessage(
+      "Cloud Lab files are in factory/: the same daily load for Fabric, Azure Data Factory and Synapse, with notebooks and a stored procedure. Existing files were kept."
+    );
+    await this.refresh();
+  }
+
+  private async openFactoryFile(relative: string): Promise<void> {
+    const uri = factoryFileUri(relative);
+    if (!uri || !(await exists(uri))) {
+      void vscode.window.showWarningMessage(`Cloud Lab file not found: ${relative}`);
+      return;
+    }
+    await this.openBeside(uri);
+  }
+
+  /** Open a pipeline file on the activity's "name" entry. */
+  private async revealFactoryActivity(relative: string, activity: string): Promise<void> {
+    const uri = factoryFileUri(relative);
+    if (!uri || !(await exists(uri))) return;
+    const document = await vscode.workspace.openTextDocument(uri);
+    const offset = document.getText().search(new RegExp(`"name"\\s*:\\s*${escapeRegExp(JSON.stringify(activity))}`));
+    const position = offset >= 0 ? document.positionAt(offset) : new vscode.Position(0, 0);
+    const column = this.panel.viewColumn === vscode.ViewColumn.Two ? vscode.ViewColumn.One : vscode.ViewColumn.Two;
+    const editor = await vscode.window.showTextDocument(document, { preview: false, viewColumn: column });
+    editor.selection = new vscode.Selection(position, position);
+    editor.revealRange(new vscode.Range(position, position), vscode.TextEditorRevealType.InCenter);
+  }
+
+  /** Run a pipeline of the Cloud Lab: the runtime simulates it and runs supported activities on the local catalog. */
+  private async simulateFactory(flavor: FactoryFlavor, name: string, scenario: FactoryScenarioInput): Promise<void> {
+    if (!FACTORY_FLAVORS.includes(flavor) || !PIPELINE_NAME.test(name)) return;
+    const root = factoryRoot();
+    if (root) {
+      // A run uses the files as saved, like the other labs.
+      for (const document of vscode.workspace.textDocuments) {
+        if (document.isDirty && document.uri.toString().startsWith(root.toString() + "/")) await document.save();
+      }
+    }
+    const { files, warnings } = await collectFactoryFiles(flavor);
+    const path = pipelineRelativePath(flavor, name);
+    const document = files.pipelines[name];
+    if (!document) {
+      void vscode.window.showWarningMessage(`Pipeline ${name} is missing or is not valid JSON (${path}).`);
+      return;
+    }
+    try {
+      await this.runtimeManager.simulateFactory({ flavor, name, path, document, files, scenario, warnings });
+    } catch (error) {
+      void vscode.window.showErrorMessage(
+        `Pipeline run failed: ${error instanceof Error ? error.message : String(error)}`
+      );
+    }
+    await this.refresh();
+  }
+
   private async openDbtProject(): Promise<void> {
     const root = vscode.workspace.workspaceFolders?.[0]?.uri;
     if (!root) {
@@ -929,6 +1017,10 @@ async function copyDirectoryWithoutOverwrite(source: vscode.Uri, target: vscode.
       await vscode.workspace.fs.writeFile(to, bytes);
     }
   }
+}
+
+function escapeRegExp(value: string): string {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }
 
 function quoteShellArg(value: string): string {

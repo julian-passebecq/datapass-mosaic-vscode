@@ -13,7 +13,7 @@ In the new VS Code window:
 
 1. Open a folder that can hold a learning workspace.
 2. Open the **Datapass** Activity Bar.
-3. Choose **Fabric Lab**.
+3. Choose **Cloud Lab**.
 4. Click **Create / repair demo files**, start the runtime, then **Run local medallion flow**.
 
 Datapass creates only missing files. Existing learner files are not overwritten.
@@ -43,9 +43,33 @@ your-workspace/
 
 ## 3. Suggested learning path
 
-### Fabric Lab
+### Cloud Lab
 
-Use the flow diagram to understand the whole project:
+**Pipelines** tab: Data Factory pipelines for Microsoft Fabric, Azure Data Factory and Azure Synapse, simulated on your machine.
+
+1. Choose **Create lab files**. A `factory/` folder appears. It is laid out like each product's git integration:
+   - `fabric/<name>.DataPipeline/pipeline-content.json` and `fabric/<name>.Notebook/notebook-content.py`;
+   - `adf/pipeline`, `adf/dataset` and `adf/linkedService`;
+   - `synapse/pipeline`;
+   - `databricks/Shared/*.py` (Databricks source notebooks);
+   - `sql/procedures/<schema>.<name>.sql`.
+2. Choose a product and a pipeline. The canvas shows the activities, with their dependencies colored by condition: green Succeeded, red Failed, blue Completed, grey Skipped. Click an activity for its details, or open a container such as If, ForEach or Switch to see the activities inside it.
+3. Set the parameters and trigger. You can also make an activity fail on some attempts, change its duration or add to its output.
+4. Choose a run mode:
+   - **Run on local lakehouse**: Copy, Lookup, Script, stored procedures and notebooks really run on the local catalog (DuckDB, SparkLab).
+   - **Dry run**: simulates every activity and changes no table.
+
+The result explains the run status with Data Factory's leaf rule and lists every activity run with its input, output and error. It also names the tables written.
+
+The same daily retail load exists for the three products, so you can compare them:
+
+- Fabric: Copy → Notebook → Stored procedure → Lookup → If → Teams, plus an Outlook alert on notebook failure.
+- Azure Data Factory: upsert Copy → Azure Databricks notebook → Stored procedure → Web activity.
+- Synapse: CTAS in a Script activity → SQL pool stored procedure → Lookup.
+
+The **Fabric, Azure Data Factory and Synapse: what differs** table summarizes the differences. Notebooks run on SparkLab statement by statement and are never executed as Python. Parameters work like in each product: Fabric and Synapse inject them after the parameters cell, Databricks reads them with `dbutils.widgets.get`.
+
+**Lakehouse and notebooks** tab: use the flow diagram to understand the whole project:
 
 ```text
 Raw orders
@@ -61,11 +85,11 @@ Pipeline / scheduling
 Gold customer revenue
 ```
 
-Fabric Lab is a local teaching experience. It does not require or impersonate a Microsoft Fabric workspace.
+Cloud Lab is a local teaching experience. It does not require or impersonate a Microsoft Fabric workspace, an Azure subscription or a Databricks workspace, and nothing it runs leaves your machine.
 
 ### Mosaic
 
-After **Run local medallion flow** (Fabric Lab) has loaded the CSV into `bronze.orders`, open `notebooks/retail_medallion.sql` and choose **Run active SQL**: it builds `silver.mosaic_orders` and `gold.mosaic_customer_revenue` on real DuckDB. Mosaic SQL works on the shared catalog only; file and network table functions such as `read_csv_auto` are blocked by design.
+After **Run local medallion flow** (Cloud Lab › Lakehouse and notebooks) has loaded the CSV into `bronze.orders`, open `notebooks/retail_medallion.sql` and choose **Run active SQL**: it builds `silver.mosaic_orders` and `gold.mosaic_customer_revenue` on real DuckDB. Mosaic SQL works on the shared catalog only; file and network table functions such as `read_csv_auto` are blocked by design.
 
 To bring your own data, use **Import CSV…** in Mosaic's *Local data runtime* block: pick a UTF-8 `.csv` (up to 1 MB / 5,000 rows, simple unique headers) and name a **new** `bronze.<table>`. The extension reads the file and sends its text to the runtime, so the runtime never gets a file path. Imports never overwrite an existing table, and every column is stored as text, so `CAST` in SQL when you build silver tables, e.g. `SELECT CAST(amount AS DOUBLE) AS amount FROM bronze.my_orders`.
 
@@ -149,7 +173,7 @@ The runtime is a local IPC/control plane, not a separate Datapass web applicatio
 | --- | --- | --- |
 | Mosaic | VS Code files, DuckDB SQL; Python/Polars only after trusted-Python opt-in | optional teaching overlays |
 | Practice | VS Code files, local tests/runners | exercise scenarios where explicitly marked |
-| Fabric Lab | local files, DuckDB/DuckLake | Fabric UI/orchestration semantics |
+| Cloud Lab | local files, DuckDB/DuckLake; pipeline Copy, Lookup, Script, stored procedures and SparkLab notebooks on the local catalog | Fabric UI, pipeline orchestration (Data Factory semantics), every other activity (Web, Teams, Outlook, dataflows...) |
 | SparkLab | whitelist parser, compiled SQL and result rows computed locally | stages, shuffle exchanges, duration, credits, cluster behavior; Practice plan checks grade this model |
 | dbt Lab | dbt Core + DuckDB when installed | static lineage fallback is not execution |
 | Airflow Lab | DAG files (Lab and Practice) are parsed, never executed | scheduler/executor/task runtime, runs, task states, logs, rendered templates |

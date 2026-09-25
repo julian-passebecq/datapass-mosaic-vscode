@@ -1,0 +1,17 @@
+{
+  "name": "ls_sqlpool",
+  "properties": {
+    "description": "Lab stand-in for the workspace's dedicated SQL pool sqlpool01. The Datapass runtime resolves it to the local catalog; nothing connects to Azure.",
+    "annotations": [],
+    "type": "AzureSqlDW",
+    "typeProperties": {
+      "server": "lab-synapse.sql.example.invalid",
+      "database": "sqlpool01",
+      "authenticationType": "SystemAssignedManagedIdentity"
+    },
+    "connectVia": {
+      "referenceName": "AutoResolveIntegrationRuntime",
+      "type": "IntegrationRuntimeReference"
+    }
+  }
+}

@@ -1,0 +1,17 @@
+{
+  "name": "ls_lab_databricks",
+  "properties": {
+    "description": "Lab stand-in for an Azure Databricks workspace. Notebooks run on SparkLab, the Workbench's bounded fake Spark; nothing connects to Databricks.",
+    "annotations": [],
+    "type": "AzureDatabricks",
+    "typeProperties": {
+      "domain": "https://adb-lab.example.invalid",
+      "authentication": "MSI",
+      "workspaceResourceId": "/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/rg-lab/providers/Microsoft.Databricks/workspaces/dbw-lab",
+      "newClusterNodeType": "Standard_DS3_v2",
+      "newClusterNumOfWorker": "2",
+      "newClusterVersion": "15.4.x-scala2.12",
+      "clusterOption": "Fixed"
+    }
+  }
+}

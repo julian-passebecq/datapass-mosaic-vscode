@@ -9,7 +9,7 @@ requires-python = ">=3.11"
 dependencies = [
   "fastapi>=0.115",
   "uvicorn[standard]>=0.32",
-  "duckdb>=1.1",
+  "duckdb>=1.4",
   "polars>=1.17",
   "pandas>=2.2",
   "pydantic>=2.9",
@@ -18,8 +18,9 @@ dependencies = [
 
 [tool.setuptools.packages.find]
 where = ["."]
-include = ["datapass_runtime*", "sparklab*", "airflowlab*"]
+include = ["datapass_runtime*", "sparklab*", "airflowlab*", "factorylab*"]
 
 [tool.setuptools.package-data]
 sparklab = ["*.json", "README.md"]
 airflowlab = ["README.md"]
+factorylab = ["README.md"]

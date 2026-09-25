@@ -105,6 +105,7 @@ class Engine:
                 {'id':'polars','available':self.trusted_python and importlib.util.find_spec('polars') is not None,'truth':'real Polars when installed; no substitute'},
                 {'id':'dbt','available':True,'truth':'literal ref/source teaching adapter; SQL executes; not dbt Core'},
                 {'id':'airflow','available':True,'truth':'DAG file parsed, never executed; deterministic Airflow 3 scheduler/task simulation'},
+                {'id':'factory','available':self.catalog.kind != 'sqlite','truth':'Data Factory orchestration simulated; Copy, Lookup, Script, procedures and SparkLab notebooks run on the local catalog'},
             ],
             'session_generation': self.generation,
             'distributed_spark': False,
@@ -534,6 +535,9 @@ class Engine:
             return grade(self, request)
         if op == 'workflow':
             return self.workflow(request)
+        if op == 'factory_simulate':
+            from .factory_workspace import simulate as factory_simulate
+            return factory_simulate(self.catalog, request)
         if op == 'check':
             case = get_case(request['case_id'])
             return {step['id']:self.check(step.get('check')) for step in case['steps']}

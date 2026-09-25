@@ -1,4 +1,5 @@
 from importlib import resources
+import json
 import os
 from pathlib import Path
 from tempfile import TemporaryDirectory
@@ -23,6 +24,8 @@ from sparklab.sparklab import SparkSession
 from airflowlab.model import AirflowLabError
 from airflowlab.parser import parse_dag
 from airflowlab.simulate import Scenario, outcome_rows
+from factorylab.engine import FactoryScenario, simulate_pipeline
+from factorylab.model import FactoryLabError
 
 
 assert app.title == "Datapass Runtime"
@@ -83,6 +86,27 @@ AIRFLOW_HEAD = (
     "from airflow.providers.standard.sensors.filesystem import FileSensor\n"
     "from airflow.timetables.interval import CronDataIntervalTimetable\n"
 )
+
+
+def factory_files(flavor: str) -> dict:
+    """The Factory Lab sample files, keyed the way the extension sends them (see src/factoryState.ts)."""
+    root = Path(__file__).resolve().parents[1] / "samples" / "factory-lab"
+    files = {"pipelines": {}, "datasets": {}, "procedures": {}, "notebooks": {}}
+    if flavor == "fabric":
+        for folder in (root / "fabric").glob("*.DataPipeline"):
+            files["pipelines"][folder.name.removesuffix(".DataPipeline")] = json.loads((folder / "pipeline-content.json").read_text())
+    else:
+        for path in (root / flavor / "pipeline").glob("*.json"):
+            files["pipelines"][path.stem] = json.loads(path.read_text())
+        for path in (root / flavor / "dataset").glob("*.json"):
+            files["datasets"][path.stem] = json.loads(path.read_text())
+    for path in (root / "sql" / "procedures").glob("*.sql"):
+        files["procedures"][path.stem] = path.read_text()
+    for folder in (root / "fabric").glob("*.Notebook"):
+        files["notebooks"]["fabric:" + folder.name.removesuffix(".Notebook")] = (folder / "notebook-content.py").read_text()
+    for path in (root / "databricks").rglob("*.py"):
+        files["notebooks"]["databricks:/" + path.relative_to(root / "databricks").with_suffix("").as_posix()] = path.read_text()
+    return files
 
 
 def airflow_rows(body: str, **scenario) -> list[dict]:
@@ -150,6 +174,106 @@ try:
     raise AssertionError("prev_ds must be reported as removed")
 except AirflowLabError as error:
     assert "removed" in str(error), error
+
+# Factory Lab engine: Data Factory orchestration semantics, without a workspace (everything simulated).
+def fx(activities, scenario=None, flavor="fabric", parameters=None, variables=None):
+    document = {"properties": {"activities": activities, "parameters": parameters or {}, "variables": variables or {}}}
+    return simulate_pipeline(document, "pl", flavor, FactoryScenario.model_validate(scenario or {}))
+
+
+def fx_act(name, kind, after=(), **props):
+    """after: activity names (Succeeded) or (name, [conditions]) pairs."""
+    depends = [{"activity": d, "dependencyConditions": ["Succeeded"]} if isinstance(d, str)
+               else {"activity": d[0], "dependencyConditions": d[1]} for d in after]
+    return {"name": name, "type": kind, "dependsOn": depends, "typeProperties": props}
+
+
+FX_COPY = {"source": {}, "sink": {}}
+FX_FAIL_A = {"activities": {"A": {"fail_attempts": "all"}}}
+try_catch = fx([fx_act("A", "Copy", **FX_COPY), fx_act("B", "Wait", [("A", ["Failed"])], waitTimeInSeconds=1)], FX_FAIL_A)
+assert try_catch.status == "Succeeded" and try_catch.evaluated == ["B"], (try_catch.status, try_catch.evaluated)
+do_if_else = fx([fx_act("A", "Copy", **FX_COPY), fx_act("B", "Wait", ["A"], waitTimeInSeconds=1),
+                 fx_act("C", "Wait", [("A", ["Failed"])], waitTimeInSeconds=1)], FX_FAIL_A)
+assert do_if_else.status == "Failed" and do_if_else.evaluated == ["A", "C"], (do_if_else.status, do_if_else.evaluated)
+completed = fx([fx_act("A", "Copy", **FX_COPY), fx_act("B", "Wait", [("A", ["Completed"])], waitTimeInSeconds=1)], FX_FAIL_A)
+assert completed.status == "Succeeded", completed.status
+loop = fx([fx_act("Loop", "ForEach", items="@pipeline().parameters.tables", isSequential=True,
+                  activities=[fx_act("CopyTable", "Copy", **FX_COPY)])],
+          {"activities": {"CopyTable": {"fail_on_items": ["orders"]}}},
+          parameters={"tables": {"type": "array", "defaultValue": ["customers", "orders", "products"]}})
+assert loop.status == "Failed" and [r.status for r in loop.runs if r.name == "CopyTable"] == ["Succeeded", "Failed", "Succeeded"]
+until = fx([fx_act("Loop", "Until", expression="@greaterOrEquals(int(variables('i')), 3)",
+                   activities=[fx_act("Inc", "SetVariable", variableName="i", value="@string(add(int(variables('i')), 1))")])],
+           variables={"i": {"type": "String", "defaultValue": "0"}})
+assert until.status == "Succeeded" and until.variables == {"i": "3"}, until.variables
+typed = fx([fx_act("Set", "SetVariable", variableName="n", value="@add(1, 2)")], variables={"n": {"type": "String"}})
+assert typed.status == "Failed" and "cannot be updated" in typed.runs[0].error["message"], typed.runs[0].error
+retried = simulate_pipeline({"properties": {"activities": [{"name": "C", "type": "Copy", "policy": {"retry": 2, "retryIntervalInSeconds": 60},
+                                                           "typeProperties": FX_COPY}]}}, "pl", "adf",
+                            FactoryScenario.model_validate({"activities": {"C": {"fail_attempts": [1, 2]}}}))
+assert retried.status == "Succeeded" and (retried.runs[0].attempts, retried.runs[0].end_s) == (3, 210.0), retried.runs[0]
+assert retried.runs[0].error is None and retried.runs[0].note.startswith("Succeeded on attempt 3 after 2 retries"), retried.runs[0]
+message = fx([fx_act("L", "Lookup", source={}),
+              fx_act("Set", "SetVariable", ["L"], variableName="msg",
+                     value="Load @{pipeline().parameters.env} on @{formatDateTime(pipeline().TriggerTime, 'yyyy-MM-dd')} "
+                           "max=@{activity('L').output.firstRow.maxdate} by @{pipeline().Pipeline}")],
+             {"activities": {"L": {"output": {"firstRow": {"maxdate": "2026-03-04"}}}}},
+             parameters={"env": {"type": "String", "defaultValue": "dev"}}, variables={"msg": {"type": "String"}})
+assert message.variables["msg"] == "Load dev on 2026-03-05 max=2026-03-04 by pl", message.variables
+for bad, flavor, expected in [
+    ([fx_act("A", "Wait", waitTimeInSeconds=1), fx_act("Set", "SetVariable", variableName="v", value="@activity('A').output")], "fabric", "not an ancestor"),
+    ([fx_act("N", "TridentNotebook", notebookId="nb")], "adf", "DatabricksNotebook"),
+    ([fx_act("Ap", "AppendVariable", variableName="v", value="x")], "fabric", "needs an Array variable"),
+    ([fx_act("L", "ForEach", items="@createArray(1)", activities=[fx_act("L2", "ForEach", items="@createArray(1)", activities=[])])],
+     "fabric", "cannot be nested"),
+]:
+    try:
+        fx(bad, flavor=flavor, variables={"v": {"type": "String"}})
+        raise AssertionError(f"expected a validation error: {expected}")
+    except FactoryLabError as error:
+        assert expected in str(error.issues), (expected, error.issues)
+
+# Pipeline notebooks on SparkLab: parameters cell, widgets, save modes, spark.sql, exit values.
+with TemporaryDirectory(prefix="datapass-factory-notebook-smoke-") as temp:
+    from datapass_runtime.catalog import Catalog
+    from datapass_runtime.factory_workspace import FactoryWorkspace
+    from sparklab.safe_parser import SafeSparkParser, SparkLabSyntaxError
+    from sparklab.sparklab import SparkSession
+
+    nb_catalog = Catalog(Path(temp), "duckdb")
+    nb_catalog.execute("CREATE TABLE bronze.orders AS SELECT * FROM source.orders", "smoke")
+    FABRIC_NB = (
+        "# PARAMETERS CELL ********************\n\nrun_date = '2026-01-01'\nmin_amount = 0\n\n"
+        "# CELL ********************\n\nfrom pyspark.sql import functions as F\n"
+        "df = spark.table('bronze.orders').filter(F.col('net_amount') > min_amount).withColumn('d', F.lit(run_date))\n"
+        "df.write.mode('overwrite').saveAsTable('silver.nb_orders')\n"
+        "notebookutils.notebook.exit(f'{df.count()} rows for {run_date}')\n")
+    nb = FactoryWorkspace(nb_catalog, {"notebooks": {"fabric:nb": FABRIC_NB, "fabric:flat": FABRIC_NB.replace("# PARAMETERS CELL", "# CELL")}})
+    ran = nb.run_notebook("fabric", "nb", {"run_date": "2026-03-05", "min_amount": 100})
+    assert ran["status"] == "success" and ran["exit_value"] == "4 rows for 2026-03-05", ran
+    flat = nb.run_notebook("fabric", "flat", {"run_date": "2026-03-05", "min_amount": 100})
+    assert flat["exit_value"] == "10 rows for 2026-01-01" and any("reassigned" in note for note in flat["notes"]), flat
+    DBX_NB = ("dbutils.widgets.text('layer', 'silver')\nlayer = dbutils.widgets.get('layer')\n"
+              "spark.table('bronze.orders').write.saveAsTable(layer + '.dbx_orders')\n"
+              "spark.sql(\"DELETE FROM silver.dbx_orders WHERE net_amount <= 0\")\n"
+              "dbutils.notebook.exit(spark.sql('SELECT * FROM silver.dbx_orders').count())\n")
+    dbx = FactoryWorkspace(nb_catalog, {"notebooks": {"databricks:/Shared/dbx": DBX_NB, "databricks:/Shared/nowidget": "x = dbutils.widgets.get('missing')\n"}})
+    first = dbx.run_notebook("databricks", "/Shared/dbx", {})
+    assert first["status"] == "success" and first["exit_value"] == "10" and first["tables_written"] == ["silver.dbx_orders"], first
+    second = dbx.run_notebook("databricks", "/Shared/dbx", {})  # Spark's default save mode is errorifexists
+    assert second["status"] == "error" and "TABLE_OR_VIEW_ALREADY_EXISTS" in second["error"], second
+    assert "InputWidgetNotDefined" in dbx.run_notebook("databricks", "/Shared/nowidget", {})["error"]
+    assert "not found" in dbx.run_notebook("databricks", "/Shared/missing", {})["error"]
+    # Ordinary SparkLab cells keep the bounded API: no writes, SQL strings or actions outside pipeline notebooks.
+    for cell in ("df = spark.table('source.orders')\ndf.write.saveAsTable('silver.x')\n",
+                 "df = spark.sql('SELECT 1')\n", "print('x')\ndf = spark.table('source.orders')\n",
+                 "n = spark.table('source.orders').count()\n"):
+        try:
+            SafeSparkParser(SparkSession({"tables": {}})).parse(cell)
+            raise AssertionError(f"SparkLab cell mode must reject: {cell!r}")
+        except SparkLabSyntaxError:
+            pass
+    nb_catalog.close()
 
 source = """pipeline("ci")
 a = sql("a", "SELECT 1")
@@ -341,6 +465,64 @@ with TemporaryDirectory(prefix="datapass-csv-import-smoke-") as temp:
             assert "scenario must say" in unknown_branch["error"]["message"], unknown_branch
             too_long = client.post("/api/local/airflow/simulate", json={"source": "x" * 60001})
             assert too_long.status_code == 422, too_long.status_code
+
+            # Factory Lab: pipelines are simulated; Copy, Lookup, Script, procedures and notebooks run locally.
+            def factory(flavor, name, scenario=None, data_plane="local", document=None):
+                files = factory_files(flavor)
+                body = {"flavor": flavor, "name": name, "document": document or files["pipelines"][name],
+                        "files": files, "scenario": scenario or {}, "data_plane": data_plane}
+                response = client.post("/api/local/factory/simulate", json=body)
+                assert response.status_code == 200, response.text
+                return response.json()
+
+            def runs_by_name(view):
+                return {run["name"]: run for run in view["run"]["activity_runs"]}
+
+            fabric = factory("fabric", "pl_retail_daily", {"parameters": {"run_date": "2026-03-06"}})
+            assert fabric["status"] == "simulated" and fabric["run"]["status"] == "Succeeded", fabric
+            assert fabric["data_plane"] == "local" and fabric["flavor_label"] == "Microsoft Fabric Data Factory", fabric
+            steps = runs_by_name(fabric)
+            assert steps["Copy orders to bronze"]["truth"] == "local", steps
+            assert "injected after the parameters cell" in steps["Silver orders"]["note"], steps["Silver orders"]
+            assert steps["Silver orders"]["output"]["result"]["exitValue"] == "10", steps["Silver orders"]
+            assert steps["Email on notebook failure"]["status"] == "Skipped", steps
+            assert steps["Post to Teams"]["truth"] == "simulated" and steps["Has gold rows"]["output"] == {"branch": "True"}
+            assert {t["name"] for t in fabric["tables_changed"]} == {"bronze.orders", "silver.orders", "gold.revenue_by_segment"}
+            gold = client.post("/api/local/query", json={"query": "SELECT COUNT(*) AS n, MIN(load_date) AS d FROM gold.revenue_by_segment"}).json()
+            assert gold["result"]["rows"] == [{"n": 4, "d": "2026-03-06"}], gold
+
+            adf = factory("adf", "pl_retail_daily_adf")
+            assert adf["run"]["status"] == "Succeeded", adf
+            steps = runs_by_name(adf)
+            assert "(upsert)" in steps["Copy orders to bronze"]["note"] and steps["Silver orders"]["output"]["runOutput"] == "10", steps
+            assert steps["Notify webhook"]["truth"] == "simulated" and '"silver_rows":"10"' in steps["Notify webhook"]["input"]["body"], steps
+            factory("adf", "pl_retail_daily_adf")  # upsert on order_id: running twice keeps one row per order
+            assert client.post("/api/local/query", json={"query": "SELECT COUNT(*) AS n FROM bronze.orders"}).json()["result"]["rows"] == [{"n": 12}]
+
+            synapse = factory("synapse", "pl_sqlpool_daily")
+            assert synapse["run"]["status"] == "Succeeded", synapse
+            check = runs_by_name(synapse)["Check gold"]["output"]
+            assert check["count"] == 3 and check["value"][0]["segment_name"] == "Corporate", check  # min_orders Int32 "2"
+
+            failing = factory("fabric", "pl_retail_daily", {"activities": {"Silver orders": {"fail_attempts": "all", "error_message": "Spark job aborted"}}})
+            steps = runs_by_name(failing)
+            assert failing["run"]["status"] == "Failed" and steps["Email on notebook failure"]["status"] == "Succeeded", failing
+            assert set(failing["run"]["evaluated"]) == {"Silver orders", "Email on notebook failure"}, failing["run"]["evaluated"]
+
+            dry = factory("fabric", "pl_retail_daily", data_plane="simulated")
+            assert dry["data_plane"] == "simulated" and dry["tables_changed"] == [], dry
+            assert dry["run"]["status"] == "Failed" and dry["hints"] and "scenario" in dry["hints"][0], dry
+            dry_ok = factory("fabric", "pl_retail_daily", {"activities": {"Count gold rows": {"output": {"firstRow": {"segments": 2}}}}},
+                             data_plane="simulated")
+            assert dry_ok["run"]["status"] == "Succeeded" and all(r["truth"] == "simulated" for r in dry_ok["run"]["activity_runs"]), dry_ok
+
+            wrong = factory("adf", "pl_retail_daily", document=factory_files("fabric")["pipelines"]["pl_retail_daily"])
+            assert wrong["status"] == "invalid" and wrong["run"] is None, wrong
+            assert any("TridentNotebook" in i["message"] and "DatabricksNotebook" in i["message"] for i in wrong["issues"]), wrong["issues"]
+            oversized = client.post("/api/local/factory/simulate", json={
+                "flavor": "fabric", "name": "p", "document": {"properties": {"activities": []}},
+                "files": {"notebooks": {"fabric:big": "x" * 40001}}})
+            assert oversized.status_code == 422, oversized.status_code
     finally:
         if previous_workspace is None:
             os.environ.pop("DATAPASS_WORKSPACE_ROOT", None)

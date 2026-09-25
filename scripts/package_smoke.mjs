@@ -13,8 +13,12 @@ const required = [
   "runtime/datapass_runtime/execution.py",
   "runtime/sparklab/profiles.json",
   "runtime/airflowlab/parser.py",
+  "runtime/factorylab/engine.py",
+  "runtime/factorylab/README.md",
   "content/exercise-packs/airflow-lab-v1/grading.server.json",
-  "samples/dbt/retail-dbt/dbt_project.yml"
+  "samples/dbt/retail-dbt/dbt_project.yml",
+  "samples/factory-lab/fabric/pl_retail_daily.DataPipeline/pipeline-content.json",
+  "samples/factory-lab/sql/procedures/warehouse.usp_load_gold_revenue.sql"
 ];
 
 for (const path of required) {

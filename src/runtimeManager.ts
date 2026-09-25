@@ -3,7 +3,14 @@ import { existsSync } from "node:fs";
 import * as http from "node:http";
 import * as path from "node:path";
 import * as vscode from "vscode";
-import type { AirflowScenarioInput, CsvImportView, RuntimeEnvironmentView, RuntimeViewState } from "./webview/contracts";
+import type {
+  AirflowScenarioInput,
+  CsvImportView,
+  FactoryFlavor,
+  FactoryScenarioInput,
+  RuntimeEnvironmentView,
+  RuntimeViewState
+} from "./webview/contracts";
 import { findFreePort, waitForDatapassHealth } from "./platform/runtimeEndpoint";
 import {
   describeSetupOutputLine,
@@ -14,6 +21,8 @@ import {
 import { runtimeProcessEnv } from "./platform/pythonTrust";
 import { toSparkLabRunView } from "./platform/sparkLabRun";
 import { toAirflowLabView, toRuntimeScenario } from "./platform/airflowRun";
+import { toFactoryLabView, toRuntimeScenario as toFactoryScenario } from "./platform/factoryRun";
+import type { FactoryFilesPayload } from "./factoryState";
 
 const HOST = "127.0.0.1";
 // A cold start in a fresh managed venv (FastAPI, DuckDB, Polars, pandas; first
@@ -467,6 +476,55 @@ export class RuntimeManager implements vscode.Disposable {
         : `Airflow DAG not simulated: ${airflowRun.error?.message ?? "unknown error"}`,
       airflowRun
     });
+  }
+
+  /**
+   * Factory Lab: the runtime validates and simulates the pipeline JSON. With the local data plane,
+   * Copy, Lookup, Script, stored procedures and SparkLab notebooks act on the local catalog.
+   */
+  async simulateFactory(request: {
+    flavor: FactoryFlavor;
+    name: string;
+    path: string;
+    document: unknown;
+    files: FactoryFilesPayload;
+    scenario: FactoryScenarioInput;
+    warnings: string[];
+  }): Promise<void> {
+    const url = this.state.status === "running" ? this.state.url : undefined;
+    if (!url) throw new Error("Start the Datapass runtime before running a pipeline.");
+    const context = { flavor: request.flavor, pipelineName: request.name, path: request.path, scenario: request.scenario };
+    const { scenario, errors } = toFactoryScenario(request.scenario);
+    if (errors.length) {
+      const factoryRun = toFactoryLabView(
+        { status: "error", issues: errors.map(message => ({ path: "scenario", message, severity: "error" })) },
+        { ...context, warnings: request.warnings }
+      );
+      this.setState({ ...this.state, detail: `Pipeline ${request.name} not run: fix the scenario.`, factoryRun });
+      return;
+    }
+    const raw = await requestJson<unknown>(
+      `${url}/api/local/factory/simulate`,
+      "POST",
+      {
+        flavor: request.flavor,
+        name: request.name,
+        document: request.document,
+        files: request.files,
+        scenario,
+        data_plane: request.scenario.dataPlane
+      },
+      60000
+    );
+    const factoryRun = toFactoryLabView(raw, { ...context, warnings: request.warnings });
+    this.setState({
+      ...this.state,
+      detail: factoryRun.run
+        ? `Pipeline ${request.name} ${factoryRun.run.status.toLowerCase()} (${factoryRun.flavorLabel}, ${factoryRun.dataPlane === "local" ? "local activities ran on the catalog" : "dry run"}).`
+        : `Pipeline ${request.name} not run: ${factoryRun.issues[0]?.message ?? factoryRun.status}`,
+      factoryRun
+    });
+    if (factoryRun.tablesChanged.length) await this.refreshCatalog();
   }
 
   async runPipeline(source: string): Promise<void> {

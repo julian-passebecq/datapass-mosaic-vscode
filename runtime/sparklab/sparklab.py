@@ -344,6 +344,18 @@ class DataFrame:
             raise ValueError('Partition count must be an integer from 1 to 4096')
         c = self._clone(); c.ops.append(Op('coalesce', {'n': n})); return c
 
+    # Actions and writes exist only in pipeline notebooks, where a notebook runtime executes them.
+    def count(self) -> int:
+        runtime = self.session.notebook_runtime
+        if runtime is None:
+            raise ValueError('count() is an action; in SparkLab cells, Run shows the result instead')
+        return runtime.count(self)
+
+    @property
+    def write(self) -> Any:
+        from .notebook_utils import DataFrameWriter
+        return DataFrameWriter(self)
+
 
     def _source_columns(self) -> list[str] | None:
         raw = self.session.profile.get('tables', {}).get(self.source, {}).get('columns')
@@ -520,11 +532,16 @@ class ReadBuilder:
     def parquet(self, path: str) -> DataFrame:
         return DataFrame(self.session, f"read_parquet({_literal(path)})")
 
+    def table(self, name: str) -> DataFrame:
+        return self.session.table(name)
+
 
 class SparkSession:
     def __init__(self, profile: dict[str, Any]):
         self.profile = profile
         self.read = ReadBuilder(self)
+        # Set only for pipeline notebooks: executes writes, spark.sql and count() on the local catalog.
+        self.notebook_runtime: Any = None
 
     @classmethod
     def from_profile(cls, path: str | Path, case: str) -> "SparkSession":
@@ -534,9 +551,30 @@ class SparkSession:
         return cls(data[case])
 
     def table(self, name: str) -> DataFrame:
+        runtime = self.notebook_runtime
+        if runtime is not None and isinstance(name, str):
+            name = runtime.table_name(name)
         if not isinstance(name, str) or not re.fullmatch(r'[A-Za-z_]\w*(?:\.[A-Za-z_]\w*)?', name):
             raise ValueError('spark.table requires a simple catalog table name')
+        if runtime is not None:
+            # Tables written earlier in the same notebook exist only in the catalog, so ask it.
+            self.profile.setdefault('tables', {})[name] = {'columns': runtime.columns(f'SELECT * FROM {name}')}
         return DataFrame(self, name)
+
+    def sql(self, query: str) -> DataFrame | None:
+        """spark.sql in a pipeline notebook: a query becomes a DataFrame, a statement runs at once."""
+        runtime = self.notebook_runtime
+        if runtime is None:
+            raise ValueError('spark.sql runs in pipeline notebooks only; SparkLab cells use the DataFrame API')
+        if not isinstance(query, str) or not query.strip():
+            raise ValueError('spark.sql needs a SQL string')
+        text = query.strip().rstrip(';').strip()
+        if re.match(r'(?is)(select|with)\b', text):
+            source = f'({text}) AS spark_sql'
+            self.profile.setdefault('tables', {})[source] = {'columns': runtime.columns(text)}
+            return DataFrame(self, source)
+        runtime.statement(text)
+        return None
 
     def _estimate(self, df: DataFrame) -> dict[str, Any]:
         table = self.profile.get('tables', {}).get(df.source, {})

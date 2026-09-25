@@ -32,12 +32,12 @@ export const MODULES: readonly WorkbenchModule[] = [
   },
   {
     id:"fabric",
-    label:"Fabric Lab",
-    description:"Fabric-inspired local lakehouse, notebook and pipeline practice without Fabric.",
+    label:"Cloud Lab",
+    description:"Fabric, Azure Data Factory and Synapse pipelines with notebooks and stored procedures, simulated on the local lakehouse.",
     command:"datapass.openFabricLab",
-    execution:"DuckDB/DuckLake + SparkLab",
-    mode:"simulated",
-    highlights:["Lakehouse + notebook workflow","Pipeline orchestration canvas","Explicitly local Fabric-style semantics"]
+    execution:"Simulated orchestration + local DuckDB/SparkLab activities",
+    mode:"hybrid",
+    highlights:["Real pipeline JSON for Fabric, ADF and Synapse","Notebooks and stored procedures on the local lakehouse","Product differences made explicit"]
   },
   {
     id:"sparklab",

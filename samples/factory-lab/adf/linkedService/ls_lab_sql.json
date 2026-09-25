@@ -1,0 +1,15 @@
+{
+  "name": "ls_lab_sql",
+  "properties": {
+    "description": "Lab stand-in for an Azure SQL Database. The Datapass runtime resolves it to the local catalog; nothing connects to Azure. In a real factory, keep secrets in Azure Key Vault, never in this file.",
+    "annotations": [],
+    "type": "AzureSqlDatabase",
+    "typeProperties": {
+      "server": "lab-sql.example.invalid",
+      "database": "retail",
+      "encrypt": "mandatory",
+      "trustServerCertificate": false,
+      "authenticationType": "SystemAssignedManagedIdentity"
+    }
+  }
+}
