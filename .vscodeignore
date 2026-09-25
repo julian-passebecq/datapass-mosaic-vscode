@@ -32,3 +32,5 @@ CLAUDE.md
 # Contributor docs stay in the repository; users get the README and the quickstart.
 docs/**
 !docs/QUICKSTART.md
+.vscode-test/**
+test-results/**

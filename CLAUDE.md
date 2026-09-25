@@ -89,6 +89,7 @@ python scripts/projects_smoke.py
 DATAPASS_DBT_PYTHON=<python with dbt-core + dbt-duckdb> python scripts/dbt_oracle_smoke.py   # when changing runtime/dbtlab
 DATAPASS_DBT_PYTHON=<python with dbt-core + dbt-duckdb + dbt-charts> python scripts/missions_smoke.py   # missions: references pass, untouched projects and mutants fail
 npm run test:host   # with DATAPASS_E2E_PYTHON set; see docs/LOCAL_TEST.md
+npm run package && npm run test:ui   # the packaged VSIX in a real VS Code window (Playwright); see docs/LOCAL_TEST.md
 ```
 
 Also manually inspect the Extension Development Host for user-facing changes when possible.
