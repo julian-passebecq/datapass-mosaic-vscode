@@ -17,6 +17,7 @@ from pathlib import Path
 import re
 import shutil
 import subprocess
+import tempfile
 import time
 from typing import Any, Callable
 
@@ -185,14 +186,14 @@ def _build_git(folder: Path, fixture: GitFixture) -> int:
 
 def build_fixture(mission: Mission, pack_dir: Path, workspace: Path) -> dict[str, Any]:
     """(Re)create `missions/<id>/` from the pack. An existing folder is moved to .datapass/missions/attic/, never
-    deleted; the new one is built next to it and renamed into place."""
+    deleted. The new one is built outside the workspace (so VS Code's Git extension, which opens every new .git it
+    sees there, never holds a half-built repository) and then moved into place."""
     if mission.fixture is None:
         raise ValueError(f'Mission {mission.id} has no terminal fixture.')
     target = workspace / mission.folder
-    building = target.with_name(f'.{mission.id}.building')
-    if building.exists():
-        shutil.rmtree(building, onerror=_force_remove)
-    building.mkdir(parents=True)
+    staging = Path(tempfile.mkdtemp(prefix='datapass-fixture-'))
+    building = staging / mission.id
+    building.mkdir()
     try:
         overlay = pack_dir / mission.id / 'project'
         files = 0
@@ -209,21 +210,21 @@ def build_fixture(mission: Mission, pack_dir: Path, workspace: Path) -> dict[str
             _write(building, relative, spec)
             files += 1
         commits = _build_git(building, mission.fixture.git) if mission.fixture.git else 0
-    except Exception:
-        shutil.rmtree(building, onerror=_force_remove)
-        raise
-    previous = None
-    if target.exists():
-        attic = workspace / '.datapass' / 'missions' / 'attic'
-        attic.mkdir(parents=True, exist_ok=True)
-        previous = attic / f'{mission.id}-{datetime.now().strftime("%Y%m%d-%H%M%S")}'
-        try:
-            _rename(target, previous)
-        except OSError as error:
-            shutil.rmtree(building, onerror=_force_remove)
-            raise FixtureError(f'{mission.folder} could not be moved aside ({error.strerror or error}). Close the '
-                               'terminals and files open in it, then start over again.') from None
-    _rename(building, target)
+        previous = None
+        if target.exists():
+            attic = workspace / '.datapass' / 'missions' / 'attic'
+            attic.mkdir(parents=True, exist_ok=True)
+            previous = attic / f'{mission.id}-{datetime.now().strftime("%Y%m%d-%H%M%S")}'
+            try:
+                _rename(target, previous)
+            except OSError as error:
+                raise FixtureError(
+                    f'{mission.folder} could not be moved aside ({error.strerror or error}): a program still has '
+                    'it open (a terminal, an editor, or Source Control). Close it, then start over again.') from None
+        target.parent.mkdir(parents=True, exist_ok=True)
+        _move(building, target)
+    finally:
+        shutil.rmtree(staging, onerror=_force_remove)
     return {'folder': mission.folder, 'files': files, 'commits': commits,
             'previous': previous.relative_to(workspace).as_posix() if previous else None}
 
@@ -238,6 +239,14 @@ def _rename(source: Path, target: Path) -> None:
             if attempt == 19:
                 raise
             time.sleep(0.25)
+
+
+def _move(source: Path, target: Path) -> None:
+    """A rename when both are on the same volume; otherwise a copy (Git's read-only objects included)."""
+    try:
+        _rename(source, target)
+    except OSError:
+        shutil.copytree(source, target, symlinks=True)
 
 
 def _force_remove(function: Callable, path: str, _info: Any) -> None:

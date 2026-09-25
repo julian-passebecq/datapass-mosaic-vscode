@@ -164,6 +164,9 @@ def main() -> None:
             result, done, _ = play(mission, pack_dir, shell, scripts[0])
             assert result["status"] == "not-yet", f"{mission.id}: mutant {mutant.name} passes:\n{describe(result, done)}"
             print(f"    mutant {mutant.name}: fails {failed(result)}")
+            if done.returncode != 0:
+                # A mutant is a plausible answer that runs through; say so when its script itself stopped.
+                print(f"      (its script exited {done.returncode}: {done.stderr.strip()[-400:]})")
             mutants += 1
 
     # Start over: the learner's folder is moved to the attic, never deleted, and the fixture is rebuilt.
