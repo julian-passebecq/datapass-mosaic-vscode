@@ -311,6 +311,27 @@ catalog. (The BI Lab keeps the guided dbt emulation.)
    `dct validate` and the simulated Airflow schedule. **Start over** reloads the data and drops what dbt built for the
    mission; your files stay. Progress lives in `.datapass/missions/progress.json`.
 
+### Terminal Lab
+
+The Terminal Lab is a real bash, PowerShell and Git terminal opened by VS Code. Datapass never types or runs a
+command in it; a hidden checker reads the folder and the Git repository the learner leaves behind.
+
+1. Open **Terminal Lab**. Pick a shell: bash (Git Bash on Windows) or PowerShell (pwsh, or Windows PowerShell 5.1 if
+   that is all you have). The choice is remembered. **Refresh** looks again if you just installed one.
+2. Pick a mission and **Start mission**. Datapass builds the mission folder under `missions/<id>/` from the pack
+   (files, and for the Git missions a small repository with a fixed history) and writes the ticket to
+   `.datapass/missions/tickets/<id>.md`.
+3. **Open terminal and ticket** opens the ticket beside the Workbench and a terminal in `missions/<id>/` with the
+   shell you chose. Work there with your own commands; nothing is pre-typed.
+4. **Check my work** asks the hidden checker to read the folder and, for the Git missions, the repository (read-only
+   Git commands). It reports which acceptance criteria pass. **Show a hint** reveals the mission's hints one at a
+   time.
+5. **Start over** rebuilds the mission from scratch. The old folder is moved to
+   `.datapass/missions/attic/<id>-<time>/`, never deleted, so earlier attempts stay on disk if you want to compare.
+
+Git commits made in the Terminal Lab use your global Git identity; the lab shows a warning banner if
+`git config --global user.name`/`user.email` are not set, since `git commit` would otherwise refuse to run.
+
 ## 4. Runtime
 
 **Setup runtime** creates a private Python environment for the runtime and installs its engines, once per machine. It uses [uv](https://docs.astral.sh/uv/) when it is installed and pip otherwise; the setup card says which one it uses. On Windows, uv made the first setup about ten times faster (about 14 s instead of about 146 s).
