@@ -17,6 +17,10 @@ from datapass_runtime.retail_demo import run_retail_demo
 from datapass_runtime.kernels import KernelManager
 from datapass_runtime.native_pipeline import run_native_pipeline
 from sparklab.capabilities import SUPPORT
+from sparklab.physical import simulate_plan
+from sparklab.runtime import load_cluster_profiles
+from sparklab.safe_parser import SafeSparkParser
+from sparklab.sparklab import SparkSession
 from airflowlab.model import AirflowLabError
 from airflowlab.parser import parse_dag
 from airflowlab.simulate import Scenario, outcome_rows
@@ -32,6 +36,47 @@ assert any(case.get("id") == "retail-medallion" for case in cases())
 assert definitions(), "Expected installed exercise definitions from content/exercise-packs."
 for asset in ("profiles.json", "cluster_profiles.json", "oracle.json"):
     assert resources.files("sparklab").joinpath(asset).is_file(), asset
+
+
+def modeled_exchanges(body: str) -> tuple[dict, list]:
+    """Exchange facts of the SparkLab plan model at authored sizes (no data processed)."""
+    spark = SparkSession({"tables": {
+        "sales": {"columns": ["sale_id", "store_id", "amount"]}, "stores": {"columns": ["store_id", "region"]},
+        "orders": {"columns": ["order_id", "customer_id", "order_ts", "amount"]},
+    }})
+    parsed = SafeSparkParser(spark).parse(
+        "from pyspark.sql import functions as F\nfrom pyspark.sql.window import Window\n" + body)
+    gib = 1024 ** 3
+    statistics = {"sales": {"rows": 6 * 10**8, "bytes": 72 * gib, "partitions": 576},
+                  "stores": {"rows": 40_000, "bytes": 48 * 1024**2, "partitions": 1},
+                  "orders": {"rows": 3 * 10**8, "bytes": 24 * gib, "partitions": 192}}
+    profile = load_cluster_profiles(str(resources.files("sparklab").joinpath("cluster_profiles.json")))["generic_8x8"]
+    _, metrics, _ = simulate_plan(parsed.dataframe, statistics, profile, True)
+    facts = metrics["plan_facts"]
+    return facts, [(d["reason"], d["partitioning"], d["keys"]) for d in facts["exchange_details"]]
+
+
+# Exchange placement follows Spark's rules: satisfied distributions reuse partitioning.
+facts, detail = modeled_exchanges('s = spark.table("sales").join(spark.table("stores"), "store_id")\ns.groupBy("region").agg(F.sum("amount").alias("r"))')
+assert facts["exchanges"] == 3 and facts["shuffle_joins"] == 1, detail  # 48 MB > 10 MB threshold: sort-merge join
+facts, detail = modeled_exchanges('s = spark.table("sales").join(F.broadcast(spark.table("stores")), "store_id")\ns.groupBy("region").agg(F.sum("amount").alias("r"))')
+assert (facts["exchanges"], facts["broadcast_joins"]) == (1, 1), detail
+facts, detail = modeled_exchanges('spark.table("stores").join(F.broadcast(spark.table("sales")), "store_id")')
+assert facts["broadcast_joins"] == 0, "Spark refuses to broadcast more than 8 GB"
+facts, detail = modeled_exchanges('o = spark.table("orders")\nt = o.groupBy("customer_id").agg(F.sum("amount").alias("t"))\no.join(t, "customer_id")')
+assert facts["exchanges"] == 2 and detail[1][0] == "join left side", detail  # aggregated side is reused
+facts, detail = modeled_exchanges('w = Window.partitionBy("customer_id").orderBy("order_ts")\nspark.table("orders").repartition(400).withColumn("n", F.row_number().over(w))')
+assert facts["exchanges"] == 2, detail  # round-robin does not cluster by customer_id
+facts, detail = modeled_exchanges('w = Window.partitionBy("customer_id").orderBy("order_ts")\nspark.table("orders").repartition(400, "customer_id").withColumn("n", F.row_number().over(w))')
+assert facts["exchanges"] == 1 and facts["output_partitions"] == 400, detail
+facts, detail = modeled_exchanges('spark.table("orders").select("order_id", "amount").coalesce(16)')
+assert (facts["exchanges"], facts["output_partitions"]) == (0, 16), detail
+facts, detail = modeled_exchanges('spark.table("orders").orderBy("order_ts").groupBy("customer_id").agg(F.count("*").alias("n"))')
+assert facts["exchanges"] == 1, "EliminateSorts drops a sort under an order-insensitive aggregate"
+facts, detail = modeled_exchanges('spark.table("orders").withColumn("n", F.row_number().over(Window.orderBy("order_ts")))')
+assert (facts["global_windows"], facts["output_partitions"]) == (1, 1), detail
+facts, detail = modeled_exchanges('a = spark.table("orders").groupBy("customer_id").agg(F.count("*").alias("n"))\na.withColumnRenamed("customer_id", "c").groupBy("c").agg(F.sum("n").alias("t"))')
+assert facts["exchanges"] == 2, "renaming the partitioning key loses the partitioning"
 
 # Airflow Lab: DAG files are parsed, never executed; semantics follow Airflow 3.
 AIRFLOW_HEAD = (
@@ -546,6 +591,7 @@ with TemporaryDirectory(prefix="datapass-trust-smoke-") as temp:
         assert "simulated" in spark["simulation"]["truth"].lower()
         assert spark["simulation"]["datapass_credits"]["fictional"] is True
         assert [node["operation"] for node in spark["simulation"]["logical_plan"]] == ["scan", "filter", "aggregate"]
+        assert spark["simulation"]["metrics"]["plan_facts"]["exchanges"] == 1, spark["simulation"]["metrics"]["plan_facts"]
 
         for unsafe in ("import os\nos.system('echo unsafe')", "open('x.txt', 'w').write('x')"):
             rejected = execute(untrusted, "untrusted", workspace, "sparklab", unsafe)
