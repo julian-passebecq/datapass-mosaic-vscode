@@ -274,7 +274,10 @@ try {
 
   const { text: runtimeLog, port } = runtimePort();
   step("Runtime port found in the Datapass Runtime log", Boolean(port), `port ${port}`);
-  step("No launch token in the runtime log", !/\b[0-9a-f]{64}\b/.test(runtimeLog));
+  // The token is 32 random bytes in hex. pip's wheel hashes ("sha256=…") have the same shape and are not secrets.
+  const tokenLike = [...runtimeLog.matchAll(/(.{0,24})\b([0-9a-f]{64})\b/g)].filter(match => !/sha256[=:]\s*$/i.test(match[1]));
+  step("No launch token in the runtime log", tokenLike.length === 0,
+    tokenLike.slice(0, 2).map(match => `${match[1].trim()}<64 hex>`).join(" | "));
   if (port) {
     const noToken = await rawStatus(port, {});
     step("Raw request without the launch token is refused (401)", noToken === 401, String(noToken));
@@ -342,7 +345,12 @@ try {
   await button("Start runtime").waitFor({ timeout: 60000 });
   step("Stop runtime", true);
   if (port) {
-    const after = await rawStatus(port, {});
+    // Stop sends SIGTERM; on Linux uvicorn then shuts down gracefully, so give it a moment, not forever.
+    let after = await rawStatus(port, {});
+    for (let waited = 0; typeof after !== "string" && waited < 15000; waited += 500) {
+      await new Promise(resolve => setTimeout(resolve, 500));
+      after = await rawStatus(port, {});
+    }
     step("Runtime port closed after Stop", typeof after === "string", String(after));
   }
 } catch (error) {
