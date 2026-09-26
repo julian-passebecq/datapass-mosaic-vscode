@@ -1,10 +1,14 @@
 import * as vscode from "vscode";
-import { MODULES } from "../../modules";
+import { loadExerciseCatalog } from "../../exerciseCatalog";
+import { MODULES, type WorkbenchView } from "../../modules";
+import { localDay } from "../../platform/practiceReview";
 import { createDefaultProjectManifest, readProjectManifest, writeProjectManifest } from "../../project/projectManifest";
-import type { WorkbenchMessage } from "../../webview/contracts";
+import { loadProjectsState, readProgress } from "../../projectState";
+import type { HomeViewState, WorkbenchMessage } from "../../webview/contracts";
 import type { LabController, MessageHandlers, WorkbenchHost } from "../host";
+import { homeView } from "./home";
 
-/** The Workbench shell: module tabs, the runtime card (setup, start, stop, trusted Python), the manifest, the catalog. */
+/** The Workbench shell: the Today home, the family and module tabs, the runtime card (setup, start, stop, trusted Python), the manifest, the catalog. */
 export class WorkbenchController implements LabController<WorkbenchMessage> {
   constructor(private readonly host: WorkbenchHost) {}
 
@@ -15,6 +19,13 @@ export class WorkbenchController implements LabController<WorkbenchMessage> {
         this.host.showModule(message.moduleId);
         await this.host.refresh();
       }
+    },
+    selectHome: async () => {
+      this.host.showHome();
+      await this.host.refresh();
+    },
+    openFolder: async () => {
+      await vscode.commands.executeCommand("workbench.action.files.openFolder");
     },
     createManifest: () => this.createManifest(),
     openManifest: () => this.openManifest(),
@@ -33,6 +44,26 @@ export class WorkbenchController implements LabController<WorkbenchMessage> {
       await vscode.commands.executeCommand("workbench.action.terminal.new");
     }
   };
+
+  async contribute(selected: WorkbenchView): Promise<{ home?: HomeViewState }> {
+    return selected === "home" ? { home: await this.loadHome() } : {};
+  }
+
+  private async loadHome(): Promise<HomeViewState> {
+    const [projects, progress, exercises] = await Promise.all([
+      loadProjectsState(this.host.context.extensionUri),
+      readProgress(),
+      loadExerciseCatalog(this.host.context.extensionUri)
+    ]);
+    return homeView({
+      hasWorkspace: projects.hasWorkspace,
+      progressError: progress.error,
+      projects: projects.projects,
+      exerciseKeys: exercises.map(exercise => exercise.key),
+      practice: progress.document.practice?.exercises ?? {},
+      today: localDay(new Date())
+    });
+  }
 
   private async startRuntime(): Promise<void> {
     // The runtime's catalog lives in <workspace>/.datapass/data; without a folder every call would fail.

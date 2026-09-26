@@ -68,8 +68,8 @@ try {
   const vscodeignore = await readFile(".vscodeignore", "utf8");
   assert.match(vscodeignore, /^content\/missions\/\*\/\*\/solution\/\*\*$/m);
   assert.match(vscodeignore, /^content\/missions\/\*\/\*\/mutants\/\*\*$/m);
-  const modules = await readFile("src/modules.ts", "utf8");
-  assert.match(modules, /id:"infra"[\s\S]*?mode:"simulated"/);
+  const { modules } = JSON.parse(await readFile("content/modules.json", "utf8"));
+  assert.equal(modules.find(module => module.id === "infra")?.mode, "simulated");
 
   console.log("Infra Lab smoke passed.");
 } finally {

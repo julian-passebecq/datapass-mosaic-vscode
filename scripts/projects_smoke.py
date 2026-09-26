@@ -1,7 +1,7 @@
 """Projects content gate: schema, references, and a scripted reference walkthrough of every project.
 
 1. Every content/projects/<id>/project.json validates (runtime/datapass_runtime/projects.py). Its steps use
-   Workbench modules (src/modules.ts) and installed exercises, and every file a step opens is created by that
+   Workbench modules (content/modules.json) and installed exercises, and every file a step opens is created by that
    step's own scaffolds (project files, the Cloud Lab and BI Lab samples, the Workbench starters).
 2. In a fresh workspace, every automatic check of every project fails: no check passes vacuously.
 3. The projects are then walked one after another in that same workspace, as a learner would. Each step first
@@ -45,7 +45,8 @@ def ts_array(file: str, function: str) -> str:
 
 
 def workbench_modules() -> set[str]:
-    return set(re.findall(r'id:"([a-z]+)"', (ROOT / "src" / "modules.ts").read_text(encoding="utf-8")))
+    registry = json.loads((ROOT / "content" / "modules.json").read_text(encoding="utf-8"))
+    return {module["id"] for module in registry["modules"]}
 
 
 def exercise_catalog() -> dict[str, dict]:

@@ -9,6 +9,25 @@ Add a tranche as a new `## YYYY-MM-DD · Title` section at the top, under this p
 sections, and refer to another section by its heading, not by a position. Keep the "Checked" and "Not checked"
 notes: they say what was really run.
 
+## 2026-09-26 · Today home and navigation by families
+
+The flat tab bar of eleven modules became two rows: "Today" and the two families ("Learn", "Real work"), then the
+modules of the selected family; switching family comes back to the module last shown in it. `content/modules.json`
+is now the module registry (families, then modules with their family and codicon; the old persona list it held was
+only read by the `workbench-core/` donor), and `src/modules.ts` exposes it as `MODULES` / `MODULE_FAMILIES`. The
+split: Learn = guided labs and simulators (Practice, Mosaic, SparkLab, Airflow, Pipeline, BI, Cloud Lab); Real work =
+Projects and ticket-style missions with real tools or a full simulated platform (dbt, Terminal, Infra). Today
+(`HomeSurface.tsx`, `datapass.openHome`, state from `src/labs/workbench/home.ts`) shows the next suggested step
+(open a folder; the next step of the first started, unfinished project; Practice reviews due; the first project not
+started; else Practice), Projects and Practice progress, the runtime with the same Setup/Start buttons as the top
+bar (`RuntimeActions`), and every lab by family. The Labs view groups modules by family under a Today entry. Surfaces
+are a `SURFACES: Record<ModuleId, …>` map in `WorkbenchApp.tsx`, so a module without a surface fails the typecheck.
+
+Checked: `npm run compile`, `npm test` (new `scripts/home_smoke.mjs`: registry consistency, next-step order), the
+Python gates of CLAUDE.md, `npm run package && npm run test:ui` (the layout pass now opens Today, then every module
+through the family tabs at 520 px, and asserts every registry module was reached).
+Not checked: `npm run test:host` (no host-side flow changed beyond the `datapass.openHome` registration it lists).
+
 ## 2026-09-26 · Faster CI and debt cleanup (D-3, D-4, D-7)
 
 - CI: uv with a cached download store replaces pip; the extension job builds once (`npm run package` runs

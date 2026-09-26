@@ -21,8 +21,7 @@ try {
   const { MODULES } = await bundle("src/modules.ts", "modules.mjs");
   const ids = MODULES.map(m => m.id);
   const labels = Object.fromEntries(MODULES.map(m => [m.id, m.label]));
-  assert.equal(MODULES[0].id, "projects");
-  assert.equal(MODULES[0].command, "datapass.openProjects");
+  assert.equal(MODULES.find(m => m.id === "projects")?.command, "datapass.openProjects");
   const pkg = JSON.parse(await readFile("package.json", "utf8"));
   assert.ok(pkg.contributes.commands.some(c => c.command === "datapass.openProjects"));
 

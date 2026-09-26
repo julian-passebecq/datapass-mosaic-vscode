@@ -1,66 +1,139 @@
-[
-  {
-    "id": "fabric-notebook",
-    "title": "Fabric notebook",
-    "kind": "notebook",
-    "persona": "fabric",
-    "status": "foundation",
-    "contract_version": 1
-  },
-  {
-    "id": "warehouse",
-    "title": "SQL warehouse",
-    "kind": "warehouse",
-    "persona": "fabric",
-    "status": "foundation",
-    "contract_version": 1
-  },
-  {
-    "id": "dbt",
-    "title": "dbt models",
-    "kind": "models",
-    "persona": "dbt",
-    "status": "foundation",
-    "contract_version": 1
-  },
-  {
-    "id": "airflow",
-    "title": "Local orchestration concepts",
-    "kind": "orchestration",
-    "persona": "airflow",
-    "status": "foundation",
-    "contract_version": 1
-  },
-  {
-    "id": "power-bi",
-    "title": "Power BI learning",
-    "kind": "report",
-    "persona": "powerbi",
-    "status": "foundation",
-    "contract_version": 1
-  },
-  {
-    "id": "databricks-notebook",
-    "title": "Databricks notebook",
-    "kind": "notebook",
-    "persona": "databricks",
-    "status": "foundation",
-    "contract_version": 1
-  },
-  {
-    "id": "polars-notebook",
-    "title": "Polars notebook",
-    "kind": "notebook",
-    "persona": "neutral",
-    "status": "foundation",
-    "contract_version": 1
-  },
-  {
-    "id": "sparklab",
-    "title": "SparkLab runtime",
-    "kind": "runtime",
-    "persona": "fabric",
-    "status": "foundation",
-    "contract_version": 1
-  }
-]
+{
+  "schema_version": 2,
+  "about": [
+    "The Workbench module registry: the navigation, the Labs view and the datapass.open... commands are built from it.",
+    "Families: 'learn' holds the labs where a concept is taught and practised in a guided, bounded setting (exercises,",
+    "simulators, notebooks); 'work' holds real-life work: end-to-end projects and the labs where the learner does a",
+    "ticket with real tools or a full simulated platform (dbt Core, a real shell and Git, Terraform/Docker/Kubernetes).",
+    "To register a new lab: add its id to ModuleId in src/modules.ts, one entry below, its command in package.json",
+    "(contributes.commands, same id as 'command'), and its surface in SURFACES in src/webview/WorkbenchApp.tsx.",
+    "Entries are shown in this order inside their family. 'icon' is a VS Code codicon name for the Labs view."
+  ],
+  "families": [
+    { "id": "learn", "label": "Learn", "description": "Guided labs, exercises and simulators: learn a concept, then practise it." },
+    { "id": "work", "label": "Real work", "description": "Projects and ticket-style missions done with real tools or a full simulated platform." }
+  ],
+  "modules": [
+    {
+      "id": "practice",
+      "family": "learn",
+      "label": "Practice",
+      "description": "LeetCode-style data-engineering exercises using native VS Code files and tests.",
+      "command": "datapass.openPractice",
+      "execution": "Native files + local runners",
+      "mode": "hybrid",
+      "icon": "mortar-board",
+      "highlights": ["Versioned exercise packs", "Native VS Code starter files", "Tests, hints and review state"]
+    },
+    {
+      "id": "mosaic",
+      "family": "learn",
+      "label": "Mosaic",
+      "description": "Flexible multi-pane workspace for local Polars, DuckDB, data and charts.",
+      "command": "datapass.openMosaic",
+      "execution": "Real DuckDB SQL + opt-in trusted Python/Polars",
+      "mode": "real",
+      "icon": "layout",
+      "highlights": ["Mosaic notebook/layout core", "Polars + DuckDB execution", "Data, charts and docs in one workspace"]
+    },
+    {
+      "id": "sparklab",
+      "family": "learn",
+      "label": "SparkLab / ZilaCode",
+      "description": "Deterministic PySpark DataFrame training without a cluster.",
+      "command": "datapass.openSparkLab",
+      "execution": "Spark-like API over local engines",
+      "mode": "simulated",
+      "icon": "flame",
+      "highlights": ["Bounded PySpark DataFrame API", "Deterministic local execution", "Physical/cost teaching profiles"]
+    },
+    {
+      "id": "airflow",
+      "family": "learn",
+      "label": "Airflow Lab",
+      "description": "Airflow 3 DAG files simulated locally: runs, task states, retries and logs.",
+      "command": "datapass.openAirflowLab",
+      "execution": "Simulated scheduler",
+      "mode": "simulated",
+      "icon": "calendar",
+      "highlights": ["Real Airflow 3 DAG files, parsed not run", "Runs, catchup and timetables", "Grid, replay, trigger rules and retries"]
+    },
+    {
+      "id": "pipeline",
+      "family": "learn",
+      "label": "Pipeline Lab",
+      "description": "Visual orchestration of notebooks, SQL, copy and procedure-like activities.",
+      "command": "datapass.openPipelineLab",
+      "execution": "Bounded compiler + real local activity execution",
+      "mode": "hybrid",
+      "icon": "type-hierarchy",
+      "highlights": ["React Flow orchestration", "Notebook / SQL / copy activities", "Run history and dependency validation"]
+    },
+    {
+      "id": "bi",
+      "family": "learn",
+      "label": "BI Lab",
+      "description": "Data warehousing on the local DuckDB catalog: star schemas, slowly changing dimensions, SQL lineage and model checks.",
+      "command": "datapass.openBiLab",
+      "execution": "Real DuckDB + SQL lineage analysis",
+      "mode": "real",
+      "icon": "graph",
+      "highlights": ["Warehouse SQL runs on DuckDB", "Column lineage and impact from the SQL text", "Star model checks: keys, grain, SCD2, relationships"]
+    },
+    {
+      "id": "fabric",
+      "family": "learn",
+      "label": "Cloud Lab",
+      "description": "Fabric, Azure Data Factory and Synapse pipelines with notebooks and stored procedures, simulated on the local lakehouse.",
+      "command": "datapass.openFabricLab",
+      "execution": "Simulated orchestration + local DuckDB/SparkLab activities",
+      "mode": "hybrid",
+      "icon": "cloud",
+      "highlights": ["Real pipeline JSON for Fabric, ADF and Synapse", "Notebooks and stored procedures on the local lakehouse", "Product differences made explicit"]
+    },
+    {
+      "id": "projects",
+      "family": "work",
+      "label": "Projects",
+      "description": "End-to-end projects whose steps are done in the labs, with checkboxes that follow your progress.",
+      "command": "datapass.openProjects",
+      "execution": "Steps verified on your workspace; each check says real, simulated or emulated",
+      "mode": "hybrid",
+      "icon": "checklist",
+      "highlights": ["Three stories across every lab", "Verified checks apart from ticks by hand", "Progress in .datapass/progress.json"]
+    },
+    {
+      "id": "dbt",
+      "family": "work",
+      "label": "dbt Lab",
+      "description": "Real-life dbt: dbt Core and dbt-duckdb in a real terminal on the local catalog, with the run's artifacts.",
+      "command": "datapass.openDbtLab",
+      "execution": "Real dbt Core in your terminal",
+      "mode": "real",
+      "icon": "database",
+      "highlights": ["Managed dbt Core + dbt-duckdb, installed on request", "Real commands typed in a VS Code terminal", "DAG, statuses and failures from target/ artifacts"]
+    },
+    {
+      "id": "terminal",
+      "family": "work",
+      "label": "Terminal Lab",
+      "description": "Real bash, PowerShell and Git in a VS Code terminal: tickets done with your own commands, from moving files to rescuing commits with the reflog.",
+      "command": "datapass.openTerminalLab",
+      "execution": "Your own commands; the result is checked",
+      "mode": "real",
+      "icon": "terminal",
+      "highlights": ["Git Bash or bash, pwsh or Windows PowerShell: your choice", "Datapass runs none of your commands", "A hidden checker reads the folder and its Git repository"]
+    },
+    {
+      "id": "infra",
+      "family": "work",
+      "label": "Infra Lab",
+      "description": "Terraform on a simulated Azure, Docker and compose, VM monitoring and Kubernetes, typed in one simulated terminal: nothing is provisioned, built or deployed.",
+      "command": "datapass.openInfraLab",
+      "execution": "Simulated terraform, docker, kubectl and az",
+      "mode": "simulated",
+      "icon": "server-environment",
+      "highlights": ["Terraform plan/apply on a simulated azurerm subscription", "Docker builds, compose and Kubernetes rollouts simulated", "Your HCL, Dockerfiles and manifests are read, never executed"]
+    }
+  ]
+}

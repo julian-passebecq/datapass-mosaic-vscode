@@ -28,7 +28,10 @@ Last updated: 2026-09-26.
 ## What exists
 
 One VS Code extension (webview Workbench + native editors, terminals, Explorer and Git) and one local FastAPI
-runtime on loopback. Eleven Workbench modules, each with a `datapass.open…` command:
+runtime on loopback. Eleven Workbench modules, each with a `datapass.open…` command, grouped in two families in the
+navigation ("Learn": Practice, Mosaic, SparkLab, Airflow, Pipeline, BI, Cloud Lab; "Real work": Projects, dbt,
+Terminal, Infra), behind a "Today" home (`datapass.openHome`: Projects and Practice progress from
+`.datapass/progress.json`, the next suggested step, the runtime with its Setup/Start action):
 
 | Module (id) | What it does | Execution truth | Code |
 | --- | --- | --- | --- |
@@ -78,6 +81,10 @@ SparkLab distributed behaviour. Static: SQL lineage. No cloud connection anywher
 - `src/webview/contracts/` one contract file per lab (its views, its slice of the runtime and Workbench state, its
   message union), composed in `contracts/index.ts` (imported as `webview/contracts`); `src/webview/` React surfaces
   (`WorkbenchApp.tsx`, one `*Surface.tsx` per module, `SharedGraphCanvas.tsx`); `src/test/hostSuite.ts` host E2E.
+- A new lab registers with one entry in `content/modules.json` (id, family, label, command, execution, mode, icon;
+  the file's `about` says it all), its id in `ModuleId` (`src/modules.ts`), its command in `package.json` and its
+  surface in `SURFACES` (`src/webview/WorkbenchApp.tsx`, a `Record<ModuleId, …>`, so a missing surface fails the
+  typecheck); `scripts/home_smoke.mjs` checks the four agree. The nav, the Labs view and Today follow the registry.
 - A new webview message: add it to the lab's union in `contracts/<lab>.ts` and a handler in
   `src/labs/<lab>/controller.ts`; a new runtime call goes in `src/labs/<lab>/client.ts`.
 - `runtime/datapass_runtime/` FastAPI app (`main.py`), kernels, catalog, grading; one package per lab:
@@ -85,7 +92,8 @@ SparkLab distributed behaviour. Static: SQL lineage. No cloud connection anywher
   `snowflakesql`, `missionlab`, `infralab` (each with a README where the contract is non-trivial).
 - `content/`: `exercise-packs/<pack>/` (manifest, exercises or scenarios, `grading.server.json`, and the test-only
   `quality.json` with mutants and gate flags), `projects/<id>/` (reference walkthroughs excluded from the VSIX),
-  `missions/<pack>/<id>/` (solutions and mutants excluded from the VSIX), `pylance-stubs/`, `modules.json`.
+  `missions/<pack>/<id>/` (solutions and mutants excluded from the VSIX), `pylance-stubs/`, `modules.json` (the module
+  registry and its families).
 - `samples/` sample projects copied into a learner's workspace (dbt, factory-lab, bi-lab).
 - `scripts/`: every smoke and gate; `scripts/authoring/` pack generators (README there).
 - `docs/`: ARCHITECTURE, QUICKSTART, LOCAL_TEST, EXERCISE_AUTHORING, PROJECT_AUTHORING, HARVEST_AUDIT, this file

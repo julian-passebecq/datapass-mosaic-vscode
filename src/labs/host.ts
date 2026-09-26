@@ -2,7 +2,7 @@ import * as vscode from "vscode";
 import type { DbtTerminalSession, DbtToolsManager } from "../dbtLab";
 import type { InfraLabSession } from "../infraLab";
 import type { MissionsService } from "../missions";
-import type { ModuleId } from "../modules";
+import type { ModuleId, WorkbenchView } from "../modules";
 import type { PythonTrustController } from "../pythonTrustController";
 import type { RuntimeManager } from "../runtimeManager";
 import type { TerminalLabSession } from "../terminalLab";
@@ -31,10 +31,12 @@ export interface WorkbenchHost {
   readonly runtime: RuntimeManager;
   readonly pythonTrust: PythonTrustController;
   readonly services: LabServices;
-  /** The module the Workbench shows. */
-  readonly selectedModule: ModuleId;
+  /** The module the Workbench shows, or "home" for the Today page. */
+  readonly selectedModule: WorkbenchView;
   /** Show a module, and a tab or filter in it (a project step); the next refresh posts it. */
   showModule(module: ModuleId, focus?: Omit<WorkbenchFocus, "module" | "seq">): void;
+  /** Show the Today home; the next refresh posts it. */
+  showHome(): void;
   /** Post the Workbench state again (only the newest refresh lands). */
   refresh(): Promise<void>;
   /** Open a file next to the Workbench so the webview and the file stay visible together. */
@@ -56,7 +58,7 @@ export interface LabController<M extends WebviewToHostMessage = WebviewToHostMes
   /** Saving a file refreshes the Workbench while this module is shown (its view reads workspace files). */
   readonly refreshOnSave?: ModuleId;
   /** What this lab adds to the next state message; `selected` is the module being shown. */
-  contribute?(selected: ModuleId): Promise<Partial<WorkbenchStateExtras>> | Partial<WorkbenchStateExtras>;
+  contribute?(selected: WorkbenchView): Promise<Partial<WorkbenchStateExtras>> | Partial<WorkbenchStateExtras>;
   dispose?(): void;
 }
 
