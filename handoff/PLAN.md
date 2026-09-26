@@ -3,7 +3,7 @@
 Kept by `ARCHI mosaic N` (docs/roles/archi.md in claude-control). Lean on purpose: one screen per version. Estimates
 are orders of magnitude; fill **Actual** when a package merges (GALAXY Contrôle compares them every week).
 
-Updated: 2026-09-26 18:30 by ARCHI mosaic 1 · Sources: the roadmap artifact
+Updated: 2026-09-26 20:00 by ARCHI mosaic 1 · Sources: the roadmap artifact
 (https://claude.ai/artifact/RhQMPGxeuNo9GTFzH5B8aJ), docs/HANDOFF.md, merged PRs #27–#57. The old
 `docs/CLAUDE_HANDOFF_2026-09-24.md` no longer exists (split into HANDOFF.md / HANDOFF_HISTORY.md by T-5).
 
@@ -11,6 +11,10 @@ Already done (do not redo): V1-1…V1-7, V2-1 (arena, review, interview), V2-2 (
 (Terminal Lab), V3-2 first slice (Infra Lab), T-3 (VSIX UI pass), T-5 (short handoff), D-1, D-2, D-5, D-6 (per-lab
 split), D-9, D-11, Polars engine in SparkLab (#54), dbt snapshot/contract missions (#55), Airflow depends_on_past
 (#56), Spark SQL track (#57).
+
+
+**Status (2026-09-26): mosaic is PAUSED** (Julian: the budget goes to DataPass). Read `handoff/V1-STATUS.md`
+first: what shipped, what is missing, pending items. Keeper while paused: ASSISTANT ARCHI mosaic 1 (TAMPON 26).
 
 ## Versions
 
