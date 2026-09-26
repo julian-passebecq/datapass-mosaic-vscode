@@ -1,7 +1,7 @@
 import type { MosaicLayoutItem } from "../../platform/mosaicLayout";
 import type { QueryHistoryEntry } from "../../platform/mosaicTools";
 
-export type ScratchKind = "sql" | "python" | "sparklab" | "notes";
+export type ScratchKind = "sql" | "python" | "sparklab" | "polars" | "notes";
 
 /** DuckDB SUMMARIZE of one catalog table (Mosaic → Profile). */
 export interface TableProfileView {

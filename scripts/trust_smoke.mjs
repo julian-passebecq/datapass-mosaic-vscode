@@ -116,7 +116,7 @@ try {
       assumptions: { kind: "catalog row counts", calibration: "No real Spark benchmark calibration" },
       comparisons: [{ profile_id: "generic_8x8", aqe: true, duration_s: 1.34, credits: 0.01 }]
     }
-  }, { fileName: "notebooks/sparklab.py", profileId: "generic_8x8", aqe: true });
+  }, { engine: "sparklab", fileName: "notebooks/sparklab.py", profileId: "generic_8x8", aqe: true });
   assert.equal(view.status, "success");
   assert.equal(view.simulation.status, "modeled");
   assert.match(view.simulation.truth, /simulated/);
@@ -130,10 +130,24 @@ try {
     elapsed_ms: 1,
     error: { type: "SparkLabSyntaxError", message: "Only PySpark SQL imports are allowed" },
     simulation: null
-  }, { fileName: "x.py", profileId: "generic_8x8", aqe: false });
+  }, { engine: "sparklab", fileName: "x.py", profileId: "generic_8x8", aqe: false });
   assert.equal(rejected.status, "error");
   assert.equal(rejected.error.type, "SparkLabSyntaxError");
   assert.equal(rejected.simulation, undefined);
+  // Polars engine: real plan and output pass through; there is never a simulation.
+  const polars = spark.toSparkLabRunView({
+    status: "success",
+    elapsed_ms: 3,
+    stdout: "(2, 1)\n",
+    result: { columns: ["revenue"], rows: [{ revenue: 1 }], truncated: false },
+    polars_plan: { truth: "Polars optimized plan (real, from LazyFrame.explain())", text: "AGGREGATE\n  DF [\"net_amount\"]" }
+  }, { engine: "polars", fileName: "notebooks/polars.py", profileId: "generic_8x8", aqe: true });
+  assert.equal(polars.engine, "polars");
+  assert.match(polars.polarsPlan.truth, /real/);
+  assert.match(polars.polarsPlan.text, /AGGREGATE/);
+  assert.equal(polars.stdout, "(2, 1)\n");
+  assert.equal(polars.simulation, undefined);
+  assert.equal(view.polarsPlan, undefined, "a SparkLab run has no Polars plan");
 
   console.log("Trusted Python and SparkLab contract smoke passed.");
 } finally {

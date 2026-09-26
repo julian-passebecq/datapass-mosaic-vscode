@@ -1,0 +1,13 @@
+unit_tests:
+  - name: net_amount_takes_the_line_discount_once
+    description: The discount is an amount for the whole line, not per unit.
+    model: stg_shop__order_lines
+    given:
+      - input: source('shop', 'shop_order_lines')
+        rows:
+          - {order_id: T1, line_number: 1, product_id: P01, quantity: 2, unit_price: 100.00, discount_amount: 30.00}
+          - {order_id: T1, line_number: 2, product_id: P06, quantity: 3, unit_price: 10.00, discount_amount: 0.00}
+    expect:
+      rows:
+        - {order_id: T1, line_number: 1, net_amount: 170.00}
+        - {order_id: T1, line_number: 2, net_amount: 30.00}

@@ -24,7 +24,8 @@ try {
     assert.ok(mission.batches.length >= 1, id);
     missions.push(mission);
   }
-  assert.equal(missions.length, 5);
+  assert.equal(missions.length, 7);
+  assert.deepEqual(missions.find(item => item.id === "product-price-history").batches.map(b => b.id), ["week-1", "week-2"]);
   assert.deepEqual(missions.find(item => item.id === "sales-board").dctBoards, ["charts/sales.yml"]);
   assert.deepEqual(missions.find(item => item.id === "incremental-order-lines").batches.map(b => b.id), ["day-1", "day-2"]);
 

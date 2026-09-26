@@ -920,7 +920,7 @@ with TemporaryDirectory(prefix="datapass-csv-import-smoke-") as temp:
             from missionlab.model import Mission, load_missions
             everything = load_missions()
             missions = [(m, p) for m, p in everything if m.lab == "dbt"]
-            assert len(missions) == 5, [m.id for m, _ in missions]
+            assert len(missions) == 7, [m.id for m, _ in missions]
             for mission, _pack in missions:
                 for batch in mission.batches:
                     loaded = client.post("/api/local/missions/setup", json={"mission_id": mission.id, "batch_id": batch.id})
@@ -1722,6 +1722,18 @@ with TemporaryDirectory(prefix="datapass-trust-smoke-") as temp:
         assert run["stdout"].strip() == "2", run["stdout"]
         assert run["result"]["columns"] == ["id", "amount"], run["result"]
         assert run["result"]["rows"] == [{"id": 1, "amount": 10}, {"id": 2, "amount": 20}], run["result"]
+        assert "polars_plan" not in run, "an eager DataFrame has no plan"
+
+        # Spark Lab's Polars engine: a LazyFrame is collected and Polars' own optimized plan comes back.
+        lazy = execute(
+            trusted, "trusted", workspace, "polars",
+            "import polars as pl\nframe = pl.read_csv('datasets/tiny.csv').lazy()\n"
+            "frame.filter(pl.col('amount') > 10).select('id')",
+        )
+        assert lazy["status"] == "success", lazy
+        assert lazy["result"]["rows"] == [{"id": 2}], lazy["result"]
+        assert "real" in lazy["polars_plan"]["truth"], lazy["polars_plan"]
+        assert "FILTER" in lazy["polars_plan"]["text"] or "SELECTION" in lazy["polars_plan"]["text"], lazy["polars_plan"]
     finally:
         trusted.close()
 

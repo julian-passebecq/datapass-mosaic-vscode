@@ -170,6 +170,201 @@
   },
   {
     "schema_version": 1,
+    "id": "spark-left-join-filter-placement-polars",
+    "version": "1",
+    "title": "Keep every customer when filtering the joined side",
+    "difficulty": "easy",
+    "topics": [
+      "joins",
+      "left-join",
+      "filter-placement"
+    ],
+    "tags": [
+      "spark-lab",
+      "polars"
+    ],
+    "origin": "authored",
+    "language": "polars",
+    "runtime": "shared-polars-v1",
+    "prompt": "Return every customer with each of their COMPLETED orders. A customer with no completed order still appears once, with NULL order_id and amount. Output customer_id, customer_name, order_id, amount.",
+    "sections": [
+      {
+        "title": "Tables",
+        "body": "customers(customer_id INTEGER, customer_name VARCHAR)\norders(order_id INTEGER, customer_id INTEGER, status VARCHAR, amount DOUBLE)"
+      },
+      {
+        "title": "Polars",
+        "body": "Real Polars in the trusted local Python worker (enable trusted Python first). Each table arrives as a list of row dicts in a variable of the same name; the starter turns them into typed frames. Show the result with display(...). Same lesson and data as the PySpark variant on this card."
+      },
+      {
+        "title": "Output",
+        "body": "Columns in this order: customer_id, customer_name, order_id, amount. Row order does not matter."
+      },
+      {
+        "title": "Common pitfall",
+        "body": "A filter on an orders column after a left join removes the customers the join could not match: their status is null, and Polars' filter keeps only rows where the predicate is true. Filter the right side before joining."
+      }
+    ],
+    "starter_source": "import polars as pl\n\ncustomers = pl.DataFrame(customers, schema={\"customer_id\": pl.Int64, \"customer_name\": pl.String}, orient=\"row\")\norders = pl.DataFrame(orders, schema={\"order_id\": pl.Int64, \"customer_id\": pl.Int64, \"status\": pl.String, \"amount\": pl.Float64}, orient=\"row\")\n# Bug: customers without a COMPLETED order disappear.\njoined = customers.join(orders, on=\"customer_id\", how=\"left\")\nresult = joined.filter(pl.col(\"status\") == \"COMPLETED\").select(\"customer_id\", \"customer_name\", \"order_id\", \"amount\")\ndisplay(result)\n",
+    "fixtures": [
+      {
+        "id": "spark-left-join-filter-placement-polars-fixtures",
+        "version": "1"
+      }
+    ],
+    "visible_checks": [
+      {
+        "id": "example",
+        "description": "Public example: the tables shown in data_context."
+      }
+    ],
+    "hidden_check_refs": [
+      "several-completed-orders"
+    ],
+    "edge_check_refs": [
+      "no-orders-at-all"
+    ],
+    "hints": [
+      "What does filter do with a row whose status is null?",
+      "Filter orders to COMPLETED first, then left-join customers to that smaller frame."
+    ],
+    "solution": {
+      "available": true,
+      "reveal": "explicit"
+    },
+    "explanation": "A left join keeps unmatched customers by filling the orders columns with NULL. A later filter on status evaluates NULL = 'COMPLETED' as unknown and drops those rows. Filtering orders before the join keeps the join's left-preserving semantics.",
+    "follow_ups": [
+      "How would you also keep customers whose only orders are CANCELLED, but show a count of them?"
+    ],
+    "canonical_placement": {
+      "domain": "sparklab",
+      "topic": "joins"
+    },
+    "related_associations": [
+      "sparklab/spark-concepts"
+    ],
+    "recommendation": {
+      "rank": 1,
+      "reason": "Spark lab progression"
+    },
+    "validator_version": "rows-v2",
+    "validation": {
+      "kind": "rows",
+      "ordered": false,
+      "duplicate_sensitive": true,
+      "relative_tolerance": 1e-09,
+      "absolute_tolerance": 1e-06,
+      "required_columns": [
+        "customer_id",
+        "customer_name",
+        "order_id",
+        "amount"
+      ],
+      "exact_schema": [
+        "customer_id",
+        "customer_name",
+        "order_id",
+        "amount"
+      ],
+      "forbidden_extra_columns": true,
+      "null_semantics": "equal"
+    },
+    "data_context": [
+      {
+        "name": "customers",
+        "columns": {
+          "customer_id": "INTEGER",
+          "customer_name": "VARCHAR"
+        },
+        "sample_rows": [
+          {
+            "customer_id": 1,
+            "customer_name": "Ana"
+          },
+          {
+            "customer_id": 2,
+            "customer_name": "Bo"
+          },
+          {
+            "customer_id": 3,
+            "customer_name": "Cy"
+          }
+        ]
+      },
+      {
+        "name": "orders",
+        "columns": {
+          "order_id": "INTEGER",
+          "customer_id": "INTEGER",
+          "status": "VARCHAR",
+          "amount": "DOUBLE"
+        },
+        "sample_rows": [
+          {
+            "order_id": 10,
+            "customer_id": 1,
+            "status": "COMPLETED",
+            "amount": 120.0
+          },
+          {
+            "order_id": 11,
+            "customer_id": 1,
+            "status": "CANCELLED",
+            "amount": 40.0
+          },
+          {
+            "order_id": 12,
+            "customer_id": 2,
+            "status": "CANCELLED",
+            "amount": 55.0
+          }
+        ]
+      }
+    ],
+    "output_schema": {
+      "customer_id": "value",
+      "customer_name": "value",
+      "order_id": "value",
+      "amount": "value"
+    },
+    "runtime_requirements": [],
+    "provenance": {
+      "source": "Authored for Datapass Workbench: Spark DataFrame pitfalls and plan choices on SparkLab",
+      "fixtures": "Authored for Datapass; expected rows computed from the SparkLab reference solution and reviewed"
+    },
+    "constraints": {
+      "fixtures": "At most 200 rows per table; complete results are graded, truncated results never pass.",
+      "truth": "Real Polars, run by the trusted local Python worker (not a sandbox)."
+    },
+    "truth": "real",
+    "semantic": {
+      "id": "spark-left-join-filter-placement",
+      "version": "1",
+      "industry": "Spark lab: DataFrame pitfalls",
+      "learning_objectives": [
+        "Keep every customer when filtering the joined side",
+        "Express the same DataFrame lesson in PySpark and Polars"
+      ],
+      "variants": {
+        "sparklab": "spark-left-join-filter-placement",
+        "polars": "spark-left-join-filter-placement-polars"
+      },
+      "supported_operations": [
+        "filter",
+        "select",
+        "join",
+        "group_by",
+        "agg",
+        "with_columns",
+        "sort",
+        "over"
+      ],
+      "optimization": "A left join keeps unmatched customers by filling the orders columns with NULL. A later filter on status evaluates NULL = 'COMPLETED' as unknown and drops those rows. Filtering orders before the join keeps the join's left-preserving semantics.",
+      "reflection": "Which part of this lesson is Spark-specific, and which holds in any DataFrame engine?"
+    }
+  },
+  {
+    "schema_version": 1,
     "id": "spark-semi-join-existence",
     "version": "1",
     "title": "Customers who ordered: a semi join returns each customer once",
@@ -337,6 +532,199 @@
   },
   {
     "schema_version": 1,
+    "id": "spark-semi-join-existence-polars",
+    "version": "1",
+    "title": "Customers who ordered: a semi join returns each customer once",
+    "difficulty": "easy",
+    "topics": [
+      "joins",
+      "semi-join",
+      "duplicates"
+    ],
+    "tags": [
+      "spark-lab",
+      "polars"
+    ],
+    "origin": "authored",
+    "language": "polars",
+    "runtime": "shared-polars-v1",
+    "prompt": "Return the customers who placed at least one order in 2026, once each, with only the customer columns. Output customer_id, customer_name, country.",
+    "sections": [
+      {
+        "title": "Tables",
+        "body": "customers(customer_id INTEGER, customer_name VARCHAR, country VARCHAR)\norders(order_id INTEGER, customer_id INTEGER, order_date DATE)"
+      },
+      {
+        "title": "Polars",
+        "body": "Real Polars in the trusted local Python worker (enable trusted Python first). Each table arrives as a list of row dicts in a variable of the same name; the starter turns them into typed frames. Show the result with display(...). Same lesson and data as the PySpark variant on this card."
+      },
+      {
+        "title": "Output",
+        "body": "Columns in this order: customer_id, customer_name, country. Row order does not matter."
+      },
+      {
+        "title": "Common pitfall",
+        "body": "An inner join returns one row per matching order, so a customer with three orders appears three times. how=\"semi\" only tests existence and never duplicates the left frame (PySpark's left_semi)."
+      }
+    ],
+    "starter_source": "from datetime import date\nimport polars as pl\n\ncustomers = pl.DataFrame(customers, schema={\"customer_id\": pl.Int64, \"customer_name\": pl.String, \"country\": pl.String}, orient=\"row\")\norders = pl.DataFrame(orders, schema={\"order_id\": pl.Int64, \"customer_id\": pl.Int64, \"order_date\": pl.String}, orient=\"row\").with_columns(pl.col(\"order_date\").str.to_date())\norders_2026 = orders.filter(pl.col(\"order_date\").is_between(date(2026, 1, 1), date(2026, 12, 31)))\n# Bug: a customer with several 2026 orders is returned several times.\nresult = customers.join(orders_2026, on=\"customer_id\", how=\"inner\").select(\"customer_id\", \"customer_name\", \"country\")\ndisplay(result)\n",
+    "fixtures": [
+      {
+        "id": "spark-semi-join-existence-polars-fixtures",
+        "version": "1"
+      }
+    ],
+    "visible_checks": [
+      {
+        "id": "example",
+        "description": "Public example: the tables shown in data_context."
+      }
+    ],
+    "hidden_check_refs": [
+      "year-boundaries"
+    ],
+    "edge_check_refs": [
+      "no-orders"
+    ],
+    "hints": [
+      "Which join type keeps the left rows that have a match, without adding any column?",
+      "is_between includes both bounds by default (closed=\"both\")."
+    ],
+    "solution": {
+      "available": true,
+      "reveal": "explicit"
+    },
+    "explanation": "Existence questions are semi joins. Spark implements left_semi without adding right-side columns and without multiplying left rows, so no distinct() is needed afterwards.",
+    "follow_ups": [
+      "Which join type returns the customers with no 2026 order?",
+      "Why is join + distinct() more expensive than a semi join on large data?"
+    ],
+    "canonical_placement": {
+      "domain": "sparklab",
+      "topic": "joins"
+    },
+    "related_associations": [
+      "sparklab/spark-concepts"
+    ],
+    "recommendation": {
+      "rank": 2,
+      "reason": "Spark lab progression"
+    },
+    "validator_version": "rows-v2",
+    "validation": {
+      "kind": "rows",
+      "ordered": false,
+      "duplicate_sensitive": true,
+      "relative_tolerance": 1e-09,
+      "absolute_tolerance": 1e-06,
+      "required_columns": [
+        "customer_id",
+        "customer_name",
+        "country"
+      ],
+      "exact_schema": [
+        "customer_id",
+        "customer_name",
+        "country"
+      ],
+      "forbidden_extra_columns": true,
+      "null_semantics": "equal"
+    },
+    "data_context": [
+      {
+        "name": "customers",
+        "columns": {
+          "customer_id": "INTEGER",
+          "customer_name": "VARCHAR",
+          "country": "VARCHAR"
+        },
+        "sample_rows": [
+          {
+            "customer_id": 1,
+            "customer_name": "Ana",
+            "country": "FR"
+          },
+          {
+            "customer_id": 2,
+            "customer_name": "Bo",
+            "country": "DE"
+          },
+          {
+            "customer_id": 3,
+            "customer_name": "Cy",
+            "country": "FR"
+          }
+        ]
+      },
+      {
+        "name": "orders",
+        "columns": {
+          "order_id": "INTEGER",
+          "customer_id": "INTEGER",
+          "order_date": "DATE"
+        },
+        "sample_rows": [
+          {
+            "order_id": 10,
+            "customer_id": 1,
+            "order_date": "2026-02-01"
+          },
+          {
+            "order_id": 11,
+            "customer_id": 1,
+            "order_date": "2026-03-15"
+          },
+          {
+            "order_id": 12,
+            "customer_id": 3,
+            "order_date": "2025-12-31"
+          }
+        ]
+      }
+    ],
+    "output_schema": {
+      "customer_id": "value",
+      "customer_name": "value",
+      "country": "value"
+    },
+    "runtime_requirements": [],
+    "provenance": {
+      "source": "Authored for Datapass Workbench: Spark DataFrame pitfalls and plan choices on SparkLab",
+      "fixtures": "Authored for Datapass; expected rows computed from the SparkLab reference solution and reviewed"
+    },
+    "constraints": {
+      "fixtures": "At most 200 rows per table; complete results are graded, truncated results never pass.",
+      "truth": "Real Polars, run by the trusted local Python worker (not a sandbox)."
+    },
+    "truth": "real",
+    "semantic": {
+      "id": "spark-semi-join-existence",
+      "version": "1",
+      "industry": "Spark lab: DataFrame pitfalls",
+      "learning_objectives": [
+        "Customers who ordered: a semi join returns each customer once",
+        "Express the same DataFrame lesson in PySpark and Polars"
+      ],
+      "variants": {
+        "sparklab": "spark-semi-join-existence",
+        "polars": "spark-semi-join-existence-polars"
+      },
+      "supported_operations": [
+        "filter",
+        "select",
+        "join",
+        "group_by",
+        "agg",
+        "with_columns",
+        "sort",
+        "over"
+      ],
+      "optimization": "Existence questions are semi joins. Spark implements left_semi without adding right-side columns and without multiplying left rows, so no distinct() is needed afterwards.",
+      "reflection": "Which part of this lesson is Spark-specific, and which holds in any DataFrame engine?"
+    }
+  },
+  {
+    "schema_version": 1,
     "id": "spark-count-column-vs-star",
     "version": "1",
     "title": "count(\"*\") vs count(column): clicks per campaign",
@@ -479,6 +867,178 @@
       "truth": "Result rows run locally on DuckDB through SparkLab's bounded PySpark subset. Plan checks grade SparkLab's simulated Spark plan, not Apache Spark."
     },
     "truth": "semantic-emulation"
+  },
+  {
+    "schema_version": 1,
+    "id": "spark-count-column-vs-star-polars",
+    "version": "1",
+    "title": "count(\"*\") vs count(column): clicks per campaign",
+    "difficulty": "easy",
+    "topics": [
+      "aggregation",
+      "count",
+      "nulls"
+    ],
+    "tags": [
+      "spark-lab",
+      "polars"
+    ],
+    "origin": "authored",
+    "language": "polars",
+    "runtime": "shared-polars-v1",
+    "prompt": "For each campaign return impressions (every event) and clicks (events whose clicked_at is set). Output campaign_id, impressions, clicks.",
+    "sections": [
+      {
+        "title": "Tables",
+        "body": "events(event_id INTEGER, campaign_id VARCHAR, clicked_at TIMESTAMP)"
+      },
+      {
+        "title": "Polars",
+        "body": "Real Polars in the trusted local Python worker (enable trusted Python first). Each table arrives as a list of row dicts in a variable of the same name; the starter turns them into typed frames. Show the result with display(...). Same lesson and data as the PySpark variant on this card."
+      },
+      {
+        "title": "Output",
+        "body": "Columns in this order: campaign_id, impressions, clicks. Row order does not matter."
+      },
+      {
+        "title": "Common pitfall",
+        "body": "pl.len() counts rows; pl.col(...).count() counts non-null values (PySpark's count(\"*\") and count(column)). n_unique() also merges equal values and counts null as one more value."
+      }
+    ],
+    "starter_source": "import polars as pl\n\nevents = pl.DataFrame(events, schema={\"event_id\": pl.Int64, \"campaign_id\": pl.String, \"clicked_at\": pl.String}, orient=\"row\").with_columns(pl.col(\"clicked_at\").str.to_datetime(\"%Y-%m-%d %H:%M:%S\"))\n# Bug: clicks equals impressions.\nresult = events.group_by(\"campaign_id\").agg(pl.len().alias(\"impressions\"), pl.len().alias(\"clicks\"))\ndisplay(result)\n",
+    "fixtures": [
+      {
+        "id": "spark-count-column-vs-star-polars-fixtures",
+        "version": "1"
+      }
+    ],
+    "visible_checks": [
+      {
+        "id": "example",
+        "description": "Public example: the tables shown in data_context."
+      }
+    ],
+    "hidden_check_refs": [
+      "same-second-clicks"
+    ],
+    "edge_check_refs": [
+      "no-clicks"
+    ],
+    "hints": [
+      "Which expression ignores null values: pl.len() or pl.col(...).count()?",
+      "Two clicks at the same timestamp are still two clicks."
+    ],
+    "solution": {
+      "available": true,
+      "reveal": "explicit"
+    },
+    "explanation": "count(\"*\") counts rows, count(col) counts non-NULL values of col, countDistinct(col) counts distinct non-NULL values. A campaign with no click still has impressions and 0 clicks.",
+    "follow_ups": [
+      "How would you compute a click-through rate that never divides by zero?"
+    ],
+    "canonical_placement": {
+      "domain": "sparklab",
+      "topic": "aggregation"
+    },
+    "related_associations": [
+      "sparklab/spark-concepts"
+    ],
+    "recommendation": {
+      "rank": 3,
+      "reason": "Spark lab progression"
+    },
+    "validator_version": "rows-v2",
+    "validation": {
+      "kind": "rows",
+      "ordered": false,
+      "duplicate_sensitive": true,
+      "relative_tolerance": 1e-09,
+      "absolute_tolerance": 1e-06,
+      "required_columns": [
+        "campaign_id",
+        "impressions",
+        "clicks"
+      ],
+      "exact_schema": [
+        "campaign_id",
+        "impressions",
+        "clicks"
+      ],
+      "forbidden_extra_columns": true,
+      "null_semantics": "equal"
+    },
+    "data_context": [
+      {
+        "name": "events",
+        "columns": {
+          "event_id": "INTEGER",
+          "campaign_id": "VARCHAR",
+          "clicked_at": "TIMESTAMP"
+        },
+        "sample_rows": [
+          {
+            "event_id": 1,
+            "campaign_id": "spring",
+            "clicked_at": null
+          },
+          {
+            "event_id": 2,
+            "campaign_id": "spring",
+            "clicked_at": "2026-03-01 10:00:00"
+          },
+          {
+            "event_id": 3,
+            "campaign_id": "spring",
+            "clicked_at": null
+          },
+          {
+            "event_id": 4,
+            "campaign_id": "summer",
+            "clicked_at": "2026-06-01 09:00:00"
+          }
+        ]
+      }
+    ],
+    "output_schema": {
+      "campaign_id": "value",
+      "impressions": "value",
+      "clicks": "value"
+    },
+    "runtime_requirements": [],
+    "provenance": {
+      "source": "Authored for Datapass Workbench: Spark DataFrame pitfalls and plan choices on SparkLab",
+      "fixtures": "Authored for Datapass; expected rows computed from the SparkLab reference solution and reviewed"
+    },
+    "constraints": {
+      "fixtures": "At most 200 rows per table; complete results are graded, truncated results never pass.",
+      "truth": "Real Polars, run by the trusted local Python worker (not a sandbox)."
+    },
+    "truth": "real",
+    "semantic": {
+      "id": "spark-count-column-vs-star",
+      "version": "1",
+      "industry": "Spark lab: DataFrame pitfalls",
+      "learning_objectives": [
+        "count(\"*\") vs count(column): clicks per campaign",
+        "Express the same DataFrame lesson in PySpark and Polars"
+      ],
+      "variants": {
+        "sparklab": "spark-count-column-vs-star",
+        "polars": "spark-count-column-vs-star-polars"
+      },
+      "supported_operations": [
+        "filter",
+        "select",
+        "join",
+        "group_by",
+        "agg",
+        "with_columns",
+        "sort",
+        "over"
+      ],
+      "optimization": "count(\"*\") counts rows, count(col) counts non-NULL values of col, countDistinct(col) counts distinct non-NULL values. A campaign with no click still has impressions and 0 clicks.",
+      "reflection": "Which part of this lesson is Spark-specific, and which holds in any DataFrame engine?"
+    }
   },
   {
     "schema_version": 1,
@@ -640,6 +1200,190 @@
   },
   {
     "schema_version": 1,
+    "id": "spark-null-safe-change-detection-polars",
+    "version": "1",
+    "title": "Detect changed values with eqNullSafe",
+    "difficulty": "medium",
+    "topics": [
+      "nulls",
+      "change-detection",
+      "joins"
+    ],
+    "tags": [
+      "spark-lab",
+      "polars"
+    ],
+    "origin": "authored",
+    "language": "polars",
+    "runtime": "shared-polars-v1",
+    "prompt": "Compare yesterday's and today's customer snapshots. Return the customers present in both whose email changed, including a change from NULL or to NULL. Output customer_id, old_email, new_email.",
+    "sections": [
+      {
+        "title": "Tables",
+        "body": "yesterday(customer_id INTEGER, email VARCHAR)\ntoday(customer_id INTEGER, email VARCHAR)"
+      },
+      {
+        "title": "Polars",
+        "body": "Real Polars in the trusted local Python worker (enable trusted Python first). Each table arrives as a list of row dicts in a variable of the same name; the starter turns them into typed frames. Show the result with display(...). Same lesson and data as the PySpark variant on this card."
+      },
+      {
+        "title": "Output",
+        "body": "Columns in this order: customer_id, old_email, new_email. Row order does not matter."
+      },
+      {
+        "title": "Common pitfall",
+        "body": "old != new is null, not true, when either side is null, so filter drops those changes. ne_missing (PySpark's ~eqNullSafe, SQL IS DISTINCT FROM) treats null as a comparable value."
+      }
+    ],
+    "starter_source": "import polars as pl\n\nyesterday = pl.DataFrame(yesterday, schema={\"customer_id\": pl.Int64, \"email\": pl.String}, orient=\"row\")\ntoday = pl.DataFrame(today, schema={\"customer_id\": pl.Int64, \"email\": pl.String}, orient=\"row\")\nold = yesterday.rename({\"email\": \"old_email\"})\nnew = today.rename({\"email\": \"new_email\"})\n# Bug: a change from or to null is missed.\nresult = old.join(new, on=\"customer_id\", how=\"inner\").filter(pl.col(\"old_email\") != pl.col(\"new_email\"))\ndisplay(result)\n",
+    "fixtures": [
+      {
+        "id": "spark-null-safe-change-detection-polars-fixtures",
+        "version": "1"
+      }
+    ],
+    "visible_checks": [
+      {
+        "id": "example",
+        "description": "Public example: the tables shown in data_context."
+      }
+    ],
+    "hidden_check_refs": [
+      "cleared-and-unchanged-null"
+    ],
+    "edge_check_refs": [
+      "nothing-changed"
+    ],
+    "hints": [
+      "What is the result of null != 'a@b.io' in Polars?",
+      "Polars has null-aware comparisons: eq_missing and ne_missing."
+    ],
+    "solution": {
+      "available": true,
+      "reveal": "explicit"
+    },
+    "explanation": "Change detection must treat NULL as a value: NULL to value and value to NULL are changes, NULL to NULL is not. ~old.eqNullSafe(new) expresses exactly that; a plain != silently drops both NULL cases.",
+    "follow_ups": [
+      "How would you compare several columns at once without writing one condition per column?"
+    ],
+    "canonical_placement": {
+      "domain": "sparklab",
+      "topic": "nulls"
+    },
+    "related_associations": [
+      "sparklab/spark-concepts"
+    ],
+    "recommendation": {
+      "rank": 4,
+      "reason": "Spark lab progression"
+    },
+    "validator_version": "rows-v2",
+    "validation": {
+      "kind": "rows",
+      "ordered": false,
+      "duplicate_sensitive": true,
+      "relative_tolerance": 1e-09,
+      "absolute_tolerance": 1e-06,
+      "required_columns": [
+        "customer_id",
+        "old_email",
+        "new_email"
+      ],
+      "exact_schema": [
+        "customer_id",
+        "old_email",
+        "new_email"
+      ],
+      "forbidden_extra_columns": true,
+      "null_semantics": "equal"
+    },
+    "data_context": [
+      {
+        "name": "yesterday",
+        "columns": {
+          "customer_id": "INTEGER",
+          "email": "VARCHAR"
+        },
+        "sample_rows": [
+          {
+            "customer_id": 1,
+            "email": "ana@a.io"
+          },
+          {
+            "customer_id": 2,
+            "email": "bo@b.io"
+          },
+          {
+            "customer_id": 3,
+            "email": null
+          }
+        ]
+      },
+      {
+        "name": "today",
+        "columns": {
+          "customer_id": "INTEGER",
+          "email": "VARCHAR"
+        },
+        "sample_rows": [
+          {
+            "customer_id": 1,
+            "email": "ana@a.io"
+          },
+          {
+            "customer_id": 2,
+            "email": "bo@new.io"
+          },
+          {
+            "customer_id": 3,
+            "email": "cy@c.io"
+          }
+        ]
+      }
+    ],
+    "output_schema": {
+      "customer_id": "value",
+      "old_email": "value",
+      "new_email": "value"
+    },
+    "runtime_requirements": [],
+    "provenance": {
+      "source": "Authored for Datapass Workbench: Spark DataFrame pitfalls and plan choices on SparkLab",
+      "fixtures": "Authored for Datapass; expected rows computed from the SparkLab reference solution and reviewed"
+    },
+    "constraints": {
+      "fixtures": "At most 200 rows per table; complete results are graded, truncated results never pass.",
+      "truth": "Real Polars, run by the trusted local Python worker (not a sandbox)."
+    },
+    "truth": "real",
+    "semantic": {
+      "id": "spark-null-safe-change-detection",
+      "version": "1",
+      "industry": "Spark lab: DataFrame pitfalls",
+      "learning_objectives": [
+        "Detect changed values with eqNullSafe",
+        "Express the same DataFrame lesson in PySpark and Polars"
+      ],
+      "variants": {
+        "sparklab": "spark-null-safe-change-detection",
+        "polars": "spark-null-safe-change-detection-polars"
+      },
+      "supported_operations": [
+        "filter",
+        "select",
+        "join",
+        "group_by",
+        "agg",
+        "with_columns",
+        "sort",
+        "over"
+      ],
+      "optimization": "Change detection must treat NULL as a value: NULL to value and value to NULL are changes, NULL to NULL is not. ~old.eqNullSafe(new) expresses exactly that; a plain != silently drops both NULL cases.",
+      "reflection": "Which part of this lesson is Spark-specific, and which holds in any DataFrame engine?"
+    }
+  },
+  {
+    "schema_version": 1,
     "id": "spark-full-outer-reconcile",
     "version": "1",
     "title": "Reconcile two systems with a full outer join",
@@ -798,6 +1542,193 @@
       "truth": "Result rows run locally on DuckDB through SparkLab's bounded PySpark subset. Plan checks grade SparkLab's simulated Spark plan, not Apache Spark."
     },
     "truth": "semantic-emulation"
+  },
+  {
+    "schema_version": 1,
+    "id": "spark-full-outer-reconcile-polars",
+    "version": "1",
+    "title": "Reconcile two systems with a full outer join",
+    "difficulty": "medium",
+    "topics": [
+      "joins",
+      "full-outer-join",
+      "reconciliation"
+    ],
+    "tags": [
+      "spark-lab",
+      "polars"
+    ],
+    "origin": "authored",
+    "language": "polars",
+    "runtime": "shared-polars-v1",
+    "prompt": "billing and ledger should hold the same invoices. Return one row per invoice found in either system with status 'missing_in_ledger', 'missing_in_billing', 'amount_mismatch' or 'match'. Amounts are never NULL in the source tables. Output invoice_id, billed_amount, booked_amount, status.",
+    "sections": [
+      {
+        "title": "Tables",
+        "body": "billing(invoice_id INTEGER, billed_amount DOUBLE)\nledger(invoice_id INTEGER, booked_amount DOUBLE)"
+      },
+      {
+        "title": "Polars",
+        "body": "Real Polars in the trusted local Python worker (enable trusted Python first). Each table arrives as a list of row dicts in a variable of the same name; the starter turns them into typed frames. Show the result with display(...). Same lesson and data as the PySpark variant on this card."
+      },
+      {
+        "title": "Output",
+        "body": "Columns in this order: invoice_id, billed_amount, booked_amount, status. Row order does not matter."
+      },
+      {
+        "title": "Common pitfall",
+        "body": "A left join only sees invoices that exist in billing. Polars' full join keeps both key columns (invoice_id and invoice_id_right) unless coalesce=True; PySpark's on=\"invoice_id\" merges them. And inside when/then, a bare string is a column name: wrap labels in pl.lit()."
+      }
+    ],
+    "starter_source": "import polars as pl\n\nbilling = pl.DataFrame(billing, schema={\"invoice_id\": pl.Int64, \"billed_amount\": pl.Float64}, orient=\"row\")\nledger = pl.DataFrame(ledger, schema={\"invoice_id\": pl.Int64, \"booked_amount\": pl.Float64}, orient=\"row\")\n# Bug: invoices that exist only in the ledger are missing.\njoined = billing.join(ledger, on=\"invoice_id\", how=\"left\")\nresult = joined.with_columns(\n    pl.when(pl.col(\"booked_amount\").is_null()).then(pl.lit(\"missing_in_ledger\"))\n    .when(pl.col(\"billed_amount\").is_null()).then(pl.lit(\"missing_in_billing\"))\n    .when(pl.col(\"billed_amount\") != pl.col(\"booked_amount\")).then(pl.lit(\"amount_mismatch\"))\n    .otherwise(pl.lit(\"match\"))\n    .alias(\"status\")\n)\ndisplay(result)\n",
+    "fixtures": [
+      {
+        "id": "spark-full-outer-reconcile-polars-fixtures",
+        "version": "1"
+      }
+    ],
+    "visible_checks": [
+      {
+        "id": "example",
+        "description": "Public example: the tables shown in data_context."
+      }
+    ],
+    "hidden_check_refs": [
+      "disjoint-systems"
+    ],
+    "edge_check_refs": [
+      "empty-billing"
+    ],
+    "hints": [
+      "Which join type keeps the rows of both frames?",
+      "After a Polars full join, print the columns: is there one invoice_id or two?"
+    ],
+    "solution": {
+      "available": true,
+      "reveal": "explicit"
+    },
+    "explanation": "Reconciliation needs every key from both systems: a full outer join. Joining on a column name merges the two invoice_id columns into one, so it is never NULL, while each amount column is NULL on the side where the invoice is missing.",
+    "follow_ups": [
+      "What changes if amounts can be NULL in the source tables?"
+    ],
+    "canonical_placement": {
+      "domain": "sparklab",
+      "topic": "joins"
+    },
+    "related_associations": [
+      "sparklab/spark-concepts"
+    ],
+    "recommendation": {
+      "rank": 5,
+      "reason": "Spark lab progression"
+    },
+    "validator_version": "rows-v2",
+    "validation": {
+      "kind": "rows",
+      "ordered": false,
+      "duplicate_sensitive": true,
+      "relative_tolerance": 1e-09,
+      "absolute_tolerance": 1e-06,
+      "required_columns": [
+        "invoice_id",
+        "billed_amount",
+        "booked_amount",
+        "status"
+      ],
+      "exact_schema": [
+        "invoice_id",
+        "billed_amount",
+        "booked_amount",
+        "status"
+      ],
+      "forbidden_extra_columns": true,
+      "null_semantics": "equal"
+    },
+    "data_context": [
+      {
+        "name": "billing",
+        "columns": {
+          "invoice_id": "INTEGER",
+          "billed_amount": "DOUBLE"
+        },
+        "sample_rows": [
+          {
+            "invoice_id": 1,
+            "billed_amount": 100.0
+          },
+          {
+            "invoice_id": 2,
+            "billed_amount": 50.0
+          },
+          {
+            "invoice_id": 3,
+            "billed_amount": 75.0
+          }
+        ]
+      },
+      {
+        "name": "ledger",
+        "columns": {
+          "invoice_id": "INTEGER",
+          "booked_amount": "DOUBLE"
+        },
+        "sample_rows": [
+          {
+            "invoice_id": 1,
+            "booked_amount": 100.0
+          },
+          {
+            "invoice_id": 2,
+            "booked_amount": 45.0
+          },
+          {
+            "invoice_id": 4,
+            "booked_amount": 20.0
+          }
+        ]
+      }
+    ],
+    "output_schema": {
+      "invoice_id": "value",
+      "billed_amount": "value",
+      "booked_amount": "value",
+      "status": "value"
+    },
+    "runtime_requirements": [],
+    "provenance": {
+      "source": "Authored for Datapass Workbench: Spark DataFrame pitfalls and plan choices on SparkLab",
+      "fixtures": "Authored for Datapass; expected rows computed from the SparkLab reference solution and reviewed"
+    },
+    "constraints": {
+      "fixtures": "At most 200 rows per table; complete results are graded, truncated results never pass.",
+      "truth": "Real Polars, run by the trusted local Python worker (not a sandbox)."
+    },
+    "truth": "real",
+    "semantic": {
+      "id": "spark-full-outer-reconcile",
+      "version": "1",
+      "industry": "Spark lab: DataFrame pitfalls",
+      "learning_objectives": [
+        "Reconcile two systems with a full outer join",
+        "Express the same DataFrame lesson in PySpark and Polars"
+      ],
+      "variants": {
+        "sparklab": "spark-full-outer-reconcile",
+        "polars": "spark-full-outer-reconcile-polars"
+      },
+      "supported_operations": [
+        "filter",
+        "select",
+        "join",
+        "group_by",
+        "agg",
+        "with_columns",
+        "sort",
+        "over"
+      ],
+      "optimization": "Reconciliation needs every key from both systems: a full outer join. Joining on a column name merges the two invoice_id columns into one, so it is never NULL, while each amount column is NULL on the side where the invoice is missing.",
+      "reflection": "Which part of this lesson is Spark-specific, and which holds in any DataFrame engine?"
+    }
   },
   {
     "schema_version": 1,
@@ -964,6 +1895,194 @@
   },
   {
     "schema_version": 1,
+    "id": "spark-join-fanout-before-sum-polars",
+    "version": "1",
+    "title": "Aggregate before joining to avoid fan-out",
+    "difficulty": "hard",
+    "topics": [
+      "joins",
+      "fan-out",
+      "aggregation"
+    ],
+    "tags": [
+      "spark-lab",
+      "polars"
+    ],
+    "origin": "authored",
+    "language": "polars",
+    "runtime": "shared-polars-v1",
+    "prompt": "An order can use several promo codes. For each customer return revenue (the sum of order amounts, each order counted once) and promo_uses (the number of promo codes applied to their orders; 0 when none). Output customer_id, revenue, promo_uses.",
+    "sections": [
+      {
+        "title": "Tables",
+        "body": "orders(order_id INTEGER, customer_id INTEGER, amount DOUBLE)\norder_promos(order_id INTEGER, promo_code VARCHAR)"
+      },
+      {
+        "title": "Polars",
+        "body": "Real Polars in the trusted local Python worker (enable trusted Python first). Each table arrives as a list of row dicts in a variable of the same name; the starter turns them into typed frames. Show the result with display(...). Same lesson and data as the PySpark variant on this card."
+      },
+      {
+        "title": "Output",
+        "body": "Columns in this order: customer_id, revenue, promo_uses. Row order does not matter."
+      },
+      {
+        "title": "Common pitfall",
+        "body": "Joining orders to a one-to-many frame repeats each order once per promo code, so summing amount after the join counts an order several times. Reduce the many side to one row per order first."
+      }
+    ],
+    "starter_source": "import polars as pl\n\norders = pl.DataFrame(orders, schema={\"order_id\": pl.Int64, \"customer_id\": pl.Int64, \"amount\": pl.Float64}, orient=\"row\")\norder_promos = pl.DataFrame(order_promos, schema={\"order_id\": pl.Int64, \"promo_code\": pl.String}, orient=\"row\")\n# Bug: an order with two promo codes is counted twice in revenue.\njoined = orders.join(order_promos, on=\"order_id\", how=\"left\")\nresult = joined.group_by(\"customer_id\").agg(\n    pl.col(\"amount\").sum().alias(\"revenue\"), pl.col(\"promo_code\").count().alias(\"promo_uses\")\n)\ndisplay(result)\n",
+    "fixtures": [
+      {
+        "id": "spark-join-fanout-before-sum-polars-fixtures",
+        "version": "1"
+      }
+    ],
+    "visible_checks": [
+      {
+        "id": "example",
+        "description": "Public example: the tables shown in data_context."
+      }
+    ],
+    "hidden_check_refs": [
+      "three-promos-and-none"
+    ],
+    "edge_check_refs": [
+      "no-promos"
+    ],
+    "hints": [
+      "How many rows does an order with two promo codes have after the join?",
+      "Count promo codes per order first, then join one row per order."
+    ],
+    "solution": {
+      "available": true,
+      "reveal": "explicit"
+    },
+    "explanation": "Joining on a key that is unique on only one side multiplies rows. Aggregate the many side to the join grain first (one row per order), then join and aggregate to the customer grain. The left join keeps orders without promo codes, and coalesce turns their missing count into 0.",
+    "follow_ups": [
+      "How would you detect fan-out in a pipeline before it corrupts a revenue table?"
+    ],
+    "canonical_placement": {
+      "domain": "sparklab",
+      "topic": "joins"
+    },
+    "related_associations": [
+      "sparklab/spark-concepts"
+    ],
+    "recommendation": {
+      "rank": 6,
+      "reason": "Spark lab progression"
+    },
+    "validator_version": "rows-v2",
+    "validation": {
+      "kind": "rows",
+      "ordered": false,
+      "duplicate_sensitive": true,
+      "relative_tolerance": 1e-09,
+      "absolute_tolerance": 1e-06,
+      "required_columns": [
+        "customer_id",
+        "revenue",
+        "promo_uses"
+      ],
+      "exact_schema": [
+        "customer_id",
+        "revenue",
+        "promo_uses"
+      ],
+      "forbidden_extra_columns": true,
+      "null_semantics": "equal"
+    },
+    "data_context": [
+      {
+        "name": "orders",
+        "columns": {
+          "order_id": "INTEGER",
+          "customer_id": "INTEGER",
+          "amount": "DOUBLE"
+        },
+        "sample_rows": [
+          {
+            "order_id": 1,
+            "customer_id": 10,
+            "amount": 100.0
+          },
+          {
+            "order_id": 2,
+            "customer_id": 10,
+            "amount": 50.0
+          },
+          {
+            "order_id": 3,
+            "customer_id": 20,
+            "amount": 80.0
+          }
+        ]
+      },
+      {
+        "name": "order_promos",
+        "columns": {
+          "order_id": "INTEGER",
+          "promo_code": "VARCHAR"
+        },
+        "sample_rows": [
+          {
+            "order_id": 1,
+            "promo_code": "SPRING"
+          },
+          {
+            "order_id": 1,
+            "promo_code": "VIP"
+          },
+          {
+            "order_id": 3,
+            "promo_code": "SPRING"
+          }
+        ]
+      }
+    ],
+    "output_schema": {
+      "customer_id": "value",
+      "revenue": "value",
+      "promo_uses": "value"
+    },
+    "runtime_requirements": [],
+    "provenance": {
+      "source": "Authored for Datapass Workbench: Spark DataFrame pitfalls and plan choices on SparkLab",
+      "fixtures": "Authored for Datapass; expected rows computed from the SparkLab reference solution and reviewed"
+    },
+    "constraints": {
+      "fixtures": "At most 200 rows per table; complete results are graded, truncated results never pass.",
+      "truth": "Real Polars, run by the trusted local Python worker (not a sandbox)."
+    },
+    "truth": "real",
+    "semantic": {
+      "id": "spark-join-fanout-before-sum",
+      "version": "1",
+      "industry": "Spark lab: DataFrame pitfalls",
+      "learning_objectives": [
+        "Aggregate before joining to avoid fan-out",
+        "Express the same DataFrame lesson in PySpark and Polars"
+      ],
+      "variants": {
+        "sparklab": "spark-join-fanout-before-sum",
+        "polars": "spark-join-fanout-before-sum-polars"
+      },
+      "supported_operations": [
+        "filter",
+        "select",
+        "join",
+        "group_by",
+        "agg",
+        "with_columns",
+        "sort",
+        "over"
+      ],
+      "optimization": "Joining on a key that is unique on only one side multiplies rows. Aggregate the many side to the join grain first (one row per order), then join and aggregate to the customer grain. The left join keeps orders without promo codes, and coalesce turns their missing count into 0.",
+      "reflection": "Which part of this lesson is Spark-specific, and which holds in any DataFrame engine?"
+    }
+  },
+  {
+    "schema_version": 1,
     "id": "spark-running-total-ties",
     "version": "1",
     "title": "Running balance when dates tie: RANGE vs ROWS frames",
@@ -1119,6 +2238,191 @@
       "truth": "Result rows run locally on DuckDB through SparkLab's bounded PySpark subset. Plan checks grade SparkLab's simulated Spark plan, not Apache Spark."
     },
     "truth": "semantic-emulation"
+  },
+  {
+    "schema_version": 1,
+    "id": "spark-running-total-ties-polars",
+    "version": "1",
+    "title": "Running balance when dates tie: RANGE vs ROWS frames",
+    "difficulty": "hard",
+    "topics": [
+      "window-functions",
+      "window-frames",
+      "ties"
+    ],
+    "tags": [
+      "spark-lab",
+      "polars"
+    ],
+    "origin": "authored",
+    "language": "polars",
+    "runtime": "shared-polars-v1",
+    "prompt": "For each account return every transaction with running_balance: the sum of that account's amounts up to and including this transaction, in (txn_date, txn_id) order. Two transactions on the same date get different balances. Output account_id, txn_id, txn_date, amount, running_balance.",
+    "sections": [
+      {
+        "title": "Tables",
+        "body": "transactions(account_id VARCHAR, txn_id INTEGER, txn_date DATE, amount DOUBLE)"
+      },
+      {
+        "title": "Polars",
+        "body": "Real Polars in the trusted local Python worker (enable trusted Python first). Each table arrives as a list of row dicts in a variable of the same name; the starter turns them into typed frames. Show the result with display(...). Same lesson and data as the PySpark variant on this card."
+      },
+      {
+        "title": "Output",
+        "body": "Columns in this order: account_id, txn_id, txn_date, amount, running_balance. Row order does not matter."
+      },
+      {
+        "title": "Common pitfall",
+        "body": "An end-of-day balance (PySpark's default RANGE frame) gives every transaction of a day the same total. A Polars window follows the frame's row order, not an ORDER BY: sort by (txn_date, txn_id) before cum_sum, or pass order_by to over()."
+      }
+    ],
+    "starter_source": "import polars as pl\n\ntransactions = pl.DataFrame(transactions, schema={\"account_id\": pl.String, \"txn_id\": pl.Int64, \"txn_date\": pl.String, \"amount\": pl.Float64}, orient=\"row\").with_columns(pl.col(\"txn_date\").str.to_date())\n# Bug: transactions on the same date show the same balance.\ndaily = (\n    transactions.group_by(\"account_id\", \"txn_date\").agg(pl.col(\"amount\").sum().alias(\"day_total\"))\n    .sort(\"account_id\", \"txn_date\")\n    .with_columns(pl.col(\"day_total\").cum_sum().over(\"account_id\").alias(\"running_balance\"))\n    .drop(\"day_total\")\n)\nresult = transactions.join(daily, on=[\"account_id\", \"txn_date\"], how=\"left\")\ndisplay(result)\n",
+    "fixtures": [
+      {
+        "id": "spark-running-total-ties-polars-fixtures",
+        "version": "1"
+      }
+    ],
+    "visible_checks": [
+      {
+        "id": "example",
+        "description": "Public example: the tables shown in data_context."
+      }
+    ],
+    "hidden_check_refs": [
+      "three-way-tie",
+      "unsorted-input"
+    ],
+    "edge_check_refs": [
+      "single-transaction"
+    ],
+    "hints": [
+      "Should two transactions on the same date share a balance?",
+      "cum_sum follows the rows' current order: which order does the prompt ask for?"
+    ],
+    "solution": {
+      "available": true,
+      "reveal": "explicit"
+    },
+    "explanation": "The default frame of an ordered window is RANGE-based, so peers (equal ordering values) share one running total. A unique ordering (txn_date, txn_id) plus an explicit rowsBetween(Window.unboundedPreceding, Window.currentRow) gives one balance per transaction, deterministically.",
+    "follow_ups": [
+      "Why is rowsBetween without the txn_id tie-breaker still unsafe?",
+      "When is the RANGE behavior actually what you want?"
+    ],
+    "canonical_placement": {
+      "domain": "sparklab",
+      "topic": "window-functions"
+    },
+    "related_associations": [
+      "sparklab/spark-concepts"
+    ],
+    "recommendation": {
+      "rank": 7,
+      "reason": "Spark lab progression"
+    },
+    "validator_version": "rows-v2",
+    "validation": {
+      "kind": "rows",
+      "ordered": false,
+      "duplicate_sensitive": true,
+      "relative_tolerance": 1e-09,
+      "absolute_tolerance": 1e-06,
+      "required_columns": [
+        "account_id",
+        "txn_id",
+        "txn_date",
+        "amount",
+        "running_balance"
+      ],
+      "exact_schema": [
+        "account_id",
+        "txn_id",
+        "txn_date",
+        "amount",
+        "running_balance"
+      ],
+      "forbidden_extra_columns": true,
+      "null_semantics": "equal"
+    },
+    "data_context": [
+      {
+        "name": "transactions",
+        "columns": {
+          "account_id": "VARCHAR",
+          "txn_id": "INTEGER",
+          "txn_date": "DATE",
+          "amount": "DOUBLE"
+        },
+        "sample_rows": [
+          {
+            "account_id": "A",
+            "txn_id": 1,
+            "txn_date": "2026-01-01",
+            "amount": 100.0
+          },
+          {
+            "account_id": "A",
+            "txn_id": 2,
+            "txn_date": "2026-01-02",
+            "amount": -30.0
+          },
+          {
+            "account_id": "A",
+            "txn_id": 3,
+            "txn_date": "2026-01-02",
+            "amount": 50.0
+          },
+          {
+            "account_id": "B",
+            "txn_id": 4,
+            "txn_date": "2026-01-01",
+            "amount": 10.0
+          }
+        ]
+      }
+    ],
+    "output_schema": {
+      "account_id": "value",
+      "txn_id": "value",
+      "txn_date": "value",
+      "amount": "value",
+      "running_balance": "value"
+    },
+    "runtime_requirements": [],
+    "provenance": {
+      "source": "Authored for Datapass Workbench: Spark DataFrame pitfalls and plan choices on SparkLab",
+      "fixtures": "Authored for Datapass; expected rows computed from the SparkLab reference solution and reviewed"
+    },
+    "constraints": {
+      "fixtures": "At most 200 rows per table; complete results are graded, truncated results never pass.",
+      "truth": "Real Polars, run by the trusted local Python worker (not a sandbox)."
+    },
+    "truth": "real",
+    "semantic": {
+      "id": "spark-running-total-ties",
+      "version": "1",
+      "industry": "Spark lab: DataFrame pitfalls",
+      "learning_objectives": [
+        "Running balance when dates tie: RANGE vs ROWS frames",
+        "Express the same DataFrame lesson in PySpark and Polars"
+      ],
+      "variants": {
+        "sparklab": "spark-running-total-ties",
+        "polars": "spark-running-total-ties-polars"
+      },
+      "supported_operations": [
+        "filter",
+        "select",
+        "join",
+        "group_by",
+        "agg",
+        "with_columns",
+        "sort",
+        "over"
+      ],
+      "optimization": "The default frame of an ordered window is RANGE-based, so peers (equal ordering values) share one running total. A unique ordering (txn_date, txn_id) plus an explicit rowsBetween(Window.unboundedPreceding, Window.currentRow) gives one balance per transaction, deterministically.",
+      "reflection": "Which part of this lesson is Spark-specific, and which holds in any DataFrame engine?"
+    }
   },
   {
     "schema_version": 1,

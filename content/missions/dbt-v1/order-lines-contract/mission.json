@@ -1,0 +1,148 @@
+{
+  "id": "order-lines-contract",
+  "version": "1",
+  "lab": "dbt",
+  "title": "Promise finance the shape of fct_order_lines",
+  "level": "intermediate",
+  "estimate": "30-45 min",
+  "skills": [
+    "model contracts",
+    "data_type",
+    "unit tests",
+    "dbt build"
+  ],
+  "ticket": {
+    "from": "Priya (finance analytics)",
+    "subject": "Our reconciliation broke again after a refactor",
+    "body": [
+      "Our month-end reconciliation reads `fct_order_lines` directly. Last month a refactor turned `net_amount` into",
+      "a floating-point number and the totals stopped matching the ledger by a few cents; nobody noticed until the",
+      "close. The time before, someone \"fixed\" the discount so it applied to each unit instead of once per line.",
+      "",
+      "Two things, please:",
+      "",
+      "1. Make the shape of `fct_order_lines` a promise dbt enforces at build time: exactly the columns it has",
+      "   today, with their types, and `net_amount` as an exact `decimal(12,2)`. A change that breaks it must fail",
+      "   the build, not reach us.",
+      "2. Pin the `net_amount` rule (quantity × unit price, minus the line's discount taken once) with a test that",
+      "   does not depend on the data of the day, so the next refactor cannot change it silently.",
+      "",
+      "The landing tables are already loaded. Run the whole project when you are done."
+    ]
+  },
+  "acceptance": [
+    {
+      "id": "contract",
+      "text": "fct_order_lines has an enforced contract that declares every column's type, net_amount as decimal(12,2).",
+      "checks": [
+        {
+          "kind": "node",
+          "name": "fct_order_lines",
+          "contract_enforced": true,
+          "column_types": {
+            "order_id": "varchar",
+            "line_number": "integer",
+            "order_date": "date",
+            "customer_id": "varchar",
+            "channel": "varchar",
+            "product_id": "varchar",
+            "product_name": "varchar",
+            "category": "varchar",
+            "quantity": "integer",
+            "net_amount": "decimal(12,2)",
+            "loaded_at": "timestamp"
+          }
+        }
+      ]
+    },
+    {
+      "id": "built-shape",
+      "text": "The table in the warehouse has exactly those columns and types, and the same rows.",
+      "checks": [
+        {
+          "kind": "sql",
+          "sql": "SELECT column_name, data_type FROM information_schema.columns WHERE table_schema = 'dbt_dev_contract' AND table_name = 'fct_order_lines'",
+          "expected": [
+            {"column_name": "order_id", "data_type": "VARCHAR"},
+            {"column_name": "line_number", "data_type": "INTEGER"},
+            {"column_name": "order_date", "data_type": "DATE"},
+            {"column_name": "customer_id", "data_type": "VARCHAR"},
+            {"column_name": "channel", "data_type": "VARCHAR"},
+            {"column_name": "product_id", "data_type": "VARCHAR"},
+            {"column_name": "product_name", "data_type": "VARCHAR"},
+            {"column_name": "category", "data_type": "VARCHAR"},
+            {"column_name": "quantity", "data_type": "INTEGER"},
+            {"column_name": "net_amount", "data_type": "DECIMAL(12,2)"},
+            {"column_name": "loaded_at", "data_type": "TIMESTAMP"}
+          ],
+          "fail": "The built table does not have the promised columns and types."
+        },
+        {
+          "kind": "sql",
+          "sql": "SELECT count(*) AS order_lines, CAST(sum(net_amount) AS DOUBLE) AS net_total FROM dbt_dev_contract.fct_order_lines",
+          "expected": [
+            {"order_lines": 16, "net_total": 3064.0}
+          ],
+          "fail": "The table's rows or totals changed."
+        }
+      ]
+    },
+    {
+      "id": "unit-test",
+      "text": "A dbt unit test on stg_shop__order_lines pins net_amount with rows of its own, and it passes.",
+      "checks": [
+        {
+          "kind": "unit_test",
+          "model": "stg_shop__order_lines",
+          "expect_columns": [
+            "net_amount"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "build",
+      "text": "Your last dbt command was a dbt build of the whole project, and everything passed.",
+      "checks": [
+        {
+          "kind": "run",
+          "command": "build",
+          "no_failures": true,
+          "nodes": {
+            "fct_order_lines": [
+              "success"
+            ]
+          }
+        }
+      ]
+    }
+  ],
+  "hints": [
+    "dbt calls this promise a model contract: `contract: {enforced: true}` in the model's config, and a `data_type` on every column.",
+    "With an enforced contract dbt checks the query's columns and types before it builds the table. What type does `quantity * unit_price - discount_amount` have in DuckDB?",
+    "A dbt unit test (`unit_tests:` in a YAML file) gives a model hand-written input rows and the rows it must return; `dbt build` runs it before the model.",
+    "Give the unit test at least one line with a quantity above 1 and a discount: that is the row that tells the two formulas apart."
+  ],
+  "workspace": {
+    "raw_schema": "contract_raw",
+    "dev_schema": "dbt_dev_contract"
+  },
+  "batches": [
+    {
+      "id": "landing",
+      "label": "The shop's and the ERP's exports",
+      "sql": [
+        "fixtures/erp.sql",
+        "fixtures/shop.sql"
+      ]
+    }
+  ],
+  "reference": [
+    {
+      "batch": "landing"
+    },
+    {
+      "dbt": "build"
+    }
+  ]
+}

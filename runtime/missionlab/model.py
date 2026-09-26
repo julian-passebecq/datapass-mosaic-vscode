@@ -79,6 +79,9 @@ class NodeCheck(CheckBase):
     tags: list[str] = Field(default_factory=list)
     # The compiled or raw SQL must mention these (lower-cased), e.g. is_incremental.
     code_contains: list[str] = Field(default_factory=list)
+    # The model contract (config.contract.enforced) and the data_type each listed column declares in the YAML.
+    contract_enforced: bool | None = None
+    column_types: dict[str, str] = Field(default_factory=dict, max_length=40)
 
 
 class TestCheck(CheckBase):
@@ -88,6 +91,17 @@ class TestCheck(CheckBase):
     model: str = Field(pattern=r'^[A-Za-z0-9_]{1,100}$')
     column: str = Field(pattern=r'^[A-Za-z0-9_]{1,100}$')
     severity: Literal['error', 'warn'] = 'error'
+
+
+class UnitTestCheck(CheckBase):
+    """dbt unit tests (dbt Core 1.8+) of a model in target/manifest.json: how many, which columns their expected rows
+    pin, and that each one passed in the learner's last dbt command."""
+    kind: Literal['unit_test']
+    model: str = Field(pattern=r'^[A-Za-z0-9_]{1,100}$')
+    min_count: int = Field(default=1, ge=1, le=20)
+    # At least one unit test's expected rows give these columns.
+    expect_columns: list[str] = Field(default_factory=list, max_length=20)
+    passed_in_last_run: bool = True
 
 
 class RunCheck(CheckBase):
@@ -460,8 +474,8 @@ class K8sServiceCheck(CheckBase):
     reachable: bool = True
 
 
-Check = Annotated[Union[SqlCheck, NodeCheck, TestCheck, RunCheck, FreshnessConfigCheck, FreshnessResultCheck,
-                        DctValidateCheck, BoardCheck, RenderCheck, FileCheck, AirflowCheck,
+Check = Annotated[Union[SqlCheck, NodeCheck, TestCheck, UnitTestCheck, RunCheck, FreshnessConfigCheck,
+                        FreshnessResultCheck, DctValidateCheck, BoardCheck, RenderCheck, FileCheck, AirflowCheck,
                         PathCheck, TextCheck, ListingCheck, CsvCheck, ScriptCheck, GitRepoCheck, GitBranchCheck,
                         GitLogCheck, GitFileCheck, GitTagCheck, GitIgnoreCheck, GitStashCheck, AnyOfCheck,
                         TfStateCheck, TfPlanCheck, TfConfigCheck, AzureResourceCheck, JournalCheck, DockerImageCheck,
@@ -470,7 +484,8 @@ Check = Annotated[Union[SqlCheck, NodeCheck, TestCheck, RunCheck, FreshnessConfi
                   Field(discriminator='kind')]
 AnyOfCheck.model_rebuild()
 # Check kinds that need the catalog or dbt artifacts, so they belong to the dbt Lab.
-DBT_KINDS = {'sql', 'node', 'test', 'run', 'freshness_config', 'freshness_result', 'dct_validate', 'board', 'render'}
+DBT_KINDS = {'sql', 'node', 'test', 'unit_test', 'run', 'freshness_config', 'freshness_result', 'dct_validate',
+             'board', 'render'}
 GIT_KINDS = {'git_repo', 'git_branch', 'git_log', 'git_file', 'git_tag', 'git_ignore', 'git_stash'}
 # Check kinds that read the Infra Lab's simulated world, so they belong to the Infra Lab.
 INFRA_KINDS = {'tf_state', 'tf_plan', 'tf_config', 'azure_resource', 'journal', 'docker_image', 'docker_build',

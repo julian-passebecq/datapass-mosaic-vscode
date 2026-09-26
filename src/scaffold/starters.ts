@@ -39,6 +39,22 @@ export function scratchSpec(kind: ScratchKind): { fileName: string; content: str
           ""
         ].join("\n")
       };
+    case "polars":
+      return {
+        fileName: "polars.py",
+        content: [
+          "# Datapass Polars scratch: the single-machine alternative to the SparkLab scratch.",
+          "# Real Polars, run as local Python only after you enable trusted local Python for this",
+          "# workspace (the worker is not a security sandbox). query(sql) reads the shared catalog",
+          "# as row dicts. End with a LazyFrame to see Polars' own optimized plan next to the result.",
+          "import polars as pl",
+          "",
+          "orders = pl.DataFrame(query(\"SELECT * FROM source.orders\")).lazy()",
+          "revenue = orders.filter(pl.col(\"net_amount\") > 0).group_by(\"customer_id\").agg(pl.col(\"net_amount\").sum().alias(\"revenue\"))",
+          "revenue",
+          ""
+        ].join("\n")
+      };
     case "notes":
       return {
         fileName: "mosaic.md",

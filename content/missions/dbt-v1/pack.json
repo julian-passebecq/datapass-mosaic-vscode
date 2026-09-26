@@ -10,6 +10,8 @@
     "source-freshness",
     "incremental-order-lines",
     "backfill-daily-sales",
+    "product-price-history",
+    "order-lines-contract",
     "sales-board"
   ]
 }
