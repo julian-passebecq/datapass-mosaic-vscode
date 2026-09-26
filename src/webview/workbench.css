@@ -42,6 +42,50 @@ h2 { margin-bottom: 8px; font-size: 28px; }
   flex-wrap: wrap;
   min-width: 0;
 }
+/* Two rows: Today and the families, then the modules of the selected family (content/modules.json). Both wrap in a
+   narrow Workbench; doubled classes for the same reason as .lab-subtabs. */
+.family-tabs.family-tabs, .family-modules.family-modules { flex-wrap: wrap; min-width: 0; }
+.family-modules.family-modules { border-top: 1px solid var(--vscode-panel-border); }
+
+/* Today home. */
+.home-surface { display: grid; gap: 16px; min-width: 0; }
+.home-surface > .module-heading { margin-bottom: 0; }
+.home-card, .home-family {
+  display: grid;
+  gap: 10px;
+  align-content: start;
+  min-width: 0;
+  padding: 14px;
+  border: 1px solid var(--vscode-panel-border);
+  border-radius: 6px;
+  background: var(--vscode-editorWidget-background, transparent);
+}
+.home-next { border-left: 3px solid var(--vscode-focusBorder, #1e88e5); }
+.home-next-title { overflow-wrap: anywhere; }
+.home-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 14px; min-width: 0; }
+.home-card-head { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: 4px 12px; min-width: 0; }
+.home-project { display: grid; gap: 4px; min-width: 0; }
+.home-project-title { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.home-stack { padding: 0; }
+.home-error { margin: 0; }
+.home-modules { display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 8px; min-width: 0; }
+.home-module {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+  padding: 8px 10px;
+  text-align: left;
+  color: var(--vscode-foreground);
+  background: transparent;
+  border: 1px solid var(--vscode-panel-border);
+  border-radius: 4px;
+  cursor: pointer;
+  overflow-wrap: anywhere;
+}
+.home-module:hover { background: var(--vscode-list-hoverBackground); }
+.home-module:focus-visible { outline: 1px solid var(--vscode-focusBorder); outline-offset: 1px; }
+.home-module .muted { font-size: 12px; }
+
 .content-grid {
   display: grid;
   grid-template-columns: minmax(0, 1fr) 320px;

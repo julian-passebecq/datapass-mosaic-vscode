@@ -8,8 +8,9 @@
 // 4. Mosaic: the SQL scratch file, Run active SQL, the result row in the webview.
 // 5. Practice: Submit the first exercise's starter; the runtime grades it.
 // 5b. Infra Lab: a mission started, its commands typed in the simulated terminal, Check my work passes.
-// 6. Layout: every module tab, and every lab sub-tab, at a narrow Workbench width. No element may stick out of the
-//    webview (the PR #17 class of bug); a screenshot of each lands in the output folder.
+// 6. Layout: the Today home, every module reached through the family tabs, and every lab sub-tab, at a narrow
+//    Workbench width. No element may stick out of the webview (the PR #17 class of bug); a screenshot of each lands
+//    in the output folder.
 // 7. Stop runtime.
 // 8. Upgrade: the managed venv is made to look like an older VSIX set it up (another runtime fingerprint in its
 //    marker, a changed installed module); after a window reload the Workbench must report it stale ("needs update",
@@ -384,25 +385,41 @@ try {
   const planted = await web().locator("body").evaluate(overflowProbe, { plant: true });
   const seen = planted.offenders.some(text => text.startsWith("div#ui-pass-overflow"));
   step("Overflow probe detects a planted too-wide block", seen, seen ? "" : JSON.stringify(planted));
-  const tabs = await web().locator("nav.module-tabs [role=tab]").allInnerTexts();
-  step("Module tabs listed", tabs.length >= 9, tabs.join(", "));
-  for (const tab of tabs) {
-    await web().locator("nav.module-tabs").getByRole("tab", { name: tab, exact: true }).click();
-    await web().locator("nav.module-tabs [role=tab][aria-selected=true]", { hasText: tab }).waitFor();
-    await checkLayout(tab);
-    if (tab === "SparkLab / ZilaCode") {
-      // The Polars engine swaps the cluster controls for the trusted Python control.
-      await web().locator(".sparklab-runbar select").first().selectOption("polars");
-      await button("Run active file with Polars").waitFor();
-      await checkLayout(`${tab} › Polars engine`);
-      await web().locator(".sparklab-runbar select").first().selectOption("sparklab");
-    }
-    const subtabs = await web().locator(".lab-subtabs [role=tab]").allInnerTexts();
-    for (const subtab of subtabs.slice(1)) {
-      await web().locator(".lab-subtabs").getByRole("tab", { name: subtab, exact: true }).click();
-      await checkLayout(`${tab} › ${subtab}`);
+  // Navigation by families (content/modules.json): Today, then each family's module tabs, every module reached.
+  const nav = web().locator("nav.module-tabs");
+  await nav.locator(".family-tabs").getByRole("tab", { name: "Today", exact: true }).click();
+  await web().locator(".home-surface .home-next").waitFor({ timeout: 60000 });
+  await checkLayout("Today");
+  const families = (await nav.locator(".family-tabs [role=tab]").allInnerTexts()).filter(name => name !== "Today");
+  const tabs = [];
+  for (const family of families) {
+    await nav.locator(".family-tabs").getByRole("tab", { name: family, exact: true }).click();
+    await nav.locator(".family-tabs [role=tab][aria-selected=true]", { hasText: family }).waitFor();
+    await nav.locator(".family-modules [role=tab]").first().waitFor();
+    const modules = await nav.locator(".family-modules [role=tab]").allInnerTexts();
+    for (const tab of modules) {
+      tabs.push(tab);
+      await nav.locator(".family-modules").getByRole("tab", { name: tab, exact: true }).click();
+      await nav.locator(".family-modules [role=tab][aria-selected=true]", { hasText: tab }).waitFor();
+      await checkLayout(`${family} › ${tab}`);
+      if (tab === "SparkLab / ZilaCode") {
+        // The Polars engine swaps the cluster controls for the trusted Python control.
+        await web().locator(".sparklab-runbar select").first().selectOption("polars");
+        await button("Run active file with Polars").waitFor();
+        await checkLayout(`${tab} › Polars engine`);
+        await web().locator(".sparklab-runbar select").first().selectOption("sparklab");
+      }
+      const subtabs = await web().locator(".lab-subtabs [role=tab]").allInnerTexts();
+      for (const subtab of subtabs.slice(1)) {
+        await web().locator(".lab-subtabs").getByRole("tab", { name: subtab, exact: true }).click();
+        await checkLayout(`${tab} › ${subtab}`);
+      }
     }
   }
+  const registry = JSON.parse(readFileSync(path.join(repo, "content", "modules.json"), "utf8"));
+  const missing = registry.modules.map(module => module.label).filter(label => !tabs.includes(label));
+  step("Every module reached through the family navigation", families.length === registry.families.length && !missing.length,
+    `${families.join(" / ")}: ${tabs.length} modules${missing.length ? `; missing ${missing.join(", ")}` : ""}`);
   await setWindowWidth(1280);
 
   // --- One action per lab ---------------------------------------------------------------------------------------
@@ -417,7 +434,7 @@ try {
     let ok = false;
     try {
       await command(commandTitle);
-      await web().locator("nav.module-tabs [role=tab][aria-selected=true]").waitFor({ timeout: 60000 });
+      await web().locator("nav.module-tabs .family-modules [role=tab][aria-selected=true]").waitFor({ timeout: 60000 });
       await act();
       const deadline = Date.now() + timeoutMs;
       let pending = checks;

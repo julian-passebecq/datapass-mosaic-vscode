@@ -38,6 +38,11 @@ export function activate(context: vscode.ExtensionContext): void {
     ...registerCatalogTree(runtimeManager, () => WorkbenchPanel.show(context, runtimeManager, pythonTrust, "mosaic", dbtLab))
   );
 
+  context.subscriptions.push(
+    vscode.commands.registerCommand("datapass.openHome", () => {
+      void WorkbenchPanel.show(context, runtimeManager, pythonTrust, "home", dbtLab);
+    })
+  );
   for (const module of MODULES) {
     context.subscriptions.push(
       vscode.commands.registerCommand(module.command, () => {

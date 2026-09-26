@@ -3,7 +3,7 @@
  * views, the slice of the runtime state and of the Workbench state it adds, and the messages its surface sends; this
  * file composes them. A new lab adds one file and one line to each composition below.
  */
-import type { ModuleId, WorkbenchModule } from "../../modules";
+import type { WorkbenchModule, WorkbenchView } from "../../modules";
 import type { AirflowMessage, AirflowRuntimeSlice, AirflowViewSlice } from "./airflow";
 import type { BiMessage, BiRuntimeSlice, BiViewSlice } from "./bi";
 import type { DbtMessage, DbtViewSlice } from "./dbt";
@@ -16,7 +16,7 @@ import type { PracticeMessage, PracticeRuntimeSlice, PracticeViewSlice } from ".
 import type { ProjectsMessage, ProjectsViewSlice } from "./projects";
 import type { SparkLabMessage, SparkLabRuntimeSlice, SparkLabViewSlice } from "./sparklab";
 import type { TerminalMessage, TerminalViewSlice } from "./terminal";
-import type { PythonTrustView, WorkbenchFocus, WorkbenchMessage, WorkbenchRuntimeSlice, WorkspaceViewState } from "./workbench";
+import type { HomeViewSlice, PythonTrustView, WorkbenchFocus, WorkbenchMessage, WorkbenchRuntimeSlice, WorkspaceViewState } from "./workbench";
 
 export * from "./airflow";
 export * from "./bi";
@@ -54,8 +54,10 @@ export interface WorkbenchViewState
     DbtViewSlice,
     TerminalViewSlice,
     InfraViewSlice,
-    ProjectsViewSlice {
-  selectedModule: ModuleId;
+    ProjectsViewSlice,
+    HomeViewSlice {
+  /** "home" (the Today page) or the module shown. */
+  selectedModule: WorkbenchView;
   modules: readonly WorkbenchModule[];
   workspace: WorkspaceViewState;
   runtime: RuntimeViewState;

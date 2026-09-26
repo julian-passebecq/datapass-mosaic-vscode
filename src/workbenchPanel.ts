@@ -1,7 +1,7 @@
 import * as vscode from "vscode";
 import { createLabControllers } from "./labs/controllers";
 import { buildMessageTable, type LabController, type LabServices, type WorkbenchHost } from "./labs/host";
-import type { ModuleId } from "./modules";
+import type { ModuleId, WorkbenchView } from "./modules";
 import type { PythonTrustController } from "./pythonTrustController";
 import type { RuntimeManager } from "./runtimeManager";
 import { contentSecurityPolicy, makeNonce } from "./webview/security";
@@ -19,7 +19,7 @@ export class WorkbenchPanel implements WorkbenchHost {
     context: vscode.ExtensionContext,
     runtimeManager: RuntimeManager,
     pythonTrust: PythonTrustController,
-    initialModule: ModuleId,
+    initialModule: WorkbenchView,
     services: LabServices
   ): Promise<void> {
     if (WorkbenchPanel.current) {
@@ -50,7 +50,7 @@ export class WorkbenchPanel implements WorkbenchHost {
     );
   }
 
-  selectedModule: ModuleId;
+  selectedModule: WorkbenchView;
   private readonly disposables: vscode.Disposable[] = [];
   /** Last focused file per extension, so "Run active ..." works when the Workbench shares a tab group with it. */
   private readonly lastDocuments = new Map<string, vscode.Uri>();
@@ -67,7 +67,7 @@ export class WorkbenchPanel implements WorkbenchHost {
     readonly context: vscode.ExtensionContext,
     readonly runtime: RuntimeManager,
     readonly pythonTrust: PythonTrustController,
-    initialModule: ModuleId,
+    initialModule: WorkbenchView,
     readonly services: LabServices
   ) {
     this.selectedModule = initialModule;
@@ -76,7 +76,7 @@ export class WorkbenchPanel implements WorkbenchHost {
     this.controllers = Object.values(createLabControllers(this));
     this.messageTable = buildMessageTable(this.controllers);
     // Saving a file refreshes the labs whose view reads workspace files, and any module when the manifest changes.
-    const refreshOnSave = new Set(this.controllers.map(controller => controller.refreshOnSave));
+    const refreshOnSave = new Set<WorkbenchView | undefined>(this.controllers.map(controller => controller.refreshOnSave));
 
     this.disposables.push(
       this.panel.onDidDispose(() => this.dispose()),
@@ -105,6 +105,11 @@ export class WorkbenchPanel implements WorkbenchHost {
   showModule(module: ModuleId, focus?: Omit<WorkbenchFocus, "module" | "seq">): void {
     this.selectedModule = module;
     this.focus = focus ? { module, ...focus, seq: ++this.focusSeq } : undefined;
+  }
+
+  showHome(): void {
+    this.selectedModule = "home";
+    this.focus = undefined;
   }
 
   lastDocument(extension: ".sql" | ".py"): vscode.Uri | undefined {
