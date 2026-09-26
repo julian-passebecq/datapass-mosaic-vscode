@@ -344,19 +344,19 @@ try {
   await shot("practice-submit");
 
   // --- Infra Lab ------------------------------------------------------------------------------------------------
-  // Start the SHIR alerts mission, type its commands in the simulated terminal (a Pseudoterminal: no process runs;
+  // Start the ETL VM alerts mission, type its commands in the simulated terminal (a Pseudoterminal: no process runs;
   // each line goes to the runtime's simulators), then Check my work.
   await command("Datapass: Open Infra Lab");
   await web().getByRole("tab", { name: "Infra Lab", selected: true }).waitFor({ timeout: 60000 });
-  await web().locator(".mission-card", { hasText: "self-hosted integration runtime" }).click();
+  await web().locator(".mission-card", { hasText: "Catch the ETL VM" }).click();
   await button("Start mission").click();
-  const infraFolder = path.join(workspace, "missions", "page-on-shir-outage");
+  const infraFolder = path.join(workspace, "missions", "etl-vm-memory-leak");
   const journalFile = path.join(infraFolder, ".infralab", "journal.jsonl");
   const terminalInput = page.locator(".terminal-wrapper.active .xterm-helper-textarea, .terminal .xterm-helper-textarea").last();
   await page.locator(".terminal-tab, .single-terminal-tab", { hasText: "Infra Lab (simulated)" }).first().waitFor({ timeout: 60000 })
     .catch(() => undefined);
   await terminalInput.waitFor({ timeout: 60000 });
-  const infraMission = JSON.parse(readFileSync(path.join(repo, "content", "missions", "infra-v1", "page-on-shir-outage", "mission.json"), "utf8"));
+  const infraMission = JSON.parse(readFileSync(path.join(repo, "content", "missions", "infra-v1", "etl-vm-memory-leak", "mission.json"), "utf8"));
   const lines = infraMission.reference.map(item => item.infra);
   const journalLines = () => existsSync(journalFile) ? readFileSync(journalFile, "utf8").split("\n").filter(Boolean).length : 0;
   for (const [index, line] of lines.entries()) {

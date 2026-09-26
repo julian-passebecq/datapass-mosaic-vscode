@@ -1,0 +1,17 @@
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: orders-api
+  namespace: shop
+spec:
+  ingressClassName: nginx
+  rules:
+    - host: shop.contoso.test
+      http:
+        paths:
+          - path: /api
+            backend:
+              service:
+                name: orders-api
+                port:
+                  name: http

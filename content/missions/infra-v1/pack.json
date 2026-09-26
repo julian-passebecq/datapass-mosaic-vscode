@@ -6,8 +6,12 @@
   "description": "Tickets from the platform team, done with terraform, docker, kubectl and az typed in the Infra Lab's simulated shell. Everything is simulated: nothing is provisioned, built or deployed, and your files are read, never executed.",
   "missions": [
     "lake-landing-zone",
+    "datalake-module",
     "containerize-ingest-api",
+    "compose-keep-the-data",
     "page-on-shir-outage",
-    "zero-downtime-rollout"
+    "etl-vm-memory-leak",
+    "zero-downtime-rollout",
+    "black-friday-autoscale"
   ]
 }

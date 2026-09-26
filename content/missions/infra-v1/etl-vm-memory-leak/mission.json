@@ -1,0 +1,142 @@
+{
+  "id": "etl-vm-memory-leak",
+  "version": "1",
+  "lab": "infra",
+  "title": "Catch the ETL VM before it runs out of memory",
+  "level": "intermediate",
+  "estimate": "30-45 min",
+  "skills": ["az monitor metrics list", "Available Memory Bytes and VmAvailabilityMetric", "metric alert aggregation, window and frequency", "fixing an existing alert rule", "lab alerts replay"],
+  "ticket": {
+    "from": "Lena Brandt, data platform on-call lead",
+    "subject": "vm-etl-02 crashed at 04:05 and nobody was paged",
+    "body": [
+      "Last night `vm-etl-02` (the Linux VM that runs our Python ETL) ran out of memory: the loader leaks slowly all",
+      "evening, the kernel killed it at 04:05 and the VM rebooted. The morning loads were late and the first person",
+      "to notice was the finance team at 07:30. Tom had set up `etl-vm-memory-low` a while ago, but it never paged.",
+      "",
+      "- **Fix Tom's rule, keep its name** (`etl-vm-memory-low`, our runbook links to it). It must page",
+      "  `ag-data-oncall` (severity 2 or more urgent) at least 20 minutes before the crash, while there is still time to",
+      "  restart the loader. The nightly batch at 01:00 briefly uses a lot of memory: that is normal and must not page.",
+      "- **Page when the VM is down**: a second rule on the VM's availability, severity 0 or 1, to `ag-data-oncall`,",
+      "  within five minutes of the VM going down.",
+      "",
+      "The metrics of the last 24 hours are in Azure Monitor (`az monitor metrics list`). When your rules are ready,",
+      "replay last night against them (`lab alerts replay`) and send me the output.",
+      "",
+      "This is the lab's simulated subscription: nothing is sent to Azure."
+    ]
+  },
+  "acceptance": [
+    {
+      "id": "memory-early",
+      "text": "etl-vm-memory-low pages ag-data-oncall (sev 0-2) between 03:20 and 03:45, and stays silent during the 01:00 batch.",
+      "checks": [
+        {"kind": "azure_alert", "scope": "vm-etl-02", "metric": "Available Memory Bytes", "max_severity": 2, "action_group": "ag-data-oncall",
+         "fires": [["2026-10-09T03:20:00Z", "2026-10-09T03:45:00Z"]],
+         "quiet": [["2026-10-08T08:00:00Z", "2026-10-09T03:14:59Z"]],
+         "fail": "The memory alert would not have paged as the ticket asks:"},
+        {"kind": "journal", "includes": ["^az monitor metrics alert (create|update) .*(-n|--name)[ =]etl-vm-memory-low( |$)"],
+         "fail": "Tom's rule etl-vm-memory-low was not fixed (it must keep its name)."}
+      ]
+    },
+    {
+      "id": "vm-down",
+      "text": "A rule on VmAvailabilityMetric pages ag-data-oncall (sev 0-1) within five minutes of the 04:05 crash.",
+      "checks": [
+        {"kind": "azure_alert", "scope": "vm-etl-02", "metric": "VmAvailabilityMetric", "max_severity": 1, "action_group": "ag-data-oncall",
+         "fires": [["2026-10-09T04:05:00Z", "2026-10-09T04:10:00Z"]],
+         "quiet": [["2026-10-08T08:00:00Z", "2026-10-09T04:04:59Z"]],
+         "fail": "The availability alert would not have paged as the ticket asks:"}
+      ]
+    },
+    {
+      "id": "replayed",
+      "text": "You replayed last night against your rules after their last change.",
+      "checks": [
+        {"kind": "journal", "includes": ["^lab alerts replay"], "before": [["^az monitor metrics alert (create|update|delete)", "^lab alerts replay"]],
+         "fail": "The rules were not replayed after their last change."}
+      ]
+    }
+  ],
+  "hints": [
+    "`az monitor metrics alert list -g rg-etl-prod -o table` shows Tom's rule: look at its threshold, aggregation, window and severity, and at who it notifies.",
+    "`az monitor metrics list --resource vm-etl-02 --metric \"Available Memory Bytes\" --interval 15m` shows the leak and the 01:00 batch. Memory is in bytes: 1 GiB is 1073741824.",
+    "The lab's `az monitor metrics alert update` does not change a condition: delete the rule and create it again with the same name.",
+    "A threshold that is too high also catches the 01:00 batch; one that is too low (or a long window) pages after the crash. A 15-minute average smooths the noise.",
+    "VmAvailabilityMetric is 1 while the VM is up and 0 while it is down: `avg VmAvailabilityMetric < 1` over 5 minutes catches the reboot; `max` over the same window would not.",
+    "`lab alerts replay` prints when each rule would have fired last night: run it after your last change."
+  ],
+  "infra": {
+    "world": {
+      "clock": "2026-10-09T08:00:00Z",
+      "azure": {
+        "resources": {
+          "/subscriptions/6d1f2c3a-0b4e-4c8d-9a7f-2e5b8c1d4f60/resourceGroups/rg-etl-prod": {
+            "type": "Microsoft.Resources/resourceGroups", "tf_type": "azurerm_resource_group",
+            "id": "/subscriptions/6d1f2c3a-0b4e-4c8d-9a7f-2e5b8c1d4f60/resourceGroups/rg-etl-prod",
+            "managed_by": "terraform", "created_at": "2025-06-12T09:00:00Z",
+            "attributes": {"id": "/subscriptions/6d1f2c3a-0b4e-4c8d-9a7f-2e5b8c1d4f60/resourceGroups/rg-etl-prod",
+                           "name": "rg-etl-prod", "location": "westeurope", "managed_by": null,
+                           "tags": {"owner": "data-platform", "env": "prod"}}
+          },
+          "/subscriptions/6d1f2c3a-0b4e-4c8d-9a7f-2e5b8c1d4f60/resourceGroups/rg-etl-prod/providers/Microsoft.Compute/virtualMachines/vm-etl-02": {
+            "type": "Microsoft.Compute/virtualMachines", "tf_type": "azurerm_linux_virtual_machine",
+            "id": "/subscriptions/6d1f2c3a-0b4e-4c8d-9a7f-2e5b8c1d4f60/resourceGroups/rg-etl-prod/providers/Microsoft.Compute/virtualMachines/vm-etl-02",
+            "managed_by": "terraform", "created_at": "2025-06-12T09:00:00Z",
+            "attributes": {"id": "/subscriptions/6d1f2c3a-0b4e-4c8d-9a7f-2e5b8c1d4f60/resourceGroups/rg-etl-prod/providers/Microsoft.Compute/virtualMachines/vm-etl-02",
+                           "name": "vm-etl-02", "location": "westeurope", "size": "Standard_E2s_v5", "os_type": "Linux",
+                           "power_state": "VM running", "tags": {"role": "python-etl"}},
+            "metrics": {
+              "end": "2026-10-09T08:00:00Z",
+              "minutes": 1440,
+              "series": {
+                "Available Memory Bytes": {
+                  "unit": "Bytes", "description": "Memory available to applications (16 GiB VM)",
+                  "base": 9000000000.0, "noise": 150000000.0, "min": 0,
+                  "events": [
+                    {"from": "2026-10-08T20:00:00Z", "minutes": 485, "value": 300000000.0, "ramp": 485, "noise": 60000000.0},
+                    {"from": "2026-10-09T01:00:00Z", "minutes": 20, "value": 1650000000.0, "noise": 60000000.0},
+                    {"from": "2026-10-09T04:05:00Z", "minutes": 4, "value": 0}
+                  ]
+                },
+                "Percentage CPU": {
+                  "unit": "Percent", "description": "The percentage of allocated compute units in use by the VM",
+                  "base": 18, "noise": 6, "max": 100,
+                  "events": [
+                    {"from": "2026-10-09T01:00:00Z", "minutes": 20, "value": 92, "noise": 3},
+                    {"from": "2026-10-09T03:40:00Z", "minutes": 25, "value": 99, "noise": 1},
+                    {"from": "2026-10-09T04:05:00Z", "minutes": 4, "value": 0}
+                  ]
+                },
+                "VmAvailabilityMetric": {
+                  "unit": "Count", "description": "1 while the VM is up, 0 while it is not available",
+                  "base": 1, "noise": 0,
+                  "events": [{"from": "2026-10-09T04:05:00Z", "minutes": 4, "value": 0}]
+                }
+              }
+            }
+          },
+          "/subscriptions/6d1f2c3a-0b4e-4c8d-9a7f-2e5b8c1d4f60/resourceGroups/rg-etl-prod/providers/Microsoft.Insights/actionGroups/ag-data-oncall": {
+            "type": "Microsoft.Insights/actionGroups", "tf_type": "azurerm_monitor_action_group",
+            "id": "/subscriptions/6d1f2c3a-0b4e-4c8d-9a7f-2e5b8c1d4f60/resourceGroups/rg-etl-prod/providers/Microsoft.Insights/actionGroups/ag-data-oncall",
+            "managed_by": "portal", "created_at": "2025-06-12T09:00:00Z",
+            "attributes": {"id": "/subscriptions/6d1f2c3a-0b4e-4c8d-9a7f-2e5b8c1d4f60/resourceGroups/rg-etl-prod/providers/Microsoft.Insights/actionGroups/ag-data-oncall",
+                           "name": "ag-data-oncall", "short_name": "dataoncall",
+                           "receivers": ["sms: on-call phone", "email: data-oncall@contoso.example", "webhook: #data-incidents"]}
+          }
+        }
+      }
+    },
+    "setup": [
+      "az monitor metrics alert create -n etl-vm-memory-low -g rg-etl-prod --scopes vm-etl-02 --condition \"avg Available Memory Bytes < 500000000\" --window-size 5m --evaluation-frequency 5m --severity 3 --description \"Tom: memory low on the ETL VM\""
+    ]
+  },
+  "reference": [
+    {"infra": "az monitor metrics alert list -g rg-etl-prod -o table"},
+    {"infra": "az monitor metrics list --resource vm-etl-02 --metric \"Available Memory Bytes\" --interval 15m"},
+    {"infra": "az monitor metrics alert delete -n etl-vm-memory-low -g rg-etl-prod"},
+    {"infra": "az monitor metrics alert create -n etl-vm-memory-low -g rg-etl-prod --scopes vm-etl-02 --condition \"avg Available Memory Bytes < 1073741824\" --window-size 15m --evaluation-frequency 5m --severity 2 --action ag-data-oncall --description \"The ETL loader is leaking: restart it before the VM runs out of memory\""},
+    {"infra": "az monitor metrics alert create -n etl-vm-unavailable -g rg-etl-prod --scopes vm-etl-02 --condition \"avg VmAvailabilityMetric < 1\" --window-size 5m --evaluation-frequency 1m --severity 1 --action ag-data-oncall --description \"vm-etl-02 is down\""},
+    {"infra": "lab alerts replay"}
+  ]
+}

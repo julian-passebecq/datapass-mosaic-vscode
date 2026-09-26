@@ -7,9 +7,10 @@ the simulated subscription in `.infralab/world.json`, which apply changes throug
 with a reminder that nothing was provisioned.
 
 Supported: terraform / provider / variable (type, default, validation, sensitive) / locals / resource / data /
-output / moved / import blocks, `.tfvars`, `-var`, `-var-file`, count, for_each, depends_on, lifecycle
-(prevent_destroy, create_before_destroy, ignore_changes). Refused with a message: modules, backends other than local,
-provisioners, saved plan files, -target.
+output / moved / import blocks, local modules (a `module` block whose source is a folder inside the working
+directory: inputs, outputs, nested calls), `.tfvars`, `-var`, `-var-file`, count, for_each, depends_on, lifecycle
+(prevent_destroy, create_before_destroy, ignore_changes); `fmt -check` (tffmt.py). Refused with a message: registry and
+Git modules, count or for_each on a module, backends other than local, provisioners, saved plan files, -target.
 """
 from __future__ import annotations
 
@@ -22,13 +23,15 @@ from pathlib import Path
 from typing import Any
 import uuid
 
-from . import azurerm, hcl, tfexpr, world as worldlib
+from . import azurerm, hcl, tfexpr, tffmt, world as worldlib
 from .hcl import HclError
 from .tfexpr import UNKNOWN, EvalError, Scope, is_unknown
 
 STATE_FILE = 'terraform.tfstate'
 TERRAFORM_VERSION = '1.9.8'
 MAX_FILES = 40
+MAX_MODULE_DEPTH = 3
+MODULE_META = {'source', 'version', 'depends_on', 'providers', 'count', 'for_each'}
 META_ARGS = {'count', 'for_each', 'depends_on', 'provider', 'lifecycle'}
 SIMULATED_FOOTER = '\x1b[2m[simulated: Terraform and azurerm are simulated by Datapass; nothing was provisioned in Azure]\x1b[0m'
 
@@ -63,8 +66,17 @@ class Failed(Exception):
         self.diags = diags
 
 
+class InputError(EvalError):
+    """A module input that does not suit its variable (type or validation), with Terraform's summary."""
+
+    def __init__(self, summary: str, message: str, file: str = '', line: int = 0):
+        super().__init__(message, file, line, 0)
+        self.summary = summary
+
+
 def from_hcl(error: HclError, context: str = '') -> Diag:
-    summary = 'Invalid expression' if isinstance(error, EvalError) else 'Invalid configuration syntax'
+    summary = getattr(error, 'summary', None) or (
+        'Invalid expression' if isinstance(error, EvalError) else 'Invalid configuration syntax')
     return Diag(summary, error.message, error.file, error.line, context)
 
 
@@ -90,10 +102,12 @@ class ResourceConfig:
     for_each: hcl.Attribute | None = None
     depends_on: list[str] = field(default_factory=list)
     lifecycle: Lifecycle = field(default_factory=Lifecycle)
+    module: str = ''        # '' for the root module, else its path: module.lake (module.lake.module.inner)
 
     @property
     def address(self) -> str:
-        return f'data.{self.type}.{self.name}' if self.mode == 'data' else f'{self.type}.{self.name}'
+        local = f'data.{self.type}.{self.name}' if self.mode == 'data' else f'{self.type}.{self.name}'
+        return f'{self.module}.{local}' if self.module else local
 
     @property
     def context(self) -> str:
@@ -123,7 +137,19 @@ class OutputConfig:
 
 
 @dataclass
+class ModuleCall:
+    name: str
+    source: str
+    inputs: dict[str, hcl.Attribute]
+    file: str
+    line: int
+    depends_on: list[str] = field(default_factory=list)
+
+
+@dataclass
 class Config:
+    """One module's configuration. The root's `resources` holds every module's resources, by full address, and its
+    `module_configs` every module by path ('' is the root)."""
     files: list[str] = field(default_factory=list)
     variables: dict[str, VariableConfig] = field(default_factory=dict)
     locals: dict[str, hcl.Attribute] = field(default_factory=dict)
@@ -134,6 +160,11 @@ class Config:
     providers: dict[str, str] = field(default_factory=dict)       # local name -> source
     provider_blocks: dict[str, hcl.Block] = field(default_factory=dict)
     warnings: list[Diag] = field(default_factory=list)
+    modules: dict[str, ModuleCall] = field(default_factory=dict)
+    path: str = ''
+    dir: str = '.'
+    parent: str | None = None
+    module_configs: dict[str, 'Config'] = field(default_factory=dict)
 
 
 def literal_string(attr: hcl.Attribute | None) -> str | None:
@@ -159,34 +190,117 @@ def reference_address(node: hcl.Node, file: str) -> str:
     if not isinstance(current, hcl.Var):
         raise HclError('expected a resource address such as azurerm_resource_group.main', file, node.line, node.col)
     parts.insert(0, current.name)
-    if parts[0] == 'data' and len(parts) == 3 or len(parts) == 2:
+    start = 0
+    while len(parts) - start >= 2 and parts[start] == 'module':
+        start += 2
+    rest = parts[start:]
+    if (not rest and not key) or (rest and rest[0] == 'data' and len(rest) == 3) or len(rest) == 2:
         return '.'.join(parts) + key
     raise HclError('expected a resource address such as azurerm_resource_group.main', file, node.line, node.col)
 
 
+def module_of(address: str) -> str:
+    """`module.a.module.b.azurerm_x.y["k"]` -> 'module.a.module.b'; '' for a root module address."""
+    parts = split_address(address)[0].split('.')
+    start = 0
+    while len(parts) - start > 2 and parts[start] == 'module':
+        start += 2
+    return '.'.join(parts[:start])
+
+
+def local_part(base: str) -> str:
+    """The address inside its module: `module.a.azurerm_x.y` -> `azurerm_x.y`."""
+    module = module_of(base)
+    return base[len(module) + 1:] if module else base
+
+
 def load_config(folder: Path) -> Config:
-    files = sorted(p for p in folder.glob('*.tf') if p.is_file())
+    """The root module and every local module it calls (their resources flattened into the root's `resources`)."""
+    config = load_module(folder, '.', '')
+    config.module_configs[''] = config
+    diags: list[Diag] = []
+    load_children(folder, config, config, diags, 1)
+    if diags:
+        raise Failed(diags)
+    return config
+
+
+def load_children(folder: Path, root: Config, parent: Config, diags: list[Diag], depth: int) -> None:
+    top = folder.resolve()
+    for call in parent.modules.values():
+        target = (folder / parent.dir / call.source).resolve()
+        if not target.is_relative_to(top):
+            diags.append(Diag('Module outside the working directory',
+                              f'The source "{call.source}" of module "{call.name}" leaves the folder the lab works '
+                              'in: keep local modules inside it (for example ./modules/<name>).', call.file,
+                              call.line, f'module "{call.name}"'))
+            continue
+        relative = target.relative_to(top).as_posix() or '.'
+        if not target.is_dir():
+            diags.append(Diag('Unreadable module directory',
+                              f'The directory {relative} could not be read for module "{call.name}" at '
+                              f'{call.file}:{call.line}.', call.file, call.line))
+            continue
+        if depth > MAX_MODULE_DEPTH:
+            diags.append(Diag('Modules nested too deeply', f'The lab reads at most {MAX_MODULE_DEPTH} levels of '
+                                                           'module calls.', call.file, call.line))
+            continue
+        path = f'{parent.path}.module.{call.name}' if parent.path else f'module.{call.name}'
+        try:
+            child = load_module(folder, relative, path)
+        except Failed as failed:
+            diags.extend(failed.diags)
+            continue
+        child.parent = parent.path
+        root.module_configs[path] = child
+        call_context = f'module "{call.name}"'
+        for name, attr in call.inputs.items():
+            if name not in child.variables:
+                close = difflib.get_close_matches(name, list(child.variables), n=1)
+                hint = f' Did you mean "{close[0]}"?' if close else ''
+                diags.append(Diag('Unsupported argument', f'An argument named "{name}" is not expected here.{hint}',
+                                  attr.file, attr.line, call_context))
+        for name, variable in child.variables.items():
+            if name not in call.inputs and variable.default is None:
+                diags.append(Diag('Missing required argument',
+                                  f'The argument "{name}" is required, but no definition was found.', call.file,
+                                  call.line, call_context))
+        prefix = parent.path + '.' if parent.path else ''
+        inherited = [prefix + dep for dep in call.depends_on]
+        for resource in child.resources.values():
+            resource.module = path
+            resource.depends_on = [f'{path}.{dep}' for dep in resource.depends_on] + inherited
+            root.resources[resource.address] = resource
+        load_children(folder, root, child, diags, depth + 1)
+
+
+def load_module(folder: Path, relative: str, path: str) -> Config:
+    """One module: the .tf files of one folder (the working directory for the root)."""
+    directory = folder / relative
+    files = sorted(p for p in directory.glob('*.tf') if p.is_file())
+    where = 'this folder' if relative == '.' else relative
     if not files:
-        raise Failed([Diag('No configuration files', 'There are no .tf files in this folder. Terraform reads every '
-                                                    '.tf file of the folder it runs in.')])
+        raise Failed([Diag('No configuration files', f'There are no .tf files in {where}. Terraform reads every .tf '
+                                                    'file of a module\'s folder.')])
     if len(files) > MAX_FILES:
         raise Failed([Diag('Too many configuration files', f'The lab reads at most {MAX_FILES} .tf files.')])
-    config = Config(files=[p.name for p in files])
+    config = Config(files=[p.name for p in files], path=path, dir=relative)
     diags: list[Diag] = []
-    for path in files:
+    for path_ in files:
+        name = path_.name if relative == '.' else f'{relative}/{path_.name}'
         try:
-            body = hcl.parse(path.read_text(encoding='utf-8-sig'), path.name)
+            body = hcl.parse(path_.read_text(encoding='utf-8-sig'), name)
         except HclError as error:
             diags.append(from_hcl(error))
             continue
         except UnicodeDecodeError:
-            diags.append(Diag('Invalid file encoding', f'{path.name} is not UTF-8 text.'))
+            diags.append(Diag('Invalid file encoding', f'{name} is not UTF-8 text.'))
             continue
         if body.attributes:
             attr = next(iter(body.attributes.values()))
             diags.append(Diag('Unsupported argument', f'An argument named "{attr.name}" is not expected here: a .tf '
                                                       'file holds blocks (resource, variable, output…).',
-                              path.name, attr.line))
+                              name, attr.line))
         for block in body.blocks:
             try:
                 read_block(config, block)
@@ -317,23 +431,79 @@ def read_block(config: Config, block: hcl.Block) -> None:
         config.resources[key] = resource
         return
     if kind == 'moved':
+        if config.path:
+            raise Diag('moved blocks in a module are not simulated', 'Write the moved block in the root module, with '
+                                                                     'full addresses (module.<name>.<type>.<name>).',
+                       file, block.line)
         frm, to = block.body.attributes.get('from'), block.body.attributes.get('to')
         if frm is None or to is None:
             raise Diag('Missing required argument', 'A moved block needs from and to.', file, block.line)
         config.moved.append((reference_address(frm.expr, file), reference_address(to.expr, file), file, block.line))
         return
     if kind == 'import':
+        if config.path:
+            raise Diag('Invalid import configuration', f'An import block was detected in "{config.path}". Import '
+                                                       'blocks are only allowed in the root module.', file, block.line)
         to, id_attr = block.body.attributes.get('to'), block.body.attributes.get('id')
         if to is None or id_attr is None:
             raise Diag('Missing required argument', 'An import block needs to and id.', file, block.line)
         config.imports.append((reference_address(to.expr, file), id_attr))
         return
     if kind == 'module':
-        raise Diag('Modules are not simulated yet', 'This lab reads one root module: move the resources into this '
-                                                    'folder instead of calling a module.', file, block.line)
+        want(1, 'the module name')
+        read_module_call(config, block)
+        return
     if kind == 'check' or kind == 'removed':
         raise Diag(f'{kind} blocks are not simulated', f'Remove the {kind} block.', file, block.line)
     raise Diag('Unsupported block type', f'Blocks of type "{kind}" are not expected here.', file, block.line)
+
+
+def read_module_call(config: Config, block: hcl.Block) -> None:
+    name, file, attrs = block.labels[0], block.file, block.body.attributes
+    context = f'module "{name}"'
+    if 'source' not in attrs:
+        raise Diag('Missing required argument', 'The argument "source" is required, but no definition was found.',
+                   file, block.line, context)
+    source = literal_string(attrs['source'])
+    if source is None:
+        raise Diag('Invalid module source address', 'The module source address must be a literal string: Terraform '
+                                                    'installs modules before it evaluates anything.', file,
+                   attrs['source'].line, context)
+    if not (source.startswith('./') or source.startswith('../')):
+        raise Diag('Module source not simulated',
+                   f'"{source}" is a registry or remote module: terraform init would download it. This lab reads '
+                   'local modules only: a source that starts with ./ or ../ and points into this folder, such as '
+                   '"./modules/lake".', file, attrs['source'].line, context)
+    if 'version' in attrs:
+        raise Diag('Invalid registry module source address', f'Cannot apply a version constraint to module "{name}" '
+                                                             'because it has a relative local path.', file,
+                   attrs['version'].line, context)
+    for meta in ('count', 'for_each'):
+        if meta in attrs:
+            raise Diag(f'{meta} on a module is not simulated', f'The lab calls each module once: write one module '
+                                                               f'block per instance instead of {meta}.', file,
+                       attrs[meta].line, context)
+    if 'providers' in attrs:
+        raise Diag('Provider aliases are not simulated', 'Remove the providers argument: the module uses the one '
+                                                         'azurerm provider configuration of the root module.', file,
+                   attrs['providers'].line, context)
+    for inner in block.body.blocks:
+        raise Diag('Unsupported block type', f'Blocks of type "{inner.type}" are not expected here.', file, inner.line,
+                   context)
+    depends_on: list[str] = []
+    if 'depends_on' in attrs:
+        expr = attrs['depends_on'].expr
+        if not isinstance(expr, hcl.TupleExpr):
+            raise Diag('Invalid depends_on', 'depends_on takes a list, such as [azurerm_resource_group.main].', file,
+                       attrs['depends_on'].line, context)
+        depends_on = [reference_address(item, file).split('[')[0] for item in expr.items]
+    if name in config.modules:
+        other = config.modules[name]
+        raise Diag('Duplicate module call', f'A module call named "{name}" was already defined at '
+                                            f'{other.file}:{other.line}. Module calls must have unique names within a '
+                                            'module.', file, block.line)
+    inputs = {key: attr for key, attr in attrs.items() if key not in MODULE_META}
+    config.modules[name] = ModuleCall(name, source, inputs, file, block.line, depends_on)
 
 
 def unsupported_type(rtype: str, file: str, line: int, what: str) -> Diag:
@@ -488,14 +658,24 @@ class Instance:
     index_key: Any
     attributes: dict[str, Any]
     dependencies: list[str] = field(default_factory=list)
+    module: str = ''
 
     @property
     def address(self) -> str:
-        return instance_address(self.type, self.name, self.index_key, self.mode)
+        return instance_address(self.type, self.name, self.index_key, self.mode, self.module)
 
 
-def instance_address(rtype: str, name: str, key: Any, mode: str = 'managed') -> str:
+def instance_at(address: str, attributes: dict[str, Any], dependencies: list[str] | None = None) -> Instance:
+    """A managed instance at a full address such as module.lake.azurerm_x.y["k"]."""
+    base, key = split_address(address)
+    rtype, name = local_part(base).split('.', 1)
+    return Instance('managed', rtype, name, key, attributes, list(dependencies or []), module_of(base))
+
+
+def instance_address(rtype: str, name: str, key: Any, mode: str = 'managed', module: str = '') -> str:
     base = f'data.{rtype}.{name}' if mode == 'data' else f'{rtype}.{name}'
+    if module:
+        base = f'{module}.{base}'
     if key is None:
         return base
     return f'{base}[{key}]' if isinstance(key, int) else f'{base}[{json.dumps(key)}]'
@@ -539,7 +719,7 @@ def read_state(folder: Path) -> State:
         for instance in resource.get('instances') or []:
             inst = Instance(resource.get('mode', 'managed'), resource['type'], resource['name'],
                             instance.get('index_key'), dict(instance.get('attributes') or {}),
-                            list(instance.get('dependencies') or []))
+                            list(instance.get('dependencies') or []), str(resource.get('module') or ''))
             state.instances[inst.address] = inst
     state.outputs = {name: out.get('value') for name, out in (data.get('outputs') or {}).items()}
     return state
@@ -547,11 +727,11 @@ def read_state(folder: Path) -> State:
 
 def write_state(folder: Path, state: State, output_values: dict[str, tuple[Any, bool]]) -> None:
     state.serial += 1
-    grouped: dict[tuple[str, str, str], list[Instance]] = {}
+    grouped: dict[tuple[str, str, str, str], list[Instance]] = {}
     for inst in state.instances.values():
-        grouped.setdefault((inst.mode, inst.type, inst.name), []).append(inst)
+        grouped.setdefault((inst.module, inst.mode, inst.type, inst.name), []).append(inst)
     resources = []
-    for (mode, rtype, name), instances in sorted(grouped.items()):
+    for (module, mode, rtype, name), instances in sorted(grouped.items()):
         entries = []
         for inst in sorted(instances, key=lambda i: json.dumps(i.index_key)):
             entry: dict[str, Any] = {}
@@ -561,8 +741,8 @@ def write_state(folder: Path, state: State, output_values: dict[str, tuple[Any, 
             if inst.dependencies:
                 entry['dependencies'] = sorted(set(inst.dependencies))
             entries.append(entry)
-        resources.append({'mode': mode, 'type': rtype, 'name': name, 'provider': azurerm.PROVIDER_ADDRESS,
-                          'instances': entries})
+        resources.append({**({'module': module} if module else {}), 'mode': mode, 'type': rtype, 'name': name,
+                          'provider': azurerm.PROVIDER_ADDRESS, 'instances': entries})
     outputs = {name: {'value': value, 'type': json_type(value), **({'sensitive': True} if sensitive else {})}
                for name, (value, sensitive) in sorted(output_values.items()) if value is not UNKNOWN}
     data = {'version': 4, 'terraform_version': TERRAFORM_VERSION, 'serial': state.serial, 'lineage': state.lineage,
@@ -642,68 +822,147 @@ class Evaluator:
         self.folder, self.config, self.world = folder, config, world
         self.azure = world['azure']
         self.variables = variables
-        self.local_values: dict[str, Any] = {}
-        self.resolving: set[str] = set()
-        self.resource_values: dict[str, dict[str, Any]] = {}
-        self.data_values: dict[str, dict[str, Any]] = {}
+        # Per module path ('' is the root): its local values, input variables and the resources registered so far.
+        modules = config.module_configs or {'': config}
+        self.local_values: dict[str, dict[str, Any]] = {path: {} for path in modules}
+        self.input_values: dict[str, dict[str, Any]] = {path: {} for path in modules}
+        self.resolving: set[tuple[str, str]] = set()
+        self.resource_values: dict[str, dict[str, dict[str, Any]]] = {path: {} for path in modules}
+        self.data_values: dict[str, dict[str, dict[str, Any]]] = {path: {} for path in modules}
         for resource in config.resources.values():
             if resource.mode == 'data':
-                self.data_values.setdefault(resource.type, {})
+                self.data_values[resource.module].setdefault(resource.type, {})
             else:
-                self.resource_values.setdefault(resource.type, {})
+                self.resource_values[resource.module].setdefault(resource.type, {})
 
-    def scope(self, file: str = '', extra: dict[str, Any] | None = None) -> Scope:
+    def module(self, path: str) -> Config:
+        return self.config if not path else self.config.module_configs[path]
+
+    def call(self, path: str) -> ModuleCall:
+        """The module block that calls the module at `path`."""
+        child = self.module(path)
+        return self.module(child.parent or '').modules[path.rsplit('.', 1)[-1]]
+
+    def scope(self, file: str = '', extra: dict[str, Any] | None = None, module: str = '') -> Scope:
+        config = self.module(module)
+        prefix = module + '.' if module else ''
         roots: dict[str, Any] = {
-            'var': self.variables,
-            'local': {name: (lambda n=name: self.local(n)) for name in self.config.locals},
-            'path': {'module': '.', 'root': '.', 'cwd': '.'},
+            'var': self.variables if not module else
+            {name: (lambda n=name: self.input(module, n)) for name in config.variables},
+            'local': {name: (lambda n=name: self.local(n, module)) for name in config.locals},
+            'path': {'module': config.dir, 'root': '.', 'cwd': '.'},
             'terraform': {'workspace': 'default'},
-            'data': self.data_values,
-            **self.resource_values,
+            'data': self.data_values[module],
+            'module': {call: {out: (lambda c=f'{prefix}module.{call}', o=out: self.module_output(c, o))
+                              for out in self.module(f'{prefix}module.{call}').outputs}
+                       for call in config.modules},
+            **self.resource_values[module],
         }
         if extra:
             roots.update(extra)
         return Scope(roots, file)
 
-    def local(self, name: str) -> Any:
-        if name in self.local_values:
-            return self.local_values[name]
-        if name in self.resolving:
-            raise EvalError(f'Cycle in local values: local.{name} refers to itself.', self.config.locals[name].file,
-                            self.config.locals[name].line)
-        self.resolving.add(name)
-        attr = self.config.locals[name]
-        value = tfexpr.evaluate(attr.expr, self.scope(attr.file))
-        self.resolving.discard(name)
-        self.local_values[name] = value
+    def local(self, name: str, module: str = '') -> Any:
+        values = self.local_values[module]
+        if name in values:
+            return values[name]
+        attr = self.module(module).locals[name]
+        if (module, name) in self.resolving:
+            raise EvalError(f'Cycle in local values: local.{name} refers to itself.', attr.file, attr.line)
+        self.resolving.add((module, name))
+        value = tfexpr.evaluate(attr.expr, self.scope(attr.file, module=module))
+        self.resolving.discard((module, name))
+        values[name] = value
         return value
 
-    def order(self) -> list[ResourceConfig]:
-        """Resources and data sources in dependency order (references, depends_on, locals resolved through)."""
-        resources = self.config.resources
-        local_refs: dict[str, set[str]] = {}
+    def input(self, module: str, name: str) -> Any:
+        """A module's input variable: the module block's argument (evaluated in the caller), else the default."""
+        values = self.input_values[module]
+        if name in values:
+            return values[name]
+        variable = self.module(module).variables[name]
+        call = self.call(module)
+        attr = call.inputs.get(name)
+        if attr is not None:
+            value = tfexpr.evaluate(attr.expr, self.scope(attr.file, module=self.module(module).parent or ''))
+            file, line = attr.file, attr.line
+        else:
+            value = None if variable.default is None else tfexpr.evaluate(variable.default.expr,
+                                                                          Scope({}, variable.file))
+            file, line = call.file, call.line
+        if value is None and not variable.nullable:
+            raise InputError('Invalid value for input variable', f'The variable "{name}" of {module} is not '
+                                                                  'nullable.', file, line)
+        try:
+            value = convert(value, variable.type)
+        except ValueError as problem:
+            raise InputError('Invalid value for input variable',
+                             f'The given value is not suitable for {module}.var.{name} declared at '
+                             f'{variable.file}:{variable.line}: {problem}.', file, line) from None
+        if not is_unknown(value):
+            for condition, message in variable.validations:
+                ok = tfexpr.evaluate(condition.expr, Scope({'var': {name: value}}, variable.file))
+                if ok is False:
+                    text = ''
+                    if message is not None:
+                        try:
+                            text = str(tfexpr.evaluate(message.expr, Scope({'var': {name: value}}, variable.file)))
+                        except EvalError:
+                            text = ''
+                    raise InputError('Invalid value for variable', f'{text}\n\nThis was checked by the validation rule '
+                                                                   f'at {condition.file}:{condition.line}.', file, line)
+        values[name] = value
+        return value
 
-        def refs_of(node_refs: list[tuple[str, ...]], seen: frozenset[str] = frozenset()) -> set[str]:
+    def module_output(self, module: str, name: str) -> Any:
+        output = self.module(module).outputs[name]
+        return tfexpr.evaluate(output.value.expr, self.scope(output.file, module=module))
+
+    def order(self) -> list[ResourceConfig]:
+        """Resources and data sources of every module in dependency order: references, depends_on, and locals, module
+        inputs and module outputs resolved through."""
+        resources = self.config.resources
+        memo: dict[tuple[str, str, str], set[str]] = {}
+
+        def through(key: tuple[str, str, str], expr: hcl.Node, module: str, seen: frozenset) -> set[str]:
+            if key in seen:
+                return set()
+            if key not in memo:
+                memo[key] = refs_of(tfexpr.references(expr), module, seen | {key})
+            return memo[key]
+
+        def refs_of(node_refs: list[tuple[str, ...]], module: str, seen: frozenset = frozenset()) -> set[str]:
             out: set[str] = set()
+            config = self.module(module)
+            prefix = module + '.' if module else ''
             for ref in node_refs:
-                if ref[0] == 'local' and len(ref) > 1 and ref[1] in self.config.locals and ref[1] not in seen:
-                    if ref[1] not in local_refs:
-                        local_refs[ref[1]] = refs_of(tfexpr.references(self.config.locals[ref[1]].expr), seen | {ref[1]})
-                    out |= local_refs[ref[1]]
+                if ref[0] == 'local' and len(ref) > 1 and ref[1] in config.locals:
+                    out |= through((module, 'local', ref[1]), config.locals[ref[1]].expr, module, seen)
+                elif ref[0] == 'var' and len(ref) > 1 and module and ref[1] in self.call(module).inputs:
+                    out |= through((module, 'var', ref[1]), self.call(module).inputs[ref[1]].expr,
+                                   config.parent or '', seen)
+                elif ref[0] == 'module' and len(ref) > 1 and ref[1] in config.modules:
+                    child = f'{prefix}module.{ref[1]}'
+                    outputs = self.module(child).outputs
+                    names = [ref[2]] if len(ref) > 2 and ref[2] in outputs else list(outputs)
+                    for name in names:
+                        out |= through((child, 'output', name), outputs[name].value.expr, child, seen)
                 elif ref[0] == 'data' and len(ref) == 3:
-                    out.add('.'.join(ref))
-                elif len(ref) == 2 and f'{ref[0]}.{ref[1]}' in resources:
-                    out.add(f'{ref[0]}.{ref[1]}')
+                    out.add(prefix + '.'.join(ref))
+                elif len(ref) == 2 and f'{prefix}{ref[0]}.{ref[1]}' in resources:
+                    out.add(f'{prefix}{ref[0]}.{ref[1]}')
             return out
 
         deps: dict[str, set[str]] = {}
         for address, resource in resources.items():
-            found = refs_of(tfexpr.body_references(resource.body))
+            found = refs_of(tfexpr.body_references(resource.body), resource.module)
             for dep in resource.depends_on:
-                if dep not in resources:
+                inside = [a for a in resources if a.startswith(dep + '.')] if dep.startswith('module.') or \
+                    '.module.' in dep else []
+                if dep not in resources and not inside:
                     raise Failed([Diag('Reference to undeclared resource', f'depends_on refers to {dep}, which is not '
                                                                            'declared.', resource.file, resource.line)])
-                found.add(dep)
+                found |= {dep} if dep in resources else set(inside)
             found.discard(address)
             deps[address] = found
         ordered: list[ResourceConfig] = []
@@ -729,7 +988,7 @@ class Evaluator:
 
     def instance_keys(self, resource: ResourceConfig) -> list[Any]:
         if resource.count is not None:
-            value = tfexpr.evaluate(resource.count.expr, self.scope(resource.file))
+            value = tfexpr.evaluate(resource.count.expr, self.scope(resource.file, module=resource.module))
             if value is UNKNOWN:
                 raise Diag('Invalid count argument', 'The "count" value depends on resource attributes that cannot be '
                                                      'determined until apply.', resource.file, resource.count.line,
@@ -739,7 +998,7 @@ class Evaluator:
                            resource.count.line, resource.context)
             return list(range(int(value)))
         if resource.for_each is not None:
-            value = tfexpr.evaluate(resource.for_each.expr, self.scope(resource.file))
+            value = tfexpr.evaluate(resource.for_each.expr, self.scope(resource.file, module=resource.module))
             if is_unknown(value):
                 raise Diag('Invalid for_each argument', 'The "for_each" value depends on resource attributes that '
                                                         'cannot be determined until apply.', resource.file,
@@ -752,7 +1011,7 @@ class Evaluator:
                                                             'non-strings: use toset() on a list of strings, or a map.',
                                resource.file, resource.for_each.line, resource.context)
                 expr = resource.for_each.expr
-                declared = (self.config.variables.get(expr.name) if isinstance(expr, hcl.GetAttr)
+                declared = (self.module(resource.module).variables.get(expr.name) if isinstance(expr, hcl.GetAttr)
                             and isinstance(expr.target, hcl.Var) and expr.target.name == 'var' else None)
                 if isinstance(expr, hcl.TupleExpr) or (declared is not None and isinstance(declared.type, tuple)
                                                        and declared.type[0] in ('list', 'tuple')):
@@ -770,7 +1029,7 @@ class Evaluator:
         if resource.count is not None:
             return {'count': {'index': key}}
         if resource.for_each is not None:
-            value = tfexpr.evaluate(resource.for_each.expr, self.scope(resource.file))
+            value = tfexpr.evaluate(resource.for_each.expr, self.scope(resource.file, module=resource.module))
             if key is None or is_unknown(value):
                 return {'each': {'key': UNKNOWN, 'value': UNKNOWN}}
             return {'each': {'key': key, 'value': value[key] if isinstance(value, dict) else key}}
@@ -778,7 +1037,7 @@ class Evaluator:
 
     def arguments(self, resource: ResourceConfig, key: Any, diags: list[Diag]) -> dict[str, Any]:
         """The configured arguments of one instance, converted and validated against the simulated schema."""
-        scope = self.scope(resource.file, self.each_values(resource, key))
+        scope = self.scope(resource.file, self.each_values(resource, key), resource.module)
         if resource.mode == 'data':
             values = {}
             for name, attr in resource.body.attributes.items():
@@ -877,7 +1136,8 @@ class Evaluator:
         return attrs
 
     def register(self, resource: ResourceConfig, key: Any, value: dict[str, Any]) -> None:
-        target = self.data_values[resource.type] if resource.mode == 'data' else self.resource_values[resource.type]
+        values = self.data_values if resource.mode == 'data' else self.resource_values
+        target = values[resource.module][resource.type]
         if resource.count is not None:
             items = target.setdefault(resource.name, [])
             items.append(value)
@@ -887,7 +1147,8 @@ class Evaluator:
             target[resource.name] = value
 
     def empty_collection(self, resource: ResourceConfig) -> None:
-        target = self.data_values[resource.type] if resource.mode == 'data' else self.resource_values[resource.type]
+        values = self.data_values if resource.mode == 'data' else self.resource_values
+        target = values[resource.module][resource.type]
         if resource.count is not None:
             target.setdefault(resource.name, [])
         elif resource.for_each is not None:
@@ -1058,7 +1319,8 @@ def make_plan(folder: Path, config: Config, variables: dict[str, Any], world: di
                                      {k: refreshed.get(k) for k in rtype.args}):
             changed = [k for k in rtype.args if not attrs_equal(inst.attributes.get(k), refreshed.get(k))]
             drift.append(f'{address} has changed outside of Terraform ({", ".join(changed)})')
-        prior[address] = Instance(inst.mode, inst.type, inst.name, inst.index_key, refreshed, inst.dependencies)
+        prior[address] = Instance(inst.mode, inst.type, inst.name, inst.index_key, refreshed, inst.dependencies,
+                                  inst.module)
     moved_from: dict[str, str] = {}
     for frm, to, file, line in config.moved:
         sources = [a for a in prior if a == frm or split_address(a)[0] == frm]
@@ -1068,10 +1330,8 @@ def make_plan(folder: Path, config: Config, variables: dict[str, Any], world: di
                 diags.append(Diag('Moved object still exists', f'{target} already exists in the state: the move from '
                                                                f'{source} cannot happen.', file, line))
                 continue
-            base, key = split_address(target)
-            rtype_name, name = base.split('.', 1)
             inst = prior.pop(source)
-            prior[target] = Instance('managed', rtype_name, name, key, inst.attributes, inst.dependencies)
+            prior[target] = instance_at(target, inst.attributes, inst.dependencies)
             moved_from[target] = source
     importing: dict[str, str] = {}
     if not destroy:
@@ -1098,7 +1358,7 @@ def make_plan(folder: Path, config: Config, variables: dict[str, Any], world: di
                                   f'that no object exists with the given id "{rid}". Only pre-existing objects can be '
                                   'imported; check that the id is correct.', id_attr.file, id_attr.line))
                 continue
-            prior[to] = Instance('managed', resource.type, resource.name, key, dict(remote['attributes']))
+            prior[to] = instance_at(to, dict(remote['attributes']))
             importing[to] = str(rid)
     changes: list[Change] = []
     planned: set[str] = set()
@@ -1117,7 +1377,7 @@ def make_plan(folder: Path, config: Config, variables: dict[str, Any], world: di
             continue
         evaluator.empty_collection(resource)
         for key in keys:
-            address = instance_address(resource.type, resource.name, key, resource.mode)
+            address = instance_address(resource.type, resource.name, key, resource.mode, resource.module)
             instance_diags: list[Diag] = []
             try:
                 args = evaluator.arguments(resource, key, instance_diags)
@@ -1499,13 +1759,12 @@ def run_apply(folder: Path, config: Config, variables: dict[str, Any], world: di
     for change in plan.changes:
         if change.moved_from and change.moved_from in state.instances:
             inst = state.instances.pop(change.moved_from)
-            state.instances[change.address] = Instance('managed', change.type, change.name, change.index_key,
-                                                       inst.attributes, inst.dependencies)
+            state.instances[change.address] = instance_at(change.address, inst.attributes, inst.dependencies)
         if change.importing:
             lines.append(f'{BOLD}{change.address}: Importing... [id={change.importing}]{RESET}')
             lines.append(f'{BOLD}{change.address}: Import complete [id={change.importing}]{RESET}')
-            state.instances[change.address] = Instance('managed', change.type, change.name, change.index_key,
-                                                       dict(change.before or {}), change.dependencies)
+            state.instances[change.address] = instance_at(change.address, dict(change.before or {}),
+                                                          change.dependencies)
             counts['import'] += 1
     # Destroys: dependents before what they depend on.
     deletes = [c for c in plan.changes if c.action == 'delete']
@@ -1528,7 +1787,7 @@ def run_apply(folder: Path, config: Config, variables: dict[str, Any], world: di
                 keys = evaluator.instance_keys(resource)
                 evaluator.empty_collection(resource)
                 for key in keys:
-                    address = instance_address(resource.type, resource.name, key, resource.mode)
+                    address = instance_address(resource.type, resource.name, key, resource.mode, resource.module)
                     args = evaluator.arguments(resource, key, [])
                     if resource.mode == 'data':
                         evaluator.register(resource, key, azurerm.data_source(resource.type, args, world['azure']))
@@ -1581,7 +1840,7 @@ def run_apply(folder: Path, config: Config, variables: dict[str, Any], world: di
                             provider_delete(rtype, current.attributes, world)
                             lines.append(f'{BOLD}{address} (deposed object): Destruction complete{RESET}')
                             counts['destroy'] += 1
-                    state.instances[address] = Instance('managed', resource.type, resource.name, key, attrs, deps)
+                    state.instances[address] = instance_at(address, attrs, deps)
                     evaluator.register(resource, key, attrs)
     except (ApplyError, LookupError) as problem:
         ok = False
@@ -1659,6 +1918,15 @@ def parse_flags(args: list[str]) -> tuple[dict[str, Any], list[str]]:
     return flags, positional
 
 
+def installed_modules(config: Config) -> dict[str, str]:
+    """What terraform init records for the local modules: each module path and the source it was installed from."""
+    out = {}
+    for path, module in config.module_configs.items():
+        for call in module.modules.values():
+            out[f'{path}.module.{call.name}' if path else f'module.{call.name}'] = call.source
+    return out
+
+
 def require_init(world: dict, config: Config) -> None:
     if not world['terraform'].get('initialized'):
         raise Failed([Diag('Inconsistent dependency lock file',
@@ -1666,6 +1934,22 @@ def require_init(world: dict, config: Config) -> None:
                            'current configuration:\n  - provider registry.terraform.io/hashicorp/azurerm: required by '
                            'this configuration but no version is selected\n\nTo make the initial dependency '
                            'selections that will initialize the dependency lock file, run:\n  terraform init')])
+    installed = world['terraform'].get('modules') or {}
+    diags = []
+    for path, source in installed_modules(config).items():
+        module = config.module_configs.get(path.rsplit('.module.', 1)[0] if '.module.' in path else '')
+        call = module.modules[path.rsplit('.', 1)[-1]] if module else None
+        if path not in installed:
+            diags.append(Diag('Module not installed', 'This module is not yet installed. Run "terraform init" to '
+                                                      'install all modules required by this configuration.',
+                              call.file if call else '', call.line if call else 0))
+        elif installed[path] != source:
+            diags.append(Diag('Module source has changed', 'The source address was changed since this module was '
+                                                           'installed. Run "terraform init" to install all modules '
+                                                           'required by this configuration.',
+                              call.file if call else '', call.line if call else 0))
+    if diags:
+        raise Failed(diags)
     if 'azurerm' not in config.provider_blocks:
         raise Failed([Diag('Missing required provider configuration',
                            'The azurerm provider needs a provider "azurerm" block with an empty features {} block, '
@@ -1701,8 +1985,14 @@ def cmd_init(folder: Path, args: list[str], world: dict, answer: str | None) -> 
     for local in used:
         sources.setdefault(local, f'hashicorp/{local}')
     unsupported = sorted(f'{local} ({source})' for local, source in sources.items() if source != azurerm.PROVIDER_SOURCE)
-    lines = [f'\n{BOLD}Initializing the backend...{RESET}', f'{BOLD}Initializing provider plugins...{RESET}',
-             '- Finding hashicorp/azurerm versions matching "~> 4.0"...']
+    lines = []
+    installed = installed_modules(config)
+    if installed:
+        lines.append(f'{BOLD}Initializing modules...{RESET}')
+        lines += [f'- {path.replace("module.", "")} in {config.module_configs[path].dir}'
+                  for path in sorted(installed)]
+    lines += [f'\n{BOLD}Initializing the backend...{RESET}', f'{BOLD}Initializing provider plugins...{RESET}',
+              '- Finding hashicorp/azurerm versions matching "~> 4.0"...']
     if unsupported:
         return Result('\n'.join(lines) + '\n' + Diag('Failed to query available provider packages',
                       'This lab simulates the hashicorp/azurerm provider only; it cannot install: '
@@ -1712,7 +2002,8 @@ def cmd_init(folder: Path, args: list[str], world: dict, answer: str | None) -> 
               '', f'{GREEN}{BOLD}Terraform has been successfully initialized!{RESET}', '',
               f'{GREEN}You may now begin working with Terraform. Try running "terraform plan" to see any changes '
               f'that are required for your infrastructure.{RESET}']
-    world['terraform'] = {'initialized': True, 'providers': {'azurerm': azurerm.PROVIDER_VERSION}}
+    world['terraform'] = {'initialized': True, 'providers': {'azurerm': azurerm.PROVIDER_VERSION},
+                          'modules': installed}
     worldlib.advance(world, 6)
     worldlib.save(folder, world)
     return Result('\n'.join(lines) + '\n', 0)
@@ -1824,7 +2115,7 @@ def cmd_import(folder: Path, args: list[str], world: dict, answer: str | None) -
     if resource is None or resource.mode != 'managed':
         raise Failed([Diag('Resource address does not exist in the configuration',
                            f'Before importing this resource, please create its configuration in the root module. For '
-                           f'example:\n\nresource "{base.split(".")[0]}" "{base.split(".")[-1]}" {{\n  # (resource '
+                           f'example:\n\nresource "{local_part(base).split(".")[0]}" "{base.split(".")[-1]}" {{\n  # (resource '
                            'arguments)\n}}')])
     variables = variable_values(config, folder, flags['var'], flags['var_file'])
     state = read_state(folder)
@@ -1840,7 +2131,7 @@ def cmd_import(folder: Path, args: list[str], world: dict, answer: str | None) -
                            f'the id is correct and that it is associated with the provider\'s configured region or '
                            f'endpoint, or use "terraform apply" to create a new remote object for this resource.')])
     del variables
-    state.instances[address] = Instance('managed', resource.type, resource.name, key, dict(remote['attributes']))
+    state.instances[address] = instance_at(address, dict(remote['attributes']))
     write_state(folder, state, {name: (value, False) for name, value in state.outputs.items()})
     worldlib.advance(world, 3)
     worldlib.save(folder, world)
@@ -1880,19 +2171,20 @@ def cmd_state(folder: Path, args: list[str], world: dict, answer: str | None) ->
             return Result(Diag('Invalid target address', f'Cannot move to {target}: there is already a resource '
                                                          'instance at that address in the current state.').render() + '\n', 1)
         base, key = split_address(target)
-        if base.count('.') != 1 or base.split('.')[0] != state.instances[source].type:
+        if local_part(base).count('.') != 1 or local_part(base).split('.')[0] != state.instances[source].type:
             return Result(Diag('Invalid target address', f'Cannot move {source} to {target}: the resource types '
                                                          'must match.').render() + '\n', 1)
         inst = state.instances.pop(source)
-        state.instances[target] = Instance('managed', inst.type, base.split('.')[1], key, inst.attributes,
-                                           inst.dependencies)
+        state.instances[target] = instance_at(target, inst.attributes, inst.dependencies)
         write_state(folder, state, {k: (v, False) for k, v in state.outputs.items()})
         return Result(f'Move "{source}" to "{target}"\n{GREEN}Successfully moved 1 object(s).{RESET}\n', 0,
                       summary={'moved': 1})
     if sub == 'rm':
         if not rest:
             return Result('Usage: terraform state rm ADDRESS...\n', 1)
-        removed = [a for a in list(state.instances) if any(a == r or a.startswith(r + '[') for r in rest)]
+        removed = [a for a in list(state.instances)
+                   if any(a == r or a.startswith(r + '[') or (r.startswith('module.') and a.startswith(r + '.'))
+                          for r in rest)]
         if not removed:
             return Result(Diag('Invalid target address', 'No matching objects found. To view the available '
                                                          'instances, use "terraform state list".').render() + '\n', 1)
@@ -1946,9 +2238,81 @@ def cmd_output(folder: Path, args: list[str], world: dict, answer: str | None) -
     return Result(''.join(f'{k} = {render_value(v, 0)}\n' for k, v in sorted(state.outputs.items())), 0)
 
 
+def fmt_files(folder: Path, relative: str = '.', recursive: bool = False) -> list[str]:
+    """The .tf and .tfvars files terraform fmt reads, relative to the folder (subfolders with -recursive)."""
+    base = (folder / relative)
+    pattern = '**/*' if recursive else '*'
+    out = []
+    for path in sorted(base.glob(pattern)):
+        rel = path.relative_to(folder).as_posix()
+        if path.is_file() and path.suffix in ('.tf', '.tfvars') and not any(
+                part.startswith('.') for part in path.relative_to(folder).parts[:-1]):
+            out.append(rel)
+    return out[:MAX_FILES * 4]
+
+
+def unformatted(folder: Path, files: list[str]) -> tuple[list[tuple[str, str, str]], list[Diag]]:
+    """(name, text, formatted) for each file whose layout differs from terraform fmt's, and the files that do not
+    parse."""
+    changed, diags = [], []
+    for name in files:
+        try:
+            text = (folder / name).read_text(encoding='utf-8-sig')
+            hcl.parse(text, name)
+        except HclError as error:
+            diags.append(from_hcl(error))
+            continue
+        except UnicodeDecodeError:
+            diags.append(Diag('Invalid file encoding', f'{name} is not UTF-8 text.'))
+            continue
+        normalized = text.replace('\r\n', '\n')
+        formatted = tffmt.format_text(normalized)
+        if formatted != normalized:
+            changed.append((name, normalized, formatted))
+    return changed, diags
+
+
 def cmd_fmt(folder: Path, args: list[str], world: dict, answer: str | None) -> Result:
-    return Result(f'{YELLOW}terraform fmt is not simulated in this lab{RESET}: it rewrites files, and the lab only '
-                  'reads yours. Keep two-space indentation and align the = signs of consecutive arguments.\n', 1)
+    options = {'check': False, 'diff': False, 'recursive': False, 'list': True}
+    targets = []
+    for arg in args:
+        flag = arg.lstrip('-')
+        if arg.startswith('-') and flag in ('check', 'diff', 'recursive'):
+            options[flag] = True
+        elif arg.startswith('-') and flag in ('list=false', 'list=true', 'write=false', 'no-color'):
+            if flag.startswith('list='):
+                options['list'] = flag == 'list=true'
+        elif arg.startswith('-'):
+            return Result(Diag('Unsupported option', f'The option {arg} is not simulated: use -check, -diff, '
+                                                     '-recursive or -list=false.').render() + '\n', 1)
+        else:
+            targets.append(arg)
+    if len(targets) > 1:
+        return Result('Usage: terraform fmt [options] [DIR]\n', 1)
+    relative = targets[0] if targets else '.'
+    target = (folder / relative).resolve()
+    if not target.is_relative_to(folder.resolve()) or not target.is_dir():
+        return Result(Diag('No file or directory at ' + relative, 'Give a folder inside the working directory.')
+                      .render() + '\n', 2)
+    files = fmt_files(folder, target.relative_to(folder.resolve()).as_posix() or '.', options['recursive'])
+    changed, diags = unformatted(folder, files)
+    if diags:
+        return Result(render_diags(diags) + '\n', 2)
+    lines = []
+    for name, before, after in changed:
+        if options['list']:
+            lines.append(name)
+        if options['diff']:
+            lines.append(tffmt.unified_diff(name, before, after).rstrip('\n'))
+    output = '\n'.join(lines) + ('\n' if lines else '')
+    summary = {'unformatted': [name for name, _, _ in changed], 'check': options['check']}
+    if options['check']:
+        return Result(output, 3 if changed else 0, summary=summary)
+    if not changed:
+        return Result(output, 0, summary=summary)
+    return Result(output + f'\n{YELLOW}The lab does not rewrite your files.{RESET} These files are not laid out as '
+                  'terraform fmt would: apply the layout in the editor (terraform fmt -check -diff shows what to '
+                  'change), then check again with terraform fmt -check.\n', 3, summary=summary)
 
 
 def cmd_version(folder: Path, args: list[str], world: dict, answer: str | None) -> Result:
@@ -1972,6 +2336,7 @@ Main commands:
   destroy       Destroy previously-created infrastructure
 
 Other commands:
+  fmt           Check the layout of the files: -check, -diff, -recursive (the lab never rewrites them)
   import        Associate existing infrastructure with a Terraform resource
   output        Show output values from your root module
   show          Show the current state

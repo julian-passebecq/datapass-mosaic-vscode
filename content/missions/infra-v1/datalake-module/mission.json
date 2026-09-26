@@ -1,0 +1,117 @@
+{
+  "id": "datalake-module",
+  "version": "1",
+  "lab": "infra",
+  "title": "One data lake module, two teams",
+  "level": "intermediate",
+  "estimate": "40-60 min",
+  "skills": ["local Terraform modules (source, inputs, outputs)", "module outputs in the root module", "terraform fmt -check -recursive", "for_each inside a module", "globally unique names"],
+  "ticket": {
+    "from": "Priya Nair, data platform lead",
+    "subject": "Marketing wants the same lake as sales: no copy-paste",
+    "body": [
+      "Marketing needs a data lake exactly like the sales one. Instead of copying fifty lines of HCL per team, Tom",
+      "started a module in `modules/datalake/` before his holiday: `variables.tf` is done, `main.tf` is a draft that",
+      "was never applied. Please finish the module and call it once per team from the root module (`main.tf`).",
+      "",
+      "- **Two module calls**, `module \"sales\"` and `module \"marketing\"`, both with `source = \"./modules/datalake\"`",
+      "  and the `team` input set. The root module declares no resource itself: everything goes through the module.",
+      "- **One lake per team**: resource group `rg-<team>-lake-dev`, ADLS Gen2 storage account `st<team>lakedev01`",
+      "  (storage account names are unique across all of Azure: two teams cannot share one), and one container per",
+      "  zone of `var.zones` from a single `for_each` block `azurerm_storage_container.zone`.",
+      "- **Tags**: every resource gets `cost_center = \"CC-4410\"` and `env = \"dev\"` from the root module, plus",
+      "  `team = \"<team>\"`, which the module adds itself.",
+      "- **Outputs**: the root module outputs `sales_dfs_endpoint` and `marketing_dfs_endpoint`, read from a",
+      "  `dfs_endpoint` output of the module.",
+      "- **CI**: our pipeline runs `terraform fmt -check -recursive` and fails on any file it lists. Tom's draft would",
+      "  fail it. Run it yourself and fix the layout in the editor (the lab never rewrites your files).",
+      "",
+      "When you are done, `terraform plan` must say there is nothing left to change.",
+      "",
+      "This is the lab's simulated subscription: nothing is created in Azure."
+    ]
+  },
+  "acceptance": [
+    {
+      "id": "module-calls",
+      "text": "The root module calls ./modules/datalake twice, sales and marketing, and declares no resource itself.",
+      "checks": [
+        {"kind": "tf_config",
+         "modules": [{"name": "sales", "source": "./modules/datalake", "inputs": ["team"]},
+                     {"name": "marketing", "source": "./modules/datalake", "inputs": ["team"]}],
+         "root_resources": false,
+         "fail": "The root module does not call the module as the ticket asks."},
+        {"kind": "tf_config", "resources": [{"address": "module.sales.azurerm_storage_container.zone", "for_each": true, "references": ["var.zones"]}],
+         "fail": "The containers are not one for_each block over var.zones in the module."}
+      ]
+    },
+    {
+      "id": "two-lakes",
+      "text": "Each team has its own resource group, ADLS Gen2 account and three zone containers.",
+      "checks": [
+        {"kind": "azure_resource", "type": "Microsoft.Storage/storageAccounts", "name": "stsaleslakedev01", "group": "rg-sales-lake-dev", "managed_by": "terraform",
+         "attributes": {"is_hns_enabled": true, "tags": {"cost_center": "CC-4410", "env": "dev", "team": "sales"}},
+         "fail": "The sales lake is not as the ticket describes."},
+        {"kind": "azure_resource", "type": "Microsoft.Storage/storageAccounts", "name": "stmarketinglakedev01", "group": "rg-marketing-lake-dev", "managed_by": "terraform",
+         "attributes": {"is_hns_enabled": true, "tags": {"cost_center": "CC-4410", "env": "dev", "team": "marketing"}},
+         "fail": "The marketing lake is not as the ticket describes."},
+        {"kind": "azure_resource", "type": "Microsoft.Resources/resourceGroups", "name": "rg-marketing-lake-dev",
+         "attributes": {"tags": {"cost_center": "CC-4410", "env": "dev", "team": "marketing"}},
+         "fail": "The marketing resource group is missing or not tagged as the ticket asks."},
+        {"kind": "tf_state", "instance_keys": {"module.sales.azurerm_storage_container.zone": ["bronze", "gold", "silver"],
+                                                "module.marketing.azurerm_storage_container.zone": ["bronze", "gold", "silver"]},
+         "fail": "The applied containers are not the three zones of each lake."}
+      ]
+    },
+    {
+      "id": "outputs",
+      "text": "The root outputs sales_dfs_endpoint and marketing_dfs_endpoint come from the module's dfs_endpoint output.",
+      "checks": [
+        {"kind": "tf_state", "outputs": {"sales_dfs_endpoint": "https://stsaleslakedev01.dfs.core.windows.net/",
+                                         "marketing_dfs_endpoint": "https://stmarketinglakedev01.dfs.core.windows.net/"},
+         "fail": "The DFS endpoints are not in the outputs."},
+        {"kind": "tf_config", "resources": [], "outputs": ["sales_dfs_endpoint", "marketing_dfs_endpoint"]}
+      ]
+    },
+    {
+      "id": "fmt",
+      "text": "Every .tf file passes terraform fmt -check -recursive, and you ran it.",
+      "checks": [
+        {"kind": "tf_config", "formatted": true, "fail": "CI would fail: a file is not laid out as terraform fmt would."},
+        {"kind": "journal", "includes": ["^terraform fmt\\b.*-check"], "fail": "terraform fmt -check never passed in the shell."}
+      ]
+    },
+    {
+      "id": "converged",
+      "text": "terraform plan shows no changes: the subscription matches the files.",
+      "checks": [
+        {"kind": "tf_plan", "changes": false}
+      ]
+    }
+  ],
+  "hints": [
+    "A module is a folder of .tf files. `module \"sales\" { source = \"./modules/datalake\"  team = \"sales\" }` calls it; every other argument of the block sets one of its variables. Run `terraform init` again after adding a module call: Terraform installs modules at init.",
+    "Inside the module, resources are addressed without the module prefix (`azurerm_storage_account.this`); from outside they are `module.sales.azurerm_storage_account.this`, which is what `terraform state list` shows.",
+    "The root module cannot read a module's resources directly: the module must declare `output \"dfs_endpoint\"`, and the root reads `module.sales.dfs_endpoint`.",
+    "A hard-coded storage account name works for the first team and fails for the second: the name is unique across all of Azure. Build it from `var.team` and `var.env`.",
+    "`terraform fmt -check -recursive` lists the files whose layout differs; add `-diff` to see what to change: two-space indentation and the `=` of consecutive arguments aligned.",
+    "`merge(var.tags, { team = var.team })` in a `locals` block of the module adds the team tag to what the root passes."
+  ],
+  "infra": {
+    "world": {
+      "clock": "2026-10-12T09:00:00Z",
+      "azure": {
+        "resources": {},
+        "taken_names": {"storage_account": ["stsaleslake", "stmarketing"], "key_vault": []}
+      }
+    }
+  },
+  "reference": [
+    {"infra": "terraform fmt -check -recursive"},
+    {"infra": "terraform init"},
+    {"infra": "terraform validate"},
+    {"infra": "terraform plan"},
+    {"infra": "terraform apply -auto-approve"},
+    {"infra": "terraform plan"}
+  ]
+}

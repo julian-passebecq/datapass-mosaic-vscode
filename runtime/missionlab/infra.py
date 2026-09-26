@@ -18,11 +18,12 @@ import shlex
 import tempfile
 from typing import Any, Callable
 
-from infralab import docker as dockerlib, kube as kubelib, monitor, shell, terraform, world as worldlib
+from infralab import (autoscale, docker as dockerlib, ingress as ingresslib, kube as kubelib, monitor, shell, terraform,
+                      world as worldlib)
 
 from .model import (AzureAlertCheck, AzureResourceCheck, DockerBuildCheck, DockerContainerCheck, DockerImageCheck,
-                    JournalCheck, K8sDeploymentCheck, K8sServiceCheck, Mission, TfConfigCheck, TfPlanCheck,
-                    TfStateCheck)
+                    JournalCheck, K8sDeploymentCheck, K8sHpaCheck, K8sIngressCheck, K8sServiceCheck, Mission,
+                    TfConfigCheck, TfPlanCheck, TfStateCheck)
 from .terminal import FixtureError, _force_remove, _move, _rename, _write
 
 TRUTH = ('Checked on the simulation: your files (read, never executed), the simulated terraform.tfstate, and the '
@@ -130,9 +131,14 @@ def _tf_state(check: TfStateCheck, files, _ctx: dict) -> Outcome:
                 return False, f'{address}.{name} is {_show(inst.attributes.get(name))}.'
     for base, keys in check.instance_keys.items():
         found = sorted((i.index_key for i in state.instances.values()
-                        if f'{i.type}.{i.name}' == base), key=lambda k: json.dumps(k))
+                        if terraform.split_address(i.address)[0] == base), key=lambda k: json.dumps(k))
         if found != sorted(keys, key=lambda k: json.dumps(k)):
             return False, f'{base} has the instances {_show(found)}.'
+    for name, value in check.outputs.items():
+        if name not in state.outputs:
+            return False, f'The state has no output {name}.'
+        if value is not None and not _equal(state.outputs[name], value):
+            return False, f'The output {name} is {_show(state.outputs[name])}.'
     return True, f'terraform.tfstate holds {len(state.instances)} resource instance(s).'
 
 
@@ -187,9 +193,10 @@ def _tf_config(check: TfConfigCheck, files, _ctx: dict) -> Outcome:
         if shape.references:
             refs = {'.'.join(r) for r in terraform.tfexpr.body_references(resource.body)}
             local_refs = set()
+            module_locals = config.module_configs.get(resource.module, config).locals
             for ref in list(refs):
-                if ref.startswith('local.') and ref[6:] in config.locals:
-                    local_refs |= {'.'.join(r) for r in terraform.tfexpr.references(config.locals[ref[6:]].expr)}
+                if ref.startswith('local.') and ref[6:] in module_locals:
+                    local_refs |= {'.'.join(r) for r in terraform.tfexpr.references(module_locals[ref[6:]].expr)}
             missing = [r for r in shape.references if r not in refs | local_refs]
             if missing:
                 return False, f'{shape.address} does not refer to {", ".join(missing)}.'
@@ -209,6 +216,28 @@ def _tf_config(check: TfConfigCheck, files, _ctx: dict) -> Outcome:
     missing_outputs = [o for o in check.outputs if o not in config.outputs]
     if missing_outputs:
         return False, f'No output named {", ".join(missing_outputs)}.'
+    for shape in check.modules:
+        call = config.modules.get(shape.name)
+        if call is None:
+            return False, f'The root module has no module "{shape.name}".'
+        if shape.source is not None and call.source.rstrip('/') != shape.source.rstrip('/'):
+            return False, f'module "{shape.name}" has the source "{call.source}".'
+        missing = [name for name in shape.inputs if name not in call.inputs]
+        if missing:
+            return False, f'module "{shape.name}" does not set {", ".join(missing)}.'
+    if check.root_resources is not None:
+        own = [a for a, r in config.resources.items() if not r.module and r.mode == 'managed']
+        if bool(own) != check.root_resources:
+            return False, (f'The root module declares {", ".join(own[:3])} itself.' if own else
+                           'The root module declares no resource of its own.')
+    if check.formatted is not None:
+        changed, diags = terraform.unformatted(folder, terraform.fmt_files(folder, '.', recursive=True))
+        if diags:
+            return False, f'terraform fmt cannot read a file: {diags[0].summary}.'
+        names = [name for name, _, _ in changed]
+        if bool(names) == check.formatted:
+            return False, (f'terraform fmt -check -recursive lists {", ".join(names[:3])}.' if names else
+                           'Every file is already laid out as terraform fmt would.')
     return True, f'{len(config.resources)} resource block(s) as expected.'
 
 
@@ -343,6 +372,36 @@ def _docker_container(check: DockerContainerCheck, files, _ctx: dict) -> Outcome
         loose = [d for d in check.waits_healthy if depends.get(d) != 'service_healthy']
         if loose:
             return False, f'{check.service} does not wait for {", ".join(loose)} to be healthy.'
+    on = [n.split('_', 1)[-1] if container.get('project') and n.startswith(container['project'] + '_') else n
+          for n in container.get('networks') or []]
+    missing = [n for n in check.networks if n not in on]
+    if missing:
+        return False, f'{label} is not on the {missing[0]} network (it is on {", ".join(on) or "none"}).'
+    wrong = [n for n in check.not_networks if n in on]
+    if wrong:
+        return False, f'{label} is on the {wrong[0]} network.'
+    if check.internal is not None:
+        internal = bool(container.get('networks')) and all(n in dockerlib.internal_networks(world)
+                                                            for n in container['networks'])
+        if internal != check.internal:
+            return False, f'{label} is {"not only" if check.internal else "only"} on internal networks.'
+    if check.published is not None:
+        published = bool(container['ports']) and not (container.get('networks') and all(
+            n in dockerlib.internal_networks(world) for n in container['networks']))
+        if published != check.published:
+            ports = ', '.join(f'{h}->{c}' for h, c in container['ports'])
+            return False, (f'{label} publishes {ports} to the host.' if published else
+                           f'{label} publishes no port the host can reach.')
+    if check.volume_at:
+        mount = next((m for m in container.get('mounts') or [] if m['target'] == check.volume_at.rstrip('/')), None)
+        if mount is None or mount['type'] != 'volume' or not mount['source']:
+            what = ('nothing is mounted there' if mount is None else
+                    f'it is a bind mount of {mount["source"]}' if mount['type'] == 'bind' else 'it is an anonymous volume')
+            return False, f'{check.volume_at} in {label} is not a named volume: {what}.'
+    if check.data_rows is not None:
+        rows = int(dockerlib.data_store(world, container).get('rows', 0))
+        if rows < check.data_rows:
+            return False, f'The database of {label} holds {rows} row(s): {dockerlib.describe_store(container)}.'
     return True, f'{label} is {container["status"]}' + (f' ({container["health"]})' if container['health'] else '') + '.'
 
 
@@ -444,9 +503,66 @@ def _k8s_service(check: K8sServiceCheck, files, _ctx: dict) -> Outcome:
     return True, f'{check.name} has {len(eps)} endpoint(s).'
 
 
+def _k8s_ingress(check: K8sIngressCheck, files, _ctx: dict) -> Outcome:
+    world = _world(files)
+    obj = kubelib.kube_state(world)['objects'].get(kubelib.key('Ingress', check.namespace, check.name))
+    if obj is None:
+        return False, f'The cluster has no Ingress {check.name} in the {check.namespace} namespace.'
+    if check.ingress_class and obj['spec'].get('ingressClassName') != check.ingress_class:
+        return False, f'{check.name} has the ingress class {obj["spec"].get("ingressClassName") or "<none>"}.'
+    if ingresslib.served_by(world, obj) is None:
+        return False, f'No ingress controller serves {check.name}: its class is not one the cluster has.'
+    status, _body, note = ingresslib.request(world, f'http://{check.host}{check.path}')
+    routed, backend, _why = ingresslib.route(world, check.host, check.path)
+    if routed is None or routed['name'] != check.name or routed['namespace'] != check.namespace:
+        return False, f'GET http://{check.host}{check.path} is not routed by {check.name} ({note}).'
+    if check.backend and backend['service']['name'] != check.backend:
+        return False, f'GET http://{check.host}{check.path} goes to the service {backend["service"]["name"]}.'
+    if status != check.status:
+        return False, f'GET http://{check.host}{check.path} answers {status} ({note}).'
+    return True, f'GET http://{check.host}{check.path} answers {status} ({note}).'
+
+
+def _k8s_hpa(check: K8sHpaCheck, files, _ctx: dict) -> Outcome:
+    world = _world(files)
+    hpa = next((h for h in autoscale.hpas(world, check.namespace)
+                if h['spec']['scaleTargetRef']['name'] == check.deployment), None)
+    if hpa is None:
+        return False, f'No HorizontalPodAutoscaler targets the deployment {check.deployment}.'
+    low, high = autoscale.bounds(hpa)
+    for label, value, wanted in (('minReplicas', low, check.min_replicas), ('maxReplicas', high, check.max_replicas)):
+        if wanted and not wanted[0] <= value <= wanted[1]:
+            return False, f'hpa/{hpa["name"]} has {label} {value}.'
+    target = autoscale.cpu_target(hpa)
+    if check.cpu_utilization:
+        if target is None or target[0] != 'cpu':
+            return False, f'hpa/{hpa["name"]} does not scale on CPU utilization.'
+        if not check.cpu_utilization[0] <= target[1] <= check.cpu_utilization[1]:
+            return False, f'hpa/{hpa["name"]} targets {target[1]}% CPU.'
+    status = autoscale.status(world, hpa)
+    if check.active is not None and status['active'] != check.active:
+        return False, (f'hpa/{hpa["name"]} cannot compute a replica count: {status["reason"]}.' if check.active else
+                       f'hpa/{hpa["name"]} is active.')
+    if check.replay:
+        deployment = autoscale.target_of(world, hpa)
+        record = autoscale.last_replay(world, check.namespace, check.deployment)
+        if record is None or deployment is None or record['fingerprint'] != autoscale.fingerprint(world, hpa, deployment):
+            return False, 'The recorded load was not replayed (lab load replay) since the last change to the HPA or the deployment.'
+        overloaded = len(record['overloaded_minutes'])
+        if overloaded > check.replay.max_overloaded_minutes:
+            first = autoscale.clock_of(record, record['overloaded_minutes'][0])
+            return False, f'During the replay the pods were overloaded for {overloaded} minute(s), from {first} UTC.'
+        if check.replay.min_peak_replicas and record['peak_replicas'] < check.replay.min_peak_replicas:
+            return False, f'During the replay {check.deployment} never went above {record["peak_replicas"]} replicas.'
+        if check.replay.final_replicas is not None and record['final_replicas'] != check.replay.final_replicas:
+            return False, f'After the replay {check.deployment} runs {record["final_replicas"]} replicas.'
+    return True, f'hpa/{hpa["name"]}: {low}..{high} replicas.'
+
+
 CHECKS: dict[str, Callable[[Any, Any, dict], Outcome]] = {
     'tf_state': _tf_state, 'tf_plan': _tf_plan, 'tf_config': _tf_config, 'azure_resource': _azure_resource,
     'journal': _journal, 'docker_image': _docker_image, 'docker_build': _docker_build,
     'docker_container': _docker_container, 'azure_alert': _azure_alert, 'k8s_deployment': _k8s_deployment,
-    'k8s_service': _k8s_service,
+    'k8s_service': _k8s_service, 'k8s_ingress': _k8s_ingress, 'k8s_hpa': _k8s_hpa,
 }
+

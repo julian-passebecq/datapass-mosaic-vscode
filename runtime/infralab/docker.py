@@ -661,6 +661,9 @@ def start_container(world: dict, name: str, image_ref: str, image: dict | None, 
     listen = listening(config, command) if image else None
     if app.get('kind') == 'postgres':
         listen = ('0.0.0.0', 5432)
+    elif app.get('listens'):
+        listen = ('0.0.0.0', int(app['listens']))
+    connects_to = None
     logs: list[str] = []
     status, exit_code = 'running', None
     missing = [v for v in app.get('requires_env', []) if not merged_env.get(v)]
@@ -684,6 +687,8 @@ def start_container(world: dict, name: str, image_ref: str, image: dict | None, 
             status, exit_code = 'exited', 1
             logs += [f'psycopg.OperationalError: connection to server at "{parsed.hostname}", port {parsed.port or 5432} '
                      'failed: the database system is starting up']
+        else:
+            connects_to = target['name']
     if status == 'running':
         logs += app.get('start_log', [])
         if listen:
@@ -701,7 +706,7 @@ def start_container(world: dict, name: str, image_ref: str, image: dict | None, 
         'exit_code': exit_code, 'health': health, 'health_reason': reason, 'ports': [list(p) for p in ports],
         'env': sorted(merged_env), 'listen': list(listen) if listen else None, 'user': config.get('user', 'root'),
         'started_at': world['clock'], 'logs': logs, 'service': service, 'project': project,
-        'ready': status == 'running',
+        'ready': status == 'running', 'connects_to': connects_to,
     }
     world['docker']['containers'][name] = container
     return container
@@ -817,6 +822,9 @@ def curl(world: dict, url: str) -> tuple[str, int]:
         mapping = next((p for p in container['ports'] if p[0] == port), None)
         if mapping is None or container['status'] != 'running':
             continue
+        if container.get('networks') and all(n in internal_networks(world) for n in container['networks']):
+            return (f'curl: (7) Failed to connect to localhost port {port}: Connection refused\n{DIM}('
+                    f'{container["name"]} is only on internal networks: Docker publishes no port for it){RESET}\n'), 7
         listen = container.get('listen')
         if not listen or listen[1] != mapping[1]:
             return f'curl: (56) Recv failure: Connection reset by peer\n{DIM}(nothing listens on port {mapping[1]} in {container["name"]}){RESET}\n', 56
@@ -830,6 +838,16 @@ def curl(world: dict, url: str) -> tuple[str, int]:
         routes = app.get('routes', {})
         if path in routes:
             return routes[path] + '\n', 0
+        if path in (app.get('writes') or {}) or path in (app.get('reads') or []):
+            db = world['docker']['containers'].get(container.get('connects_to') or '')
+            if db is None or db['status'] != 'running':
+                return ('{"detail":"database unavailable"}\n' + f'{DIM}(HTTP 503: the app lost its database){RESET}\n'), 22
+            store = data_store(world, db)
+            if path in (app.get('writes') or {}):
+                added = int(app['writes'][path])
+                store['rows'] = int(store.get('rows', 0)) + added
+                return json.dumps({'ingested': added, 'total_rows': store['rows']}) + '\n', 0
+            return json.dumps({'rows': int(store.get('rows', 0)), 'database': db['service'] or db['name']}) + '\n', 0
         return '{"detail":"Not Found"}\n', 0
     return f'curl: (7) Failed to connect to localhost port {port}: Connection refused\n', 7
 
@@ -882,9 +900,147 @@ def compose_healthcheck(service: dict) -> dict | None:
             'start_period': str(hc.get('start_period', '0s'))}
 
 
+def compose_resources(data: dict, project: str) -> tuple[dict[str, dict], dict[str, dict]]:
+    """The project's networks and named volumes, by their Docker name (<project>_<name>)."""
+    networks: dict[str, dict] = {f'{project}_default': {'project': project, 'name': 'default', 'internal': False}}
+    for name, spec in (data.get('networks') or {}).items():
+        spec = spec or {}
+        if not isinstance(spec, dict):
+            raise DockerError(f'networks.{name} must be a mapping')
+        unknown = set(spec) - {'driver', 'internal', 'name', 'labels', 'attachable'}
+        if unknown:
+            raise DockerError(f'networks.{name} Additional property {sorted(unknown)[0]} is not allowed '
+                              '(the lab simulates driver, internal, name, labels)')
+        if spec.get('driver', 'bridge') != 'bridge':
+            raise DockerError(f'networks.{name}: the lab simulates bridge networks only')
+        networks[f'{project}_{name}'] = {'project': project, 'name': str(name), 'internal': bool(spec.get('internal'))}
+    volumes: dict[str, dict] = {}
+    for name, spec in (data.get('volumes') or {}).items():
+        spec = spec or {}
+        if not isinstance(spec, dict):
+            raise DockerError(f'volumes.{name} must be a mapping')
+        if spec.get('external'):
+            raise DockerError(f'volumes.{name}: external volumes are not simulated: declare it in this file')
+        volumes[f'{project}_{name}'] = {'project': project, 'name': str(name), 'driver': spec.get('driver', 'local')}
+    return networks, volumes
+
+
+def service_plan(name: str, service: dict, networks: dict, volumes: dict, project: str, folder: Path) -> dict:
+    """A service's networks and mounts, checked against the top-level declarations as compose does."""
+    wanted = service.get('networks')
+    if wanted is None:
+        attached = ['default']
+    elif isinstance(wanted, list):
+        attached = [str(n) for n in wanted]
+    elif isinstance(wanted, dict):
+        attached = [str(n) for n in wanted]
+    else:
+        raise DockerError(f'services.{name}.networks must be a list or a mapping')
+    for net in attached:
+        if f'{project}_{net}' not in networks:
+            raise DockerError(f'service "{name}" refers to undefined network {net}: invalid compose project')
+    mounts = []
+    for entry in service.get('volumes') or []:
+        if isinstance(entry, dict):
+            kind = entry.get('type', 'volume')
+            source, target, read_only = entry.get('source'), entry.get('target'), bool(entry.get('read_only'))
+        else:
+            parts = str(entry).split(':')
+            if len(parts) == 1:
+                kind, source, target, read_only = 'volume', None, parts[0], False
+            else:
+                source, target = parts[0], parts[1]
+                read_only = len(parts) > 2 and 'ro' in parts[2].split(',')
+                kind = 'bind' if source.startswith(('.', '/', '~')) or re.match(r'^[A-Za-z]:\\', source) else 'volume'
+        if not target or not str(target).startswith('/'):
+            raise DockerError(f'services.{name}.volumes: the target of {entry!r} must be an absolute path in the '
+                              'container')
+        if kind == 'volume' and source:
+            if f'{project}_{source}' not in volumes:
+                raise DockerError(f'service "{name}" refers to undefined volume {source}: invalid compose project')
+            mounts.append({'type': 'volume', 'source': f'{project}_{source}', 'target': str(target).rstrip('/'),
+                           'read_only': read_only})
+        elif kind == 'bind':
+            confined(folder, str(source).lstrip('~'))
+            mounts.append({'type': 'bind', 'source': str(source), 'target': str(target).rstrip('/'),
+                           'read_only': read_only})
+        else:
+            mounts.append({'type': 'volume', 'source': None, 'target': str(target).rstrip('/'), 'read_only': False})
+    return {'networks': [f'{project}_{n}' for n in attached], 'mounts': mounts}
+
+
+POSTGRES_DATA = '/var/lib/postgresql/data'
+
+
+def data_store(world: dict, container: dict) -> dict:
+    """Where a database container keeps its data: a named volume or a bind mount on its data directory, else the
+    image's anonymous volume, which lives and dies with the container."""
+    for mount in container.get('mounts') or []:
+        if mount['target'] in (POSTGRES_DATA, '/var/lib/postgresql') and mount['source']:
+            if mount['type'] == 'volume':
+                return world['docker'].setdefault('volumes', {}).setdefault(mount['source'], {'data': {}})['data']
+            return world['docker'].setdefault('binds', {}).setdefault(mount['source'], {})
+    return container.setdefault('data', {})
+
+
+def describe_store(container: dict) -> str:
+    for mount in container.get('mounts') or []:
+        if mount['target'] in (POSTGRES_DATA, '/var/lib/postgresql') and mount['source']:
+            return f'volume {mount["source"]}' if mount['type'] == 'volume' else f'bind mount {mount["source"]}'
+    return 'an anonymous volume: it goes away with the container'
+
+
+def internal_networks(world: dict) -> set[str]:
+    return {n for n, spec in world['docker'].get('networks', {}).items() if spec.get('internal')}
+
+
+def volume_command(args: list[str], world: dict) -> tuple[str, int, dict]:
+    volumes = world['docker'].setdefault('volumes', {})
+    if args[:1] == ['ls']:
+        rows = [('DRIVER', 'VOLUME NAME')] + [(v.get('driver', 'local'), n) for n, v in sorted(volumes.items())]
+        return table(rows), 0, {}
+    if args[:1] == ['rm'] and args[1:]:
+        for name in args[1:]:
+            if name not in volumes:
+                raise DockerError(f'Error response from daemon: get {name}: no such volume')
+            users = [c['name'] for c in world['docker']['containers'].values()
+                     if any(m['source'] == name for m in c.get('mounts') or [])]
+            if users:
+                raise DockerError(f'Error response from daemon: remove {name}: volume is in use - [{users[0]}]')
+            del volumes[name]
+        return '\n'.join(args[1:]) + '\n', 0, {}
+    if args[:1] == ['inspect'] and args[1:]:
+        name = args[1]
+        if name not in volumes:
+            raise DockerError(f'Error: No such volume: {name}')
+        v = volumes[name]
+        return json.dumps([{'Name': name, 'Driver': v.get('driver', 'local'), 'Mountpoint':
+                            f'/var/lib/docker/volumes/{name}/_data', 'Labels': {'com.docker.compose.project':
+                            v.get('project'), 'com.docker.compose.volume': v.get('name')}, 'CreatedAt':
+                            v.get('created_at')}], indent=4) + '\n', 0, {}
+    raise DockerError('Usage: docker volume ls | rm NAME | inspect NAME')
+
+
+def network_command(args: list[str], world: dict) -> tuple[str, int, dict]:
+    networks = world['docker'].setdefault('networks', {})
+    if args[:1] == ['ls']:
+        rows = [('NETWORK ID', 'NAME', 'DRIVER', 'SCOPE'), ('3f1c0b6e2a9d', 'bridge', 'bridge', 'local')]
+        rows += [(hashlib.sha256(n.encode()).hexdigest()[:12], n, 'bridge', 'local') for n in sorted(networks)]
+        return table(rows), 0, {}
+    if args[:1] == ['inspect'] and args[1:]:
+        name = args[1]
+        if name not in networks:
+            raise DockerError(f'Error response from daemon: network {name} not found')
+        members = {c['name']: {'Name': c['name']} for c in world['docker']['containers'].values()
+                   if name in (c.get('networks') or [])}
+        return json.dumps([{'Name': name, 'Driver': 'bridge', 'Internal': bool(networks[name].get('internal')),
+                            'Containers': members}], indent=4) + '\n', 0, {}
+    raise DockerError('Usage: docker network ls | inspect NAME')
+
+
 def compose(folder: Path, args: list[str], world: dict) -> tuple[str, int, dict]:
     if not args:
-        raise DockerError('Usage: docker compose up [-d] [--build] | ps | down | logs [SERVICE]')
+        raise DockerError('Usage: docker compose up [-d] [--build] | ps | down [-v] | logs [SERVICE]')
     sub, rest = args[0], args[1:]
     project = re.sub(r'[^a-z0-9_-]', '', folder.name.lower()) or 'app'
     containers = world['docker']['containers']
@@ -901,9 +1057,21 @@ def compose(folder: Path, args: list[str], world: dict) -> tuple[str, int, dict]
         for n in names:
             lines.append(f' ✔ Container {n}  Removed')
             del containers[n]
-        lines.append(f' ✔ Network {project}_default  Removed')
+        networks = world['docker'].setdefault('networks', {})
+        for net in sorted(n for n, v in networks.items() if v.get('project') == project):
+            lines.append(f' ✔ Network {net}  Removed')
+            del networks[net]
+        if not names and not lines:
+            lines.append(f' ✔ Network {project}_default  Removed')
+        volumes = world['docker'].setdefault('volumes', {})
+        removed_volumes = 0
+        if '-v' in rest or '--volumes' in rest:
+            for vol in sorted(v for v, spec in volumes.items() if spec.get('project') == project):
+                lines.append(f' ✔ Volume {vol}  Removed')
+                del volumes[vol]
+                removed_volumes += 1
         worldlib.advance(world, 2)
-        return '\n'.join(lines) + '\n', 0, {'removed': len(names)}
+        return '\n'.join(lines) + '\n', 0, {'removed': len(names), 'volumes_removed': removed_volumes}
     if sub == 'logs':
         out = []
         for c in containers.values():
@@ -915,6 +1083,9 @@ def compose(folder: Path, args: list[str], world: dict) -> tuple[str, int, dict]
     rebuild = '--build' in rest
     file_name, data = load_compose(folder)
     services: dict[str, dict] = data['services']
+    declared_networks, declared_volumes = compose_resources(data, project)
+    plans = {name: service_plan(name, services[name] or {}, declared_networks, declared_volumes, project, folder)
+             for name in services}
     order: list[str] = []
     seen: dict[str, int] = {}
 
@@ -934,6 +1105,23 @@ def compose(folder: Path, args: list[str], world: dict) -> tuple[str, int, dict]
     for name in services:
         visit(name)
     lines: list[str] = []
+    networks = world['docker'].setdefault('networks', {})
+    used = {n for plan in plans.values() for n in plan['networks']}
+    for net, spec in declared_networks.items():
+        if net not in used:
+            continue
+        if net not in networks:
+            networks[net] = spec
+            lines.append(f' ✔ Network {net}  Created')
+        else:
+            networks[net] = spec
+    volumes = world['docker'].setdefault('volumes', {})
+    for vol, spec in declared_volumes.items():
+        if vol not in volumes:
+            volumes[vol] = {**spec, 'data': {}, 'created_at': world['clock']}
+            lines.append(f' ✔ Volume "{vol}"  Created')
+    # Containers are recreated; what the image's anonymous volume held is carried over, as compose does on recreate.
+    carried = {c['service']: c.get('data') for c in containers.values() if c.get('project') == project}
     for name in list(containers):
         if containers[name].get('project') == project:
             del containers[name]
@@ -976,9 +1164,12 @@ def compose(folder: Path, args: list[str], world: dict) -> tuple[str, int, dict]
                 if target['health'] != 'healthy':
                     raise DockerError(f'dependency failed to start: container {target["name"]} is unhealthy')
                 lines.append(f' ✔ Container {target["name"]}  Healthy')
-        # A dependency with only service_started may not be ready yet when this service starts.
+        # A dependency with only service_started may not be ready yet when this service starts. Names resolve only
+        # between services that share a network.
         view = {}
         for dep_name, target in network.items():
+            if not set(plans[dep_name]['networks']) & set(plans[name]['networks']):
+                continue
             ready = target['status'] == 'running'
             if compose_depends(service).get(dep_name) == 'service_started' and target.get('slow_start'):
                 ready = False
@@ -996,7 +1187,22 @@ def compose(folder: Path, args: list[str], world: dict) -> tuple[str, int, dict]
         container = start_container(world, cname, ref, image, ports, compose_env(service), command,
                                     compose_healthcheck(service) if 'healthcheck' in service else None, view, name,
                                     project)
+        container['networks'] = plans[name]['networks']
+        container['mounts'] = plans[name]['mounts']
+        if carried.get(name) is not None:
+            container['data'] = carried[name]
         app = app_for(world, image, ref)
+        if app.get('kind') == 'postgres' and container['status'] == 'running':
+            store = data_store(world, container)
+            where = describe_store(container)
+            if store.get('initialized'):
+                container['logs'] = ['PostgreSQL Database directory appears to contain a database; Skipping '
+                                     f'initialization ({where})'] + container['logs']
+            else:
+                store['initialized'] = True
+                store.setdefault('rows', 0)
+                container['logs'] = [f'initdb: creating database "{compose_env(service).get("POSTGRES_DB", "postgres")}" '
+                                     f'in /var/lib/postgresql/data ({where})'] + container['logs']
         container['slow_start'] = bool(app.get('ready_after_s'))
         network[name] = container
         state = 'Started' if container['status'] == 'running' else f'Exited ({container["exit_code"]})'
@@ -1022,6 +1228,10 @@ def command(folder: Path, args: list[str], world: dict) -> tuple[str, int, dict]
         return run(folder, rest, world)
     if sub == 'compose':
         return compose(folder, rest, world)
+    if sub == 'volume':
+        return volume_command(rest, world)
+    if sub == 'network':
+        return network_command(rest, world)
     if sub == 'ps':
         return ps(world, '-a' in rest or '--all' in rest), 0, {}
     if sub in ('images', 'image') and (sub == 'images' or rest[:1] == ['ls']):
@@ -1070,6 +1280,8 @@ HELP = f"""Usage:  docker COMMAND   {DIM}(simulated by Datapass: nothing is buil
   run [-d] [--name N] [-p H:C] [-e K=V] IMAGE   Run a container
   ps [-a]                            List containers
   logs NAME                          Show a container's logs
+  volume ls | rm | inspect           Named volumes (compose volumes: survive docker compose down, not down -v)
+  network ls | inspect               Networks (compose networks: services resolve each other by name on them)
   stop NAME / rm [-f] NAME / rmi IMAGE
-  compose up [-d] [--build] | ps | logs [SERVICE] | down
+  compose up [-d] [--build] | ps | logs [SERVICE] | down [-v]
 """

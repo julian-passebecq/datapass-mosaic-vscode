@@ -1,0 +1,5 @@
+docker compose up -d --build
+curl http://localhost:8080/ingest/run
+docker compose down -v
+docker compose up -d
+curl http://localhost:8080/stats

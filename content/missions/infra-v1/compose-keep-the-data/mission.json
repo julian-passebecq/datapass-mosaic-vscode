@@ -1,0 +1,101 @@
+{
+  "id": "compose-keep-the-data",
+  "version": "1",
+  "lab": "infra",
+  "title": "Stop losing the dev database",
+  "level": "intermediate",
+  "estimate": "30-45 min",
+  "skills": ["compose named volumes", "compose networks (internal)", "service names as hostnames", "docker compose down vs down -v", "docker volume ls, docker network ls"],
+  "ticket": {
+    "from": "Aisha Bello, data engineering",
+    "subject": "Local stack: the orders vanish at every restart",
+    "body": [
+      "Our local ingestion stack (`compose.yaml`: the `api`, its Postgres `db` and the `dashboard`) has two",
+      "problems:",
+      "",
+      "- **The data does not survive a restart.** I ingest a batch (`GET /ingest/run` on the api, port 8080), run",
+      "  `docker compose down`, bring the stack back up and `/stats` says 0 orders. Keep the database files in a",
+      "  **named volume** `pgdata` mounted on Postgres's data directory, `/var/lib/postgresql/data`.",
+      "- **Everything talks to everything.** Security wants the database out of reach: put `dashboard` and `api` on",
+      "  a `frontend` network, `api` and `db` on a `backend` network marked `internal: true` (no way out, no way in",
+      "  from the host), and nothing of `db` published on the host. The dashboard must not see the database at all.",
+      "  The api still reaches the database by its service name `db`.",
+      "",
+      "Prove it the way I tried: ingest one batch, `docker compose down` (without `-v`: that one also deletes the",
+      "volumes), `docker compose up -d`, then `/stats` must still say 250 orders.",
+      "",
+      "This is the lab's simulated Docker engine: nothing is built, pulled or run."
+    ]
+  },
+  "acceptance": [
+    {
+      "id": "keep-data",
+      "text": "The orders survive docker compose down and up: Postgres keeps its files in the named volume pgdata.",
+      "checks": [
+        {"kind": "docker_container", "service": "db", "health": "healthy", "volume_at": "/var/lib/postgresql/data", "data_rows": 250,
+         "fail": "The database lost the ingested orders, or does not keep them in a named volume."},
+        {"kind": "journal", "includes": ["^curl .*localhost:8080/ingest/run", "^docker compose down", "^curl .*localhost:8080/stats"],
+         "before": [["^curl .*/ingest/run", "^docker compose down"], ["^docker compose down", "^docker compose up"], ["^docker compose up", "^curl .*/stats"]],
+         "fail": "You did not ingest, restart the stack and read the stats in that order."}
+      ]
+    },
+    {
+      "id": "isolated-db",
+      "text": "db is only on the internal backend network and the host cannot reach it.",
+      "checks": [
+        {"kind": "docker_container", "service": "db", "networks": ["backend"], "not_networks": ["frontend", "default"], "internal": true, "published": false,
+         "fail": "The database can still be reached from where it should not."},
+        {"kind": "docker_container", "service": "dashboard", "networks": ["frontend"], "not_networks": ["backend"], "reachable": [8081, "/"],
+         "fail": "The dashboard is not where the ticket puts it."}
+      ]
+    },
+    {
+      "id": "api",
+      "text": "The api is on both networks, answers on port 8080 and reaches the database by its name.",
+      "checks": [
+        {"kind": "docker_container", "service": "api", "networks": ["frontend", "backend"], "health": "healthy", "reachable": [8080, "/health"],
+         "fail": "The api is not up as the ticket asks."}
+      ]
+    }
+  ],
+  "hints": [
+    "A named volume is declared twice: under the service (`volumes: - pgdata:/var/lib/postgresql/data`) and at the top level of the file (`volumes: pgdata:`). A path that starts with `./` is a bind mount of a host folder instead.",
+    "Without a volume on its data directory, the postgres image stores its files in an anonymous volume that goes away with the container: `docker compose down` removes the container.",
+    "`docker compose down` removes containers and networks and keeps named volumes; `docker compose down -v` deletes them too. `docker volume ls` shows what is left.",
+    "Services find each other by service name only on a network they share: the api must be on `backend` to resolve `db`, and on `frontend` for the dashboard and for its published port.",
+    "Docker publishes no port for a container that is only on `internal: true` networks: `curl localhost:5432` then fails, which is what security wants."
+  ],
+  "infra": {
+    "world": {
+      "clock": "2026-10-14T09:30:00Z",
+      "docker": {
+        "apps": {
+          "ingest-api": {
+            "requires_env": ["DATABASE_URL"],
+            "connects_env": "DATABASE_URL",
+            "health_path": "/health",
+            "routes": {"/": "{\"service\":\"ingest-api\"}"},
+            "writes": {"/ingest/run": 250},
+            "reads": ["/stats"],
+            "missing_env_log": ["Traceback (most recent call last):", "  File \"/app/app/main.py\", line 7, in <module>", "KeyError: 'DATABASE_URL'"],
+            "start_log": ["INFO:     Started server process [1]", "INFO:     Waiting for application startup.", "INFO:     Application startup complete."]
+          },
+          "nginx": {
+            "listens": 80,
+            "routes": {"/": "<html><body><h1>Orders dashboard</h1><p>Reads http://api:8000/stats</p></body></html>"},
+            "start_log": ["/docker-entrypoint.sh: Configuration complete; ready for start up"]
+          }
+        }
+      }
+    }
+  },
+  "reference": [
+    {"infra": "docker compose up -d --build"},
+    {"infra": "curl http://localhost:8080/ingest/run"},
+    {"infra": "docker compose down"},
+    {"infra": "docker compose up -d"},
+    {"infra": "curl http://localhost:8080/stats"},
+    {"infra": "docker volume ls"},
+    {"infra": "docker network ls"}
+  ]
+}

@@ -1,0 +1,116 @@
+{
+  "id": "black-friday-autoscale",
+  "version": "1",
+  "lab": "infra",
+  "title": "Get orders-api through Black Friday",
+  "level": "intermediate",
+  "estimate": "45-70 min",
+  "skills": ["Kubernetes namespaces", "Ingress (ingressClassName, pathType, service port)", "HorizontalPodAutoscaler (autoscaling/v2)", "CPU requests and limits", "kubectl -n, get hpa, describe"],
+  "ticket": {
+    "from": "Marco Rossi, e-commerce SRE",
+    "subject": "orders-api: public route and autoscaling before Black Friday",
+    "body": [
+      "orders-api runs in the `shop` namespace of our AKS cluster with two replicas (the manifests are in `k8s/`).",
+      "Two things must be ready before Friday:",
+      "",
+      "- **The public route.** The storefront calls `http://shop.contoso.test/api/orders`. Sam started",
+      "  `k8s/ingress.yaml` but never applied it: the cluster's ingress controller is ingress-nginx (class `nginx`)",
+      "  and every path under `/api` must reach the `orders-api` Service.",
+      "- **Autoscaling.** Last year's Black Friday load is recorded; `lab load replay` plays it against the cluster.",
+      "  Add a HorizontalPodAutoscaler (`autoscaling/v2`) on CPU utilization, target **70 %**, between **2** and",
+      "  **10** replicas. From the load test, each pod needs `cpu: 250m` and `memory: 256Mi` requested and must",
+      "  never use more than `cpu: 600m` and `memory: 512Mi` (limits). During the replay no minute may have the",
+      "  pods overloaded (every pod at its CPU limit), and once the rush is over we go back to 2 replicas.",
+      "",
+      "Show me the replay output when you're done. Keep everything in the `shop` namespace.",
+      "",
+      "This is the lab's simulated cluster: nothing is deployed."
+    ]
+  },
+  "acceptance": [
+    {
+      "id": "route",
+      "text": "GET http://shop.contoso.test/api/orders reaches orders-api through the nginx ingress.",
+      "checks": [
+        {"kind": "k8s_ingress", "name": "orders-api", "namespace": "shop", "ingress_class": "nginx", "host": "shop.contoso.test",
+         "path": "/api/orders", "backend": "orders-api", "status": 200,
+         "fail": "The storefront's request does not reach orders-api."},
+        {"kind": "journal", "includes": ["^curl .*shop\\.contoso\\.test/api"], "fail": "You never called the public route yourself."}
+      ]
+    },
+    {
+      "id": "autoscaler",
+      "text": "A CPU HorizontalPodAutoscaler keeps orders-api between 2 and 10 replicas at 70 %, and it can compute a replica count.",
+      "checks": [
+        {"kind": "k8s_hpa", "namespace": "shop", "deployment": "orders-api", "min_replicas": [2, 2], "max_replicas": [10, 10],
+         "cpu_utilization": [70, 70], "active": true,
+         "fail": "The autoscaler is not the one the ticket asks for."},
+        {"kind": "k8s_deployment", "name": "orders-api", "namespace": "shop", "ready": 2, "no_crashing_pods": true,
+         "fail": "orders-api is not healthy."}
+      ]
+    },
+    {
+      "id": "black-friday",
+      "text": "Replayed after the last change: no overloaded minute, at least 7 replicas at the peak, back to 2 at the end.",
+      "checks": [
+        {"kind": "k8s_hpa", "namespace": "shop", "deployment": "orders-api",
+         "replay": {"max_overloaded_minutes": 0, "min_peak_replicas": 7, "final_replicas": 2},
+         "fail": "orders-api would not get through Black Friday."}
+      ]
+    }
+  ],
+  "hints": [
+    "Everything lives in the `shop` namespace: `kubectl get all -n shop`, `kubectl get ingress -n shop`. Without `-n shop`, kubectl looks in `default`.",
+    "`kubectl apply -f k8s/` reports an invalid object and applies the others. An Ingress path needs a `pathType`: `Prefix` matches `/api` and everything under it, `Exact` only `/api` itself.",
+    "An Ingress is ignored when no controller claims its class: `kubectl get ingressclass` lists them; set `spec.ingressClassName`.",
+    "The Ingress backend names a port of the Service (`port: 80`, or its name `http`), not the container's port. `kubectl describe ingress orders-api -n shop` shows each backend and its endpoints; `curl -v` explains a 404 or 503.",
+    "The HPA computes utilization as usage over the pod's CPU request: without `resources.requests.cpu` it cannot scale (`kubectl describe hpa -n shop` says why).",
+    "`lab load replay` prints the replicas minute by minute: if the pods are overloaded at the peak, the maximum is too low or the pods too small; the scale-down waits 5 minutes (the default stabilization window)."
+  ],
+  "infra": {
+    "world": {
+      "clock": "2026-11-20T15:00:00Z",
+      "kube": {
+        "nodes": [
+          {"name": "aks-shop-31415926-vmss000000", "cpu": "2", "memory": "8Gi"},
+          {"name": "aks-shop-31415926-vmss000001", "cpu": "2", "memory": "8Gi"},
+          {"name": "aks-shop-31415926-vmss000002", "cpu": "2", "memory": "8Gi"}
+        ],
+        "ingress_classes": [
+          {"name": "nginx", "controller": "k8s.io/ingress-nginx", "address": "20.31.8.14", "default": false}
+        ],
+        "images": {
+          "ghcr.io/contoso/orders-api:1.5.1": {
+            "listens": 8000,
+            "health_path": "/health",
+            "start_s": 20,
+            "logs": ["orders-api 1.5.1 starting", "loading price rules (20s)", "INFO: Uvicorn running on http://0.0.0.0:8000"],
+            "routes": {
+              "/health": "{\"status\":\"ok\"}",
+              "/api/orders": "{\"orders\":[{\"id\":\"SO-104233\",\"status\":\"paid\",\"total\":129.90},{\"id\":\"SO-104234\",\"status\":\"shipped\",\"total\":54.00}],\"next\":null}"
+            }
+          }
+        },
+        "load": [
+          {"title": "Black Friday 2025 (recorded)", "namespace": "shop", "deployment": "orders-api",
+           "start": "2026-11-27T06:00:00Z",
+           "segments": [[120, 300, 300], [30, 300, 3000], [90, 3000, 3000], [30, 3000, 4200], [60, 4200, 1200], [60, 250, 250]]}
+        ]
+      }
+    },
+    "setup": [
+      "kubectl apply -f k8s/00-namespace.yaml",
+      "kubectl apply -f k8s/deployment.yaml",
+      "kubectl apply -f k8s/service.yaml"
+    ]
+  },
+  "reference": [
+    {"infra": "kubectl get ingressclass"},
+    {"infra": "kubectl apply -f k8s/"},
+    {"infra": "kubectl get ingress -n shop"},
+    {"infra": "curl http://shop.contoso.test/api/orders"},
+    {"infra": "kubectl get hpa -n shop"},
+    {"infra": "lab load replay"},
+    {"infra": "kubectl describe hpa orders-api -n shop"}
+  ]
+}

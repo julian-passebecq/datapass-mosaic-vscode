@@ -1,0 +1,3 @@
+kubectl apply -f k8s/
+curl http://shop.contoso.test/api/orders
+kubectl get hpa -n shop

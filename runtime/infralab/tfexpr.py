@@ -547,7 +547,7 @@ FUNCTIONS: dict[str, Callable[..., Any]] = {
 
 def references(node: Any) -> list[tuple[str, ...]]:
     """The names an expression refers to, as tuples: ('var', 'x'), ('local', 'x'), ('azurerm_x', 'name'),
-    ('data', 'type', 'name'), ('count',), ('each',). For-expression variables are left out."""
+    ('data', 'type', 'name'), ('module', 'call', 'output'), ('count',), ('each',). For-expression variables are left out."""
     found: list[tuple[str, ...]] = []
 
     def chain(n: Any) -> list[str] | None:
@@ -564,7 +564,7 @@ def references(node: Any) -> list[tuple[str, ...]]:
         if isinstance(n, (hcl.Var, hcl.GetAttr)):
             names = chain(n)
             if names and names[0] not in bound:
-                if names[0] == 'data':
+                if names[0] in ('data', 'module'):
                     found.append(tuple(names[:3]))
                 elif names[0] in ('count', 'each', 'path', 'terraform', 'self'):
                     found.append((names[0],))

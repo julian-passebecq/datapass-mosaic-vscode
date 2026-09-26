@@ -972,7 +972,7 @@ with TemporaryDirectory(prefix="datapass-csv-import-smoke-") as temp:
             # reads the simulation and never passes an untouched fixture (scripts/infra_missions_smoke.py plays the
             # references). The shell runs one simulated command at a time and refuses everything else.
             infra = [(m, p) for m, p in everything if m.lab == "infra"]
-            assert len(infra) == 4, [m.id for m, _ in infra]
+            assert len(infra) == 8, [m.id for m, _ in infra]
             for mission, _pack in infra:
                 built = client.post("/api/local/missions/setup", json={"mission_id": mission.id})
                 assert built.status_code == 200 and built.json()["folder"] == mission.folder, (mission.id, built.text)
