@@ -76,7 +76,7 @@ export class MissionsService {
     const mission = await this.mission(id);
     const folder = vscode.Uri.joinPath(root, ...missionFolder(id).split("/"));
     if (mission.lab === "terminal" || mission.lab === "infra") {
-      await this.runtime.terminalMissionSetup(id);
+      await this.runtime.labs.missions.terminalMissionSetup(id);
       const ticket = this.ticketUri(mission);
       await vscode.workspace.fs.createDirectory(vscode.Uri.joinPath(ticket, ".."));
       await vscode.workspace.fs.writeFile(ticket, new TextEncoder().encode(ticketMarkdown(mission)));
@@ -88,7 +88,7 @@ export class MissionsService {
     await copyWithoutOverwrite(vscode.Uri.joinPath(content, id, "project"), folder);
     await vscode.workspace.fs.writeFile(vscode.Uri.joinPath(folder, "TICKET.md"), new TextEncoder().encode(ticketMarkdown(mission)));
     await writeDbtProfiles(root, (await findDbtProjects()).map(project => project.file));
-    await this.runtime.missionSetup(id, mission.batches[0].id);
+    await this.runtime.labs.missions.missionSetup(id, mission.batches[0].id);
     await this.update(id, () => ({ started: new Date().toISOString(), batches: [mission.batches[0].id], hintsShown: 0 }));
     return folder;
   }
@@ -99,7 +99,7 @@ export class MissionsService {
     const progress = (await this.progress()).missions[id];
     const batch = nextBatch(mission, progress);
     if (!batch) return undefined;
-    await this.runtime.missionSetup(id, batch.id);
+    await this.runtime.labs.missions.missionSetup(id, batch.id);
     await this.update(id, current => ({ ...current, batches: [...current.batches, batch.id] }));
     return batch.label;
   }
@@ -122,7 +122,7 @@ export class MissionsService {
         for (const board of mission.dctBoards) dct[board] = await dctValidate(this.tools, folder, profilesDir, board);
       }
     }
-    const result = toMissionCheckView(await this.runtime.missionCheck(id, dct, mission.lab === "dbt"));
+    const result = toMissionCheckView(await this.runtime.labs.missions.missionCheck(id, dct, mission.lab === "dbt"));
     await this.update(id, current => ({
       ...current,
       lastCheck: result,

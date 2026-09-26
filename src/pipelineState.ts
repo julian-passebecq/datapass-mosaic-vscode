@@ -2,6 +2,8 @@ import * as vscode from "vscode";
 import { readProjectManifest } from "./project/projectManifest";
 import type { RuntimeManager } from "./runtimeManager";
 import type { GraphView, PipelineViewState } from "./webview/contracts";
+import { safeRelativeParts } from "./platform/workspacePaths";
+import { exists } from "./workspaceFiles";
 
 const EMPTY_GRAPH: GraphView = { nodes: [], edges: [] };
 
@@ -49,7 +51,7 @@ export async function loadPipelineState(
   }
 
   try {
-    const compiled = await runtimeManager.compilePipeline(source);
+    const compiled = await runtimeManager.labs.pipeline.compilePipeline(source);
     if (!compiled.valid || !compiled.ir) {
       return {
         exists: true,
@@ -110,26 +112,5 @@ function activityTruth(kind: string): string {
       return "Declared only · not executed (use dbt Lab)";
     default:
       return "Compiled design · not executable";
-  }
-}
-
-function safeRelativeParts(value: string | undefined, fallback: string): string[] {
-  const normalized = (value ?? fallback).replaceAll("\\", "/");
-  const parts = normalized.split("/").filter(Boolean);
-  if (
-    parts.length === 0 ||
-    parts.some(part => part === "." || part === ".." || part.includes(":"))
-  ) {
-    return [fallback];
-  }
-  return parts;
-}
-
-async function exists(uri: vscode.Uri): Promise<boolean> {
-  try {
-    await vscode.workspace.fs.stat(uri);
-    return true;
-  } catch {
-    return false;
   }
 }

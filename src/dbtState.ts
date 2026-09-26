@@ -2,6 +2,7 @@ import * as vscode from "vscode";
 import { toDbtCoreRunView } from "./platform/dbtArtifacts";
 import { readProfileName, readProjectName, renderPath, toDctRender, type DctValidationView } from "./platform/dbtTools";
 import type { DbtBoardView, DbtChartsView, DbtProjectRef, DbtToolsView, DbtViewState } from "./webview/contracts";
+import { exists } from "./workspaceFiles";
 
 const PROJECT_GLOB = "**/dbt_project.yml";
 const PROJECT_EXCLUDE = "{**/node_modules/**,**/target/**,**/dbt_packages/**,**/dbt_internal_packages/**,**/.datapass/**,**/.git/**}";
@@ -130,15 +131,6 @@ async function loadCharts(
     boards.push(board);
   }
   return { configured, boards, serveUrl };
-}
-
-async function exists(uri: vscode.Uri): Promise<boolean> {
-  try {
-    await vscode.workspace.fs.stat(uri);
-    return true;
-  } catch {
-    return false;
-  }
 }
 
 async function readJson(uri: vscode.Uri): Promise<{ value?: unknown; missing?: boolean; error?: string }> {

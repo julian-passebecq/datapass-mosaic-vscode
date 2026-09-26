@@ -9,6 +9,58 @@ Add a tranche as a new `## YYYY-MM-DD · Title` section at the top, under this p
 sections, and refer to another section by its heading, not by a position. Keep the "Checked" and "Not checked"
 notes: they say what was really run.
 
+## 2026-09-26 · One controller, one contract and one runtime client per lab (roadmap D-6)
+
+`src/workbenchPanel.ts` (2,161 lines, 84 message types, every lab in one class), `src/webview/contracts.ts` (1,344
+lines) and `src/runtimeManager.ts` (1,179 lines) caused most merge conflicts between parallel sessions. They are split
+per lab, with no behaviour change. This is the base of the per-lab template (roadmap T-2), which is not built here.
+
+- **Controllers** (`src/labs/<lab>/controller.ts`, one per module id plus `workbench` for the shell and `missions` for
+  the missions the dbt, Terminal and Infra Labs share): each answers its lab's messages through a typed
+  `MessageHandlers` map, keeps its host state (the dbt Lab's `dct validate` results, Practice's revealed solutions,
+  the Projects verification in flight, the last files to reveal a line in) and adds its part of the Workbench state
+  (`contribute`). The dbt artifact watcher and the Infra Lab's command subscription moved into their controllers.
+  Missions take per-lab hooks (restart warning, what to close before a rebuild, what to open), replacing the
+  `terminal ? … : infra ? … : dbt` branches.
+- **Message table**: `src/labs/controllers.ts` builds the controllers and wires the four cross-lab actions (the retail
+  demo opens the Pipeline, Airflow and dbt starters; a project step opens an exercise and writes the retail demo
+  files); `buildMessageTable` (`src/labs/messageTable.ts`) routes each message type to its one controller and refuses
+  two controllers for one type. A message type that no controller handles fails the typecheck
+  (`UnhandledMessageTypes`). `workbenchPanel.ts` (194 lines) keeps only the webview, the state it posts, the editors
+  it remembers and the table; which modules refresh on save comes from the controllers (`refreshOnSave`).
+- **Contracts**: `src/webview/contracts/<lab>.ts` holds each lab's views, its slice of `RuntimeViewState` and
+  `WorkbenchViewState` and its message union; `contracts/index.ts` composes them, so every `webview/contracts` import
+  is unchanged. The old and new composed types were checked mutually assignable with the TypeScript compiler, and the
+  mission list type (three inline copies) is one `MissionListView`.
+- **Runtime clients**: `src/labs/<lab>/client.ts` (Mosaic, SparkLab, Practice, Pipeline, Airflow, Cloud Lab, BI, Infra,
+  missions, Projects) on a `RuntimeConnection` the manager hands out (running URL, token-carrying requests, the shared
+  state); callers use `runtimeManager.labs.<lab>.<method>` with the old method names. `runtimeManager.ts` (583 lines)
+  keeps the process, setup, token, state and the shared catalog (list, lend, reattach, schema). `runtimeErrorDetail`
+  moved to `src/platform/runtimeClient.ts`.
+- **Helpers, one copy each**: `exists` (five copies), `safeRelativeParts` (three left), `writeIfMissing` and
+  `copyWithoutOverwrite` (two) now live in `src/workspaceFiles.ts` and `src/platform/workspacePaths.ts`.
+- **Tests**: `scripts/message_table_smoke.mjs` (in `npm test`) checks the routing, the duplicate refusal, one contract
+  file per lab folder, and that no lab imports another lab (the registry wires them). The packaged-VSIX UI pass has a
+  new step that clicks one real button per lab (Cloud Lab retail demo across four controllers and its run, Cloud Lab
+  samples, BI build, Airflow simulation, Pipeline run, Projects prepare, Terminal Lab terminal) and checks the result
+  on disk or in the runtime's answer.
+
+Checked: `npm run compile`; `npm test` (27 smokes, with `message_table_smoke.mjs`); the old and new composed contract
+types mutually assignable (a throwaway compiler check against the old `contracts.ts`); every string literal of the old
+panel and runtime manager (messages, endpoints, labels) still present, and the same numeric timeouts; the
+unhandled-message check fails when a controller is left out of the registry; `pip install ./runtime`, compileall,
+`runtime_smoke.py`, `exercise_packs_smoke.py` (584 / 584 / 549, unchanged), `projects_smoke.py`,
+`infra_missions_smoke.py`, `terminal_missions_smoke.py`, `missions_smoke.py` with a dbt venv; `npm run test:host`
+with `DATAPASS_E2E_PYTHON` and `DATAPASS_DBT_PYTHON` (40 steps, including the dbt Core, dbt Charts, missions,
+Terminal Lab and Infra Lab steps); the packaged VSIX in a real VS Code window (`npm run test:ui`, 51/51 with the new
+per-lab step).
+
+Not checked: the webview buttons that the UI pass does not click (for example the Databricks and SQL pool runs, dct
+render and serve, the dbt install) went through the message table only in the typecheck and the host suite's direct
+calls. Found on the way, left for its own task: once the labs hold data (after the new per-lab step), the Cloud Lab
+Pipelines and Databricks tabs and the BI Lab Lineage tab overflow at 520 px (`.factory-toolbar`); the layout checks
+still run on a fresh workspace, as before.
+
 ## 2026-09-26 · Infra Lab, first tranche: simulated Terraform, Docker, monitoring and Kubernetes
 
 Decided with the user before coding: pure simulation (no real terraform, docker, kubectl or az, even when installed;

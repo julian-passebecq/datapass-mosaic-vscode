@@ -1,5 +1,5 @@
 import * as vscode from "vscode";
-import { exists } from "./factoryState";
+import { exists } from "./workspaceFiles";
 import { MODULES } from "./modules";
 import {
   PROGRESS_PATH,

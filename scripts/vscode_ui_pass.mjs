@@ -398,6 +398,67 @@ try {
   }
   await setWindowWidth(1280);
 
+  // --- One action per lab ---------------------------------------------------------------------------------------
+  // Each button's message goes through the Workbench's message table to its lab's controller (src/labs/<lab>): every
+  // click must leave its mark on disk or in the runtime's answer. It runs after the layout checks, which look at the
+  // labs as a fresh workspace shows them. The retail demo also crosses labs (its files come
+  // from the Cloud Lab, Pipeline Lab, Airflow Lab and dbt Lab controllers).
+  const onDisk = (...parts) => () => existsSync(path.join(workspace, ...parts));
+  const shows = pattern => async () => pattern.test(await bodyText().catch(() => ""));
+  async function labAction(label, commandTitle, act, checks, timeoutMs = 90000) {
+    let detail = "";
+    let ok = false;
+    try {
+      await command(commandTitle);
+      await web().locator("nav.module-tabs [role=tab][aria-selected=true]").waitFor({ timeout: 60000 });
+      await act();
+      const deadline = Date.now() + timeoutMs;
+      let pending = checks;
+      while (pending.length && Date.now() < deadline) {
+        const results = await Promise.all(pending.map(check => check()));
+        pending = pending.filter((_, index) => !results[index]);
+        if (pending.length) await page.waitForTimeout(500);
+      }
+      ok = pending.length === 0;
+      if (!ok) detail = `${pending.length} of ${checks.length} checks not met`;
+    } catch (error) {
+      detail = String(error?.message ?? error).split("\n")[0].slice(0, 200);
+    }
+    step(`Lab controller: ${label}`, ok, detail);
+  }
+  const subtab = name => web().locator(".lab-subtabs").getByRole("tab", { name, exact: true }).click();
+  await labAction("Cloud Lab creates the retail demo across labs", "Datapass: Open Cloud Lab", async () => {
+    await subtab("Lakehouse and notebooks");
+    await button("Create / repair demo files").click();
+  }, [onDisk("datasets", "retail_orders.csv"), onDisk("pipelines", "main.pipeline.py"), onDisk("airflow", "dags", "retail_daily.py"),
+    onDisk("dbt", "retail-dbt", "dbt_project.yml")]);
+  await labAction("Cloud Lab runs the retail demo in the runtime", "Datapass: Open Cloud Lab", async () => {
+    await subtab("Lakehouse and notebooks");
+    await button("Run local medallion flow").click();
+  }, [shows(/Retail demo completed with real local Polars \+ DuckDB execution/)]);
+  await labAction("Cloud Lab copies its pipeline samples", "Datapass: Open Cloud Lab", async () => {
+    await subtab("Pipelines");
+    await button("Create lab files").click();
+  }, [onDisk("factory")]);
+  await labAction("BI Lab builds its warehouse", "Datapass: Open BI Lab", async () => {
+    await button("Create lab files").first().click();
+    await button("Build warehouse").click({ timeout: 60000 });
+  }, [onDisk("bi", "model.json"), shows(/BI Lab: \d+ statement\(s\) ran on the local catalog/)], 180000);
+  await labAction("Airflow Lab simulates the starter DAG", "Datapass: Open Airflow Lab",
+    () => button("Simulate active DAG file").click(), [shows(/Airflow DAG retail_daily simulated/)]);
+  await labAction("Pipeline Lab runs the starter pipeline", "Datapass: Open Pipeline Lab",
+    () => button("Run pipeline").click({ timeout: 60000 }), [shows(/Pipeline \S+ (completed|finished with failures)\./)]);
+  await labAction("Projects prepares a project's files", "Datapass: Open Projects",
+    async () => {
+      await web().locator(".project-card").first().getByRole("button").first().click();
+      await button("Prepare files").click();
+    },
+    [() => existsSync(path.join(workspace, "projects")) && readdirSync(path.join(workspace, "projects")).length > 0]);
+  await labAction("Terminal Lab opens a terminal", "Datapass: Open Terminal Lab",
+    () => button("Open a terminal").click({ timeout: 60000 }),
+    [async () => (await page.locator(".terminal-tab, .single-terminal-tab, .tabs-list .monaco-list-row", { hasText: "Terminal Lab" }).count()) > 0]);
+  await shot("lab-controllers");
+
   // --- Stop runtime ---------------------------------------------------------------------------------------------
   await button("Stop runtime").click();
   await button("Start runtime").waitFor({ timeout: 60000 });

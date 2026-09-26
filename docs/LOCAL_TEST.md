@@ -149,8 +149,12 @@ npm run test:ui
    reference commands typed one by one in the simulated terminal (Playwright types into the xterm textarea, no real
    `terraform`/`docker`/`kubectl`/`az` runs), then **Check my work** passes and the simulated world shows.
 6. Layout at a 520 px Workbench: every module tab and every lab sub-tab. No element may stick out on the right unless a container scrolls or clips it (the PR #17 overflow). The probe first proves it catches a planted 2000 px block.
-7. **Stop runtime**; the port is closed afterwards. Uncaught webview errors fail the pass.
-8. Upgrade: the managed venv is made to look like an older VSIX set it up (another fingerprint in its `datapass-runtime.json` marker, a changed installed `datapass_runtime/__init__.py`). After **Developer: Reload Window** the Workbench must show the environment as "needs update" with **Update runtime** and no **Start runtime**; **Update runtime** must restore the marker and the installed module; the runtime then starts.
+7. One action per lab, each through its lab controller (`src/labs/<lab>/controller.ts`): the Cloud Lab retail demo
+   (its files come from the Cloud Lab, Pipeline Lab, Airflow Lab and dbt Lab controllers) and its run, the Cloud Lab
+   pipeline samples, the BI Lab warehouse build, the Airflow simulation, the Pipeline Lab run, a project's **Prepare
+   files** and a Terminal Lab terminal; each must leave its files on disk or the runtime's answer on screen.
+8. **Stop runtime**; the port is closed afterwards. Uncaught webview errors fail the pass.
+9. Upgrade: the managed venv is made to look like an older VSIX set it up (another fingerprint in its `datapass-runtime.json` marker, a changed installed `datapass_runtime/__init__.py`). After **Developer: Reload Window** the Workbench must show the environment as "needs update" with **Update runtime** and no **Start runtime**; **Update runtime** must restore the marker and the installed module; the runtime then starts.
 
 Results and one screenshot per step land in `test-results/vscode-ui/` (`results.json`, `layout-<tab>.png`, …). The profile and workspace live under `C:\dpw-ui` on Windows (the managed venv sits in the profile and DuckDB's DLL path must stay under MAX_PATH) and under the temp folder elsewhere; the root is wiped first.
 

@@ -1,5 +1,6 @@
 import * as vscode from "vscode";
-import { copyWithoutOverwrite, exists, readText } from "./factoryState";
+import { readText } from "./factoryState";
+import { copyWithoutOverwrite, exists } from "./workspaceFiles";
 import { BI_DBT_FOLDER, BI_FOLDER, BI_LIMITS, BI_MODEL_FILE, BI_SCRIPTS_FOLDER, isBiPath, isDbtProjectFile, orderScripts } from "./platform/biRun";
 import type { BiViewState } from "./webview/contracts";
 
