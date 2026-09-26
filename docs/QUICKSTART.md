@@ -354,6 +354,8 @@ even if you have one installed.
 
 **Setup runtime** creates a private Python environment for the runtime and installs its engines, once per machine. It uses [uv](https://docs.astral.sh/uv/) when it is installed and pip otherwise; the setup card says which one it uses. On Windows, uv made the first setup about ten times faster (about 14 s instead of about 146 s).
 
+After you install a newer version of the extension, its runtime can differ from the one in that environment. The Workbench then shows the environment as **needs update** with an **Update runtime** button, which reinstalls the extension's runtime into the existing environment (dependencies come from the uv or pip cache when they have not changed). The old runtime is never started: a start in that state updates first.
+
 The extension starts one loopback FastAPI runtime on a free local port:
 
 ```text

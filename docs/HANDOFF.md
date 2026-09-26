@@ -30,7 +30,7 @@ runtime on loopback. Eleven Workbench modules, each with a `datapass.open…` co
 | --- | --- | --- | --- |
 | Projects (`projects`) | 3 end-to-end stories (`retail-fabric`, `databricks-ml`, `synapse-to-fabric`) whose steps are done in the labs and verified on the workspace | checks run on the catalog and the run journal; a hand tick is never a verification | `runtime/datapass_runtime/projects.py`, `run_journal.py`, `src/platform/projects.ts`, `content/projects/` |
 | Mosaic (`mosaic`) | grid of native SQL/Python/Markdown files; Run/Explain active SQL, Profile, Import file (CSV, Parquet, JSON), query history, SQL dialect picker | real DuckDB; Python/Polars real only with trusted Python; dialects translated to DuckDB | `src/webview/MosaicSurface.tsx`, `runtime/sqldialects` |
-| Practice (`practice`) | exercise packs in native files: Run visible, Submit, feedback diff, hints, reference after a pass, progress | real grading through the shared runtime (emulations labelled) | `runtime/datapass_runtime/exercises.py`, `content/exercise-packs/` |
+| Practice (`practice`) | LeetCode-style arena over the exercise packs: one card per problem with a language switch, Run visible, Submit, feedback diff, hints, reference after a pass, progress per variant; Review (Leitner spaced review) and Interview (timed random series, no hints, summary) modes | real grading through the shared runtime (emulations labelled) | `runtime/datapass_runtime/exercises.py`, `content/exercise-packs/`, `src/platform/practice*.ts`, `src/webview/Practice*.tsx` |
 | Cloud Lab (`fabric`) | Fabric-inspired lakehouse demo; Pipelines (Fabric / ADF / Synapse JSON), SQL pool (Synapse dedicated pool, Fabric Warehouse), Databricks (jobs, compute, Unity Catalog, MLflow) | orchestration simulated; Copy, Lookup, Script, procedures, SQL on local DuckDB; notebooks on SparkLab | `runtime/factorylab`, `sqlpoollab`, `databrickslab` |
 | BI Lab (`bi`) | warehouse scripts, star model checks, SQL lineage, Concepts, dbt tab | scripts and model checks real on DuckDB; lineage static (sqlglot); dbt tab is the Datapass dbt emulation, "not dbt Core" | `runtime/bilab`, `runtime/dbtlab` |
 | SparkLab (`sparklab`) | bounded PySpark-style files, teaching plans, simulated stages/shuffle/cost | bounded semantics on DuckDB; distributed behaviour simulated | `runtime/sparklab` |
@@ -41,7 +41,9 @@ runtime on loopback. Eleven Workbench modules, each with a `datapass.open…` co
 | Pipeline Lab (`pipeline`) | Python-like pipeline source compiled to a graph; supported activity bodies run | source never eval/exec'd; SQL, quality, Python, Polars bodies real; dbt activity declared only; schedule is metadata | `runtime/datapass_runtime/pipeline_compiler.py`, `native_pipeline.py` |
 
 Also: a native **Catalog** tree view (`src/catalogTree.ts`), managed runtime setup (uv when available, else venv +
-pip), explicit trusted-Python opt-in (manifest flag + per-machine modal + Workspace Trust), per-launch runtime token
+pip; Setup records a fingerprint of the bundled `runtime/` in the venv's `datapass-runtime.json`, and a mismatch after
+an extension update shows "needs update" / **Update runtime** and is never started as is,
+`src/platform/runtimeFingerprint.ts`), explicit trusted-Python opt-in (manifest flag + per-machine modal + Workspace Trust), per-launch runtime token
 (`X-Datapass-Token`, Host check, `runtime/datapass_runtime/auth.py`).
 
 Practice packs: `sql-lab-v1`, `engine-lab-v1` (incl. T-SQL and BigQuery variants), `python-lab-v1`,
@@ -73,8 +75,8 @@ SparkLab distributed behaviour. Static: SQL lineage. No cloud connection anywher
 - `scripts/`: every smoke and gate; `scripts/authoring/` pack generators (README there).
 - `docs/`: ARCHITECTURE, QUICKSTART, LOCAL_TEST, EXERCISE_AUTHORING, PROJECT_AUTHORING, HARVEST_AUDIT, this file
   and the history. `workbench-core/`, `migration-sources/`, `legacy-donors/` are donor material, not a runtime.
-- Workspace state a learner gets: `.datapass/project.json` (the one manifest), `.datapass/progress.json` (Projects
-  and Practice), `.datapass/mosaic.json`, `.datapass/data/` (catalog, run journal, lab state),
+- Workspace state a learner gets: `.datapass/project.json` (the one manifest), `.datapass/progress.json` (Projects;
+  Practice per variant with its review box, and the last 20 interview summaries), `.datapass/mosaic.json`, `.datapass/data/` (catalog, run journal, lab state),
   `.datapass/missions/`, `.datapass/dbt/profiles.yml`.
 
 ## How to test
@@ -132,7 +134,7 @@ explicit choice; dbt and dct run as the learner's own terminal commands.
 
 The roadmap artifact is the source of truth for order and status. Named directions so far: Infra Lab depth (more
 missions per simulator, Terraform modules, Kubernetes Ingress/HPA), BI-3 (KPIs, a DAX-like measure layer translated to
-SQL, charts), the Cloud Lab dbt layer (Databricks `dbt_task`, Fabric dbt job), Practice arena (V2-1).
+SQL, charts), the Cloud Lab dbt layer (Databricks `dbt_task`, Fabric dbt job).
 
 ## What not to do
 

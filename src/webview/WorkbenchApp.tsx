@@ -79,6 +79,7 @@ export function WorkbenchApp({ vscode }: { vscode: VsCodeApi }) {
   const environment = state.runtime.environment;
   const environmentReady = environment?.status === "ready";
   const environmentSettingUp = environment?.status === "setting-up";
+  const environmentStale = environment?.status === "stale";
 
   const runtimeTone =
     state.runtime.status === "running"
@@ -106,7 +107,7 @@ export function WorkbenchApp({ vscode }: { vscode: VsCodeApi }) {
                 disabled={environmentSettingUp}
                 onClick={() => vscode.postMessage({ type: "setupRuntime" })}
               >
-                {environmentSettingUp ? "Setting up runtime…" : "Setup runtime"}
+                {environmentSettingUp ? "Setting up runtime…" : environmentStale ? "Update runtime" : "Setup runtime"}
               </Button>
             )}
             {state.runtime.status === "running" ? (
@@ -232,7 +233,7 @@ export function WorkbenchApp({ vscode }: { vscode: VsCodeApi }) {
               <CardHeader header={<Text weight="semibold">Local runtime</Text>} />
               <div className="stack">
                 <StatusRow label="Service" value={state.runtime.status} />
-                <StatusRow label="Environment" value={environment?.status ?? "unknown"} />
+                <StatusRow label="Environment" value={environmentStale ? "needs update" : environment?.status ?? "unknown"} />
                 {environment?.python && (
                   <div className="runtime-python" title={environment.python}>{environment.python}</div>
                 )}
@@ -249,7 +250,7 @@ export function WorkbenchApp({ vscode }: { vscode: VsCodeApi }) {
                 {environment?.progress && environmentSettingUp ? (
                   <SetupProgress progress={environment.progress} onShowLog={() => vscode.postMessage({ type: "showRuntimeLog" })} />
                 ) : environment?.detail && (
-                  <div className={environment.status === "error" ? "error-text" : "muted"}>{environment.detail}</div>
+                  <div className={environment.status === "error" || environmentStale ? "error-text" : "muted"}>{environment.detail}</div>
                 )}
                 {environment?.status === "error" && (
                   <Button appearance="subtle" size="small" onClick={() => vscode.postMessage({ type: "showRuntimeLog" })}>

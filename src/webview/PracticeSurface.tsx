@@ -1,4 +1,4 @@
-import { Badge, Button, Input, Select, Text } from "@fluentui/react-components";
+import { Badge, Button, Input, Select, Tab, TabList, Text } from "@fluentui/react-components";
 import { useEffect, useMemo, useState } from "react";
 import {
   EMPTY_FILTERS,
@@ -9,15 +9,19 @@ import {
   type PracticeStatus
 } from "../platform/practiceProgress";
 import {
+  dueProblems,
   filterProblems,
   groupProblems,
   languageLabel,
   pickVariant,
   problemCounts,
   problemKeyOf,
-  restoreLanguages
+  restoreLanguages,
+  upcomingReviews
 } from "../platform/practiceProblems";
+import { REVIEW_INTERVALS_DAYS, daysBetween, localDay } from "../platform/practiceReview";
 import type { PracticeViewState, RuntimeViewState, WorkbenchFocus } from "./contracts";
+import { PracticeInterview } from "./PracticeInterview";
 import { PracticeProblemCard } from "./PracticeProblemCard";
 import type { VsCodeApi } from "./WorkbenchApp";
 
@@ -44,6 +48,14 @@ export function PracticeSurface({
     const value = readState(vscode).practiceLanguage;
     return typeof value === "string" ? value : undefined;
   });
+  const [mode, setModeState] = useState<PracticeMode>(() => focus?.query ? "browse" : restoreMode(readState(vscode).practiceMode));
+  const setMode = (next: PracticeMode) => {
+    setModeState(next);
+    vscode.setState({ ...readState(vscode), practiceMode: next });
+  };
+  // Problems shown in this review round: a problem stays on screen after its Submit, so its result stays visible.
+  const [reviewRound, setReviewRound] = useState<string[]>([]);
+  const [reviewLanguages, setReviewLanguages] = useState<Record<string, string>>({});
   const update = (next: PracticeFilters) => {
     setFilters(next);
     vscode.setState({ ...readState(vscode), practiceFilters: next });
@@ -56,7 +68,10 @@ export function PracticeSurface({
   };
   useEffect(() => {
     // A project step asks for one exercise: show it whatever the other filters were, in its language.
-    if (focus?.query) update({ ...EMPTY_FILTERS, query: focus.query });
+    if (focus?.query) {
+      update({ ...EMPTY_FILTERS, query: focus.query });
+      setMode("browse");
+    }
     if (focus?.exerciseKey) {
       const language = focus.exerciseKey.slice(focus.exerciseKey.lastIndexOf("/") + 1);
       setLanguages(current => ({ ...current, [problemKeyOf(focus.exerciseKey!)]: language }));
@@ -69,6 +84,21 @@ export function PracticeSurface({
   const filtered = useMemo(() => filterProblems(problems, progress, filters), [problems, progress, filters]);
   const counts = useMemo(() => problemCounts(problems, progress), [problems, progress]);
   const filtering = Object.values(filters).some(Boolean);
+  const today = localDay(new Date());
+  const interviewState = readState(vscode).practiceInterview as { finishedAt?: string } | undefined;
+  const interviewRunning = Boolean(interviewState && !interviewState.finishedAt);
+  const due = useMemo(() => dueProblems(problems, progress, today), [problems, progress, today]);
+  const upcoming = useMemo(() => upcomingReviews(problems, progress, today), [problems, progress, today]);
+  useEffect(() => {
+    if (mode !== "review") {
+      setReviewRound([]);
+      return;
+    }
+    setReviewRound(current => {
+      const added = due.map(item => item.problem.key).filter(key => !current.includes(key));
+      return added.length ? [...current, ...added] : current;
+    });
+  }, [mode, due]);
 
   return (
     <section className="practice-surface">
@@ -99,6 +129,19 @@ export function PracticeSurface({
         </div>
       </div>
 
+      <TabList className="lab-subtabs practice-modes" aria-label="Practice mode" size="small" selectedValue={mode}
+        onTabSelect={(_, data) => setMode(data.value as PracticeMode)}>
+        <Tab value="browse">All problems</Tab>
+        <Tab value="review">Review{due.length ? ` · ${due.length} due` : ""}</Tab>
+        <Tab value="interview">Interview{interviewRunning ? " · running" : ""}</Tab>
+      </TabList>
+
+      {mode === "interview" ? (
+        <PracticeInterview vscode={vscode} practice={practice} runtime={runtime} problems={problems} />
+      ) : mode === "review" ? (
+        reviewList()
+      ) : (
+      <>
       <div className="practice-filters" role="group" aria-label="Exercise filters">
         <FilterSelect label="Difficulty" all="All difficulties" value={filters.difficulty} values={options.difficulties}
           onChange={difficulty => update({ ...filters, difficulty })} />
@@ -138,8 +181,51 @@ export function PracticeSurface({
           <div className="empty-state">No exercises match this filter.</div>
         )}
       </div>
+      </>
+      )}
     </section>
   );
+
+  function reviewList() {
+    const dueByKey = new Map(due.map(item => [item.problem.key, item]));
+    const shown = reviewRound.flatMap(key => {
+      const problem = problems.find(item => item.key === key);
+      return problem ? [{ problem, due: dueByKey.get(key) }] : [];
+    });
+    return (
+      <>
+        <p className="practice-review-rule muted">
+          Spaced review, per language: a passed Submit on a due problem moves that language up a box, due again after{" "}
+          {REVIEW_INTERVALS_DAYS.join(", ")} days. A Submit that does not pass sends it back to the first box, due
+          tomorrow. Problems you started but did not solve come back the next day.
+        </p>
+        <div className="practice-list">
+          {shown.map(({ problem, due: item }) => {
+            const variant = pickVariant(problem, { chosen: reviewLanguages[problem.key] ?? item?.language });
+            return (
+              <PracticeProblemCard key={problem.key} vscode={vscode} problem={problem} variant={variant}
+                progress={progress} runtime={runtime} solution={practice.solutions[variant.key]}
+                badge={item ? `Review due: ${[item.language, ...item.alsoDue].map(languageLabel).join(", ")}` : "Reviewed"}
+                onLanguage={language => setReviewLanguages(current => ({ ...current, [problem.key]: language }))} />
+            );
+          })}
+          {shown.length === 0 && (
+            <div className="empty-state">
+              {upcoming.scheduled === 0
+                ? "Nothing to review yet: problems you open or submit are scheduled here."
+                : `Nothing due today. ${upcoming.scheduled} language ${upcoming.scheduled === 1 ? "variant is" : "variants are"} scheduled${upcoming.next ? `; the next one is due ${daysBetween(today, upcoming.next) === 1 ? "tomorrow" : `in ${daysBetween(today, upcoming.next)} days`}` : ""}.`}
+            </div>
+          )}
+        </div>
+      </>
+    );
+  }
+}
+
+type PracticeMode = "browse" | "review" | "interview";
+
+function restoreMode(raw: unknown): PracticeMode {
+  return raw === "review" || raw === "interview" ? raw : "browse";
 }
 
 function FilterSelect({

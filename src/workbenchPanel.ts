@@ -60,7 +60,7 @@ import { airflowStarter, pipelineStarter, scratchSpec } from "./scaffold/starter
 import { exerciseReadme } from "./scaffold/exerciseReadme";
 import { collectWorkbenchState } from "./workbenchState";
 import { copyProjectFiles, loadProjectContents, progressUri, readProgress, updateProgress, writeProgress } from "./projectState";
-import { recordGrade, recordOpened, recordSolutionViewed, revealHint } from "./platform/practiceProgress";
+import { recordGrade, recordInterview, recordOpened, recordSolutionViewed, revealHint } from "./platform/practiceProgress";
 import { SOLUTION_AFTER_FAILURES, solutionUnlocked } from "./platform/practiceFeedback";
 import { loadReferenceSolution, referenceUri } from "./referenceSolutions";
 import {
@@ -332,6 +332,9 @@ export class WorkbenchPanel {
         return;
       case "compareSolution":
         await this.compareSolution(message.exerciseKey);
+        return;
+      case "saveInterview":
+        await this.saveInterview(message.interview);
         return;
       case "openPipelineSource":
         await this.openPipelineSource();
@@ -1099,6 +1102,12 @@ export class WorkbenchPanel {
     await vscode.commands.executeCommand("vscode.diff", referenceUri(exercise, extension), mine, `${exercise.id}: reference ↔ your solution`, {
       viewColumn: vscode.ViewColumn.Beside
     });
+  }
+
+  /** A finished interview's summary, validated before it joins .datapass/progress.json. */
+  private async saveInterview(interview: unknown): Promise<void> {
+    await this.savePracticeProgress(document => ({ ...document, practice: recordInterview(document.practice, interview) }));
+    await this.refresh();
   }
 
   /** Practice progress lives in .datapass/progress.json next to the Projects progress. Saving it never blocks Practice. */
