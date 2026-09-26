@@ -596,7 +596,7 @@ export async function run(): Promise<void> {
       const tools = { binDir, venvRoot: path.dirname(binDir), snapshot: () => ({ status: "missing" as const }) };
       const missions = new MissionsService(extension.extensionUri, runtime!, tools);
       const list = await missions.list("dbt");
-      assert.deepEqual(list.map(m => m.id), ["prod-unique-failure", "source-freshness", "incremental-order-lines", "backfill-daily-sales", "sales-board"]);
+      assert.deepEqual(list.map(m => m.id), ["prod-unique-failure", "source-freshness", "incremental-order-lines", "backfill-daily-sales", "product-price-history", "order-lines-contract", "sales-board"]);
       const folder = await missions.start("prod-unique-failure");
       const read = async (relative: string) => new TextDecoder().decode(await vscode.workspace.fs.readFile(vscode.Uri.joinPath(folder, ...relative.split("/"))));
       assert.match(await read("TICKET.md"), /^# \[FAILED\] nightly dbt build/m);
