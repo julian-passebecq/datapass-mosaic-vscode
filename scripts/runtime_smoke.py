@@ -447,7 +447,7 @@ with TemporaryDirectory(prefix="datapass-sqlpool-smoke-") as temp:
         ("synapse", "CREATE TABLE dbo.fk (a INT, CONSTRAINT f FOREIGN KEY (a) REFERENCES dbo.k_int (k) NOT ENFORCED);",
          "FOREIGN KEY constraints are not supported"),
         ("synapse", "CREATE SCHEMA staging;", "schemas are fixed"),
-        ("synapse", "GRANT SELECT ON dbo.fact_orders TO analyst;", "not simulated"),
+        ("synapse", "GRANT INSERT ON dbo.fact_orders TO analyst;", "not simulated"),
         ("synapse", "SELECT * FROM read_csv('secrets.csv');", "not filesystem or network table functions"),
         ("fabric", "CREATE TABLE dbo.fx (a INT) WITH (DISTRIBUTION = HASH(a));", "takes no DISTRIBUTION option"),
         ("fabric", "CREATE TABLE dbo.fy (a NVARCHAR(10));", "use varchar"),

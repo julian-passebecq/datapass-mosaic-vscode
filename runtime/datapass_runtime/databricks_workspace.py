@@ -17,6 +17,7 @@ import re
 from typing import Any
 
 from databrickslab.compute import ComputeCatalog, load_compute
+from databrickslab.governance import secure_sql
 from databrickslab.engine import JobScenario, design, simulate_job
 from databrickslab.mlflow_store import MlflowStore, describe as describe_mlflow, empty_state
 from databrickslab.model import DatabricksLabError
@@ -75,6 +76,26 @@ def bind_parameters(sql: str, parameters: dict[str, str]) -> str:
     return ''.join(out)
 
 
+def table_columns(catalog: Catalog, name: str) -> list[str]:
+    """Column names of a lab table (schema.table), in order."""
+    schema, table = name.split('.')
+    return [c for (c,) in catalog.db.execute(
+        'SELECT column_name FROM information_schema.columns WHERE table_catalog = current_database() '
+        'AND table_schema = ? AND lower(table_name) = ? ORDER BY ordinal_position', [schema, table]).fetchall()]
+
+
+def refuse_governed_notebook_read(unity: UnityCatalog, table: str) -> None:
+    if unity.governance.secured(full_name(table)):
+        raise PermissionDenied(f"{full_name(table)} has a row filter or column masks: reading it from a notebook is "
+                               "not simulated in the lab. Query it from a SQL task, where they are enforced.")
+
+
+def secured_statement(unity: UnityCatalog, catalog: Catalog, statement: str, principal: str) -> tuple[str, list[str]]:
+    """A mapped DuckDB statement with the row filters and column masks of the tables it reads, for the principal."""
+    return secure_sql(statement, unity.governance, principal, unity.identities(principal),
+                      lambda name: table_columns(catalog, name))
+
+
 class DatabricksNotebookRuntime(CatalogNotebookRuntime):
     """Notebook side effects under Unity Catalog: every read and write is checked for the principal."""
 
@@ -87,17 +108,20 @@ class DatabricksNotebookRuntime(CatalogNotebookRuntime):
 
     def check_read(self, name: str) -> None:
         self.unity.check_read(self.principal, name)
+        refuse_governed_notebook_read(self.unity, name)
 
     def columns(self, sql: str) -> list[str]:
         mapped = map_names(sql)
         for table in references(mapped):
             self.unity.check_read(self.principal, table.lower())
+            refuse_governed_notebook_read(self.unity, table.lower())
         return super().columns(mapped)
 
     def statement(self, sql: str) -> None:
         mapped = map_names(sql)
         for table in references(mapped):
             self.unity.check_read(self.principal, table.lower())
+            refuse_governed_notebook_read(self.unity, table.lower())
         written = [m.group(1).lower() for m in _WRITTEN.finditer(sql_tokens(mapped))]
         for table in written:
             self.unity.check_write(self.principal, table, self.catalog.exists(table))
@@ -129,7 +153,8 @@ class DatabricksWorkspace:
         self.state = state
         tables = {a['name'] for a in catalog.listing()} if catalog is not None else set()
         self.unity = load_unity(files.get('unity_catalog'), files.get('grants'), state.get('owners', {}), tables,
-                                set(state.get('mlflow', {}).get('models', {})))
+                                set(state.get('mlflow', {}).get('models', {})),
+                                (lambda name: table_columns(catalog, name)) if catalog is not None and catalog.kind != 'sqlite' else None)
         self.clock = None
 
     def run_notebook(self, key: str, parameters: dict[str, str], principal: str, task_values: Any,
@@ -175,6 +200,7 @@ class DatabricksWorkspace:
                 existed = {t: self.catalog.exists(t) for t in targets}
                 for table in targets:
                     self.unity.check_write(principal, table, existed[table])
+                statement, _ = secured_statement(self.unity, self.catalog, statement, principal)
                 if re.match(r'(?is)\s*(select|with)\b', sql_tokens(statement)):
                     result = self.catalog.query(statement)
                     columns, rows = result['columns'], result['rows']

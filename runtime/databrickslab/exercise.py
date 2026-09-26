@@ -15,7 +15,11 @@ times the job runs, and one outcome table:
 - models: name, version, aliases, owner, inputs (the Unity Catalog registry);
 - mlflow_runs: experiment, run_name, status, params, metrics (as JSON text);
 - access: principal, action, object, allowed (Unity Catalog checks after the runs,
-  for `access` probes such as {"principal": "sp-etl", "action": "read", "object": "main.source.orders"}).
+  for `access` probes such as {"principal": "sp-etl", "action": "read", "object": "main.source.orders"});
+- principal_rows: principal, denied, then the query's columns: each `queries` probe runs its read-only SQL as its
+  principal, with Unity Catalog privileges, row filters and column masks enforced (denied is the error, or null);
+- pii: table, column, tag, principal, masked for every column tagged with the key `pii_tag` (default pii): masked
+  is true when the principal (`pii_principal`) sees none of the column's non-null values unchanged.
 """
 from __future__ import annotations
 
@@ -36,6 +40,7 @@ OUTCOME_COLUMNS: dict[str, list[str]] = {
     'models': ['name', 'version', 'aliases', 'owner', 'inputs'],
     'mlflow_runs': ['experiment', 'run_name', 'status', 'params', 'metrics'],
     'access': ['principal', 'action', 'object', 'allowed'],
+    'pii': ['table', 'column', 'tag', 'principal', 'masked'],
 }
 LAB_TABLE = re.compile(r'^(source|bronze|silver|gold|warehouse|features|metrics)\.[A-Za-z][A-Za-z0-9_]{0,62}$')
 
@@ -74,6 +79,12 @@ class AccessProbe(BaseModel):
     object: str = Field(pattern=r'^main\.[a-z_]+\.[A-Za-z][A-Za-z0-9_]*$')
 
 
+class QueryProbe(BaseModel):
+    model_config = ConfigDict(extra='forbid')
+    principal: str = Field(min_length=1, max_length=80)
+    sql: str = Field(min_length=1, max_length=2000)
+
+
 class DbxScenario(BaseModel):
     model_config = ConfigDict(extra='forbid')
     job: str | None = None  # databricks-notebook / databricks-grants: the job of files.jobs to run
@@ -88,7 +99,11 @@ class DbxScenario(BaseModel):
     cluster_states: dict[str, Literal['RUNNING', 'TERMINATED']] = Field(default_factory=dict)
     runs: int = Field(default=1, ge=1, le=3)
     data_plane: Literal['local', 'simulated'] = 'local'
-    outcome: Literal['task_runs', 'run', 'values', 'compute', 'table', 'models', 'mlflow_runs', 'access'] = 'task_runs'
+    outcome: Literal['task_runs', 'run', 'values', 'compute', 'table', 'models', 'mlflow_runs', 'access',
+                     'principal_rows', 'pii'] = 'task_runs'
+    queries: list[QueryProbe] = Field(default_factory=list, max_length=12)
+    pii_principal: str | None = None
+    pii_tag: str = 'pii'
     only: list[str] = Field(default_factory=list)
     table: str | None = Field(default=None, pattern=LAB_TABLE.pattern)
     access: list[AccessProbe] = Field(default_factory=list, max_length=20)
@@ -100,6 +115,10 @@ class DbxScenario(BaseModel):
             raise ValueError("outcome 'table' needs table, and only it")
         if (self.outcome == 'access') != bool(self.access):
             raise ValueError("outcome 'access' needs access probes, and only it")
+        if (self.outcome == 'principal_rows') != bool(self.queries):
+            raise ValueError("outcome 'principal_rows' needs queries, and only it")
+        if (self.outcome == 'pii') != (self.pii_principal is not None):
+            raise ValueError("outcome 'pii' needs pii_principal, and only it")
         for name in self.setup_jobs + ([self.job] if self.job else []):
             if name not in self.files.jobs:
                 raise ValueError(f"job {name!r} is not in files.jobs")

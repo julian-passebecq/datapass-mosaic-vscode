@@ -24,7 +24,9 @@ from __future__ import annotations
 
 import re
 from dataclasses import dataclass, field
-from typing import Any
+from typing import Any, Callable
+
+from .governance import Governance, apply as apply_governance, handles as governance_statement
 
 CATALOG = 'main'
 LAB_USER = 'you@datapass.lab'
@@ -77,6 +79,7 @@ class UnityCatalog:
     grants: list[Grant] = field(default_factory=list)
     owners: dict[str, str] = field(default_factory=dict)  # securable name -> owner (default: you)
     warnings: list[str] = field(default_factory=list)
+    governance: Governance = field(default_factory=Governance)  # row filters, column masks, tags (governance.py)
 
     # -- identities --------------------------------------------------------------------------------
     def identities(self, principal: str) -> set[str]:
@@ -157,7 +160,8 @@ class UnityCatalog:
         return {'catalog': CATALOG, 'lab_user': LAB_USER, 'groups': {g: sorted(m) for g, m in self.groups.items()},
                 'grants': [{'privilege': g.privilege, 'securable': g.securable, 'name': g.name,
                             'principal': g.principal} for g in self.grants],
-                'owners': dict(self.owners), 'warnings': list(self.warnings)}
+                'owners': dict(self.owners), 'warnings': list(self.warnings),
+                'governance': self.governance.describe()}
 
 
 def _chain(securable: str, name: str) -> list[tuple[str, str]]:
@@ -171,7 +175,7 @@ def _chain(securable: str, name: str) -> list[tuple[str, str]]:
 
 
 def load_unity(config: Any, grants_sql: str | None, owners: dict[str, str], existing_tables: set[str],
-               models: set[str]) -> UnityCatalog:
+               models: set[str], columns: Callable[[str], list[str]] | None = None) -> UnityCatalog:
     uc = UnityCatalog(owners=dict(owners))
     if isinstance(config, dict):
         for group, members in (config.get('groups') or {}).items():
@@ -182,7 +186,11 @@ def load_unity(config: Any, grants_sql: str | None, owners: dict[str, str], exis
     if grants_sql:
         for number, statement in _statements(grants_sql):
             try:
-                _apply(uc, statement, existing_tables, models)
+                if governance_statement(statement):
+                    apply_governance(uc.governance, statement, lambda kind, raw: _governed(kind, raw, existing_tables),
+                                     columns)
+                else:
+                    _apply(uc, statement, existing_tables, models)
             except ValueError as exc:
                 uc.warnings.append(f"grants.sql line {number}: {exc}")
     return uc
@@ -244,6 +252,20 @@ def _object(kind: str, raw: str, existing_tables: set[str], models: set[str]) ->
     return name
 
 
+def _governed(kind: str, raw: str, existing_tables: set[str]) -> str:
+    """main.<schema>.<name> of a governance function or table (two-level names use the catalog main)."""
+    parts = [p.strip('`').lower() for p in raw.split('.')]
+    if len(parts) == 2:
+        parts = [CATALOG] + parts
+    if len(parts) != 3 or parts[0] != CATALOG:
+        raise ValueError(f"Name the {kind.lower()} as main.<schema>.<name>: {raw}")
+    if parts[1] not in TABLE_SCHEMAS:
+        raise ValueError(f"Schema 'main.{parts[1]}' does not exist (lab schemas: {', '.join(TABLE_SCHEMAS)})")
+    if kind == 'TABLE' and '.'.join(parts[1:]) not in existing_tables:
+        raise ValueError(f"[TABLE_OR_VIEW_NOT_FOUND] Table '{'.'.join(parts)}' does not exist")
+    return '.'.join(parts)
+
+
 def _apply(uc: UnityCatalog, statement: str, existing_tables: set[str], models: set[str]) -> None:
     owner = _OWNER.match(statement)
     if owner:
@@ -252,7 +274,8 @@ def _apply(uc: UnityCatalog, statement: str, existing_tables: set[str], models: 
         return
     match = _GRANT.match(statement)
     if not match:
-        raise ValueError('Only GRANT, REVOKE and ALTER ... OWNER TO statements are read from grants.sql')
+        raise ValueError('Only GRANT, REVOKE, ALTER ... OWNER TO, CREATE FUNCTION, row filters, column masks and '
+                         'column tags are read from grants.sql')
     verb, privileges, kind, raw, _, principal = match.groups()
     kind = 'FUNCTION' if kind.upper() == 'MODEL' else kind.upper()
     name = _object(kind, raw, existing_tables, models)

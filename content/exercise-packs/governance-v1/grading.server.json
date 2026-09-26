@@ -1,0 +1,1502 @@
+{
+  "gov-rls-sales-reps": {
+    "solution": "-- Each sales rep sees only their own sales; members of sales_managers see every sale.\nCREATE FUNCTION dbo.fn_sales_rep(@sales_rep AS VARCHAR(40))\nRETURNS TABLE\nWITH SCHEMABINDING\nAS\nRETURN SELECT 1 AS fn_result\n       WHERE @sales_rep = USER_NAME() OR IS_ROLEMEMBER('sales_managers') = 1;\nGO\nCREATE SECURITY POLICY dbo.sales_filter\nADD FILTER PREDICATE dbo.fn_sales_rep(sales_rep) ON dbo.sales\nWITH (STATE = ON);\n",
+    "fixtures": [
+      {
+        "id": "reps-and-manager",
+        "visibility": "visible",
+        "input_rows": [],
+        "scenario": {
+          "tables": [
+            {
+              "name": "dbo.sales",
+              "rows": [
+                {
+                  "sale_id": 1,
+                  "sales_rep": "alice",
+                  "region": "North",
+                  "amount": 120.0
+                },
+                {
+                  "sale_id": 2,
+                  "sales_rep": "bob",
+                  "region": "South",
+                  "amount": 80.0
+                },
+                {
+                  "sale_id": 3,
+                  "sales_rep": "alice",
+                  "region": "North",
+                  "amount": 45.0
+                },
+                {
+                  "sale_id": 4,
+                  "sales_rep": "carol",
+                  "region": "East",
+                  "amount": 300.0
+                },
+                {
+                  "sale_id": 5,
+                  "sales_rep": "bob",
+                  "region": "South",
+                  "amount": 60.0
+                },
+                {
+                  "sale_id": 6,
+                  "sales_rep": null,
+                  "region": "West",
+                  "amount": 999.0
+                },
+                {
+                  "sale_id": 7,
+                  "sales_rep": "alice",
+                  "region": "East",
+                  "amount": 10.0
+                }
+              ],
+              "types": {
+                "sale_id": "INTEGER",
+                "sales_rep": "VARCHAR",
+                "region": "VARCHAR",
+                "amount": "DOUBLE"
+              }
+            }
+          ],
+          "setup": "CREATE USER alice WITHOUT LOGIN;\nCREATE USER bob WITHOUT LOGIN;\nCREATE USER carol WITHOUT LOGIN;\nCREATE USER dana WITHOUT LOGIN;\nCREATE USER intern WITHOUT LOGIN;\nCREATE ROLE sales_managers;\nALTER ROLE sales_managers ADD MEMBER dana;\nGRANT SELECT ON dbo.sales TO alice, bob, carol, intern, sales_managers;\n",
+          "query": "SELECT sale_id, sales_rep, amount FROM dbo.sales",
+          "outcome": "principals",
+          "principals": [
+            "alice",
+            "dana"
+          ],
+          "columns": [
+            "principal",
+            "denied",
+            "sale_id",
+            "sales_rep",
+            "amount"
+          ],
+          "flavor": "synapse"
+        },
+        "expected": [
+          {
+            "principal": "alice",
+            "denied": null,
+            "sale_id": 1,
+            "sales_rep": "alice",
+            "amount": 120.0
+          },
+          {
+            "principal": "alice",
+            "denied": null,
+            "sale_id": 3,
+            "sales_rep": "alice",
+            "amount": 45.0
+          },
+          {
+            "principal": "alice",
+            "denied": null,
+            "sale_id": 7,
+            "sales_rep": "alice",
+            "amount": 10.0
+          },
+          {
+            "principal": "dana",
+            "denied": null,
+            "sale_id": 1,
+            "sales_rep": "alice",
+            "amount": 120.0
+          },
+          {
+            "principal": "dana",
+            "denied": null,
+            "sale_id": 2,
+            "sales_rep": "bob",
+            "amount": 80.0
+          },
+          {
+            "principal": "dana",
+            "denied": null,
+            "sale_id": 3,
+            "sales_rep": "alice",
+            "amount": 45.0
+          },
+          {
+            "principal": "dana",
+            "denied": null,
+            "sale_id": 4,
+            "sales_rep": "carol",
+            "amount": 300.0
+          },
+          {
+            "principal": "dana",
+            "denied": null,
+            "sale_id": 5,
+            "sales_rep": "bob",
+            "amount": 60.0
+          },
+          {
+            "principal": "dana",
+            "denied": null,
+            "sale_id": 6,
+            "sales_rep": null,
+            "amount": 999.0
+          },
+          {
+            "principal": "dana",
+            "denied": null,
+            "sale_id": 7,
+            "sales_rep": "alice",
+            "amount": 10.0
+          }
+        ]
+      },
+      {
+        "id": "other-principals",
+        "visibility": "hidden",
+        "input_rows": [],
+        "scenario": {
+          "tables": [
+            {
+              "name": "dbo.sales",
+              "rows": [
+                {
+                  "sale_id": 1,
+                  "sales_rep": "alice",
+                  "region": "North",
+                  "amount": 120.0
+                },
+                {
+                  "sale_id": 2,
+                  "sales_rep": "bob",
+                  "region": "South",
+                  "amount": 80.0
+                },
+                {
+                  "sale_id": 3,
+                  "sales_rep": "alice",
+                  "region": "North",
+                  "amount": 45.0
+                },
+                {
+                  "sale_id": 4,
+                  "sales_rep": "carol",
+                  "region": "East",
+                  "amount": 300.0
+                },
+                {
+                  "sale_id": 5,
+                  "sales_rep": "bob",
+                  "region": "South",
+                  "amount": 60.0
+                },
+                {
+                  "sale_id": 6,
+                  "sales_rep": null,
+                  "region": "West",
+                  "amount": 999.0
+                },
+                {
+                  "sale_id": 7,
+                  "sales_rep": "alice",
+                  "region": "East",
+                  "amount": 10.0
+                }
+              ],
+              "types": {
+                "sale_id": "INTEGER",
+                "sales_rep": "VARCHAR",
+                "region": "VARCHAR",
+                "amount": "DOUBLE"
+              }
+            }
+          ],
+          "setup": "CREATE USER alice WITHOUT LOGIN;\nCREATE USER bob WITHOUT LOGIN;\nCREATE USER carol WITHOUT LOGIN;\nCREATE USER dana WITHOUT LOGIN;\nCREATE USER intern WITHOUT LOGIN;\nCREATE ROLE sales_managers;\nALTER ROLE sales_managers ADD MEMBER dana;\nGRANT SELECT ON dbo.sales TO alice, bob, carol, intern, sales_managers;\n",
+          "query": "SELECT sale_id, sales_rep, amount FROM dbo.sales",
+          "outcome": "principals",
+          "principals": [
+            "bob",
+            "intern"
+          ],
+          "columns": [
+            "principal",
+            "denied",
+            "sale_id",
+            "sales_rep",
+            "amount"
+          ],
+          "flavor": "synapse"
+        },
+        "expected": [
+          {
+            "principal": "bob",
+            "denied": null,
+            "sale_id": 2,
+            "sales_rep": "bob",
+            "amount": 80.0
+          },
+          {
+            "principal": "bob",
+            "denied": null,
+            "sale_id": 5,
+            "sales_rep": "bob",
+            "amount": 60.0
+          }
+        ]
+      },
+      {
+        "id": "rep-without-sales-row",
+        "visibility": "edge",
+        "input_rows": [],
+        "scenario": {
+          "tables": [
+            {
+              "name": "dbo.sales",
+              "rows": [
+                {
+                  "sale_id": 1,
+                  "sales_rep": "alice",
+                  "region": "North",
+                  "amount": 120.0
+                },
+                {
+                  "sale_id": 2,
+                  "sales_rep": "bob",
+                  "region": "South",
+                  "amount": 80.0
+                },
+                {
+                  "sale_id": 3,
+                  "sales_rep": "alice",
+                  "region": "North",
+                  "amount": 45.0
+                },
+                {
+                  "sale_id": 4,
+                  "sales_rep": "carol",
+                  "region": "East",
+                  "amount": 300.0
+                },
+                {
+                  "sale_id": 5,
+                  "sales_rep": "bob",
+                  "region": "South",
+                  "amount": 60.0
+                },
+                {
+                  "sale_id": 6,
+                  "sales_rep": null,
+                  "region": "West",
+                  "amount": 999.0
+                },
+                {
+                  "sale_id": 7,
+                  "sales_rep": "alice",
+                  "region": "East",
+                  "amount": 10.0
+                }
+              ],
+              "types": {
+                "sale_id": "INTEGER",
+                "sales_rep": "VARCHAR",
+                "region": "VARCHAR",
+                "amount": "DOUBLE"
+              }
+            }
+          ],
+          "setup": "CREATE USER alice WITHOUT LOGIN;\nCREATE USER bob WITHOUT LOGIN;\nCREATE USER carol WITHOUT LOGIN;\nCREATE USER dana WITHOUT LOGIN;\nCREATE USER intern WITHOUT LOGIN;\nCREATE ROLE sales_managers;\nALTER ROLE sales_managers ADD MEMBER dana;\nGRANT SELECT ON dbo.sales TO alice, bob, carol, intern, sales_managers;\n",
+          "query": "SELECT sale_id, sales_rep, amount FROM dbo.sales",
+          "outcome": "principals",
+          "principals": [
+            "carol"
+          ],
+          "columns": [
+            "principal",
+            "denied",
+            "sale_id",
+            "sales_rep",
+            "amount"
+          ],
+          "flavor": "synapse"
+        },
+        "expected": [
+          {
+            "principal": "carol",
+            "denied": null,
+            "sale_id": 4,
+            "sales_rep": "carol",
+            "amount": 300.0
+          }
+        ]
+      }
+    ]
+  },
+  "gov-column-security": {
+    "solution": "-- analyst reads customers without email and card_number; finance_team reads every column.\nGRANT SELECT ON dbo.customers (customer_id, customer_name, city) TO analyst;\nGRANT SELECT ON dbo.customers TO finance_team;\n",
+    "fixtures": [
+      {
+        "id": "report-columns",
+        "visibility": "visible",
+        "input_rows": [],
+        "scenario": {
+          "tables": [
+            {
+              "name": "dbo.customers",
+              "rows": [
+                {
+                  "customer_id": 1,
+                  "customer_name": "Ada",
+                  "city": "Paris",
+                  "email": "ada@example.com",
+                  "card_number": "4111-0000-0000-1001"
+                },
+                {
+                  "customer_id": 2,
+                  "customer_name": "Ben",
+                  "city": "Lyon",
+                  "email": "ben@example.com",
+                  "card_number": "4111-0000-0000-1002"
+                },
+                {
+                  "customer_id": 3,
+                  "customer_name": "Chloe",
+                  "city": "Nantes",
+                  "email": "chloe@example.com",
+                  "card_number": "4111-0000-0000-1003"
+                },
+                {
+                  "customer_id": 4,
+                  "customer_name": "Dev",
+                  "city": "Lille",
+                  "email": "dev@example.com",
+                  "card_number": "4111-0000-0000-1004"
+                }
+              ]
+            }
+          ],
+          "setup": "CREATE USER analyst WITHOUT LOGIN;\nCREATE USER fin1 WITHOUT LOGIN;\nCREATE ROLE finance_team;\nALTER ROLE finance_team ADD MEMBER fin1;\n",
+          "query": "SELECT customer_id, customer_name, city FROM dbo.customers",
+          "outcome": "principals",
+          "principals": [
+            "analyst",
+            "fin1"
+          ],
+          "columns": [
+            "principal",
+            "denied",
+            "customer_id",
+            "customer_name",
+            "city",
+            "email",
+            "card_number"
+          ],
+          "flavor": "synapse"
+        },
+        "expected": [
+          {
+            "principal": "analyst",
+            "denied": null,
+            "customer_id": 1,
+            "customer_name": "Ada",
+            "city": "Paris",
+            "email": null,
+            "card_number": null
+          },
+          {
+            "principal": "analyst",
+            "denied": null,
+            "customer_id": 2,
+            "customer_name": "Ben",
+            "city": "Lyon",
+            "email": null,
+            "card_number": null
+          },
+          {
+            "principal": "analyst",
+            "denied": null,
+            "customer_id": 3,
+            "customer_name": "Chloe",
+            "city": "Nantes",
+            "email": null,
+            "card_number": null
+          },
+          {
+            "principal": "analyst",
+            "denied": null,
+            "customer_id": 4,
+            "customer_name": "Dev",
+            "city": "Lille",
+            "email": null,
+            "card_number": null
+          },
+          {
+            "principal": "fin1",
+            "denied": null,
+            "customer_id": 1,
+            "customer_name": "Ada",
+            "city": "Paris",
+            "email": null,
+            "card_number": null
+          },
+          {
+            "principal": "fin1",
+            "denied": null,
+            "customer_id": 2,
+            "customer_name": "Ben",
+            "city": "Lyon",
+            "email": null,
+            "card_number": null
+          },
+          {
+            "principal": "fin1",
+            "denied": null,
+            "customer_id": 3,
+            "customer_name": "Chloe",
+            "city": "Nantes",
+            "email": null,
+            "card_number": null
+          },
+          {
+            "principal": "fin1",
+            "denied": null,
+            "customer_id": 4,
+            "customer_name": "Dev",
+            "city": "Lille",
+            "email": null,
+            "card_number": null
+          }
+        ]
+      },
+      {
+        "id": "select-star",
+        "visibility": "hidden",
+        "input_rows": [],
+        "scenario": {
+          "tables": [
+            {
+              "name": "dbo.customers",
+              "rows": [
+                {
+                  "customer_id": 1,
+                  "customer_name": "Ada",
+                  "city": "Paris",
+                  "email": "ada@example.com",
+                  "card_number": "4111-0000-0000-1001"
+                },
+                {
+                  "customer_id": 2,
+                  "customer_name": "Ben",
+                  "city": "Lyon",
+                  "email": "ben@example.com",
+                  "card_number": "4111-0000-0000-1002"
+                },
+                {
+                  "customer_id": 3,
+                  "customer_name": "Chloe",
+                  "city": "Nantes",
+                  "email": "chloe@example.com",
+                  "card_number": "4111-0000-0000-1003"
+                },
+                {
+                  "customer_id": 4,
+                  "customer_name": "Dev",
+                  "city": "Lille",
+                  "email": "dev@example.com",
+                  "card_number": "4111-0000-0000-1004"
+                }
+              ]
+            }
+          ],
+          "setup": "CREATE USER analyst WITHOUT LOGIN;\nCREATE USER fin1 WITHOUT LOGIN;\nCREATE ROLE finance_team;\nALTER ROLE finance_team ADD MEMBER fin1;\n",
+          "query": "SELECT * FROM dbo.customers",
+          "outcome": "principals",
+          "principals": [
+            "analyst",
+            "fin1"
+          ],
+          "columns": [
+            "principal",
+            "denied",
+            "customer_id",
+            "customer_name",
+            "city",
+            "email",
+            "card_number"
+          ],
+          "flavor": "synapse"
+        },
+        "expected": [
+          {
+            "principal": "analyst",
+            "denied": "The SELECT permission was denied on the column 'email' of the object 'customers', database 'lab', schema 'dbo'.",
+            "customer_id": null,
+            "customer_name": null,
+            "city": null,
+            "email": null,
+            "card_number": null
+          },
+          {
+            "principal": "fin1",
+            "denied": null,
+            "customer_id": 1,
+            "customer_name": "Ada",
+            "city": "Paris",
+            "email": "ada@example.com",
+            "card_number": "4111-0000-0000-1001"
+          },
+          {
+            "principal": "fin1",
+            "denied": null,
+            "customer_id": 2,
+            "customer_name": "Ben",
+            "city": "Lyon",
+            "email": "ben@example.com",
+            "card_number": "4111-0000-0000-1002"
+          },
+          {
+            "principal": "fin1",
+            "denied": null,
+            "customer_id": 3,
+            "customer_name": "Chloe",
+            "city": "Nantes",
+            "email": "chloe@example.com",
+            "card_number": "4111-0000-0000-1003"
+          },
+          {
+            "principal": "fin1",
+            "denied": null,
+            "customer_id": 4,
+            "customer_name": "Dev",
+            "city": "Lille",
+            "email": "dev@example.com",
+            "card_number": "4111-0000-0000-1004"
+          }
+        ]
+      },
+      {
+        "id": "card-query",
+        "visibility": "edge",
+        "input_rows": [],
+        "scenario": {
+          "tables": [
+            {
+              "name": "dbo.customers",
+              "rows": [
+                {
+                  "customer_id": 1,
+                  "customer_name": "Ada",
+                  "city": "Paris",
+                  "email": "ada@example.com",
+                  "card_number": "4111-0000-0000-1001"
+                },
+                {
+                  "customer_id": 2,
+                  "customer_name": "Ben",
+                  "city": "Lyon",
+                  "email": "ben@example.com",
+                  "card_number": "4111-0000-0000-1002"
+                },
+                {
+                  "customer_id": 3,
+                  "customer_name": "Chloe",
+                  "city": "Nantes",
+                  "email": "chloe@example.com",
+                  "card_number": "4111-0000-0000-1003"
+                },
+                {
+                  "customer_id": 4,
+                  "customer_name": "Dev",
+                  "city": "Lille",
+                  "email": "dev@example.com",
+                  "card_number": "4111-0000-0000-1004"
+                }
+              ]
+            }
+          ],
+          "setup": "CREATE USER analyst WITHOUT LOGIN;\nCREATE USER fin1 WITHOUT LOGIN;\nCREATE ROLE finance_team;\nALTER ROLE finance_team ADD MEMBER fin1;\n",
+          "query": "SELECT customer_id, card_number FROM dbo.customers",
+          "outcome": "principals",
+          "principals": [
+            "analyst"
+          ],
+          "columns": [
+            "principal",
+            "denied",
+            "customer_id",
+            "customer_name",
+            "city",
+            "email",
+            "card_number"
+          ],
+          "flavor": "synapse"
+        },
+        "expected": [
+          {
+            "principal": "analyst",
+            "denied": "The SELECT permission was denied on the column 'card_number' of the object 'customers', database 'lab', schema 'dbo'.",
+            "customer_id": null,
+            "customer_name": null,
+            "city": null,
+            "email": null,
+            "card_number": null
+          }
+        ]
+      }
+    ]
+  },
+  "gov-dynamic-masking": {
+    "solution": "-- Support agents see masked contact details; compliance sees the real values.\nALTER TABLE dbo.contacts ALTER COLUMN email ADD MASKED WITH (FUNCTION = 'email()');\nALTER TABLE dbo.contacts ALTER COLUMN phone ADD MASKED WITH (FUNCTION = 'partial(0,\"XXX-XXX-\",4)');\nALTER TABLE dbo.contacts ALTER COLUMN birth_date ADD MASKED WITH (FUNCTION = 'default()');\nGRANT UNMASK TO compliance;\n",
+    "fixtures": [
+      {
+        "id": "agent-and-auditor",
+        "visibility": "visible",
+        "input_rows": [],
+        "scenario": {
+          "flavor": "fabric",
+          "tables": [
+            {
+              "name": "dbo.contacts",
+              "rows": [
+                {
+                  "customer_id": 1,
+                  "email": "ada@example.com",
+                  "phone": "555-201-4471",
+                  "birth_date": "1990-04-12"
+                },
+                {
+                  "customer_id": 2,
+                  "email": "ben@contoso.net",
+                  "phone": "555-310-9902",
+                  "birth_date": "1985-11-30"
+                },
+                {
+                  "customer_id": 3,
+                  "email": null,
+                  "phone": "555-777-0001",
+                  "birth_date": "2001-01-05"
+                }
+              ],
+              "types": {
+                "customer_id": "INTEGER",
+                "email": "VARCHAR",
+                "phone": "VARCHAR",
+                "birth_date": "DATE"
+              }
+            }
+          ],
+          "setup": "CREATE USER agent1 WITHOUT LOGIN;\nCREATE USER auditor1 WITHOUT LOGIN;\nCREATE ROLE support_agents;\nCREATE ROLE compliance;\nALTER ROLE support_agents ADD MEMBER agent1;\nALTER ROLE compliance ADD MEMBER auditor1;\nGRANT SELECT ON dbo.contacts TO support_agents, compliance;\n",
+          "query": "SELECT customer_id, email, phone, birth_date FROM dbo.contacts",
+          "outcome": "principals",
+          "principals": [
+            "agent1",
+            "auditor1"
+          ],
+          "columns": [
+            "principal",
+            "denied",
+            "customer_id",
+            "email",
+            "phone",
+            "birth_date"
+          ]
+        },
+        "expected": [
+          {
+            "principal": "agent1",
+            "denied": null,
+            "customer_id": 1,
+            "email": "aXXX@XXXX.com",
+            "phone": "XXX-XXX-4471",
+            "birth_date": "1900-01-01"
+          },
+          {
+            "principal": "agent1",
+            "denied": null,
+            "customer_id": 2,
+            "email": "bXXX@XXXX.com",
+            "phone": "XXX-XXX-9902",
+            "birth_date": "1900-01-01"
+          },
+          {
+            "principal": "agent1",
+            "denied": null,
+            "customer_id": 3,
+            "email": null,
+            "phone": "XXX-XXX-0001",
+            "birth_date": "1900-01-01"
+          },
+          {
+            "principal": "auditor1",
+            "denied": null,
+            "customer_id": 1,
+            "email": "ada@example.com",
+            "phone": "555-201-4471",
+            "birth_date": "1990-04-12"
+          },
+          {
+            "principal": "auditor1",
+            "denied": null,
+            "customer_id": 2,
+            "email": "ben@contoso.net",
+            "phone": "555-310-9902",
+            "birth_date": "1985-11-30"
+          },
+          {
+            "principal": "auditor1",
+            "denied": null,
+            "customer_id": 3,
+            "email": null,
+            "phone": "555-777-0001",
+            "birth_date": "2001-01-05"
+          }
+        ]
+      },
+      {
+        "id": "agent-only",
+        "visibility": "hidden",
+        "input_rows": [],
+        "scenario": {
+          "flavor": "fabric",
+          "tables": [
+            {
+              "name": "dbo.contacts",
+              "rows": [
+                {
+                  "customer_id": 1,
+                  "email": "ada@example.com",
+                  "phone": "555-201-4471",
+                  "birth_date": "1990-04-12"
+                },
+                {
+                  "customer_id": 2,
+                  "email": "ben@contoso.net",
+                  "phone": "555-310-9902",
+                  "birth_date": "1985-11-30"
+                },
+                {
+                  "customer_id": 3,
+                  "email": null,
+                  "phone": "555-777-0001",
+                  "birth_date": "2001-01-05"
+                }
+              ],
+              "types": {
+                "customer_id": "INTEGER",
+                "email": "VARCHAR",
+                "phone": "VARCHAR",
+                "birth_date": "DATE"
+              }
+            }
+          ],
+          "setup": "CREATE USER agent1 WITHOUT LOGIN;\nCREATE USER auditor1 WITHOUT LOGIN;\nCREATE ROLE support_agents;\nCREATE ROLE compliance;\nALTER ROLE support_agents ADD MEMBER agent1;\nALTER ROLE compliance ADD MEMBER auditor1;\nGRANT SELECT ON dbo.contacts TO support_agents, compliance;\n",
+          "query": "SELECT customer_id, email, phone, birth_date FROM dbo.contacts",
+          "outcome": "principals",
+          "principals": [
+            "agent1"
+          ],
+          "columns": [
+            "principal",
+            "denied",
+            "customer_id",
+            "email",
+            "phone",
+            "birth_date"
+          ]
+        },
+        "expected": [
+          {
+            "principal": "agent1",
+            "denied": null,
+            "customer_id": 1,
+            "email": "aXXX@XXXX.com",
+            "phone": "XXX-XXX-4471",
+            "birth_date": "1900-01-01"
+          },
+          {
+            "principal": "agent1",
+            "denied": null,
+            "customer_id": 2,
+            "email": "bXXX@XXXX.com",
+            "phone": "XXX-XXX-9902",
+            "birth_date": "1900-01-01"
+          },
+          {
+            "principal": "agent1",
+            "denied": null,
+            "customer_id": 3,
+            "email": null,
+            "phone": "XXX-XXX-0001",
+            "birth_date": "1900-01-01"
+          }
+        ]
+      },
+      {
+        "id": "auditor-only",
+        "visibility": "edge",
+        "input_rows": [],
+        "scenario": {
+          "flavor": "fabric",
+          "tables": [
+            {
+              "name": "dbo.contacts",
+              "rows": [
+                {
+                  "customer_id": 1,
+                  "email": "ada@example.com",
+                  "phone": "555-201-4471",
+                  "birth_date": "1990-04-12"
+                },
+                {
+                  "customer_id": 2,
+                  "email": "ben@contoso.net",
+                  "phone": "555-310-9902",
+                  "birth_date": "1985-11-30"
+                },
+                {
+                  "customer_id": 3,
+                  "email": null,
+                  "phone": "555-777-0001",
+                  "birth_date": "2001-01-05"
+                }
+              ],
+              "types": {
+                "customer_id": "INTEGER",
+                "email": "VARCHAR",
+                "phone": "VARCHAR",
+                "birth_date": "DATE"
+              }
+            }
+          ],
+          "setup": "CREATE USER agent1 WITHOUT LOGIN;\nCREATE USER auditor1 WITHOUT LOGIN;\nCREATE ROLE support_agents;\nCREATE ROLE compliance;\nALTER ROLE support_agents ADD MEMBER agent1;\nALTER ROLE compliance ADD MEMBER auditor1;\nGRANT SELECT ON dbo.contacts TO support_agents, compliance;\n",
+          "query": "SELECT customer_id, email, phone, birth_date FROM dbo.contacts",
+          "outcome": "principals",
+          "principals": [
+            "auditor1"
+          ],
+          "columns": [
+            "principal",
+            "denied",
+            "customer_id",
+            "email",
+            "phone",
+            "birth_date"
+          ]
+        },
+        "expected": [
+          {
+            "principal": "auditor1",
+            "denied": null,
+            "customer_id": 1,
+            "email": "ada@example.com",
+            "phone": "555-201-4471",
+            "birth_date": "1990-04-12"
+          },
+          {
+            "principal": "auditor1",
+            "denied": null,
+            "customer_id": 2,
+            "email": "ben@contoso.net",
+            "phone": "555-310-9902",
+            "birth_date": "1985-11-30"
+          },
+          {
+            "principal": "auditor1",
+            "denied": null,
+            "customer_id": 3,
+            "email": null,
+            "phone": "555-777-0001",
+            "birth_date": "2001-01-05"
+          }
+        ]
+      }
+    ]
+  },
+  "gov-uc-row-filter": {
+    "solution": "GRANT USE SCHEMA ON SCHEMA main.silver TO `account users`;\nGRANT SELECT ON TABLE main.silver.orders TO `account users`;\n    -- Analysts see their region's orders; admins see every order.\n    CREATE OR REPLACE FUNCTION main.silver.orders_region_filter(region STRING)\n    RETURN is_account_group_member('admins')\nOR (is_account_group_member('emea_analysts') AND region = 'EMEA')\nOR (is_account_group_member('amer_analysts') AND region = 'AMER');\nALTER TABLE main.silver.orders SET ROW FILTER main.silver.orders_region_filter ON (region);\n",
+    "fixtures": [
+      {
+        "id": "analysts",
+        "visibility": "visible",
+        "input_rows": [],
+        "scenario": {
+          "tables": [
+            {
+              "name": "silver.orders",
+              "rows": [
+                {
+                  "order_id": 1,
+                  "region": "EMEA",
+                  "amount": 100.0
+                },
+                {
+                  "order_id": 2,
+                  "region": "AMER",
+                  "amount": 250.0
+                },
+                {
+                  "order_id": 3,
+                  "region": "EMEA",
+                  "amount": 40.0
+                },
+                {
+                  "order_id": 4,
+                  "region": "APAC",
+                  "amount": 75.0
+                },
+                {
+                  "order_id": 5,
+                  "region": null,
+                  "amount": 999.0
+                },
+                {
+                  "order_id": 6,
+                  "region": "AMER",
+                  "amount": 20.0
+                }
+              ],
+              "types": {
+                "order_id": "INTEGER",
+                "region": "VARCHAR",
+                "amount": "DOUBLE"
+              }
+            }
+          ],
+          "files": {
+            "unity_catalog": {
+              "groups": {
+                "emea_analysts": [
+                  "ana@corp.com"
+                ],
+                "amer_analysts": [
+                  "ben@corp.com"
+                ],
+                "admins": [
+                  "root@corp.com"
+                ]
+              }
+            }
+          },
+          "outcome": "principal_rows",
+          "queries": [
+            {
+              "principal": "ana@corp.com",
+              "sql": "SELECT order_id, region, amount FROM main.silver.orders"
+            },
+            {
+              "principal": "ben@corp.com",
+              "sql": "SELECT order_id, region, amount FROM main.silver.orders"
+            }
+          ],
+          "columns": [
+            "principal",
+            "denied",
+            "order_id",
+            "region",
+            "amount"
+          ]
+        },
+        "expected": [
+          {
+            "principal": "ana@corp.com",
+            "denied": null,
+            "order_id": 1,
+            "region": "EMEA",
+            "amount": 100.0
+          },
+          {
+            "principal": "ana@corp.com",
+            "denied": null,
+            "order_id": 3,
+            "region": "EMEA",
+            "amount": 40.0
+          },
+          {
+            "principal": "ben@corp.com",
+            "denied": null,
+            "order_id": 2,
+            "region": "AMER",
+            "amount": 250.0
+          },
+          {
+            "principal": "ben@corp.com",
+            "denied": null,
+            "order_id": 6,
+            "region": "AMER",
+            "amount": 20.0
+          }
+        ]
+      },
+      {
+        "id": "admin-and-outsider",
+        "visibility": "hidden",
+        "input_rows": [],
+        "scenario": {
+          "tables": [
+            {
+              "name": "silver.orders",
+              "rows": [
+                {
+                  "order_id": 1,
+                  "region": "EMEA",
+                  "amount": 100.0
+                },
+                {
+                  "order_id": 2,
+                  "region": "AMER",
+                  "amount": 250.0
+                },
+                {
+                  "order_id": 3,
+                  "region": "EMEA",
+                  "amount": 40.0
+                },
+                {
+                  "order_id": 4,
+                  "region": "APAC",
+                  "amount": 75.0
+                },
+                {
+                  "order_id": 5,
+                  "region": null,
+                  "amount": 999.0
+                },
+                {
+                  "order_id": 6,
+                  "region": "AMER",
+                  "amount": 20.0
+                }
+              ],
+              "types": {
+                "order_id": "INTEGER",
+                "region": "VARCHAR",
+                "amount": "DOUBLE"
+              }
+            }
+          ],
+          "files": {
+            "unity_catalog": {
+              "groups": {
+                "emea_analysts": [
+                  "ana@corp.com"
+                ],
+                "amer_analysts": [
+                  "ben@corp.com"
+                ],
+                "admins": [
+                  "root@corp.com"
+                ]
+              }
+            }
+          },
+          "outcome": "principal_rows",
+          "queries": [
+            {
+              "principal": "root@corp.com",
+              "sql": "SELECT order_id, region, amount FROM main.silver.orders"
+            },
+            {
+              "principal": "bob@corp.com",
+              "sql": "SELECT order_id, region, amount FROM main.silver.orders"
+            }
+          ],
+          "columns": [
+            "principal",
+            "denied",
+            "order_id",
+            "region",
+            "amount"
+          ]
+        },
+        "expected": [
+          {
+            "principal": "root@corp.com",
+            "denied": null,
+            "order_id": 1,
+            "region": "EMEA",
+            "amount": 100.0
+          },
+          {
+            "principal": "root@corp.com",
+            "denied": null,
+            "order_id": 2,
+            "region": "AMER",
+            "amount": 250.0
+          },
+          {
+            "principal": "root@corp.com",
+            "denied": null,
+            "order_id": 3,
+            "region": "EMEA",
+            "amount": 40.0
+          },
+          {
+            "principal": "root@corp.com",
+            "denied": null,
+            "order_id": 4,
+            "region": "APAC",
+            "amount": 75.0
+          },
+          {
+            "principal": "root@corp.com",
+            "denied": null,
+            "order_id": 5,
+            "region": null,
+            "amount": 999.0
+          },
+          {
+            "principal": "root@corp.com",
+            "denied": null,
+            "order_id": 6,
+            "region": "AMER",
+            "amount": 20.0
+          }
+        ]
+      },
+      {
+        "id": "emea-only",
+        "visibility": "edge",
+        "input_rows": [],
+        "scenario": {
+          "tables": [
+            {
+              "name": "silver.orders",
+              "rows": [
+                {
+                  "order_id": 1,
+                  "region": "EMEA",
+                  "amount": 100.0
+                },
+                {
+                  "order_id": 2,
+                  "region": "AMER",
+                  "amount": 250.0
+                },
+                {
+                  "order_id": 3,
+                  "region": "EMEA",
+                  "amount": 40.0
+                },
+                {
+                  "order_id": 4,
+                  "region": "APAC",
+                  "amount": 75.0
+                },
+                {
+                  "order_id": 5,
+                  "region": null,
+                  "amount": 999.0
+                },
+                {
+                  "order_id": 6,
+                  "region": "AMER",
+                  "amount": 20.0
+                }
+              ],
+              "types": {
+                "order_id": "INTEGER",
+                "region": "VARCHAR",
+                "amount": "DOUBLE"
+              }
+            }
+          ],
+          "files": {
+            "unity_catalog": {
+              "groups": {
+                "emea_analysts": [
+                  "ana@corp.com"
+                ],
+                "amer_analysts": [
+                  "ben@corp.com"
+                ],
+                "admins": [
+                  "root@corp.com"
+                ]
+              }
+            }
+          },
+          "outcome": "principal_rows",
+          "queries": [
+            {
+              "principal": "ana@corp.com",
+              "sql": "SELECT order_id, region, amount FROM main.silver.orders"
+            }
+          ],
+          "columns": [
+            "principal",
+            "denied",
+            "order_id",
+            "region",
+            "amount"
+          ]
+        },
+        "expected": [
+          {
+            "principal": "ana@corp.com",
+            "denied": null,
+            "order_id": 1,
+            "region": "EMEA",
+            "amount": 100.0
+          },
+          {
+            "principal": "ana@corp.com",
+            "denied": null,
+            "order_id": 3,
+            "region": "EMEA",
+            "amount": 40.0
+          }
+        ]
+      }
+    ]
+  },
+  "gov-uc-pii-masks": {
+    "solution": "GRANT USE SCHEMA ON SCHEMA main.silver TO `account users`;\nGRANT SELECT ON TABLE main.silver.customers TO `account users`;\n-- Classify the personal data.\nALTER TABLE main.silver.customers ALTER COLUMN email SET TAGS ('pii' = 'email');\nALTER TABLE main.silver.customers ALTER COLUMN phone SET TAGS ('pii' = 'phone');\n-- Every column tagged pii is masked for everyone outside pii_readers.\nCREATE OR REPLACE FUNCTION main.silver.mask_email(email STRING)\nRETURN CASE WHEN is_account_group_member('pii_readers') THEN email ELSE '***@***' END;\nCREATE OR REPLACE FUNCTION main.silver.mask_phone(phone STRING)\nRETURN IF(is_account_group_member('pii_readers'), phone, concat('*** ', right(phone, 2)));\nALTER TABLE main.silver.customers ALTER COLUMN email SET MASK main.silver.mask_email;\nALTER TABLE main.silver.customers ALTER COLUMN phone SET MASK main.silver.mask_phone;\n",
+    "fixtures": [
+      {
+        "id": "analyst-masked",
+        "visibility": "visible",
+        "input_rows": [],
+        "scenario": {
+          "tables": [
+            {
+              "name": "silver.customers",
+              "rows": [
+                {
+                  "customer_id": 1,
+                  "customer_name": "Ada",
+                  "email": "ada@example.com",
+                  "phone": "+33 6 12 34 56 78",
+                  "country": "FR"
+                },
+                {
+                  "customer_id": 2,
+                  "customer_name": "Ben",
+                  "email": "ben@example.com",
+                  "phone": "+1 212 555 0100",
+                  "country": "US"
+                },
+                {
+                  "customer_id": 3,
+                  "customer_name": "Chloe",
+                  "email": null,
+                  "phone": "+44 20 7946 0000",
+                  "country": "GB"
+                }
+              ]
+            }
+          ],
+          "files": {
+            "unity_catalog": {
+              "groups": {
+                "analysts": [
+                  "ana@corp.com"
+                ],
+                "pii_readers": [
+                  "hr@corp.com"
+                ]
+              }
+            }
+          },
+          "outcome": "pii",
+          "pii_principal": "ana@corp.com"
+        },
+        "expected": [
+          {
+            "table": "main.silver.customers",
+            "column": "email",
+            "tag": "pii=email",
+            "principal": "ana@corp.com",
+            "masked": true
+          },
+          {
+            "table": "main.silver.customers",
+            "column": "phone",
+            "tag": "pii=phone",
+            "principal": "ana@corp.com",
+            "masked": true
+          }
+        ]
+      },
+      {
+        "id": "reader-unmasked",
+        "visibility": "hidden",
+        "input_rows": [],
+        "scenario": {
+          "tables": [
+            {
+              "name": "silver.customers",
+              "rows": [
+                {
+                  "customer_id": 1,
+                  "customer_name": "Ada",
+                  "email": "ada@example.com",
+                  "phone": "+33 6 12 34 56 78",
+                  "country": "FR"
+                },
+                {
+                  "customer_id": 2,
+                  "customer_name": "Ben",
+                  "email": "ben@example.com",
+                  "phone": "+1 212 555 0100",
+                  "country": "US"
+                },
+                {
+                  "customer_id": 3,
+                  "customer_name": "Chloe",
+                  "email": null,
+                  "phone": "+44 20 7946 0000",
+                  "country": "GB"
+                }
+              ]
+            }
+          ],
+          "files": {
+            "unity_catalog": {
+              "groups": {
+                "analysts": [
+                  "ana@corp.com"
+                ],
+                "pii_readers": [
+                  "hr@corp.com"
+                ]
+              }
+            }
+          },
+          "outcome": "pii",
+          "pii_principal": "hr@corp.com"
+        },
+        "expected": [
+          {
+            "table": "main.silver.customers",
+            "column": "email",
+            "tag": "pii=email",
+            "principal": "hr@corp.com",
+            "masked": false
+          },
+          {
+            "table": "main.silver.customers",
+            "column": "phone",
+            "tag": "pii=phone",
+            "principal": "hr@corp.com",
+            "masked": false
+          }
+        ]
+      },
+      {
+        "id": "customer-rows",
+        "visibility": "edge",
+        "input_rows": [],
+        "scenario": {
+          "tables": [
+            {
+              "name": "silver.customers",
+              "rows": [
+                {
+                  "customer_id": 1,
+                  "customer_name": "Ada",
+                  "email": "ada@example.com",
+                  "phone": "+33 6 12 34 56 78",
+                  "country": "FR"
+                },
+                {
+                  "customer_id": 2,
+                  "customer_name": "Ben",
+                  "email": "ben@example.com",
+                  "phone": "+1 212 555 0100",
+                  "country": "US"
+                },
+                {
+                  "customer_id": 3,
+                  "customer_name": "Chloe",
+                  "email": null,
+                  "phone": "+44 20 7946 0000",
+                  "country": "GB"
+                }
+              ]
+            }
+          ],
+          "files": {
+            "unity_catalog": {
+              "groups": {
+                "analysts": [
+                  "ana@corp.com"
+                ],
+                "pii_readers": [
+                  "hr@corp.com"
+                ]
+              }
+            }
+          },
+          "outcome": "principal_rows",
+          "queries": [
+            {
+              "principal": "ana@corp.com",
+              "sql": "SELECT customer_id, customer_name, email, phone FROM main.silver.customers"
+            },
+            {
+              "principal": "hr@corp.com",
+              "sql": "SELECT customer_id, customer_name, email, phone FROM main.silver.customers"
+            }
+          ],
+          "columns": [
+            "principal",
+            "denied",
+            "customer_id",
+            "customer_name",
+            "email",
+            "phone"
+          ]
+        },
+        "expected": [
+          {
+            "principal": "ana@corp.com",
+            "denied": null,
+            "customer_id": 1,
+            "customer_name": "Ada",
+            "email": "***@***",
+            "phone": "*** 78"
+          },
+          {
+            "principal": "ana@corp.com",
+            "denied": null,
+            "customer_id": 2,
+            "customer_name": "Ben",
+            "email": "***@***",
+            "phone": "*** 00"
+          },
+          {
+            "principal": "ana@corp.com",
+            "denied": null,
+            "customer_id": 3,
+            "customer_name": "Chloe",
+            "email": "***@***",
+            "phone": "*** 00"
+          },
+          {
+            "principal": "hr@corp.com",
+            "denied": null,
+            "customer_id": 1,
+            "customer_name": "Ada",
+            "email": "ada@example.com",
+            "phone": "+33 6 12 34 56 78"
+          },
+          {
+            "principal": "hr@corp.com",
+            "denied": null,
+            "customer_id": 2,
+            "customer_name": "Ben",
+            "email": "ben@example.com",
+            "phone": "+1 212 555 0100"
+          },
+          {
+            "principal": "hr@corp.com",
+            "denied": null,
+            "customer_id": 3,
+            "customer_name": "Chloe",
+            "email": null,
+            "phone": "+44 20 7946 0000"
+          }
+        ]
+      }
+    ]
+  }
+}

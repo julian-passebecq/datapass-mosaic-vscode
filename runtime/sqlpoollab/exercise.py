@@ -15,7 +15,9 @@ outcome table with the expected rows:
 - movement: operation, tables, columns (the data movement of the graded query's plan);
 - scans: table, partitions_scanned, partitions_total;
 - result: the graded query's rows; table: a table's rows;
-- constraints: table, kind, columns, enforced.
+- constraints: table, kind, columns, enforced;
+- principals: the graded query run as each principal of `principals` (EXECUTE AS USER, then REVERT; 'dbo' runs
+  as the owner): principal, denied (the permission error, or null) and the query's columns.
 
 The graded query is `query` (run after the script) or the script's last SELECT/EXPLAIN.
 """
@@ -71,7 +73,8 @@ class PoolScenario(BaseModel):
     after: str | None = None
     query: str | None = None
     outcome: Literal['designs', 'distribution', 'partitions', 'partition_health', 'movement', 'scans', 'result',
-                     'table', 'constraints'] = 'designs'
+                     'table', 'constraints', 'principals'] = 'designs'
+    principals: list[str] = Field(default_factory=list, max_length=8)
     only: list[str] = Field(default_factory=list)
     table: str | None = Field(default=None, pattern=LAB_TABLE.pattern)
     columns: list[str] | None = None
@@ -80,6 +83,10 @@ class PoolScenario(BaseModel):
     def consistent(self) -> 'PoolScenario':
         if (self.outcome == 'table') != (self.table is not None):
             raise ValueError("outcome 'table' needs table, and only it")
+        if (self.outcome == 'principals') != bool(self.principals) or (self.outcome == 'principals' and not self.query):
+            raise ValueError("outcome 'principals' needs principals and a query, and only it")
+        if any(not re.fullmatch(r'[A-Za-z][A-Za-z0-9_]{0,40}', p) for p in self.principals):
+            raise ValueError('principals are user names such as analyst or dbo')
         if self.outcome in ('designs', 'distribution', 'partitions', 'partition_health', 'constraints') and not self.only:
             raise ValueError(f"outcome '{self.outcome}' needs the tables to report in only")
         if self.columns is not None and self.outcome in OUTCOME_COLUMNS:

@@ -82,6 +82,9 @@ def _run(catalog: Catalog, code: str, scenario: PoolScenario) -> list[dict[str, 
         if failed:
             raise ScriptRejected(f"After your script, the check ran {failed.kind} and it failed: "
                                  f"{display_text(failed.message)}")
+    if scenario.outcome == 'principals':
+        return project(_as_principals(pool, scenario), graded_columns(scenario, []) if scenario.columns else
+                       _principal_columns(pool, scenario))
     if scenario.query:
         outcome = pool.run(scenario.query)
         failed = _first_error(outcome)
@@ -90,6 +93,35 @@ def _run(catalog: Catalog, code: str, scenario: PoolScenario) -> list[dict[str, 
         graded = outcome[-1]
     rows = _outcome(pool, catalog, scenario, graded)
     return project(rows, graded_columns(scenario, rows))
+
+
+def _as_principals(pool: SqlPool, scenario: PoolScenario) -> list[dict[str, Any]]:
+    """The graded query as each principal: its rows, or one row with the permission error."""
+    rows: list[dict[str, Any]] = []
+    for principal in scenario.principals:
+        if principal.lower() != 'dbo':
+            failed = _first_error(pool.run(f"EXECUTE AS USER = '{principal}';"))
+            if failed:
+                raise ScriptRejected(f"EXECUTE AS USER = '{principal}' failed after your script: "
+                                     f"{display_text(failed.message)}")
+        results = pool.run(scenario.query or '')
+        failed = _first_error(results)
+        if principal.lower() != 'dbo':
+            pool.run('REVERT;')
+        if failed:
+            if 'permission was denied' not in failed.message:
+                raise ScriptRejected(f"The graded query failed as {principal}: {display_text(failed.message)}")
+            rows.append({'principal': principal, 'denied': display_text(failed.message)})
+            continue
+        graded = results[-1]
+        rows.extend({'principal': principal, 'denied': None, **row} for row in graded.rows)
+    return rows
+
+
+def _principal_columns(pool: SqlPool, scenario: PoolScenario) -> list[str]:
+    results = pool.run(scenario.query or '')
+    columns = results[-1].columns if results and results[-1].status == 'ok' else []
+    return ['principal', 'denied'] + list(columns)
 
 
 def _outcome(pool: SqlPool, catalog: Catalog, scenario: PoolScenario,

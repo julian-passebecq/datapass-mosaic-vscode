@@ -24,6 +24,7 @@ from typing import Any, ContextManager, Protocol
 from .model import FLAVORS, Metadata, Partitioning, PoolError, Procedure, TableDesign
 from .physical import partition_number_sql, partition_range
 from .planner import Context, plan_select
+from .security import Security, SecurityStatements, handles as security_handles, rewrite as secure_select
 from .tsql import (FABRIC_TYPE_MAP, Cursor, Statement, TableOptions, Token, Translator, identifier, lab_name,
                    literal_value, names, read_name, read_options, read_type, split_commas, split_statements,
                    sql_literal, tokenize)
@@ -83,6 +84,8 @@ class SqlPool:
         self.depth = depth
         self.last_plan: dict[str, Any] | None = None
         self.last_query: str | None = None
+        self.security = Security.from_json(metadata.security)
+        self.secure = SecurityStatements(self.security, self.db.columns, self.db.exists)
 
     # -- script ------------------------------------------------------------------------------------
     def run(self, script: str) -> list[StatementResult]:
@@ -100,6 +103,7 @@ class SqlPool:
                 results.append(result)
                 if result.status == 'error':
                     break
+        self.metadata.security = self.security.to_json()
         if self.depth == 0:
             self.metadata.save()
         return results
@@ -121,6 +125,12 @@ class SqlPool:
     def statement(self, statement: Statement) -> StatementResult:
         cursor = Cursor(statement.tokens, statement)
         first, second = cursor.peek_upper(), cursor.peek_upper(1)
+        if security_handles(statement):
+            kind, message, target = self.secure.run(statement)
+            return StatementResult(statement.index, statement.line, kind, target=target, message=message)
+        if self.secure.principal is not None and first not in ('SELECT', 'WITH', 'DECLARE', 'SET', 'PRINT'):
+            raise PoolError(f"You are running as {self.secure.principal}: the lab secures SELECT statements only, so "
+                            f"{first} runs as dbo. REVERT first.", line=statement.line)
         if first == 'CREATE':
             if second == 'TABLE':
                 return self.create_table(statement, cursor)
@@ -764,6 +774,8 @@ class SqlPool:
         before = self.db.count(target) if target and self.db.exists(target) else None
         result = self.db.execute(sql, f"{PRODUCER}:{kind}")
         notes = list(translated.notes)
+        if target and self.security.active_filters(target):
+            notes.append('Row-level security filters SELECT in the lab; this statement ran unfiltered, as dbo.')
         message = f"{kind} ran."
         if target and self.db.exists(target):
             design = self._design(target)
@@ -810,7 +822,10 @@ class SqlPool:
         return None
 
     def select(self, statement: Statement, tokens: list[Token], explain: bool) -> StatementResult:
+        tokens, security_notes = secure_select(tokens, self.security, self.secure.principal, self.db.columns,
+                                               self.db.exists, statement.line)
         translated = self._translator().translate(tokens)
+        translated.notes = security_notes + translated.notes
         sql = translated.sql
         plan_json = None
         if self.flavor == 'synapse':

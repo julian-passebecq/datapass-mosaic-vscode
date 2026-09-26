@@ -1,0 +1,10 @@
+{
+  "schema_version": 1,
+  "id": "governance-v1",
+  "version": "1",
+  "title": "Governance: row and column security, masking and PII (simulated SQL pool and Unity Catalog)",
+  "enabled": true,
+  "provenance": {
+    "source": "Authored for Datapass Workbench"
+  }
+}

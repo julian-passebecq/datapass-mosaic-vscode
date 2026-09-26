@@ -9,6 +9,27 @@ Add a tranche as a new `## YYYY-MM-DD · Title` section at the top, under this p
 sections, and refer to another section by its heading, not by a position. Keep the "Checked" and "Not checked"
 notes: they say what was really run.
 
+## 2026-09-26 · Governance: row and column security, masking and PII tags (V3-6)
+
+- **SQL pool** (`runtime/sqlpoollab/security.py`, hooks in `engine.py`, state in `sqlpool.json` under `security`):
+  `CREATE USER ... WITHOUT LOGIN`, roles and members, security predicates (inline TVFs) and `CREATE SECURITY POLICY
+  ... ADD FILTER PREDICATE`, `GRANT / DENY / REVOKE SELECT ON t [(columns)]`, masks (`default()`, `email()`,
+  `partial()`), `GRANT UNMASK`, `EXECUTE AS USER` / `REVERT`. Each SELECT is parsed (sqlglot, T-SQL), checked for
+  table and column permissions, and every secured table it reads becomes a derived table (predicate as `EXISTS`, masks
+  as T-SQL expressions) before the shared T-SQL translator runs it on DuckDB. Filters apply to dbo too; dbo sees
+  unmasked data. Refused by name: BLOCK predicates, `random()`, `SESSION_CONTEXT`, other permissions. Practice
+  outcome `principals` (the graded query as each principal, a permission error graded as `denied`).
+- **Databricks** (`runtime/databrickslab/governance.py`, read from `grants.sql` by `unity.py`): SQL UDFs, `SET ROW
+  FILTER`, `SET MASK [USING COLUMNS]`, `SET TAGS` / `UNSET TAGS`; group and user functions resolved for the principal,
+  bodies translated from Spark SQL by the shared translator; SQL task statements rewritten for the job's `run_as`;
+  notebook reads of a secured table refused. Practice outcomes `principal_rows` and `pii`.
+- **Content**: `governance-v1` (`scripts/authoring/gen_governance.py`), 5 exercises (3 T-SQL, 2 Unity Catalog), each
+  with a runnable failing starter and 3–4 mutants (a filter that leaks the NULL-rep row, a mask granted to the wrong
+  group, an admin bypass that opens every region to analysts, a tagged column left unmasked...). dbt model contracts
+  are the dbt Lab missions' (#55), not redone.
+- Checked: see the PR's gate list. Not checked: the SQL pool and Databricks lab tabs with security statements typed
+  by hand in a real VS Code (the UI pass grades one governance exercise through Practice).
+
 ## 2026-09-26 · Practice: concept checks with reference sheets (V2-4) and pytest-graded production Python (V2-5)
 
 - **Concept checks** (language `quiz`, runtime `datapass-quiz-v1`, `runtime/datapass_runtime/quiz_grading.py`): the learner

@@ -1041,6 +1041,20 @@ export async function run(): Promise<void> {
       const taskValue = databricks.find(item => item.id === "dbx-task-value-notebook")!;
       assert.equal((await submit(taskValue, dbxGrading[taskValue.id].solution)).status, "passed");
       assert.equal((await submit(taskValue, taskValue.starterSource)).status, "failed", "an exit value is not a task value");
+      // Governance: row/column security and masks enforced by real queries as each principal (SQL pool and Unity Catalog).
+      const governance = catalog.filter(item => item.packId === "governance-v1");
+      assert.equal(governance.length, 5);
+      assert.deepEqual([...new Set(governance.map(item => item.language))].sort(), ["databricks-grants", "sqlpool"]);
+      const govGrading = JSON.parse(new TextDecoder().decode(await vscode.workspace.fs.readFile(
+        vscode.Uri.joinPath(extension.extensionUri, "content", "exercise-packs", "governance-v1", "grading.server.json")
+      ))) as Record<string, { solution: string }>;
+      const rls = governance.find(item => item.id === "gov-rls-sales-reps")!;
+      const filtered = await submit(rls, govGrading[rls.id].solution);
+      assert.equal(filtered.status, "passed", JSON.stringify(filtered.checks));
+      assert.equal((await submit(rls, rls.starterSource)).status, "failed", "a predicate without a policy filters nothing");
+      const piiMasks = governance.find(item => item.id === "gov-uc-pii-masks")!;
+      assert.equal((await submit(piiMasks, govGrading[piiMasks.id].solution)).status, "passed");
+      assert.equal((await submit(piiMasks, piiMasks.starterSource)).status, "failed", "tagged columns without masks leak");
       // BI Lab: warehouse SQL and star models graded on real DuckDB, each check on an isolated catalog.
       const dwh = catalog.filter(item => item.packId === "dwh-v1");
       assert.equal(dwh.length, 20);
