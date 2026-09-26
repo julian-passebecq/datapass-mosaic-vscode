@@ -474,11 +474,6 @@ def capabilities() -> dict[str, object]:
     }
 
 
-@app.get("/api/local/capabilities")
-def local_capabilities() -> object:
-    return native_command({"op": "capabilities"})
-
-
 @app.get("/api/local/catalog")
 def local_catalog() -> object:
     return native_command({"op": "catalog"})
@@ -689,11 +684,6 @@ def local_execute(body: LocalExecuteRequest) -> object:
         "aqe": body.aqe,
         "dialect": body.dialect,
     }))
-
-
-@app.post("/api/local/restart")
-def local_restart() -> object:
-    return kernel_manager.restart(NATIVE_WORKSPACE_ID)
 
 
 @app.post("/api/pipeline/run")
