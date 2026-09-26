@@ -1340,6 +1340,39 @@ export async function run(): Promise<void> {
       assert.equal(notIn.status, "failed");
       const exploded = await submit("SELECT EXPLODE(ARRAY(1, 2)) AS x");
       assert.match(exploded.checks[0].message, /not Spark/);
+    }],
+    ["Concept checks graded without execution, the answer never in a Run; a pytest exercise graded by real pytest", async () => {
+      const catalog = await loadExerciseCatalog(extension.extensionUri);
+      const quiz = catalog.find(item => item.id === "concept-synapse-distributions")!;
+      assert.equal(quiz.language, "quiz");
+      assert.deepEqual(quiz.references, ["reference/synapse-dedicated-sql-pool.md"]);
+      const grade = async (item: typeof quiz, code: string, mode: "run" | "submit") => {
+        await runtime!.labs.practice.gradeExercise(item.key, {
+          exercise_id: item.id, exercise_version: item.version, language: item.language,
+          code, mode, notebook_id: "e2e-quiz", cell_id: "solution", source_revision: 1
+        });
+        return runtime!.snapshot().practiceResult!;
+      };
+      const run = await grade(quiz, "answer: 60", "run");
+      assert.equal(run.checks.length, 1, "a Run grades only the answer's format");
+      assert.ok(!JSON.stringify(run).includes("60 distributions"), "the explanation stays in the runtime until a submission");
+      const wrong = await grade(quiz, "answer: 64", "submit");
+      assert.equal(wrong.status, "failed");
+      const right = await grade(quiz, "answer: 60", "submit");
+      assert.equal(right.status, "passed");
+      assert.equal(right.truth, "concept-check");
+      // Trusted Python is on since the explicit-trust step: pytest really runs (its refusal while trusted Python is off
+      // is checked by scripts/exercise_packs_smoke.py with an untrusted worker).
+      const pytest = catalog.find(item => item.id === "py-chunked")!;
+      const starter = await grade(pytest, pytest.starterSource, "submit");
+      assert.equal(starter.status, "failed");
+      assert.match(starter.checks.find(check => check.id === "own-tests")!.message, /at least 3 tests/);
+      const pytestGrading = JSON.parse(new TextDecoder().decode(await vscode.workspace.fs.readFile(
+        vscode.Uri.joinPath(extension.extensionUri, "content", "exercise-packs", "python-prod-v1", "grading.server.json")
+      ))) as Record<string, { solution: string }>;
+      const reference = await grade(pytest, pytestGrading["py-chunked"].solution, "submit");
+      assert.equal(reference.status, "passed", JSON.stringify(reference.checks));
+      assert.equal(reference.runtime.engine, "pytest");
     }]
   ];
 

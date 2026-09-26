@@ -41,7 +41,7 @@ manifests, and the "Get started with Datapass" walkthrough:
 | --- | --- | --- | --- |
 | Projects (`projects`) | 3 end-to-end stories (`retail-fabric`, `databricks-ml`, `synapse-to-fabric`) whose steps are done in the labs and verified on the workspace | checks run on the catalog and the run journal; a hand tick is never a verification | `runtime/datapass_runtime/projects.py`, `run_journal.py`, `src/platform/projects.ts`, `content/projects/` |
 | Mosaic (`mosaic`) | grid of native SQL/Python/Markdown files; Run/Explain active SQL, Profile, Import file (CSV, Parquet, JSON), query history, SQL dialect picker | real DuckDB; Python/Polars real only with trusted Python; dialects translated to DuckDB | `src/webview/MosaicSurface.tsx`, `runtime/sqldialects` |
-| Practice (`practice`) | LeetCode-style arena over the exercise packs: one card per problem with a language switch, Run visible, Submit, feedback diff, hints, reference after a pass, progress per variant; Review (Leitner spaced review) and Interview (timed random series, no hints, summary) modes | real grading through the shared runtime (emulations labelled) | `runtime/datapass_runtime/exercises.py`, `content/exercise-packs/`, `src/platform/practice*.ts`, `src/webview/Practice*.tsx` |
+| Practice (`practice`) | LeetCode-style arena over the exercise packs: one card per problem with a language switch, Run visible, Submit, feedback diff, hints, reference after a pass, progress per variant; Review (Leitner spaced review) and Interview (timed random series, no hints, summary) modes; concept checks (`quiz`: no execution, answer compared by the runtime, reference sheets in `content/reference/` opened as Markdown previews) and production Python graded by pytest (`pytest`: the learner's tests + hidden tests) | real grading through the shared runtime (emulations labelled); concept checks run nothing; pytest runs as trusted Python only | `runtime/datapass_runtime/exercises.py`, `content/exercise-packs/`, `src/platform/practice*.ts`, `src/webview/Practice*.tsx` |
 | Cloud Lab (`fabric`) | Fabric-inspired lakehouse demo; Pipelines (Fabric / ADF / Synapse JSON), SQL pool (Synapse dedicated pool, Fabric Warehouse), Databricks (jobs, compute, Unity Catalog, MLflow) | orchestration simulated; Copy, Lookup, Script, procedures, SQL on local DuckDB; notebooks on SparkLab | `runtime/factorylab`, `sqlpoollab`, `databrickslab` |
 | BI Lab (`bi`) | warehouse scripts, star model checks, SQL lineage, Concepts, dbt tab | scripts and model checks real on DuckDB; lineage static (sqlglot); dbt tab is the Datapass dbt emulation, "not dbt Core" | `runtime/bilab`, `runtime/dbtlab` |
 | SparkLab (`sparklab`) | bounded PySpark-style files, teaching plans, simulated stages/shuffle/cost; a Polars engine runs the active file as real Polars and shows Polars' own optimized plan | bounded semantics on DuckDB; distributed behaviour simulated; Polars real, trusted Python only | `runtime/sparklab`, `src/labs/sparklab` |
@@ -61,17 +61,17 @@ an extension update shows "needs update" / **Update runtime** and is never start
 
 Practice packs: `sql-lab-v1`, `engine-lab-v1` (incl. T-SQL and BigQuery variants), `python-lab-v1`,
 `de-patterns-v1`, `spark-lab-v1` (PySpark + Polars), `spark-sql-v1` (Spark SQL), `airflow-lab-v1`, `cloud-pipelines-v1`, `sqlpool-v1`, `databricks-v1`, `dwh-v1`,
-`dbt-v1`, `zilla-v1` (52 ZillaCode problems in six languages), plus `guided-spark-v1` (needs a qualified remote
+`dbt-v1`, `zilla-v1` (52 ZillaCode problems in six languages), `concepts-v1` (24 concept checks: Fabric capacities, Synapse DWUs, Databricks compute, Unity Catalog, Delta / Iceberg / DuckLake), `python-prod-v1` (8 pytest exercises: typing, files, logging, errors, retries), plus `guided-spark-v1` (needs a qualified remote
 connection, not graded locally), `unified-retail-v1`, `pipeline-design-v1`, `sparklab-runtime` and `internal-demo`. Languages include SQL dialects `snowflake`, `tsql`,
 `bigquery`, translated to DuckDB (`runtime/sqldialects`, README there).
 
 ## Truth model in one paragraph
 
-Never blur real execution and simulation. Real: Mosaic SQL on DuckDB, trusted Python/Polars, Practice grading, dbt
+Never blur real execution and simulation. Real: Mosaic SQL on DuckDB, trusted Python/Polars, Practice grading (pytest exercises: real pytest, trusted Python only), dbt
 Lab commands, Terminal Lab shells, API Lab ingestion code, BI warehouse scripts and model checks, Projects checks. Translated: SQL dialects
 ("<dialect> dialect translated to DuckDB, not <engine>"). Emulated: the BI Lab dbt tab ("not dbt Core"). Simulated:
 Airflow scheduling, the API Lab's REST API, the whole Infra Lab (Terraform, Docker, monitoring, Kubernetes), Cloud Lab orchestration, distributions and data movement, Databricks compute and DBU cost,
-SparkLab distributed behaviour. Static: SQL lineage. No cloud connection anywhere. Details: CLAUDE.md.
+SparkLab distributed behaviour. Static: SQL lineage. No execution: Practice concept checks (answers compared by the runtime). No cloud connection anywhere. Details: CLAUDE.md.
 
 ## Where things live
 

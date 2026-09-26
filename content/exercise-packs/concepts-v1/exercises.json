@@ -1,0 +1,1706 @@
+[
+  {
+    "schema_version": 1,
+    "id": "concept-fabric-cu-per-sku",
+    "version": "1",
+    "title": "Capacity units of an F SKU",
+    "difficulty": "easy",
+    "topics": [
+      "concepts",
+      "fabric"
+    ],
+    "tags": [
+      "concept-check",
+      "fabric"
+    ],
+    "origin": "authored",
+    "language": "quiz",
+    "runtime": "datapass-quiz-v1",
+    "prompt": "How many capacity units (CUs) does a Microsoft Fabric F64 capacity provide?",
+    "sections": [
+      {
+        "title": "Concept check (no execution)",
+        "body": "Nothing runs here: this platform cannot be executed locally. Answer in the file, save, and Submit; the runtime compares your answer with the pack's answer and explains it once you are right. The reference sheet (Fabric capacities) covers the topic."
+      }
+    ],
+    "starter_source": "Concept check (no execution): nothing runs; the runtime checks your answer when you Submit.\n\nHow many capacity units (CUs) does a Microsoft Fabric F64 capacity provide?\n\n  a) 8\n  b) 32\n  c) 64\n  d) 128\n\nWrite the letter of your choice after \"answer:\" (several letters separated by commas if several are right), save, then Submit.\nanswer:\n",
+    "fixtures": [
+      {
+        "id": "concept-fabric-cu-per-sku-fixtures",
+        "version": "1"
+      }
+    ],
+    "visible_checks": [
+      {
+        "id": "format",
+        "description": "Your answer is well formed (Run checks only this)."
+      }
+    ],
+    "hidden_check_refs": [
+      "answer"
+    ],
+    "edge_check_refs": [],
+    "hints": [
+      "Read the number in the SKU name.",
+      "Open the reference sheet: Fabric capacities."
+    ],
+    "solution": {
+      "available": true,
+      "reveal": "explicit"
+    },
+    "explanation": "The explanation comes with a correct submission, from the runtime.",
+    "follow_ups": [],
+    "canonical_placement": {
+      "domain": "concepts",
+      "topic": "fabric"
+    },
+    "related_associations": [
+      "practice/concepts"
+    ],
+    "validator_version": "quiz-v1",
+    "runtime_requirements": [],
+    "provenance": {
+      "source": "Authored for Datapass Workbench; checked against the vendors' documentation on 2026-09-26"
+    },
+    "constraints": {
+      "truth": "Concept check: no execution; the answer is compared by the runtime."
+    },
+    "context_refs": [
+      "reference/fabric-capacities.md"
+    ],
+    "truth": "concept-check"
+  },
+  {
+    "schema_version": 1,
+    "id": "concept-fabric-free-viewers",
+    "version": "1",
+    "title": "Report viewers without a Pro licence",
+    "difficulty": "medium",
+    "topics": [
+      "concepts",
+      "fabric"
+    ],
+    "tags": [
+      "concept-check",
+      "fabric"
+    ],
+    "origin": "authored",
+    "language": "quiz",
+    "runtime": "datapass-quiz-v1",
+    "prompt": "From which F SKU can users with a Fabric free licence view Power BI content in the capacity's workspaces?",
+    "sections": [
+      {
+        "title": "Concept check (no execution)",
+        "body": "Nothing runs here: this platform cannot be executed locally. Answer in the file, save, and Submit; the runtime compares your answer with the pack's answer and explains it once you are right. The reference sheet (Fabric capacities) covers the topic."
+      }
+    ],
+    "starter_source": "Concept check (no execution): nothing runs; the runtime checks your answer when you Submit.\n\nFrom which F SKU can users with a Fabric free licence view Power BI content in the capacity's workspaces?\n\n  a) F2\n  b) F16\n  c) F64\n  d) Any F SKU\n\nWrite the letter of your choice after \"answer:\" (several letters separated by commas if several are right), save, then Submit.\nanswer:\n",
+    "fixtures": [
+      {
+        "id": "concept-fabric-free-viewers-fixtures",
+        "version": "1"
+      }
+    ],
+    "visible_checks": [
+      {
+        "id": "format",
+        "description": "Your answer is well formed (Run checks only this)."
+      }
+    ],
+    "hidden_check_refs": [
+      "answer"
+    ],
+    "edge_check_refs": [],
+    "hints": [
+      "It is the SKU equivalent to Power BI Premium P1.",
+      "Open the reference sheet: Fabric capacities."
+    ],
+    "solution": {
+      "available": true,
+      "reveal": "explicit"
+    },
+    "explanation": "The explanation comes with a correct submission, from the runtime.",
+    "follow_ups": [],
+    "canonical_placement": {
+      "domain": "concepts",
+      "topic": "fabric"
+    },
+    "related_associations": [
+      "practice/concepts"
+    ],
+    "validator_version": "quiz-v1",
+    "runtime_requirements": [],
+    "provenance": {
+      "source": "Authored for Datapass Workbench; checked against the vendors' documentation on 2026-09-26"
+    },
+    "constraints": {
+      "truth": "Concept check: no execution; the answer is compared by the runtime."
+    },
+    "context_refs": [
+      "reference/fabric-capacities.md"
+    ],
+    "truth": "concept-check"
+  },
+  {
+    "schema_version": 1,
+    "id": "concept-fabric-pause",
+    "version": "1",
+    "title": "Pausing a capacity",
+    "difficulty": "easy",
+    "topics": [
+      "concepts",
+      "fabric"
+    ],
+    "tags": [
+      "concept-check",
+      "fabric"
+    ],
+    "origin": "authored",
+    "language": "quiz",
+    "runtime": "datapass-quiz-v1",
+    "prompt": "A pay-as-you-go F capacity is paused. What stops being billed?",
+    "sections": [
+      {
+        "title": "Concept check (no execution)",
+        "body": "Nothing runs here: this platform cannot be executed locally. Answer in the file, save, and Submit; the runtime compares your answer with the pack's answer and explains it once you are right. The reference sheet (Fabric capacities) covers the topic."
+      }
+    ],
+    "starter_source": "Concept check (no execution): nothing runs; the runtime checks your answer when you Submit.\n\nA pay-as-you-go F capacity is paused. What stops being billed?\n\n  a) Nothing: F capacities bill 24/7\n  b) Compute (the capacity units); OneLake storage is still billed\n  c) Both compute and OneLake storage\n  d) Only OneLake storage\n\nWrite the letter of your choice after \"answer:\" (several letters separated by commas if several are right), save, then Submit.\nanswer:\n",
+    "fixtures": [
+      {
+        "id": "concept-fabric-pause-fixtures",
+        "version": "1"
+      }
+    ],
+    "visible_checks": [
+      {
+        "id": "format",
+        "description": "Your answer is well formed (Run checks only this)."
+      }
+    ],
+    "hidden_check_refs": [
+      "answer"
+    ],
+    "edge_check_refs": [],
+    "hints": [
+      "Storage and compute are billed separately in Fabric.",
+      "Open the reference sheet: Fabric capacities."
+    ],
+    "solution": {
+      "available": true,
+      "reveal": "explicit"
+    },
+    "explanation": "The explanation comes with a correct submission, from the runtime.",
+    "follow_ups": [],
+    "canonical_placement": {
+      "domain": "concepts",
+      "topic": "fabric"
+    },
+    "related_associations": [
+      "practice/concepts"
+    ],
+    "validator_version": "quiz-v1",
+    "runtime_requirements": [],
+    "provenance": {
+      "source": "Authored for Datapass Workbench; checked against the vendors' documentation on 2026-09-26"
+    },
+    "constraints": {
+      "truth": "Concept check: no execution; the answer is compared by the runtime."
+    },
+    "context_refs": [
+      "reference/fabric-capacities.md"
+    ],
+    "truth": "concept-check"
+  },
+  {
+    "schema_version": 1,
+    "id": "concept-fabric-smoothing",
+    "version": "1",
+    "title": "Smoothing background jobs",
+    "difficulty": "medium",
+    "topics": [
+      "concepts",
+      "fabric"
+    ],
+    "tags": [
+      "concept-check",
+      "fabric"
+    ],
+    "origin": "authored",
+    "language": "quiz",
+    "runtime": "datapass-quiz-v1",
+    "prompt": "Over how long does Fabric smooth the capacity usage of a background operation (a Spark job, a pipeline run, a semantic model refresh)?",
+    "sections": [
+      {
+        "title": "Concept check (no execution)",
+        "body": "Nothing runs here: this platform cannot be executed locally. Answer in the file, save, and Submit; the runtime compares your answer with the pack's answer and explains it once you are right. The reference sheet (Fabric capacities) covers the topic."
+      }
+    ],
+    "starter_source": "Concept check (no execution): nothing runs; the runtime checks your answer when you Submit.\n\nOver how long does Fabric smooth the capacity usage of a background operation (a Spark job, a pipeline run, a semantic model refresh)?\n\n  a) 5 minutes\n  b) 1 hour\n  c) 24 hours\n  d) 7 days\n\nWrite the letter of your choice after \"answer:\" (several letters separated by commas if several are right), save, then Submit.\nanswer:\n",
+    "fixtures": [
+      {
+        "id": "concept-fabric-smoothing-fixtures",
+        "version": "1"
+      }
+    ],
+    "visible_checks": [
+      {
+        "id": "format",
+        "description": "Your answer is well formed (Run checks only this)."
+      }
+    ],
+    "hidden_check_refs": [
+      "answer"
+    ],
+    "edge_check_refs": [],
+    "hints": [
+      "Background work can wait; its cost is spread over a day.",
+      "Open the reference sheet: Fabric capacities."
+    ],
+    "solution": {
+      "available": true,
+      "reveal": "explicit"
+    },
+    "explanation": "The explanation comes with a correct submission, from the runtime.",
+    "follow_ups": [],
+    "canonical_placement": {
+      "domain": "concepts",
+      "topic": "fabric"
+    },
+    "related_associations": [
+      "practice/concepts"
+    ],
+    "validator_version": "quiz-v1",
+    "runtime_requirements": [],
+    "provenance": {
+      "source": "Authored for Datapass Workbench; checked against the vendors' documentation on 2026-09-26"
+    },
+    "constraints": {
+      "truth": "Concept check: no execution; the answer is compared by the runtime."
+    },
+    "context_refs": [
+      "reference/fabric-capacities.md"
+    ],
+    "truth": "concept-check"
+  },
+  {
+    "schema_version": 1,
+    "id": "concept-fabric-throttling-stage",
+    "version": "1",
+    "title": "The first throttling stage",
+    "difficulty": "hard",
+    "topics": [
+      "concepts",
+      "fabric"
+    ],
+    "tags": [
+      "concept-check",
+      "fabric"
+    ],
+    "origin": "authored",
+    "language": "quiz",
+    "runtime": "datapass-quiz-v1",
+    "prompt": "A capacity keeps running over its size. Once the smoothed future usage exceeds 10 minutes, what does Fabric do first?",
+    "sections": [
+      {
+        "title": "Concept check (no execution)",
+        "body": "Nothing runs here: this platform cannot be executed locally. Answer in the file, save, and Submit; the runtime compares your answer with the pack's answer and explains it once you are right. The reference sheet (Fabric capacities) covers the topic."
+      }
+    ],
+    "starter_source": "Concept check (no execution): nothing runs; the runtime checks your answer when you Submit.\n\nA capacity keeps running over its size. Once the smoothed future usage exceeds 10 minutes, what does Fabric do first?\n\n  a) Rejects background jobs\n  b) Delays new interactive operations by 20 seconds\n  c) Rejects interactive operations\n  d) Pauses the capacity\n\nWrite the letter of your choice after \"answer:\" (several letters separated by commas if several are right), save, then Submit.\nanswer:\n",
+    "fixtures": [
+      {
+        "id": "concept-fabric-throttling-stage-fixtures",
+        "version": "1"
+      }
+    ],
+    "visible_checks": [
+      {
+        "id": "format",
+        "description": "Your answer is well formed (Run checks only this)."
+      }
+    ],
+    "hidden_check_refs": [
+      "answer"
+    ],
+    "edge_check_refs": [],
+    "hints": [
+      "The first stage slows people down; it does not refuse them yet.",
+      "Open the reference sheet: Fabric capacities."
+    ],
+    "solution": {
+      "available": true,
+      "reveal": "explicit"
+    },
+    "explanation": "The explanation comes with a correct submission, from the runtime.",
+    "follow_ups": [],
+    "canonical_placement": {
+      "domain": "concepts",
+      "topic": "fabric"
+    },
+    "related_associations": [
+      "practice/concepts"
+    ],
+    "validator_version": "quiz-v1",
+    "runtime_requirements": [],
+    "provenance": {
+      "source": "Authored for Datapass Workbench; checked against the vendors' documentation on 2026-09-26"
+    },
+    "constraints": {
+      "truth": "Concept check: no execution; the answer is compared by the runtime."
+    },
+    "context_refs": [
+      "reference/fabric-capacities.md"
+    ],
+    "truth": "concept-check"
+  },
+  {
+    "schema_version": 1,
+    "id": "concept-synapse-distributions",
+    "version": "1",
+    "title": "Distributions of a dedicated SQL pool",
+    "difficulty": "easy",
+    "topics": [
+      "concepts",
+      "synapse"
+    ],
+    "tags": [
+      "concept-check",
+      "synapse"
+    ],
+    "origin": "authored",
+    "language": "quiz",
+    "runtime": "datapass-quiz-v1",
+    "prompt": "How many distributions does every Azure Synapse dedicated SQL pool have, whatever its DWU level? (a number)",
+    "sections": [
+      {
+        "title": "Concept check (no execution)",
+        "body": "Nothing runs here: this platform cannot be executed locally. Answer in the file, save, and Submit; the runtime compares your answer with the pack's answer and explains it once you are right. The reference sheet (Synapse dedicated SQL pool) covers the topic."
+      }
+    ],
+    "starter_source": "Concept check (no execution): nothing runs; the runtime checks your answer when you Submit.\n\nHow many distributions does every Azure Synapse dedicated SQL pool have, whatever its DWU level? (a number)\n\nWrite your short answer after \"answer:\", save, then Submit.\nanswer:\n",
+    "fixtures": [
+      {
+        "id": "concept-synapse-distributions-fixtures",
+        "version": "1"
+      }
+    ],
+    "visible_checks": [
+      {
+        "id": "format",
+        "description": "Your answer is well formed (Run checks only this)."
+      }
+    ],
+    "hidden_check_refs": [
+      "answer"
+    ],
+    "edge_check_refs": [],
+    "hints": [
+      "It does not change when you scale.",
+      "Open the reference sheet: Synapse dedicated SQL pool."
+    ],
+    "solution": {
+      "available": true,
+      "reveal": "explicit"
+    },
+    "explanation": "The explanation comes with a correct submission, from the runtime.",
+    "follow_ups": [],
+    "canonical_placement": {
+      "domain": "concepts",
+      "topic": "synapse"
+    },
+    "related_associations": [
+      "practice/concepts"
+    ],
+    "validator_version": "quiz-v1",
+    "runtime_requirements": [],
+    "provenance": {
+      "source": "Authored for Datapass Workbench; checked against the vendors' documentation on 2026-09-26"
+    },
+    "constraints": {
+      "truth": "Concept check: no execution; the answer is compared by the runtime."
+    },
+    "context_refs": [
+      "reference/synapse-dedicated-sql-pool.md"
+    ],
+    "truth": "concept-check"
+  },
+  {
+    "schema_version": 1,
+    "id": "concept-synapse-dwu-nodes",
+    "version": "1",
+    "title": "Compute nodes at DW30000c",
+    "difficulty": "medium",
+    "topics": [
+      "concepts",
+      "synapse"
+    ],
+    "tags": [
+      "concept-check",
+      "synapse"
+    ],
+    "origin": "authored",
+    "language": "quiz",
+    "runtime": "datapass-quiz-v1",
+    "prompt": "At DW30000c, the largest service level, how many compute nodes serve the 60 distributions?",
+    "sections": [
+      {
+        "title": "Concept check (no execution)",
+        "body": "Nothing runs here: this platform cannot be executed locally. Answer in the file, save, and Submit; the runtime compares your answer with the pack's answer and explains it once you are right. The reference sheet (Synapse dedicated SQL pool) covers the topic."
+      }
+    ],
+    "starter_source": "Concept check (no execution): nothing runs; the runtime checks your answer when you Submit.\n\nAt DW30000c, the largest service level, how many compute nodes serve the 60 distributions?\n\n  a) 1\n  b) 10\n  c) 30\n  d) 60\n\nWrite the letter of your choice after \"answer:\" (several letters separated by commas if several are right), save, then Submit.\nanswer:\n",
+    "fixtures": [
+      {
+        "id": "concept-synapse-dwu-nodes-fixtures",
+        "version": "1"
+      }
+    ],
+    "visible_checks": [
+      {
+        "id": "format",
+        "description": "Your answer is well formed (Run checks only this)."
+      }
+    ],
+    "hidden_check_refs": [
+      "answer"
+    ],
+    "edge_check_refs": [],
+    "hints": [
+      "At the top level, each node serves exactly one distribution.",
+      "Open the reference sheet: Synapse dedicated SQL pool."
+    ],
+    "solution": {
+      "available": true,
+      "reveal": "explicit"
+    },
+    "explanation": "The explanation comes with a correct submission, from the runtime.",
+    "follow_ups": [],
+    "canonical_placement": {
+      "domain": "concepts",
+      "topic": "synapse"
+    },
+    "related_associations": [
+      "practice/concepts"
+    ],
+    "validator_version": "quiz-v1",
+    "runtime_requirements": [],
+    "provenance": {
+      "source": "Authored for Datapass Workbench; checked against the vendors' documentation on 2026-09-26"
+    },
+    "constraints": {
+      "truth": "Concept check: no execution; the answer is compared by the runtime."
+    },
+    "context_refs": [
+      "reference/synapse-dedicated-sql-pool.md"
+    ],
+    "truth": "concept-check"
+  },
+  {
+    "schema_version": 1,
+    "id": "concept-synapse-replicate",
+    "version": "1",
+    "title": "Which distribution for a small dimension",
+    "difficulty": "medium",
+    "topics": [
+      "concepts",
+      "synapse"
+    ],
+    "tags": [
+      "concept-check",
+      "synapse"
+    ],
+    "origin": "authored",
+    "language": "quiz",
+    "runtime": "datapass-quiz-v1",
+    "prompt": "A 50 MB product dimension is joined by every fact query. Which table distribution avoids data movement for those joins?",
+    "sections": [
+      {
+        "title": "Concept check (no execution)",
+        "body": "Nothing runs here: this platform cannot be executed locally. Answer in the file, save, and Submit; the runtime compares your answer with the pack's answer and explains it once you are right. The reference sheet (Synapse dedicated SQL pool) covers the topic."
+      }
+    ],
+    "starter_source": "Concept check (no execution): nothing runs; the runtime checks your answer when you Submit.\n\nA 50 MB product dimension is joined by every fact query. Which table distribution avoids data movement for those joins?\n\n  a) HASH on product_key\n  b) ROUND_ROBIN\n  c) REPLICATE\n  d) HEAP\n\nWrite the letter of your choice after \"answer:\" (several letters separated by commas if several are right), save, then Submit.\nanswer:\n",
+    "fixtures": [
+      {
+        "id": "concept-synapse-replicate-fixtures",
+        "version": "1"
+      }
+    ],
+    "visible_checks": [
+      {
+        "id": "format",
+        "description": "Your answer is well formed (Run checks only this)."
+      }
+    ],
+    "hidden_check_refs": [
+      "answer"
+    ],
+    "edge_check_refs": [],
+    "hints": [
+      "The table is small enough to copy everywhere.",
+      "Open the reference sheet: Synapse dedicated SQL pool."
+    ],
+    "solution": {
+      "available": true,
+      "reveal": "explicit"
+    },
+    "explanation": "The explanation comes with a correct submission, from the runtime.",
+    "follow_ups": [],
+    "canonical_placement": {
+      "domain": "concepts",
+      "topic": "synapse"
+    },
+    "related_associations": [
+      "practice/concepts"
+    ],
+    "validator_version": "quiz-v1",
+    "runtime_requirements": [],
+    "provenance": {
+      "source": "Authored for Datapass Workbench; checked against the vendors' documentation on 2026-09-26"
+    },
+    "constraints": {
+      "truth": "Concept check: no execution; the answer is compared by the runtime."
+    },
+    "context_refs": [
+      "reference/synapse-dedicated-sql-pool.md"
+    ],
+    "truth": "concept-check"
+  },
+  {
+    "schema_version": 1,
+    "id": "concept-synapse-cci-rows",
+    "version": "1",
+    "title": "Clustered columnstore and row groups",
+    "difficulty": "hard",
+    "topics": [
+      "concepts",
+      "synapse"
+    ],
+    "tags": [
+      "concept-check",
+      "synapse"
+    ],
+    "origin": "authored",
+    "language": "quiz",
+    "runtime": "datapass-quiz-v1",
+    "prompt": "A clustered columnstore index compresses best with about 1 million rows per row group. Roughly how many rows does a table need before every distribution can fill one row group?",
+    "sections": [
+      {
+        "title": "Concept check (no execution)",
+        "body": "Nothing runs here: this platform cannot be executed locally. Answer in the file, save, and Submit; the runtime compares your answer with the pack's answer and explains it once you are right. The reference sheet (Synapse dedicated SQL pool) covers the topic."
+      }
+    ],
+    "starter_source": "Concept check (no execution): nothing runs; the runtime checks your answer when you Submit.\n\nA clustered columnstore index compresses best with about 1 million rows per row group. Roughly how many rows does a table need before every distribution can fill one row group?\n\n  a) 1 million\n  b) 6 million\n  c) 60 million\n  d) 600 million\n\nWrite the letter of your choice after \"answer:\" (several letters separated by commas if several are right), save, then Submit.\nanswer:\n",
+    "fixtures": [
+      {
+        "id": "concept-synapse-cci-rows-fixtures",
+        "version": "1"
+      }
+    ],
+    "visible_checks": [
+      {
+        "id": "format",
+        "description": "Your answer is well formed (Run checks only this)."
+      }
+    ],
+    "hidden_check_refs": [
+      "answer"
+    ],
+    "edge_check_refs": [],
+    "hints": [
+      "Multiply by the number of distributions.",
+      "Open the reference sheet: Synapse dedicated SQL pool."
+    ],
+    "solution": {
+      "available": true,
+      "reveal": "explicit"
+    },
+    "explanation": "The explanation comes with a correct submission, from the runtime.",
+    "follow_ups": [],
+    "canonical_placement": {
+      "domain": "concepts",
+      "topic": "synapse"
+    },
+    "related_associations": [
+      "practice/concepts"
+    ],
+    "validator_version": "quiz-v1",
+    "runtime_requirements": [],
+    "provenance": {
+      "source": "Authored for Datapass Workbench; checked against the vendors' documentation on 2026-09-26"
+    },
+    "constraints": {
+      "truth": "Concept check: no execution; the answer is compared by the runtime."
+    },
+    "context_refs": [
+      "reference/synapse-dedicated-sql-pool.md"
+    ],
+    "truth": "concept-check"
+  },
+  {
+    "schema_version": 1,
+    "id": "concept-synapse-pause",
+    "version": "1",
+    "title": "Pausing a dedicated SQL pool",
+    "difficulty": "easy",
+    "topics": [
+      "concepts",
+      "synapse"
+    ],
+    "tags": [
+      "concept-check",
+      "synapse"
+    ],
+    "origin": "authored",
+    "language": "quiz",
+    "runtime": "datapass-quiz-v1",
+    "prompt": "What does pausing a dedicated SQL pool stop billing?",
+    "sections": [
+      {
+        "title": "Concept check (no execution)",
+        "body": "Nothing runs here: this platform cannot be executed locally. Answer in the file, save, and Submit; the runtime compares your answer with the pack's answer and explains it once you are right. The reference sheet (Synapse dedicated SQL pool) covers the topic."
+      }
+    ],
+    "starter_source": "Concept check (no execution): nothing runs; the runtime checks your answer when you Submit.\n\nWhat does pausing a dedicated SQL pool stop billing?\n\n  a) Compute (DWUs); storage is still billed\n  b) Storage only\n  c) Both compute and storage\n  d) Nothing: only deleting the pool stops billing\n\nWrite the letter of your choice after \"answer:\" (several letters separated by commas if several are right), save, then Submit.\nanswer:\n",
+    "fixtures": [
+      {
+        "id": "concept-synapse-pause-fixtures",
+        "version": "1"
+      }
+    ],
+    "visible_checks": [
+      {
+        "id": "format",
+        "description": "Your answer is well formed (Run checks only this)."
+      }
+    ],
+    "hidden_check_refs": [
+      "answer"
+    ],
+    "edge_check_refs": [],
+    "hints": [
+      "Your data is kept while the pool is paused.",
+      "Open the reference sheet: Synapse dedicated SQL pool."
+    ],
+    "solution": {
+      "available": true,
+      "reveal": "explicit"
+    },
+    "explanation": "The explanation comes with a correct submission, from the runtime.",
+    "follow_ups": [],
+    "canonical_placement": {
+      "domain": "concepts",
+      "topic": "synapse"
+    },
+    "related_associations": [
+      "practice/concepts"
+    ],
+    "validator_version": "quiz-v1",
+    "runtime_requirements": [],
+    "provenance": {
+      "source": "Authored for Datapass Workbench; checked against the vendors' documentation on 2026-09-26"
+    },
+    "constraints": {
+      "truth": "Concept check: no execution; the answer is compared by the runtime."
+    },
+    "context_refs": [
+      "reference/synapse-dedicated-sql-pool.md"
+    ],
+    "truth": "concept-check"
+  },
+  {
+    "schema_version": 1,
+    "id": "concept-dbx-job-cluster",
+    "version": "1",
+    "title": "The cheaper compute for a nightly job",
+    "difficulty": "easy",
+    "topics": [
+      "concepts",
+      "databricks"
+    ],
+    "tags": [
+      "concept-check",
+      "databricks"
+    ],
+    "origin": "authored",
+    "language": "quiz",
+    "runtime": "datapass-quiz-v1",
+    "prompt": "A notebook job runs every night for an hour. Which classic compute is usually cheaper for it than an all-purpose cluster?",
+    "sections": [
+      {
+        "title": "Concept check (no execution)",
+        "body": "Nothing runs here: this platform cannot be executed locally. Answer in the file, save, and Submit; the runtime compares your answer with the pack's answer and explains it once you are right. The reference sheet (Databricks compute) covers the topic."
+      }
+    ],
+    "starter_source": "Concept check (no execution): nothing runs; the runtime checks your answer when you Submit.\n\nA notebook job runs every night for an hour. Which classic compute is usually cheaper for it than an all-purpose cluster?\n\n  a) A job cluster created for each run\n  b) A bigger all-purpose cluster\n  c) A SQL warehouse\n  d) An instance pool on its own\n\nWrite the letter of your choice after \"answer:\" (several letters separated by commas if several are right), save, then Submit.\nanswer:\n",
+    "fixtures": [
+      {
+        "id": "concept-dbx-job-cluster-fixtures",
+        "version": "1"
+      }
+    ],
+    "visible_checks": [
+      {
+        "id": "format",
+        "description": "Your answer is well formed (Run checks only this)."
+      }
+    ],
+    "hidden_check_refs": [
+      "answer"
+    ],
+    "edge_check_refs": [],
+    "hints": [
+      "Interactive compute costs more per DBU.",
+      "Open the reference sheet: Databricks compute."
+    ],
+    "solution": {
+      "available": true,
+      "reveal": "explicit"
+    },
+    "explanation": "The explanation comes with a correct submission, from the runtime.",
+    "follow_ups": [],
+    "canonical_placement": {
+      "domain": "concepts",
+      "topic": "databricks"
+    },
+    "related_associations": [
+      "practice/concepts"
+    ],
+    "validator_version": "quiz-v1",
+    "runtime_requirements": [],
+    "provenance": {
+      "source": "Authored for Datapass Workbench; checked against the vendors' documentation on 2026-09-26"
+    },
+    "constraints": {
+      "truth": "Concept check: no execution; the answer is compared by the runtime."
+    },
+    "context_refs": [
+      "reference/databricks-compute.md"
+    ],
+    "truth": "concept-check"
+  },
+  {
+    "schema_version": 1,
+    "id": "concept-dbx-access-modes",
+    "version": "1",
+    "title": "Access modes on Unity Catalog",
+    "difficulty": "medium",
+    "topics": [
+      "concepts",
+      "databricks"
+    ],
+    "tags": [
+      "concept-check",
+      "databricks"
+    ],
+    "origin": "authored",
+    "language": "quiz",
+    "runtime": "datapass-quiz-v1",
+    "prompt": "Which access mode lets several users share one cluster while Unity Catalog enforces each user's own permissions?",
+    "sections": [
+      {
+        "title": "Concept check (no execution)",
+        "body": "Nothing runs here: this platform cannot be executed locally. Answer in the file, save, and Submit; the runtime compares your answer with the pack's answer and explains it once you are right. The reference sheet (Databricks compute) covers the topic."
+      }
+    ],
+    "starter_source": "Concept check (no execution): nothing runs; the runtime checks your answer when you Submit.\n\nWhich access mode lets several users share one cluster while Unity Catalog enforces each user's own permissions?\n\n  a) Dedicated (formerly single user)\n  b) Standard (formerly shared)\n  c) No isolation shared\n  d) Any mode, as long as the cluster autoscales\n\nWrite the letter of your choice after \"answer:\" (several letters separated by commas if several are right), save, then Submit.\nanswer:\n",
+    "fixtures": [
+      {
+        "id": "concept-dbx-access-modes-fixtures",
+        "version": "1"
+      }
+    ],
+    "visible_checks": [
+      {
+        "id": "format",
+        "description": "Your answer is well formed (Run checks only this)."
+      }
+    ],
+    "hidden_check_refs": [
+      "answer"
+    ],
+    "edge_check_refs": [],
+    "hints": [
+      "The name says it is meant for sharing.",
+      "Open the reference sheet: Databricks compute."
+    ],
+    "solution": {
+      "available": true,
+      "reveal": "explicit"
+    },
+    "explanation": "The explanation comes with a correct submission, from the runtime.",
+    "follow_ups": [],
+    "canonical_placement": {
+      "domain": "concepts",
+      "topic": "databricks"
+    },
+    "related_associations": [
+      "practice/concepts"
+    ],
+    "validator_version": "quiz-v1",
+    "runtime_requirements": [],
+    "provenance": {
+      "source": "Authored for Datapass Workbench; checked against the vendors' documentation on 2026-09-26"
+    },
+    "constraints": {
+      "truth": "Concept check: no execution; the answer is compared by the runtime."
+    },
+    "context_refs": [
+      "reference/databricks-compute.md"
+    ],
+    "truth": "concept-check"
+  },
+  {
+    "schema_version": 1,
+    "id": "concept-dbx-pools",
+    "version": "1",
+    "title": "What an instance pool saves",
+    "difficulty": "medium",
+    "topics": [
+      "concepts",
+      "databricks"
+    ],
+    "tags": [
+      "concept-check",
+      "databricks"
+    ],
+    "origin": "authored",
+    "language": "quiz",
+    "runtime": "datapass-quiz-v1",
+    "prompt": "What does an instance pool mainly save?",
+    "sections": [
+      {
+        "title": "Concept check (no execution)",
+        "body": "Nothing runs here: this platform cannot be executed locally. Answer in the file, save, and Submit; the runtime compares your answer with the pack's answer and explains it once you are right. The reference sheet (Databricks compute) covers the topic."
+      }
+    ],
+    "starter_source": "Concept check (no execution): nothing runs; the runtime checks your answer when you Submit.\n\nWhat does an instance pool mainly save?\n\n  a) DBUs: idle pool instances are free of Databricks charges and of cloud charges\n  b) Start-up time: clusters take ready VMs from the pool\n  c) Storage costs\n  d) Unity Catalog permissions\n\nWrite the letter of your choice after \"answer:\" (several letters separated by commas if several are right), save, then Submit.\nanswer:\n",
+    "fixtures": [
+      {
+        "id": "concept-dbx-pools-fixtures",
+        "version": "1"
+      }
+    ],
+    "visible_checks": [
+      {
+        "id": "format",
+        "description": "Your answer is well formed (Run checks only this)."
+      }
+    ],
+    "hidden_check_refs": [
+      "answer"
+    ],
+    "edge_check_refs": [],
+    "hints": [
+      "Think about waiting for a cluster to start.",
+      "Open the reference sheet: Databricks compute."
+    ],
+    "solution": {
+      "available": true,
+      "reveal": "explicit"
+    },
+    "explanation": "The explanation comes with a correct submission, from the runtime.",
+    "follow_ups": [],
+    "canonical_placement": {
+      "domain": "concepts",
+      "topic": "databricks"
+    },
+    "related_associations": [
+      "practice/concepts"
+    ],
+    "validator_version": "quiz-v1",
+    "runtime_requirements": [],
+    "provenance": {
+      "source": "Authored for Datapass Workbench; checked against the vendors' documentation on 2026-09-26"
+    },
+    "constraints": {
+      "truth": "Concept check: no execution; the answer is compared by the runtime."
+    },
+    "context_refs": [
+      "reference/databricks-compute.md"
+    ],
+    "truth": "concept-check"
+  },
+  {
+    "schema_version": 1,
+    "id": "concept-dbx-sql-warehouse",
+    "version": "1",
+    "title": "Compute for a BI dashboard",
+    "difficulty": "easy",
+    "topics": [
+      "concepts",
+      "databricks"
+    ],
+    "tags": [
+      "concept-check",
+      "databricks"
+    ],
+    "origin": "authored",
+    "language": "quiz",
+    "runtime": "datapass-quiz-v1",
+    "prompt": "A Power BI report queries Databricks tables with SQL all day. Which compute is designed for that?",
+    "sections": [
+      {
+        "title": "Concept check (no execution)",
+        "body": "Nothing runs here: this platform cannot be executed locally. Answer in the file, save, and Submit; the runtime compares your answer with the pack's answer and explains it once you are right. The reference sheet (Databricks compute) covers the topic."
+      }
+    ],
+    "starter_source": "Concept check (no execution): nothing runs; the runtime checks your answer when you Submit.\n\nA Power BI report queries Databricks tables with SQL all day. Which compute is designed for that?\n\n  a) A job cluster\n  b) A SQL warehouse\n  c) A single-node all-purpose cluster\n  d) An instance pool\n\nWrite the letter of your choice after \"answer:\" (several letters separated by commas if several are right), save, then Submit.\nanswer:\n",
+    "fixtures": [
+      {
+        "id": "concept-dbx-sql-warehouse-fixtures",
+        "version": "1"
+      }
+    ],
+    "visible_checks": [
+      {
+        "id": "format",
+        "description": "Your answer is well formed (Run checks only this)."
+      }
+    ],
+    "hidden_check_refs": [
+      "answer"
+    ],
+    "edge_check_refs": [],
+    "hints": [
+      "BI tools speak SQL.",
+      "Open the reference sheet: Databricks compute."
+    ],
+    "solution": {
+      "available": true,
+      "reveal": "explicit"
+    },
+    "explanation": "The explanation comes with a correct submission, from the runtime.",
+    "follow_ups": [],
+    "canonical_placement": {
+      "domain": "concepts",
+      "topic": "databricks"
+    },
+    "related_associations": [
+      "practice/concepts"
+    ],
+    "validator_version": "quiz-v1",
+    "runtime_requirements": [],
+    "provenance": {
+      "source": "Authored for Datapass Workbench; checked against the vendors' documentation on 2026-09-26"
+    },
+    "constraints": {
+      "truth": "Concept check: no execution; the answer is compared by the runtime."
+    },
+    "context_refs": [
+      "reference/databricks-compute.md"
+    ],
+    "truth": "concept-check"
+  },
+  {
+    "schema_version": 1,
+    "id": "concept-uc-namespace",
+    "version": "1",
+    "title": "The three-level name",
+    "difficulty": "easy",
+    "topics": [
+      "concepts",
+      "unity"
+    ],
+    "tags": [
+      "concept-check",
+      "unity"
+    ],
+    "origin": "authored",
+    "language": "quiz",
+    "runtime": "datapass-quiz-v1",
+    "prompt": "In Unity Catalog, what are the three levels of a table's full name, in order? (three words separated by dots)",
+    "sections": [
+      {
+        "title": "Concept check (no execution)",
+        "body": "Nothing runs here: this platform cannot be executed locally. Answer in the file, save, and Submit; the runtime compares your answer with the pack's answer and explains it once you are right. The reference sheet (Unity Catalog) covers the topic."
+      }
+    ],
+    "starter_source": "Concept check (no execution): nothing runs; the runtime checks your answer when you Submit.\n\nIn Unity Catalog, what are the three levels of a table's full name, in order? (three words separated by dots)\n\nWrite your short answer after \"answer:\", save, then Submit.\nanswer:\n",
+    "fixtures": [
+      {
+        "id": "concept-uc-namespace-fixtures",
+        "version": "1"
+      }
+    ],
+    "visible_checks": [
+      {
+        "id": "format",
+        "description": "Your answer is well formed (Run checks only this)."
+      }
+    ],
+    "hidden_check_refs": [
+      "answer"
+    ],
+    "edge_check_refs": [],
+    "hints": [
+      "The first level is the object Unity Catalog is named after.",
+      "Open the reference sheet: Unity Catalog."
+    ],
+    "solution": {
+      "available": true,
+      "reveal": "explicit"
+    },
+    "explanation": "The explanation comes with a correct submission, from the runtime.",
+    "follow_ups": [],
+    "canonical_placement": {
+      "domain": "concepts",
+      "topic": "unity"
+    },
+    "related_associations": [
+      "practice/concepts"
+    ],
+    "validator_version": "quiz-v1",
+    "runtime_requirements": [],
+    "provenance": {
+      "source": "Authored for Datapass Workbench; checked against the vendors' documentation on 2026-09-26"
+    },
+    "constraints": {
+      "truth": "Concept check: no execution; the answer is compared by the runtime."
+    },
+    "context_refs": [
+      "reference/unity-catalog.md"
+    ],
+    "truth": "concept-check"
+  },
+  {
+    "schema_version": 1,
+    "id": "concept-uc-privileges",
+    "version": "1",
+    "title": "Privileges to read one table",
+    "difficulty": "medium",
+    "topics": [
+      "concepts",
+      "unity"
+    ],
+    "tags": [
+      "concept-check",
+      "unity"
+    ],
+    "origin": "authored",
+    "language": "quiz",
+    "runtime": "datapass-quiz-v1",
+    "prompt": "Which privileges does a user need to SELECT from main.sales.orders?",
+    "sections": [
+      {
+        "title": "Concept check (no execution)",
+        "body": "Nothing runs here: this platform cannot be executed locally. Answer in the file, save, and Submit; the runtime compares your answer with the pack's answer and explains it once you are right. The reference sheet (Unity Catalog) covers the topic."
+      }
+    ],
+    "starter_source": "Concept check (no execution): nothing runs; the runtime checks your answer when you Submit.\n\nWhich privileges does a user need to SELECT from main.sales.orders?\n\n  a) SELECT on the table only\n  b) USE CATALOG on main, USE SCHEMA on main.sales and SELECT on the table\n  c) ALL PRIVILEGES on the metastore\n  d) MODIFY on the schema\n\nWrite the letter of your choice after \"answer:\" (several letters separated by commas if several are right), save, then Submit.\nanswer:\n",
+    "fixtures": [
+      {
+        "id": "concept-uc-privileges-fixtures",
+        "version": "1"
+      }
+    ],
+    "visible_checks": [
+      {
+        "id": "format",
+        "description": "Your answer is well formed (Run checks only this)."
+      }
+    ],
+    "hidden_check_refs": [
+      "answer"
+    ],
+    "edge_check_refs": [],
+    "hints": [
+      "Each level of the name has to be usable.",
+      "Open the reference sheet: Unity Catalog."
+    ],
+    "solution": {
+      "available": true,
+      "reveal": "explicit"
+    },
+    "explanation": "The explanation comes with a correct submission, from the runtime.",
+    "follow_ups": [],
+    "canonical_placement": {
+      "domain": "concepts",
+      "topic": "unity"
+    },
+    "related_associations": [
+      "practice/concepts"
+    ],
+    "validator_version": "quiz-v1",
+    "runtime_requirements": [],
+    "provenance": {
+      "source": "Authored for Datapass Workbench; checked against the vendors' documentation on 2026-09-26"
+    },
+    "constraints": {
+      "truth": "Concept check: no execution; the answer is compared by the runtime."
+    },
+    "context_refs": [
+      "reference/unity-catalog.md"
+    ],
+    "truth": "concept-check"
+  },
+  {
+    "schema_version": 1,
+    "id": "concept-uc-managed-external",
+    "version": "1",
+    "title": "Dropping a managed table",
+    "difficulty": "medium",
+    "topics": [
+      "concepts",
+      "unity"
+    ],
+    "tags": [
+      "concept-check",
+      "unity"
+    ],
+    "origin": "authored",
+    "language": "quiz",
+    "runtime": "datapass-quiz-v1",
+    "prompt": "What happens to the data files when you DROP a managed table in Unity Catalog?",
+    "sections": [
+      {
+        "title": "Concept check (no execution)",
+        "body": "Nothing runs here: this platform cannot be executed locally. Answer in the file, save, and Submit; the runtime compares your answer with the pack's answer and explains it once you are right. The reference sheet (Unity Catalog) covers the topic."
+      }
+    ],
+    "starter_source": "Concept check (no execution): nothing runs; the runtime checks your answer when you Submit.\n\nWhat happens to the data files when you DROP a managed table in Unity Catalog?\n\n  a) They stay; only the metadata is removed\n  b) Unity Catalog deletes them (after a retention period during which UNDROP can restore the table)\n  c) They move to a volume\n  d) They are converted to an external table\n\nWrite the letter of your choice after \"answer:\" (several letters separated by commas if several are right), save, then Submit.\nanswer:\n",
+    "fixtures": [
+      {
+        "id": "concept-uc-managed-external-fixtures",
+        "version": "1"
+      }
+    ],
+    "visible_checks": [
+      {
+        "id": "format",
+        "description": "Your answer is well formed (Run checks only this)."
+      }
+    ],
+    "hidden_check_refs": [
+      "answer"
+    ],
+    "edge_check_refs": [],
+    "hints": [
+      "Managed means Unity Catalog owns the files.",
+      "Open the reference sheet: Unity Catalog."
+    ],
+    "solution": {
+      "available": true,
+      "reveal": "explicit"
+    },
+    "explanation": "The explanation comes with a correct submission, from the runtime.",
+    "follow_ups": [],
+    "canonical_placement": {
+      "domain": "concepts",
+      "topic": "unity"
+    },
+    "related_associations": [
+      "practice/concepts"
+    ],
+    "validator_version": "quiz-v1",
+    "runtime_requirements": [],
+    "provenance": {
+      "source": "Authored for Datapass Workbench; checked against the vendors' documentation on 2026-09-26"
+    },
+    "constraints": {
+      "truth": "Concept check: no execution; the answer is compared by the runtime."
+    },
+    "context_refs": [
+      "reference/unity-catalog.md"
+    ],
+    "truth": "concept-check"
+  },
+  {
+    "schema_version": 1,
+    "id": "concept-uc-volumes",
+    "version": "1",
+    "title": "Where non-tabular files go",
+    "difficulty": "easy",
+    "topics": [
+      "concepts",
+      "unity"
+    ],
+    "tags": [
+      "concept-check",
+      "unity"
+    ],
+    "origin": "authored",
+    "language": "quiz",
+    "runtime": "datapass-quiz-v1",
+    "prompt": "Which Unity Catalog object governs non-tabular files (CSV drops, images, wheels)?",
+    "sections": [
+      {
+        "title": "Concept check (no execution)",
+        "body": "Nothing runs here: this platform cannot be executed locally. Answer in the file, save, and Submit; the runtime compares your answer with the pack's answer and explains it once you are right. The reference sheet (Unity Catalog) covers the topic."
+      }
+    ],
+    "starter_source": "Concept check (no execution): nothing runs; the runtime checks your answer when you Submit.\n\nWhich Unity Catalog object governs non-tabular files (CSV drops, images, wheels)?\n\n  a) A volume\n  b) A view\n  c) A storage credential\n  d) A function\n\nWrite the letter of your choice after \"answer:\" (several letters separated by commas if several are right), save, then Submit.\nanswer:\n",
+    "fixtures": [
+      {
+        "id": "concept-uc-volumes-fixtures",
+        "version": "1"
+      }
+    ],
+    "visible_checks": [
+      {
+        "id": "format",
+        "description": "Your answer is well formed (Run checks only this)."
+      }
+    ],
+    "hidden_check_refs": [
+      "answer"
+    ],
+    "edge_check_refs": [],
+    "hints": [
+      "It lives next to tables in a schema.",
+      "Open the reference sheet: Unity Catalog."
+    ],
+    "solution": {
+      "available": true,
+      "reveal": "explicit"
+    },
+    "explanation": "The explanation comes with a correct submission, from the runtime.",
+    "follow_ups": [],
+    "canonical_placement": {
+      "domain": "concepts",
+      "topic": "unity"
+    },
+    "related_associations": [
+      "practice/concepts"
+    ],
+    "validator_version": "quiz-v1",
+    "runtime_requirements": [],
+    "provenance": {
+      "source": "Authored for Datapass Workbench; checked against the vendors' documentation on 2026-09-26"
+    },
+    "constraints": {
+      "truth": "Concept check: no execution; the answer is compared by the runtime."
+    },
+    "context_refs": [
+      "reference/unity-catalog.md"
+    ],
+    "truth": "concept-check"
+  },
+  {
+    "schema_version": 1,
+    "id": "concept-formats-delta-log",
+    "version": "1",
+    "title": "Where Delta keeps its history",
+    "difficulty": "easy",
+    "topics": [
+      "concepts",
+      "formats"
+    ],
+    "tags": [
+      "concept-check",
+      "formats"
+    ],
+    "origin": "authored",
+    "language": "quiz",
+    "runtime": "datapass-quiz-v1",
+    "prompt": "Which folder next to the Parquet files holds a Delta table's transaction log? (the folder name)",
+    "sections": [
+      {
+        "title": "Concept check (no execution)",
+        "body": "Nothing runs here: this platform cannot be executed locally. Answer in the file, save, and Submit; the runtime compares your answer with the pack's answer and explains it once you are right. The reference sheet (Delta, Iceberg and DuckLake) covers the topic."
+      }
+    ],
+    "starter_source": "Concept check (no execution): nothing runs; the runtime checks your answer when you Submit.\n\nWhich folder next to the Parquet files holds a Delta table's transaction log? (the folder name)\n\nWrite your short answer after \"answer:\", save, then Submit.\nanswer:\n",
+    "fixtures": [
+      {
+        "id": "concept-formats-delta-log-fixtures",
+        "version": "1"
+      }
+    ],
+    "visible_checks": [
+      {
+        "id": "format",
+        "description": "Your answer is well formed (Run checks only this)."
+      }
+    ],
+    "hidden_check_refs": [
+      "answer"
+    ],
+    "edge_check_refs": [],
+    "hints": [
+      "It starts with an underscore.",
+      "Open the reference sheet: Delta, Iceberg and DuckLake."
+    ],
+    "solution": {
+      "available": true,
+      "reveal": "explicit"
+    },
+    "explanation": "The explanation comes with a correct submission, from the runtime.",
+    "follow_ups": [],
+    "canonical_placement": {
+      "domain": "concepts",
+      "topic": "formats"
+    },
+    "related_associations": [
+      "practice/concepts"
+    ],
+    "validator_version": "quiz-v1",
+    "runtime_requirements": [],
+    "provenance": {
+      "source": "Authored for Datapass Workbench; checked against the vendors' documentation on 2026-09-26"
+    },
+    "constraints": {
+      "truth": "Concept check: no execution; the answer is compared by the runtime."
+    },
+    "context_refs": [
+      "reference/table-formats.md"
+    ],
+    "truth": "concept-check"
+  },
+  {
+    "schema_version": 1,
+    "id": "concept-formats-iceberg-metadata",
+    "version": "1",
+    "title": "Iceberg's metadata tree",
+    "difficulty": "medium",
+    "topics": [
+      "concepts",
+      "formats"
+    ],
+    "tags": [
+      "concept-check",
+      "formats"
+    ],
+    "origin": "authored",
+    "language": "quiz",
+    "runtime": "datapass-quiz-v1",
+    "prompt": "How does Apache Iceberg find a table's data files?",
+    "sections": [
+      {
+        "title": "Concept check (no execution)",
+        "body": "Nothing runs here: this platform cannot be executed locally. Answer in the file, save, and Submit; the runtime compares your answer with the pack's answer and explains it once you are right. The reference sheet (Delta, Iceberg and DuckLake) covers the topic."
+      }
+    ],
+    "starter_source": "Concept check (no execution): nothing runs; the runtime checks your answer when you Submit.\n\nHow does Apache Iceberg find a table's data files?\n\n  a) From a folder listing of the table's directory\n  b) Table metadata file -> manifest list -> manifests -> data files\n  c) From a JSON commit log replayed from the start\n  d) From a SQL database that stores the metadata\n\nWrite the letter of your choice after \"answer:\" (several letters separated by commas if several are right), save, then Submit.\nanswer:\n",
+    "fixtures": [
+      {
+        "id": "concept-formats-iceberg-metadata-fixtures",
+        "version": "1"
+      }
+    ],
+    "visible_checks": [
+      {
+        "id": "format",
+        "description": "Your answer is well formed (Run checks only this)."
+      }
+    ],
+    "hidden_check_refs": [
+      "answer"
+    ],
+    "edge_check_refs": [],
+    "hints": [
+      "Think of a tree of files, not a log.",
+      "Open the reference sheet: Delta, Iceberg and DuckLake."
+    ],
+    "solution": {
+      "available": true,
+      "reveal": "explicit"
+    },
+    "explanation": "The explanation comes with a correct submission, from the runtime.",
+    "follow_ups": [],
+    "canonical_placement": {
+      "domain": "concepts",
+      "topic": "formats"
+    },
+    "related_associations": [
+      "practice/concepts"
+    ],
+    "validator_version": "quiz-v1",
+    "runtime_requirements": [],
+    "provenance": {
+      "source": "Authored for Datapass Workbench; checked against the vendors' documentation on 2026-09-26"
+    },
+    "constraints": {
+      "truth": "Concept check: no execution; the answer is compared by the runtime."
+    },
+    "context_refs": [
+      "reference/table-formats.md"
+    ],
+    "truth": "concept-check"
+  },
+  {
+    "schema_version": 1,
+    "id": "concept-formats-partition-evolution",
+    "version": "1",
+    "title": "Changing the partitioning",
+    "difficulty": "hard",
+    "topics": [
+      "concepts",
+      "formats"
+    ],
+    "tags": [
+      "concept-check",
+      "formats"
+    ],
+    "origin": "authored",
+    "language": "quiz",
+    "runtime": "datapass-quiz-v1",
+    "prompt": "Which format lets you change a table's partition scheme without rewriting existing data, with partitioning hidden from queries?",
+    "sections": [
+      {
+        "title": "Concept check (no execution)",
+        "body": "Nothing runs here: this platform cannot be executed locally. Answer in the file, save, and Submit; the runtime compares your answer with the pack's answer and explains it once you are right. The reference sheet (Delta, Iceberg and DuckLake) covers the topic."
+      }
+    ],
+    "starter_source": "Concept check (no execution): nothing runs; the runtime checks your answer when you Submit.\n\nWhich format lets you change a table's partition scheme without rewriting existing data, with partitioning hidden from queries?\n\n  a) Apache Iceberg\n  b) Plain Parquet folders\n  c) CSV\n  d) Hive tables\n\nWrite the letter of your choice after \"answer:\" (several letters separated by commas if several are right), save, then Submit.\nanswer:\n",
+    "fixtures": [
+      {
+        "id": "concept-formats-partition-evolution-fixtures",
+        "version": "1"
+      }
+    ],
+    "visible_checks": [
+      {
+        "id": "format",
+        "description": "Your answer is well formed (Run checks only this)."
+      }
+    ],
+    "hidden_check_refs": [
+      "answer"
+    ],
+    "edge_check_refs": [],
+    "hints": [
+      "Its partitioning is described as hidden.",
+      "Open the reference sheet: Delta, Iceberg and DuckLake."
+    ],
+    "solution": {
+      "available": true,
+      "reveal": "explicit"
+    },
+    "explanation": "The explanation comes with a correct submission, from the runtime.",
+    "follow_ups": [],
+    "canonical_placement": {
+      "domain": "concepts",
+      "topic": "formats"
+    },
+    "related_associations": [
+      "practice/concepts"
+    ],
+    "validator_version": "quiz-v1",
+    "runtime_requirements": [],
+    "provenance": {
+      "source": "Authored for Datapass Workbench; checked against the vendors' documentation on 2026-09-26"
+    },
+    "constraints": {
+      "truth": "Concept check: no execution; the answer is compared by the runtime."
+    },
+    "context_refs": [
+      "reference/table-formats.md"
+    ],
+    "truth": "concept-check"
+  },
+  {
+    "schema_version": 1,
+    "id": "concept-formats-vacuum",
+    "version": "1",
+    "title": "What VACUUM removes",
+    "difficulty": "medium",
+    "topics": [
+      "concepts",
+      "formats"
+    ],
+    "tags": [
+      "concept-check",
+      "formats"
+    ],
+    "origin": "authored",
+    "language": "quiz",
+    "runtime": "datapass-quiz-v1",
+    "prompt": "What does VACUUM remove from a Delta table?",
+    "sections": [
+      {
+        "title": "Concept check (no execution)",
+        "body": "Nothing runs here: this platform cannot be executed locally. Answer in the file, save, and Submit; the runtime compares your answer with the pack's answer and explains it once you are right. The reference sheet (Delta, Iceberg and DuckLake) covers the topic."
+      }
+    ],
+    "starter_source": "Concept check (no execution): nothing runs; the runtime checks your answer when you Submit.\n\nWhat does VACUUM remove from a Delta table?\n\n  a) Old rows in the latest version\n  b) Data files no longer referenced by the table and older than the retention period\n  c) The transaction log\n  d) Small files, by merging them\n\nWrite the letter of your choice after \"answer:\" (several letters separated by commas if several are right), save, then Submit.\nanswer:\n",
+    "fixtures": [
+      {
+        "id": "concept-formats-vacuum-fixtures",
+        "version": "1"
+      }
+    ],
+    "visible_checks": [
+      {
+        "id": "format",
+        "description": "Your answer is well formed (Run checks only this)."
+      }
+    ],
+    "hidden_check_refs": [
+      "answer"
+    ],
+    "edge_check_refs": [],
+    "hints": [
+      "It cleans up after compaction and deletes.",
+      "Open the reference sheet: Delta, Iceberg and DuckLake."
+    ],
+    "solution": {
+      "available": true,
+      "reveal": "explicit"
+    },
+    "explanation": "The explanation comes with a correct submission, from the runtime.",
+    "follow_ups": [],
+    "canonical_placement": {
+      "domain": "concepts",
+      "topic": "formats"
+    },
+    "related_associations": [
+      "practice/concepts"
+    ],
+    "validator_version": "quiz-v1",
+    "runtime_requirements": [],
+    "provenance": {
+      "source": "Authored for Datapass Workbench; checked against the vendors' documentation on 2026-09-26"
+    },
+    "constraints": {
+      "truth": "Concept check: no execution; the answer is compared by the runtime."
+    },
+    "context_refs": [
+      "reference/table-formats.md"
+    ],
+    "truth": "concept-check"
+  },
+  {
+    "schema_version": 1,
+    "id": "concept-formats-ducklake",
+    "version": "1",
+    "title": "Where DuckLake keeps its metadata",
+    "difficulty": "easy",
+    "topics": [
+      "concepts",
+      "formats"
+    ],
+    "tags": [
+      "concept-check",
+      "formats"
+    ],
+    "origin": "authored",
+    "language": "quiz",
+    "runtime": "datapass-quiz-v1",
+    "prompt": "Where does DuckLake store a lake's metadata (tables, snapshots, file lists)?",
+    "sections": [
+      {
+        "title": "Concept check (no execution)",
+        "body": "Nothing runs here: this platform cannot be executed locally. Answer in the file, save, and Submit; the runtime compares your answer with the pack's answer and explains it once you are right. The reference sheet (Delta, Iceberg and DuckLake) covers the topic."
+      }
+    ],
+    "starter_source": "Concept check (no execution): nothing runs; the runtime checks your answer when you Submit.\n\nWhere does DuckLake store a lake's metadata (tables, snapshots, file lists)?\n\n  a) In JSON files next to the data\n  b) In a SQL database (DuckDB, SQLite, PostgreSQL or MySQL)\n  c) In Avro manifest files\n  d) Only in memory\n\nWrite the letter of your choice after \"answer:\" (several letters separated by commas if several are right), save, then Submit.\nanswer:\n",
+    "fixtures": [
+      {
+        "id": "concept-formats-ducklake-fixtures",
+        "version": "1"
+      }
+    ],
+    "visible_checks": [
+      {
+        "id": "format",
+        "description": "Your answer is well formed (Run checks only this)."
+      }
+    ],
+    "hidden_check_refs": [
+      "answer"
+    ],
+    "edge_check_refs": [],
+    "hints": [
+      "Its designers argued that metadata belongs in a database.",
+      "Open the reference sheet: Delta, Iceberg and DuckLake."
+    ],
+    "solution": {
+      "available": true,
+      "reveal": "explicit"
+    },
+    "explanation": "The explanation comes with a correct submission, from the runtime.",
+    "follow_ups": [],
+    "canonical_placement": {
+      "domain": "concepts",
+      "topic": "formats"
+    },
+    "related_associations": [
+      "practice/concepts"
+    ],
+    "validator_version": "quiz-v1",
+    "runtime_requirements": [],
+    "provenance": {
+      "source": "Authored for Datapass Workbench; checked against the vendors' documentation on 2026-09-26"
+    },
+    "constraints": {
+      "truth": "Concept check: no execution; the answer is compared by the runtime."
+    },
+    "context_refs": [
+      "reference/table-formats.md"
+    ],
+    "truth": "concept-check"
+  },
+  {
+    "schema_version": 1,
+    "id": "concept-formats-uniform",
+    "version": "1",
+    "title": "Reading Delta as Iceberg",
+    "difficulty": "hard",
+    "topics": [
+      "concepts",
+      "formats"
+    ],
+    "tags": [
+      "concept-check",
+      "formats"
+    ],
+    "origin": "authored",
+    "language": "quiz",
+    "runtime": "datapass-quiz-v1",
+    "prompt": "Which Delta Lake feature writes Iceberg metadata alongside the Delta log, so Iceberg readers can read the same table?",
+    "sections": [
+      {
+        "title": "Concept check (no execution)",
+        "body": "Nothing runs here: this platform cannot be executed locally. Answer in the file, save, and Submit; the runtime compares your answer with the pack's answer and explains it once you are right. The reference sheet (Delta, Iceberg and DuckLake) covers the topic."
+      }
+    ],
+    "starter_source": "Concept check (no execution): nothing runs; the runtime checks your answer when you Submit.\n\nWhich Delta Lake feature writes Iceberg metadata alongside the Delta log, so Iceberg readers can read the same table?\n\n  a) Liquid clustering\n  b) Deletion vectors\n  c) UniForm\n  d) Change data feed\n\nWrite the letter of your choice after \"answer:\" (several letters separated by commas if several are right), save, then Submit.\nanswer:\n",
+    "fixtures": [
+      {
+        "id": "concept-formats-uniform-fixtures",
+        "version": "1"
+      }
+    ],
+    "visible_checks": [
+      {
+        "id": "format",
+        "description": "Your answer is well formed (Run checks only this)."
+      }
+    ],
+    "hidden_check_refs": [
+      "answer"
+    ],
+    "edge_check_refs": [],
+    "hints": [
+      "Its name means universal format.",
+      "Open the reference sheet: Delta, Iceberg and DuckLake."
+    ],
+    "solution": {
+      "available": true,
+      "reveal": "explicit"
+    },
+    "explanation": "The explanation comes with a correct submission, from the runtime.",
+    "follow_ups": [],
+    "canonical_placement": {
+      "domain": "concepts",
+      "topic": "formats"
+    },
+    "related_associations": [
+      "practice/concepts"
+    ],
+    "validator_version": "quiz-v1",
+    "runtime_requirements": [],
+    "provenance": {
+      "source": "Authored for Datapass Workbench; checked against the vendors' documentation on 2026-09-26"
+    },
+    "constraints": {
+      "truth": "Concept check: no execution; the answer is compared by the runtime."
+    },
+    "context_refs": [
+      "reference/table-formats.md"
+    ],
+    "truth": "concept-check"
+  }
+]

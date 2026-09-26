@@ -44,7 +44,9 @@ SCENARIO_LANGUAGES = {'airflow': 'datapass-airflow-sim-v1', 'factory': 'datapass
                       'databricks-job': 'datapass-databricks-sim-v1', 'databricks-notebook': 'datapass-databricks-sim-v1',
                       'databricks-grants': 'datapass-databricks-sim-v1',
                       'warehouse': 'datapass-warehouse-v1', 'bi-model': 'datapass-warehouse-v1',
-                      'dbt-sql': 'datapass-dbt-emulation-v1', 'dbt-yml': 'datapass-dbt-emulation-v1'}
+                      'dbt-sql': 'datapass-dbt-emulation-v1', 'dbt-yml': 'datapass-dbt-emulation-v1',
+                      # Concept checks (no execution) and production Python graded by pytest.
+                      'quiz': 'datapass-quiz-v1', 'pytest': 'datapass-pytest-v1'}
 
 
 def _check_factory_scenario(definition, raw):
@@ -144,7 +146,8 @@ class PackRegistry:
                 raise ValueError('Canonical topic must belong to exercise topics')
             if definition.language not in {'sql','python','polars','sparklab','dbt','airflow','factory','factory-notebook','sqlpool',
                                            'databricks-job','databricks-notebook','databricks-grants',
-                                           'warehouse','bi-model','dbt-sql','dbt-yml','snowflake','tsql','bigquery','sparksql'}:
+                                           'warehouse','bi-model','dbt-sql','dbt-yml','snowflake','tsql','bigquery','sparksql',
+                                           'quiz','pytest'}:
                 raise ValueError('No grading adapter for '+definition.language)
             private = GradingDefinition.model_validate(grading[definition.id])
             refs = {'visible': [c.id for c in definition.visible_checks], 'hidden': definition.hidden_check_refs, 'edge': definition.edge_check_refs}
@@ -204,6 +207,12 @@ class PackRegistry:
                         _check_warehouse_scenario(definition, fixture.scenario)
                     elif definition.language in ('dbt-sql', 'dbt-yml'):
                         _check_dbt_scenario(definition, fixture.scenario)
+                    elif definition.language == 'quiz':
+                        from .quiz_grading import check_scenario
+                        check_scenario(definition.language, fixture.scenario)
+                    elif definition.language == 'pytest':
+                        from .pytest_grading import check_scenario
+                        check_scenario(definition.language, fixture.scenario)
                     else:
                         _check_factory_scenario(definition, fixture.scenario)
             for fixture in private.fixtures:

@@ -1,5 +1,5 @@
 import * as vscode from "vscode";
-import { loadExerciseCatalog } from "../../exerciseCatalog";
+import { loadExerciseCatalog, REFERENCE_SHEET } from "../../exerciseCatalog";
 import { prepareExerciseWorkspace } from "../../exerciseWorkspace";
 import { SOLUTION_AFTER_FAILURES, solutionUnlocked } from "../../platform/practiceFeedback";
 import { recordGrade, recordInterview, recordOpened, recordSolutionViewed, revealHint } from "../../platform/practiceProgress";
@@ -30,6 +30,7 @@ export class PracticeController implements LabController<PracticeMessage> {
       await this.showSolution(message.exerciseKey);
     },
     compareSolution: message => this.compareSolution(message.exerciseKey),
+    openReference: message => this.openReference(message.exerciseKey, message.index),
     saveInterview: message => this.saveInterview(message.interview)
   };
 
@@ -228,6 +229,20 @@ export class PracticeController implements LabController<PracticeMessage> {
     await this.host.refresh();
   }
 
+  /** A card's reference sheet, opened as a native Markdown preview (the path comes from the pack, never the webview). */
+  private async openReference(exerciseKey: string, index: number): Promise<void> {
+    const extensionUri = this.host.context.extensionUri;
+    const exercise = (await loadExerciseCatalog(extensionUri)).find(item => item.key === exerciseKey);
+    const sheet = Number.isInteger(index) ? exercise?.references?.[index] : undefined;
+    if (!sheet || !REFERENCE_SHEET.test(sheet)) return;
+    const uri = vscode.Uri.joinPath(extensionUri, "content", ...sheet.split("/"));
+    if (!(await exists(uri))) {
+      void vscode.window.showWarningMessage(`Reference sheet not found: ${sheet}`);
+      return;
+    }
+    await vscode.commands.executeCommand("markdown.showPreview", uri);
+  }
+
   /** Practice progress lives in .datapass/progress.json next to the Projects progress. Saving it never blocks Practice. */
   private async savePracticeProgress(update: Parameters<typeof updateProgress>[0]): Promise<void> {
     if (!vscode.workspace.workspaceFolders?.length) return;
@@ -264,6 +279,7 @@ function extensionFor(language: string): string {
     case "airflow":
     case "factory-notebook":
     case "databricks-notebook":
+    case "pytest":
       return "py";
     case "factory":
     case "databricks-job":

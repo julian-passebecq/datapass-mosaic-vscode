@@ -170,6 +170,17 @@ def main() -> None:
         for key, value in spec_counts.items():
             counts[key] += value
         failures.extend(spec_failures)
+    # pytest exercises run real Python: an untrusted worker must refuse them, never fall back.
+    pytest_specs = [spec for spec in all_specs if spec["language"] == "pytest"]
+    if pytest_specs:
+        with TemporaryDirectory(prefix="datapass-packs-untrusted-") as temp:
+            untrusted = KernelManager(mode="duckdb", trusted=False, timeout=60.0, max_workers=1)
+            try:
+                refused = grade(untrusted, Path(temp), pytest_specs[0], solution(pytest_specs[0]["id"])["source"])
+            finally:
+                untrusted.close()
+        if refused["status"] != "error" or "Trusted local Python is off" not in refused["checks"][0]["message"]:
+            failures.append(f"{pytest_specs[0]['id']}: an untrusted worker did not refuse the pytest exercise ({summary(refused)})")
     if failures:
         raise SystemExit("Exercise pack smoke failed:\n  " + "\n  ".join(failures))
     print(f"Exercise pack smoke passed: {counts['solutions']} reference solutions, "

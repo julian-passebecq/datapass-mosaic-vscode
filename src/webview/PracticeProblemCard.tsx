@@ -6,7 +6,7 @@ import type { ExerciseSummary, RuntimeViewState } from "./contracts";
 import { HintsBlock, RowDiffView, SolutionBlock } from "./PracticeFeedback";
 import type { VsCodeApi } from "./WorkbenchApp";
 
-const PYTHON_LANGUAGES = new Set(["python", "polars"]);
+const PYTHON_LANGUAGES = new Set(["python", "polars", "pytest"]);
 
 /** Translated SQL dialects: the query runs on local DuckDB, never on the named engine. */
 const DIALECT_NOTICES: Record<string, string> = {
@@ -15,6 +15,11 @@ const DIALECT_NOTICES: Record<string, string> = {
   bigquery: "BigQuery SQL dialect translated to DuckDB, not BigQuery",
   sparksql: "Spark SQL dialect translated to DuckDB, not Spark"
 };
+
+/** `reference/unity-catalog.md` → "unity catalog". */
+function sheetTitle(sheet: string): string {
+  return sheet.replace(/^reference\//, "").replace(/\.md$/, "").replace(/-/g, " ");
+}
 
 /** One problem: the prompt once, a language switch, and the selected variant's grading. */
 export function PracticeProblemCard({
@@ -111,6 +116,27 @@ export function PracticeProblemCard({
           enabled for this workspace (Mosaic → Python / Polars).
         </div>
       )}
+      {variant.language === "quiz" && (
+        <div className="pipeline-notice">
+          Concept check (no execution): write your answer in the file after "answer:", save, and Submit. Nothing runs; the
+          runtime compares your answer and explains it once you are right.
+        </div>
+      )}
+      {variant.language === "pytest" && (
+        <div className="pipeline-notice">
+          Graded by pytest: your tests run first, then hidden tests that import your file as the module solution.
+        </div>
+      )}
+      {variant.references?.length ? (
+        <div className="practice-references">
+          {variant.references.map((sheet, index) => (
+            <Button key={sheet} appearance="subtle" size="small"
+              onClick={() => vscode.postMessage({ type: "openReference", exerciseKey: variant.key, index })}>
+              Reference: {sheetTitle(sheet)}
+            </Button>
+          ))}
+        </div>
+      ) : null}
       {DIALECT_NOTICES[variant.language] && (
         <div className="pipeline-notice">
           {DIALECT_NOTICES[variant.language]}: your query runs on local DuckDB, and functions outside the supported

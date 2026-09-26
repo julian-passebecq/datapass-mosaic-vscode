@@ -92,8 +92,17 @@ function normalizeExercise(
     topics: stringArray(value.topics),
     ...teachingDetails(value),
     sparkPlan: sparkPlan(value.spark_plan),
-    gradingNote: NOT_LOCALLY_GRADED[stringValue(value.runtime) ?? ""]
+    gradingNote: NOT_LOCALLY_GRADED[stringValue(value.runtime) ?? ""],
+    references: referenceSheets(value.context_refs)
   };
+}
+
+/** Reference sheets a card links to: `reference/<name>.md` under the extension's content folder, nothing else. */
+export const REFERENCE_SHEET = /^reference\/[a-z0-9][a-z0-9-]{0,60}\.md$/;
+
+function referenceSheets(raw: unknown): string[] | undefined {
+  const sheets = stringArray(raw).filter(path => REFERENCE_SHEET.test(path));
+  return sheets.length ? sheets : undefined;
 }
 
 function sparkPlan(raw: unknown): SparkPlanView | undefined {

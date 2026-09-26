@@ -44,7 +44,9 @@ export const LANGUAGE_LABELS: Record<string, string> = {
   polars: "Polars",
   sparklab: "PySpark",
   "dbt-sql": "dbt",
-  dbt: "dbt (drill)"
+  dbt: "dbt (drill)",
+  quiz: "Concept check",
+  pytest: "Python + pytest"
 };
 
 export function languageLabel(language: string): string {
