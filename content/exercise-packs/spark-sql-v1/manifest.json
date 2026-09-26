@@ -1,0 +1,10 @@
+{
+  "schema_version": 1,
+  "id": "spark-sql-v1",
+  "version": "1",
+  "title": "Spark SQL: key patterns (Spark SQL translated to DuckDB)",
+  "enabled": true,
+  "provenance": {
+    "source": "Authored for Datapass Workbench"
+  }
+}

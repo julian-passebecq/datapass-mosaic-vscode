@@ -113,6 +113,12 @@ export function exerciseReadme(exercise: ExerciseSummary): string {
             "runs it on DuckDB (BigQuery SQL dialect translated to DuckDB, not BigQuery). BigQuery semantics are kept " +
             "where DuckDB differs (CONCAT with a NULL is NULL, NULLs sort first); arrays and functions outside the " +
             "supported subset are refused by name."
+        : exercise.language === "sparksql"
+          ? "**Run visible** checks the public example above. **Submit** also runs hidden and edge-case fixtures that " +
+            "are not shown here. Write Spark SQL (ANSI mode, as in Spark 4 and Databricks SQL): Datapass translates it " +
+            "to DuckDB with sqlglot and runs it on DuckDB (Spark SQL dialect translated to DuckDB, not Spark). Spark " +
+            "semantics are kept where DuckDB differs (CONCAT with a NULL is NULL, NULLs sort first, DATEDIFF(end, " +
+            "start)); arrays, maps and functions outside the supported subset are refused by name."
         : exercise.language === "sqlpool"
           ? "**Run visible** runs your T-SQL on the simulated SQL pool in the public scenario. **Submit** also runs " +
             "hidden and edge-case scenarios that are not shown here. Each check uses an isolated catalog, never your " +

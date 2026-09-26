@@ -1263,6 +1263,30 @@ export async function run(): Promise<void> {
       assert.equal(flag.status, "passed", JSON.stringify(flag.checks));
       const unnest = await submit("eng-derived-flag-bigquery", "SELECT x FROM UNNEST([1, 2]) AS x");
       assert.match(unnest.checks[0].message, /not BigQuery/);
+    }],
+    ["Spark SQL track: Spark SQL translated to DuckDB and graded, with Spark's semantics", async () => {
+      const catalog = await loadExerciseCatalog(extension.extensionUri);
+      const track = catalog.filter(item => item.packId === "spark-sql-v1");
+      assert.equal(track.length, 9);
+      assert.ok(track.every(item => item.language === "sparksql" && item.truth === "semantic-emulation"));
+      const grading = JSON.parse(new TextDecoder().decode(await vscode.workspace.fs.readFile(
+        vscode.Uri.joinPath(extension.extensionUri, "content", "exercise-packs", "spark-sql-v1", "grading.server.json")
+      ))) as Record<string, { solution: string }>;
+      const anti = track.find(item => item.id === "sparksql-left-anti-join")!;
+      const submit = async (code: string) => {
+        await runtime!.labs.practice.gradeExercise(anti.key, {
+          exercise_id: anti.id, exercise_version: anti.version, language: anti.language,
+          code, mode: "submit", notebook_id: "e2e-sparksql", cell_id: "solution", source_revision: 1
+        });
+        return runtime!.snapshot().practiceResult!;
+      };
+      const passed = await submit(grading[anti.id].solution);
+      assert.equal(passed.status, "passed", JSON.stringify(passed.checks));
+      // NOT IN with a NULL in the subquery returns nothing, in Spark as in DuckDB: the guest-order fixture fails.
+      const notIn = await submit(anti.starterSource);
+      assert.equal(notIn.status, "failed");
+      const exploded = await submit("SELECT EXPLODE(ARRAY(1, 2)) AS x");
+      assert.match(exploded.checks[0].message, /not Spark/);
     }]
   ];
 

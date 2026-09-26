@@ -12,7 +12,8 @@ const PYTHON_LANGUAGES = new Set(["python", "polars"]);
 const DIALECT_NOTICES: Record<string, string> = {
   snowflake: "Snowflake SQL dialect translated to DuckDB, not Snowflake",
   tsql: "T-SQL dialect translated to DuckDB, not SQL Server",
-  bigquery: "BigQuery SQL dialect translated to DuckDB, not BigQuery"
+  bigquery: "BigQuery SQL dialect translated to DuckDB, not BigQuery",
+  sparksql: "Spark SQL dialect translated to DuckDB, not Spark"
 };
 
 /** One problem: the prompt once, a language switch, and the selected variant's grading. */

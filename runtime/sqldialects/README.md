@@ -12,7 +12,7 @@ Callers:
 | --- | --- | --- |
 | Mosaic, **Run active SQL** on a `.sql` file whose first line is `-- dialect: <name>` | `script` | the catalog (`information_schema`) |
 | Mosaic, **Explain active SQL** (EXPLAIN ANALYZE of the translation) | `query` | the catalog |
-| Practice, language `snowflake` | `query` | the exercise's fixture tables |
+| Practice, languages `snowflake`, `tsql`, `bigquery`, `sparksql` (dialect `spark`) | `query` | the exercise's fixture tables |
 | Cloud Lab SQL pool (`runtime/sqlpoollab`): every T-SQL query, DML statement and expression | `statement` | the pool's tables |
 
 ## Truth model
