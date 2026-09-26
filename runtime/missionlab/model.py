@@ -443,6 +443,16 @@ class DockerContainerCheck(CheckBase):
     reachable: tuple[int, str] | None = None
     # For a compose service: it waits for these services to be healthy (depends_on condition service_healthy).
     waits_healthy: list[str] = Field(default_factory=list, max_length=5)
+    # Compose networks (names from the compose file) it is on, or must not be on; all of its networks internal.
+    networks: list[str] = Field(default_factory=list, max_length=5)
+    not_networks: list[str] = Field(default_factory=list, max_length=5)
+    internal: bool | None = None
+    # It publishes a port the host can reach (false: nothing reaches it from the host).
+    published: bool | None = None
+    # This path in the container is a named volume of the compose file.
+    volume_at: str | None = Field(default=None, pattern=r'^/[A-Za-z0-9/._-]{0,200}$')
+    # A database container: its data (wherever it is kept) holds at least this many rows.
+    data_rows: int | None = Field(default=None, ge=0)
 
 
 class AzureAlertCheck(CheckBase):

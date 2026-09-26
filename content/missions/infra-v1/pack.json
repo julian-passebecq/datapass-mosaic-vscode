@@ -8,6 +8,7 @@
     "lake-landing-zone",
     "datalake-module",
     "containerize-ingest-api",
+    "compose-keep-the-data",
     "page-on-shir-outage",
     "zero-downtime-rollout",
     "black-friday-autoscale"

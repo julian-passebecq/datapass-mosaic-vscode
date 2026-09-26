@@ -372,6 +372,36 @@ def _docker_container(check: DockerContainerCheck, files, _ctx: dict) -> Outcome
         loose = [d for d in check.waits_healthy if depends.get(d) != 'service_healthy']
         if loose:
             return False, f'{check.service} does not wait for {", ".join(loose)} to be healthy.'
+    on = [n.split('_', 1)[-1] if container.get('project') and n.startswith(container['project'] + '_') else n
+          for n in container.get('networks') or []]
+    missing = [n for n in check.networks if n not in on]
+    if missing:
+        return False, f'{label} is not on the {missing[0]} network (it is on {", ".join(on) or "none"}).'
+    wrong = [n for n in check.not_networks if n in on]
+    if wrong:
+        return False, f'{label} is on the {wrong[0]} network.'
+    if check.internal is not None:
+        internal = bool(container.get('networks')) and all(n in dockerlib.internal_networks(world)
+                                                            for n in container['networks'])
+        if internal != check.internal:
+            return False, f'{label} is {"not only" if check.internal else "only"} on internal networks.'
+    if check.published is not None:
+        published = bool(container['ports']) and not (container.get('networks') and all(
+            n in dockerlib.internal_networks(world) for n in container['networks']))
+        if published != check.published:
+            ports = ', '.join(f'{h}->{c}' for h, c in container['ports'])
+            return False, (f'{label} publishes {ports} to the host.' if published else
+                           f'{label} publishes no port the host can reach.')
+    if check.volume_at:
+        mount = next((m for m in container.get('mounts') or [] if m['target'] == check.volume_at.rstrip('/')), None)
+        if mount is None or mount['type'] != 'volume' or not mount['source']:
+            what = ('nothing is mounted there' if mount is None else
+                    f'it is a bind mount of {mount["source"]}' if mount['type'] == 'bind' else 'it is an anonymous volume')
+            return False, f'{check.volume_at} in {label} is not a named volume: {what}.'
+    if check.data_rows is not None:
+        rows = int(dockerlib.data_store(world, container).get('rows', 0))
+        if rows < check.data_rows:
+            return False, f'The database of {label} holds {rows} row(s): {dockerlib.describe_store(container)}.'
     return True, f'{label} is {container["status"]}' + (f' ({container["health"]})' if container['health'] else '') + '.'
 
 
