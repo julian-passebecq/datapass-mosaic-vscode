@@ -2,9 +2,9 @@
 
 A mission is a ticket, not an exercise. Someone on the team writes with context and a request; the learner gets
 acceptance criteria, hints one at a time on request, and no pre-chewed starter: the work happens in a real project
-folder with real tools. A hidden checker then looks at what really happened. Two labs ship packs: the dbt Lab
-(`content/missions/dbt-v1`) and the Terminal Lab (`content/missions/terminal-v1`, see below). The Infra Lab is meant
-to reuse the contract with its own check kinds.
+folder with real tools (or, in the Infra Lab, simulated ones). A hidden checker then looks at what happened. Three
+labs ship packs: the dbt Lab (`content/missions/dbt-v1`), the Terminal Lab (`content/missions/terminal-v1`) and the
+Infra Lab (`content/missions/infra-v1`), both described below.
 
 ## Truth
 
@@ -35,7 +35,7 @@ writes `TICKET.md` there.
 
 ## mission.json
 
-- `id`, `version`, `lab` (`dbt` or `terminal`), `title`, `level` (`intro`, `intermediate`, `advanced`), `estimate`, `skills`.
+- `id`, `version`, `lab` (`dbt`, `terminal` or `infra`), `title`, `level` (`intro`, `intermediate`, `advanced`), `estimate`, `skills`.
 - `ticket`: `from`, `subject`, `body` (Markdown; a list of lines is joined).
 - `acceptance`: criteria, each `{id, text, checks: [...]}`; a criterion passes when all its checks pass.
 - `requires`: preconditions (`{message, check}`), such as "the second day's data was loaded". Unmet ones are shown
@@ -112,3 +112,39 @@ the catalog or dbt (`sql`, `node`, `run`, …) are refused in this lab.
 `scripts/terminal_missions_smoke.py` plays every reference with real shells (bash; pwsh, and Windows PowerShell 5.1
 on Windows) in a fixture built through the API: the references pass, the untouched fixtures and every mutant fail,
 the fixture's hashes are reproducible, and Start over keeps the previous folder in the attic.
+
+## Infra Lab missions (`lab: "infra"`)
+
+Tickets done with terraform, docker, kubectl and az typed in the Infra Lab shell, a simulated terminal
+(`runtime/infralab`, README there). **Everything is simulated**: nothing is provisioned, built or deployed, and the
+learner's files are read, never executed.
+
+| Piece | Truth |
+| --- | --- |
+| The learner's work | Real files edited in VS Code; commands typed in the Infra Lab shell, which the runtime simulates. |
+| Fixture | Built by the runtime from the pack only (`infra.py` `build_fixture`): the mission's `project/` overlay, the inline `infra.files`, the simulated world `infra.world` (merged over the lab's default subscription, Docker engine and cluster), then the fixture's own simulated commands `infra.setup` (for example `kubectl apply -f k8s/` to deploy yesterday's version). Start over moves the previous folder to the attic, as in the Terminal Lab. |
+| Checks | Read the simulation: `terraform.tfstate`, `.infralab/world.json` (subscription, Docker, cluster), the shell's journal and the files. Some re-run a simulation: a fresh `terraform plan`, the build after a pretend code change, an alert rule replayed over the metric scenario. None runs a real tool. |
+
+A mission.json of this lab has `infra` (`files`, `world`, `setup`) instead of `workspace`, `batches` or `fixture`, and
+its `reference` steps are shell lines: `{infra: "terraform apply -auto-approve"}`. The smoke copies `solution/` over
+the fixture before playing them (a mission answered by commands alone has no `solution/`). Mutants are
+`mutants/<name>/` overlays on the solution, with an optional `commands.txt` that replaces the reference lines. Check
+kinds that need the catalog, dbt or Git are refused in this lab; `path`, `text`, `listing` and `any_of` are allowed.
+
+| Kind | Looks at |
+| --- | --- |
+| `tf_state` | `terraform.tfstate`: addresses present or absent, attribute values, the instance keys of a count / for_each resource. |
+| `tf_plan` | A fresh simulated plan of the files as they are now (with the -var options of the last successful apply): it succeeds, and shows no changes. |
+| `tf_config` | The `.tf` files: a resource and its for_each / count / prevent_destroy, the names its arguments refer to (through locals), variables (type, validation, default), outputs. |
+| `azure_resource` | A resource of the simulated subscription: exists or not, created by Terraform or in the portal (an imported resource keeps its portal origin; a recreated one does not), attribute values, a count. |
+| `journal` | The shell's journal: commands run (regular expressions), commands ruled out, an order between two commands. |
+| `docker_image` | An image: built from the current Dockerfile, its base, non-root, size, lint findings it must not have, a HEALTHCHECK. |
+| `docker_build` | The build simulated again: steps that stay CACHED after a pretend change to given files, paths `.dockerignore` keeps out of the context. |
+| `docker_container` | A container by name or compose service: running, health, answering through a published port, waiting for dependencies to be healthy. |
+| `azure_alert` | A metric alert rule on a resource and metric (any name): enabled, severity, action group, and replayed over the scenario: fires inside given windows, silent inside others. |
+| `k8s_deployment` | A Deployment: image, ready pods, readiness probe, strategy, no crashing pod, and its last rollout: complete, target image, the fewest pods that really answered traffic. |
+| `k8s_service` | A Service: its endpoints, and whether traffic reaches the port the app listens on. |
+
+`scripts/infra_missions_smoke.py` plays every reference through the API: the references pass; the untouched fixture,
+the starter project played with the reference commands, and every mutant fail; two builds of a fixture give the same
+world.

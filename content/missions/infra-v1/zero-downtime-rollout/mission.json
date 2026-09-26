@@ -1,0 +1,94 @@
+{
+  "id": "zero-downtime-rollout",
+  "version": "1",
+  "lab": "infra",
+  "title": "Fix the orders service and release 1.5.1 without downtime",
+  "level": "intermediate",
+  "estimate": "40-60 min",
+  "skills": ["kubectl apply / get / describe", "Service selectors and endpoints", "readiness probes", "RollingUpdate maxSurge / maxUnavailable", "kubectl rollout"],
+  "ticket": {
+    "from": "Lucía Fernández, SRE",
+    "subject": "orders-api: 503s since Friday, and today's release must not drop traffic",
+    "body": [
+      "Two things on `orders-api`, whose manifests are in `k8s/` (the cluster runs them as they are now):",
+      "",
+      "1. **Since Friday's label cleanup, every call gets a 503.** The pods look fine, but the `orders-api` Service",
+      "   sends traffic nowhere. It must reach all three pods again.",
+      "2. **Release 1.5.1 today, with zero downtime.** The last release (1.4.0, strategy Recreate) took the API down for",
+      "   about half a minute. During today's rollout, three pods must answer traffic at every moment. Don't ship 1.5.0:",
+      "   it crashes at start-up (a missing dependency); 1.5.1 fixes it.",
+      "",
+      "The app needs about 20 seconds after start before it answers; it serves `GET /health` on its container port 8000",
+      "(named `http`). The files in `k8s/` are the source of truth: what runs must be what they say, so no",
+      "`kubectl set image` or `kubectl edit` behind their back.",
+      "",
+      "This is the lab's simulated cluster: nothing is deployed, and your manifests are read, never executed."
+    ]
+  },
+  "acceptance": [
+    {
+      "id": "service",
+      "text": "The orders-api Service selects the three pods and traffic reaches the app.",
+      "checks": [
+        {"kind": "k8s_service", "name": "orders-api", "min_endpoints": 3, "reachable": true, "fail": "The service still does not reach the pods."}
+      ]
+    },
+    {
+      "id": "release",
+      "text": "orders-api runs 1.5.1 on three ready pods, rolled out to completion, with no crashing pod.",
+      "checks": [
+        {"kind": "k8s_deployment", "name": "orders-api", "image": "ghcr.io/contoso/orders-api:1.5.1", "ready": 3, "no_crashing_pods": true,
+         "last_rollout": {"complete": true, "to_image": "ghcr.io/contoso/orders-api:1.5.1"}, "fail": "Release 1.5.1 is not running as the ticket asks."}
+      ]
+    },
+    {
+      "id": "zero-downtime",
+      "text": "During the rollout to 1.5.1, three pods answered traffic at every moment.",
+      "checks": [
+        {"kind": "k8s_deployment", "name": "orders-api", "strategy": "RollingUpdate", "readiness_probe": true,
+         "last_rollout": {"min_available": 3, "to_image": "ghcr.io/contoso/orders-api:1.5.1"}, "fail": "The rollout was not free of downtime."}
+      ]
+    },
+    {
+      "id": "manifests",
+      "text": "k8s/deployment.yaml says what runs: image 1.5.1.",
+      "checks": [
+        {"kind": "text", "path": "k8s/deployment.yaml", "contains": ["ghcr.io/contoso/orders-api:1.5.1"],
+         "fail": "The manifest does not say what the cluster runs."}
+      ]
+    }
+  ],
+  "hints": [
+    "`kubectl get endpoints orders-api` shows whom the Service sends traffic to, and `kubectl get pods --show-labels` the labels of the pods. A Service's selector must match the pod template's labels exactly.",
+    "Without a readiness probe, Kubernetes counts a pod as ready as soon as its container starts, 20 seconds before the app answers. A `readinessProbe` with `httpGet` on `/health` and `port: http` fixes that.",
+    "`strategy: RollingUpdate` with `maxUnavailable: 0` and `maxSurge: 1` adds one new pod, waits until it is ready, then removes one old pod.",
+    "Apply everything with `kubectl apply -f k8s/`, follow with `kubectl rollout status deployment/orders-api`. `kubectl rollout undo deployment/orders-api` goes back if a release goes wrong.",
+    "`kubectl describe pod NAME` and `kubectl logs NAME` explain a pod that is not ready or crashes."
+  ],
+  "infra": {
+    "world": {
+      "clock": "2026-10-07T13:30:00Z",
+      "kube": {
+        "nodes": [
+          {"name": "aks-system-12345678-vmss000000", "cpu": "2", "memory": "8Gi"},
+          {"name": "aks-system-12345678-vmss000001", "cpu": "2", "memory": "8Gi"}
+        ],
+        "images": {
+          "ghcr.io/contoso/orders-api:1.4.0": {"listens": 8000, "health_path": "/health", "start_s": 20,
+            "logs": ["orders-api 1.4.0 starting", "loading price rules (20s)", "INFO: Uvicorn running on http://0.0.0.0:8000"]},
+          "ghcr.io/contoso/orders-api:1.5.0": {"crash": "ModuleNotFoundError: No module named 'orjson'",
+            "logs": ["orders-api 1.5.0 starting", "Traceback (most recent call last):", "  File \"/app/orders/serializers.py\", line 3, in <module>"]},
+          "ghcr.io/contoso/orders-api:1.5.1": {"listens": 8000, "health_path": "/health", "start_s": 20,
+            "logs": ["orders-api 1.5.1 starting", "loading price rules (20s)", "INFO: Uvicorn running on http://0.0.0.0:8000"]}
+        }
+      }
+    },
+    "setup": ["kubectl apply -f k8s/"]
+  },
+  "reference": [
+    {"infra": "kubectl get endpoints orders-api"},
+    {"infra": "kubectl apply -f k8s/"},
+    {"infra": "kubectl rollout status deployment/orders-api"},
+    {"infra": "kubectl get endpoints orders-api"}
+  ]
+}

@@ -1,0 +1,21 @@
+services:
+  api:
+    build: .
+    image: ingest-api:1.0
+    ports:
+      - "8080:8000"
+    environment:
+      DATABASE_URL: postgresql://ingest:ingest-dev@db:5432/ingest
+    depends_on:
+      db:
+        condition: service_healthy
+  db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: ingest
+      POSTGRES_PASSWORD: ingest-dev
+      POSTGRES_DB: ingest
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ingest -d ingest"]
+      interval: 5s
+      retries: 5

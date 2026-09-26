@@ -1,0 +1,118 @@
+{
+  "id": "lake-landing-zone",
+  "version": "1",
+  "lab": "infra",
+  "title": "Bring the sales lake under Terraform",
+  "level": "intermediate",
+  "estimate": "40-60 min",
+  "skills": ["terraform init / plan / apply", "terraform import or an import block", "for_each on a set", "azurerm storage (ADLS Gen2)", "locals and outputs"],
+  "ticket": {
+    "from": "Priya Nair, data platform lead",
+    "subject": "Sales lake: stop clicking in the portal",
+    "body": [
+      "I created `rg-saleslake-dev` by hand in the portal last week, with the tags finance needs. Before the pipelines",
+      "land in it, I'd like the whole lake described in Terraform (the starter is in `main.tf`, never applied):",
+      "",
+      "- **Keep my resource group.** Terraform must manage it, not delete and recreate it: the budget alert and the",
+      "  role assignments hang off it. Its tags stay `owner = \"priya.nair\"` and `cost_center = \"CC-4410\"`, plus",
+      "  `env = \"dev\"`. Every resource of the lake gets the same three tags.",
+      "- **The storage account is our data lake**: ADLS Gen2 (hierarchical namespace), zone-redundant (ZRS), TLS 1.2",
+      "  at least, and no anonymous blob access (`allow_nested_items_to_be_public = false`).",
+      "- **One container per zone**: `bronze`, `silver` and `gold`, from a variable `zones` (a `set(string)`), with a",
+      "  single `azurerm_storage_container.zone` block. Next quarter we add `platinum` by editing the variable only.",
+      "- An output `dfs_endpoint` with the account's DFS endpoint, for the pipeline team.",
+      "",
+      "Keep the names we use in the other repos: `azurerm_resource_group.lake`, `azurerm_storage_account.lake`.",
+      "When you're done, `terraform plan` must say there is nothing left to change.",
+      "",
+      "This is the lab's simulated subscription: nothing is created in Azure."
+    ]
+  },
+  "acceptance": [
+    {
+      "id": "resource-group",
+      "text": "The portal-created resource group is managed by Terraform (imported, not recreated), with the three tags.",
+      "checks": [
+        {"kind": "tf_state", "includes": ["azurerm_resource_group.lake"],
+         "attributes": {"azurerm_resource_group.lake": {"name": "rg-saleslake-dev", "tags": {"owner": "priya.nair", "cost_center": "CC-4410", "env": "dev"}}},
+         "fail": "The resource group is not in the state as the ticket describes."},
+        {"kind": "azure_resource", "type": "Microsoft.Resources/resourceGroups", "name": "rg-saleslake-dev", "managed_by": "portal",
+         "attributes": {"tags": {"owner": "priya.nair", "cost_center": "CC-4410", "env": "dev"}},
+         "fail": "Priya's resource group was not kept as it should be."}
+      ]
+    },
+    {
+      "id": "data-lake",
+      "text": "The storage account is ADLS Gen2, ZRS, TLS 1.2, without anonymous blob access, and tagged.",
+      "checks": [
+        {"kind": "azure_resource", "type": "Microsoft.Storage/storageAccounts", "name": "stsaleslakedev01", "group": "rg-saleslake-dev", "managed_by": "terraform",
+         "attributes": {"is_hns_enabled": true, "account_replication_type": "ZRS", "min_tls_version": "TLS1_2", "allow_nested_items_to_be_public": false,
+                        "tags": {"owner": "priya.nair", "cost_center": "CC-4410", "env": "dev"}},
+         "fail": "The storage account is not the data lake the ticket asks for."}
+      ]
+    },
+    {
+      "id": "zones",
+      "text": "bronze, silver and gold come from one for_each block over the zones variable.",
+      "checks": [
+        {"kind": "tf_config", "resources": [{"address": "azurerm_storage_container.zone", "for_each": true, "references": ["var.zones"]}],
+         "variables": [{"name": "zones", "type": "set(string)"}],
+         "fail": "The containers are not declared as the ticket asks."},
+        {"kind": "tf_state", "instance_keys": {"azurerm_storage_container.zone": ["bronze", "gold", "silver"]},
+         "fail": "The applied containers are not the three zones."}
+      ]
+    },
+    {
+      "id": "output",
+      "text": "An output dfs_endpoint gives the account's DFS endpoint.",
+      "checks": [
+        {"kind": "tf_config", "outputs": ["dfs_endpoint"]},
+        {"kind": "tf_state", "includes": ["azurerm_storage_account.lake"]}
+      ]
+    },
+    {
+      "id": "converged",
+      "text": "terraform plan shows no changes: the subscription matches the files.",
+      "checks": [
+        {"kind": "tf_plan", "changes": false}
+      ]
+    }
+  ],
+  "hints": [
+    "Start with `terraform init`, then `terraform plan`, and read the plan before any apply. `az group show -n rg-saleslake-dev` gives the resource group's id.",
+    "A resource that already exists must be imported before Terraform manages it: `terraform import azurerm_resource_group.lake <id>`, or an `import { to = ..., id = ... }` block that the next plan shows as \"will be imported\".",
+    "After an import, the plan compares the portal's tags with yours: tags missing from the configuration would be removed. A `locals { tags = {...} }` map avoids repeating them.",
+    "`is_hns_enabled` cannot be changed on an existing account (the plan says \"forces replacement\"). Here the account does not exist yet, so set it before the first apply.",
+    "`for_each` takes a map or a set of strings: `type = set(string)` on the variable, `each.key` for the name, `storage_account_id = azurerm_storage_account.lake.id`."
+  ],
+  "infra": {
+    "world": {
+      "clock": "2026-10-05T09:00:00Z",
+      "azure": {
+        "resources": {
+          "/subscriptions/6d1f2c3a-0b4e-4c8d-9a7f-2e5b8c1d4f60/resourceGroups/rg-saleslake-dev": {
+            "type": "Microsoft.Resources/resourceGroups",
+            "tf_type": "azurerm_resource_group",
+            "id": "/subscriptions/6d1f2c3a-0b4e-4c8d-9a7f-2e5b8c1d4f60/resourceGroups/rg-saleslake-dev",
+            "managed_by": "portal",
+            "created_at": "2026-09-28T14:12:00Z",
+            "attributes": {
+              "id": "/subscriptions/6d1f2c3a-0b4e-4c8d-9a7f-2e5b8c1d4f60/resourceGroups/rg-saleslake-dev",
+              "name": "rg-saleslake-dev",
+              "location": "westeurope",
+              "managed_by": null,
+              "tags": {"owner": "priya.nair", "cost_center": "CC-4410"}
+            }
+          }
+        },
+        "taken_names": {"storage_account": ["stsaleslake", "saleslake"], "key_vault": []}
+      }
+    }
+  },
+  "reference": [
+    {"infra": "terraform init"},
+    {"infra": "terraform plan"},
+    {"infra": "terraform apply -auto-approve"},
+    {"infra": "terraform plan"}
+  ]
+}

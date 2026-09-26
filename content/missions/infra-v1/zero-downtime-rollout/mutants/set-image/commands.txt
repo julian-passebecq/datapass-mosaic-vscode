@@ -1,0 +1,3 @@
+kubectl apply -f k8s/
+kubectl set image deployment/orders-api api=ghcr.io/contoso/orders-api:1.5.1
+kubectl rollout status deployment/orders-api

@@ -950,6 +950,46 @@ with TemporaryDirectory(prefix="datapass-csv-import-smoke-") as temp:
                 else:
                     raise AssertionError(f"accepted a terminal mission with {broken}")
 
+            # Infra Lab missions: the runtime builds the folder and its simulated world from the pack; the checker
+            # reads the simulation and never passes an untouched fixture (scripts/infra_missions_smoke.py plays the
+            # references). The shell runs one simulated command at a time and refuses everything else.
+            infra = [(m, p) for m, p in everything if m.lab == "infra"]
+            assert len(infra) == 4, [m.id for m, _ in infra]
+            for mission, _pack in infra:
+                built = client.post("/api/local/missions/setup", json={"mission_id": mission.id})
+                assert built.status_code == 200 and built.json()["folder"] == mission.folder, (mission.id, built.text)
+                checked = client.post("/api/local/missions/check", json={"mission_id": mission.id}).json()
+                assert checked["status"] == "not-yet" and "Nothing was provisioned" in checked["truth"], checked
+            folder = "missions/lake-landing-zone"
+            ran = client.post("/api/local/infra/command", json={"folder": folder, "line": "terraform version"}).json()
+            assert ran["exit_code"] == 0 and "simulated" in ran["output"], ran
+            for line, code in (("terraform plan | tee plan.txt", 2), ("ls > x.txt", 2), ("echo $HOME", 2),
+                               ("bash -c 'rm -rf /'", 127), ("python -c 1", 127), ("rm -rf .", 127), ('terraform "', 2)):
+                refused = client.post("/api/local/infra/command", json={"folder": folder, "line": line}).json()
+                assert refused["exit_code"] == code, (line, refused)
+            for bad in ("../outside", ".datapass/data", "missions/../..", "/etc", "C:/Windows"):
+                refused = client.post("/api/local/infra/command", json={"folder": bad, "line": "terraform version"})
+                assert refused.status_code in (400, 404, 422), (bad, refused.text)
+            view = client.post("/api/local/infra/state", json={"folder": folder}).json()
+            assert view["azure"]["resources"][0]["name"] == "rg-saleslake-dev" and not view["terraform"]["initialized"], view
+            base = next(m for m, _ in infra if m.id == "lake-landing-zone").model_dump(by_alias=True, exclude_none=True)
+            for broken, reason in (({"acceptance": [{"id": "x", "text": "x", "checks": [{"kind": "git_branch", "name": "main"}]}]}, "do not belong to the Infra Lab"),
+                                   ({"reference": [{"bash": "solution/solve.sh"}]}, "lines of the simulated shell"),
+                                   ({"infra": None}, "has an infra fixture")):
+                try:
+                    Mission.model_validate({**base, **broken})
+                except ValueError as error:
+                    assert reason in str(error), (reason, error)
+                else:
+                    raise AssertionError(f"accepted an infra mission with {broken}")
+            terminal_base = next(m for m, _ in terminal if m.id == "grep-error-report").model_dump(by_alias=True, exclude_none=True)
+            try:
+                Mission.model_validate({**terminal_base, "acceptance": [{"id": "x", "text": "x", "checks": [{"kind": "tf_plan"}]}]})
+            except ValueError as error:
+                assert "need the Infra Lab" in str(error), error
+            else:
+                raise AssertionError("accepted a terminal mission with an infra check")
+
             # Imports never overwrite, and only create bronze tables.
             again = client.post("/api/local/import-csv", json={"asset": "bronze.city_visits", "text": "city\nNice\n"})
             assert again.status_code == 400 and "already exists" in again.json()["detail"], again.text

@@ -1,0 +1,16 @@
+services:
+  api:
+    build: .
+    image: ingest-api:1.0
+    ports:
+      - "8080:8000"
+    environment:
+      DATABASE_URL: postgresql://ingest:ingest-dev@localhost:5432/ingest
+    depends_on:
+      - db
+  db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: ingest
+      POSTGRES_PASSWORD: ingest-dev
+      POSTGRES_DB: ingest

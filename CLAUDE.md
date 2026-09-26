@@ -22,10 +22,12 @@ Datapass owns:
 - Cloud Lab (formerly Fabric Lab): Fabric-inspired local learning UX, the Fabric / Azure Data Factory / Synapse pipeline simulator, the SQL pool simulator (Synapse dedicated SQL pool, Fabric Warehouse) and the Databricks simulator (jobs, compute, Unity Catalog, MLflow);
 - bounded SparkLab/ZilaCode semantics;
 - the dbt Lab: real dbt Core and dbt Charts run by the learner in a VS Code terminal on the local catalog (managed tools installed on request, generated profile, catalog handoff, artifacts view) and its missions;
-- missions: ticket-style tasks checked by a hidden checker (`runtime/missionlab`), shared by the dbt Lab and the
-  Terminal Lab, reusable by later labs;
+- missions: ticket-style tasks checked by a hidden checker (`runtime/missionlab`), shared by the dbt Lab, the
+  Terminal Lab and the Infra Lab, reusable by later labs;
 - the Terminal Lab: real bash, PowerShell and Git skills, practised with the learner's own commands in a VS Code
   terminal opened in a mission folder, and its missions;
+- the Infra Lab: simulated Terraform (a subset of the azurerm provider on a simulated subscription), Docker and
+  compose, VM monitoring with Azure Monitor alerts, and Kubernetes, typed in one simulated terminal, and its missions;
 - the BI Lab: data warehousing on the local catalog (dimensional modeling, slowly changing dimensions, SQL lineage, star model checks);
 - Airflow scheduling simulation;
 - Pipeline Lab design/execution UX;
@@ -53,6 +55,17 @@ Never blur real execution and simulation.
   `.datapass/missions/attic/`, never deletes it. The checker (`runtime/missionlab/terminal.py`) reads the resulting
   state: files, CSV, scripts as TEXT (never executed), and the repository through read-only git commands (fsmonitor
   off, no hooks, `GIT_CEILING_DIRECTORIES`). Datapass executes nothing of the learner's.
+- Infra Lab (module id `infra`, `runtime/infralab`): simulation only; nothing is provisioned, built, pulled, run or
+  deployed, and no real `terraform`, `docker`, `kubectl` or `az` is started, even when installed. The learner types in
+  a VS Code Pseudoterminal owned by the extension (no process is spawned) that sends each line to the runtime; pipes,
+  redirections, variables and real programs are refused. HCL is parsed by a whitelisted reader and evaluated over plain
+  values with a function whitelist; plans and applies run against a simulated azurerm provider (a documented subset of
+  real resource types and arguments) and a simulated subscription, and `terraform.tfstate` is marked as simulated.
+  Dockerfiles and compose files are read, never executed: builds, the layer cache, containers and health checks are
+  simulated. Metrics are recorded scenarios and alert rules are replayed with Azure Monitor semantics. Kubernetes
+  manifests are validated strictly and applied to a simulated cluster (scheduling, readiness, rollouts). Everything
+  lives in `<folder>/.infralab/world.json`; missions check that simulated world, the state file, the shell's journal
+  and the files.
 - Airflow Lab: deterministic scheduling simulator; it is not an Airflow scheduler/executor. Airflow DAG files (the Airflow Lab panel and Practice `airflow` exercises) are parsed by a whitelisted AST reader (`runtime/airflowlab`) and NEVER eval/exec'd; scheduler and task outcomes are simulated with Airflow 3 semantics.
 - Pipeline Lab: the Python-like pipeline source is parsed by a bounded AST compiler and is NEVER eval/exec'd. Supported activity bodies may execute locally. Scheduling remains metadata/simulation.
 
@@ -62,6 +75,9 @@ Never blur real execution and simulation.
 - Never silently enable arbitrary Python execution.
 - Never install the dbt tools (dbt Core, dbt-duckdb, dbt Charts) without the learner's explicit action; the generated `.datapass/dbt/profiles.yml` holds a local DuckDB path only, never secrets. dbt and dct run as the learner's own terminal commands, not in a sandbox.
 - Mission fixtures and checks come from the shipped content only, never from a request.
+- Never execute Infra Lab files (HCL, Dockerfile, compose, Kubernetes YAML) or start a real infrastructure tool from
+  the Infra Lab shell; it simulates terraform, docker, kubectl and az, and stays inside the workspace folder it is
+  given.
 - Never run a Terminal Lab learner's commands or scripts: the checker reads files and Git state only. Its git calls
   stay read-only and must not start anything the repository's config names (fsmonitor, hooks, pager).
 - The local Python worker is process-isolated for lifecycle reasons; it is NOT a security sandbox.
@@ -95,11 +111,12 @@ npm install --no-audit --no-fund
 npm run compile
 npm test
 python -m pip install ./runtime
-python -m compileall -q runtime/datapass_runtime runtime/sparklab runtime/airflowlab runtime/factorylab runtime/sqlpoollab runtime/databrickslab runtime/bilab runtime/dbtlab runtime/sqldialects runtime/missionlab
+python -m compileall -q runtime/datapass_runtime runtime/sparklab runtime/airflowlab runtime/factorylab runtime/sqlpoollab runtime/databrickslab runtime/bilab runtime/dbtlab runtime/sqldialects runtime/missionlab runtime/infralab
 python scripts/runtime_smoke.py
 python scripts/exercise_packs_smoke.py
 python scripts/projects_smoke.py
 python scripts/terminal_missions_smoke.py   # Terminal Lab: references pass with real bash and PowerShell; untouched fixtures and mutants fail
+python scripts/infra_missions_smoke.py      # Infra Lab: references pass in the simulated shell; untouched fixtures, starters and mutants fail
 DATAPASS_DBT_PYTHON=<python with dbt-core + dbt-duckdb> python scripts/dbt_oracle_smoke.py   # when changing runtime/dbtlab
 DATAPASS_DBT_PYTHON=<python with dbt-core + dbt-duckdb + dbt-charts> python scripts/missions_smoke.py   # missions: references pass, untouched projects and mutants fail
 npm run test:host   # with DATAPASS_E2E_PYTHON set; see docs/LOCAL_TEST.md

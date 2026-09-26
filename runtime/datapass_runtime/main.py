@@ -15,6 +15,9 @@ from sqldialects import dialects as sql_dialect_list
 from missionlab.check import evaluate as evaluate_mission, fixture_statements, sql_queries as mission_queries
 from missionlab.model import find_mission
 from missionlab.terminal import FixtureError, build_fixture
+from missionlab.infra import build_fixture as build_infra_fixture
+from infralab.shell import run_line as infra_run_line, state_view as infra_state_view
+from infralab.world import WorldError
 
 from .auth import RuntimeAuthMiddleware
 from .catalog_lease import CatalogLease, CatalogLocked, CatalogReleased, is_lock_error
@@ -441,8 +444,17 @@ def capabilities() -> dict[str, object]:
             "checks": "catalog state (tables, read-only SQL, SQL pool designs, MLflow models) and the run journal of what the labs really ran",
             "manual_steps": "declared by the learner, never marked verified",
         },
+        "infra_lab": {
+            "mode": "simulated",
+            "terraform": "HCL read by a whitelisted reader and evaluated (never executed); plan and apply against a "
+                         "simulated azurerm provider and subscription; terraform.tfstate marked as simulated",
+            "docker": "Dockerfile and compose read, never executed; build, cache, run and compose simulated",
+            "monitoring": "az CLI subset on a simulated subscription; metric scenarios; Azure Monitor alert replay",
+            "kubernetes": "manifests validated strictly and applied to a simulated cluster; rollouts simulated",
+            "real_tools": False,
+        },
         "missions": {
-            "labs": ["dbt", "terminal"],
+            "labs": ["dbt", "terminal", "infra"],
             "work": "real tools on a real project folder (missions/<id>/): dbt Core, dbt Charts, an Airflow DAG file; "
                     "the learner's own bash, PowerShell and Git commands in a VS Code terminal",
             "checker": "read-only SQL on the catalog, the learner's dbt artifacts and files, dct validate, the Airflow "
@@ -526,11 +538,13 @@ def _mission(mission_id: str):
 @app.post("/api/local/missions/setup")
 def mission_setup(body: MissionSetupRequest) -> dict[str, object]:
     """Load a mission's fixture batch into the catalog (the first batch starts the mission over), or build a Terminal
-    Lab mission's folder from the pack (an existing folder is moved to .datapass/missions/attic/, never deleted)."""
+    Lab or Infra Lab mission's folder from the pack (an existing folder is moved to .datapass/missions/attic/, never
+    deleted)."""
     mission, pack_dir = _mission(body.mission_id)
-    if mission.lab == "terminal":
+    if mission.lab in ("terminal", "infra"):
+        builder = build_fixture if mission.lab == "terminal" else build_infra_fixture
         try:
-            built = build_fixture(mission, pack_dir, workspace_root())
+            built = builder(mission, pack_dir, workspace_root())
         except FixtureError as error:
             raise HTTPException(status_code=409, detail=str(error)) from error
         return {"mission_id": mission.id, "batch_id": None, **built}
@@ -552,6 +566,51 @@ def mission_check(body: MissionCheckRequest) -> dict[str, object]:
     queries = mission_queries(mission)
     results = native_command({"op": "mission_sql", "queries": queries}) if queries else []
     return evaluate_mission(mission, workspace_root() / mission.folder, dict(zip(queries, results)), body.dct)
+
+
+class InfraCommandRequest(BaseModel):
+    """Infra Lab: one line typed in the simulated shell, run in a folder of the workspace (a mission folder or any lab
+    folder). `answer` replies to a prompt (terraform apply's "Enter a value")."""
+    model_config = ConfigDict(extra="forbid", strict=True)
+    folder: str = Field(min_length=1, max_length=200, pattern=r"^[A-Za-z0-9_.][A-Za-z0-9_./-]*$")
+    line: str = Field(max_length=2000)
+    answer: str | None = Field(default=None, max_length=200)
+
+
+class InfraStateRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid", strict=True)
+    folder: str = Field(min_length=1, max_length=200, pattern=r"^[A-Za-z0-9_.][A-Za-z0-9_./-]*$")
+
+
+def infra_folder(relative: str) -> Path:
+    """A folder inside the workspace (never the workspace's .datapass state), for the Infra Lab shell."""
+    root = workspace_root()
+    parts = relative.split("/")
+    if ".." in parts or parts[0] in (".datapass", ".git"):
+        raise HTTPException(status_code=400, detail="The Infra Lab works in a folder of the workspace.")
+    folder = (root / relative).resolve()
+    if not folder.is_relative_to(root) or not folder.is_dir():
+        raise HTTPException(status_code=404, detail=f"No folder {relative} in the workspace.")
+    return folder
+
+
+@app.post("/api/local/infra/command")
+def infra_command(body: InfraCommandRequest) -> dict[str, object]:
+    """Run one line of the Infra Lab shell. Everything is simulated (runtime/infralab): the learner's files are read,
+    never executed, and nothing is provisioned, built or deployed."""
+    try:
+        return infra_run_line(infra_folder(body.folder), body.line, body.answer)
+    except WorldError as error:
+        raise HTTPException(status_code=409, detail=str(error)) from error
+
+
+@app.post("/api/local/infra/state")
+def infra_state(body: InfraStateRequest) -> dict[str, object]:
+    """What the simulated world of an Infra Lab folder holds (Terraform state, subscription, Docker, cluster)."""
+    try:
+        return infra_state_view(infra_folder(body.folder))
+    except WorldError as error:
+        raise HTTPException(status_code=409, detail=str(error)) from error
 
 
 @app.post("/api/local/query")
