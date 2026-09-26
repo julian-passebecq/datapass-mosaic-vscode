@@ -336,6 +336,12 @@ The smoke refuses unknown keys, a `quality.json` whose pack is not installed and
   - a passed Submit before the due day changes nothing, and Run visible never moves a box;
   - a variant opened or graded before the schedule existed is due the day after its last activity.
   Days are the learner's local calendar days. Practice › Review lists the problems due today, most overdue first.
+- Interview mode (`src/platform/practiceInterview.ts`) draws a series by pattern family: the first family, in
+  `PATTERN_FAMILIES` order, that one of the problem's `topics` belongs to (window functions, time series,
+  deduplication, joins, aggregation, nulls and quality, strings, filtering and logic). Tag problems with those topic
+  names (for example `window-functions`, `gaps-and-islands`, `deduplication`, `left-join`, `group-by`, `nulls`) so
+  they reach mixed interviews; a problem without a family is drawn only when nothing else fits. Interview cards hide
+  hints, reference solutions and topics.
 
 ## Editor support (tab labels and Pylance)
 

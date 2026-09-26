@@ -1,4 +1,4 @@
-import { Badge, Button, Input, Select, Text } from "@fluentui/react-components";
+import { Badge, Button, Input, Select, Tab, TabList, Text } from "@fluentui/react-components";
 import { useEffect, useMemo, useState } from "react";
 import {
   EMPTY_FILTERS,
@@ -21,6 +21,7 @@ import {
 } from "../platform/practiceProblems";
 import { REVIEW_INTERVALS_DAYS, daysBetween, localDay } from "../platform/practiceReview";
 import type { PracticeViewState, RuntimeViewState, WorkbenchFocus } from "./contracts";
+import { PracticeInterview } from "./PracticeInterview";
 import { PracticeProblemCard } from "./PracticeProblemCard";
 import type { VsCodeApi } from "./WorkbenchApp";
 
@@ -84,6 +85,8 @@ export function PracticeSurface({
   const counts = useMemo(() => problemCounts(problems, progress), [problems, progress]);
   const filtering = Object.values(filters).some(Boolean);
   const today = localDay(new Date());
+  const interviewState = readState(vscode).practiceInterview as { finishedAt?: string } | undefined;
+  const interviewRunning = Boolean(interviewState && !interviewState.finishedAt);
   const due = useMemo(() => dueProblems(problems, progress, today), [problems, progress, today]);
   const upcoming = useMemo(() => upcomingReviews(problems, progress, today), [problems, progress, today]);
   useEffect(() => {
@@ -126,18 +129,16 @@ export function PracticeSurface({
         </div>
       </div>
 
-      <div className="practice-modes" role="tablist" aria-label="Practice mode">
-        <button type="button" role="tab" aria-selected={mode === "browse"} className={mode === "browse" ? "selected" : ""}
-          onClick={() => setMode("browse")}>
-          All problems
-        </button>
-        <button type="button" role="tab" aria-selected={mode === "review"} className={mode === "review" ? "selected" : ""}
-          onClick={() => setMode("review")}>
-          Review{due.length ? ` · ${due.length} due` : ""}
-        </button>
-      </div>
+      <TabList className="lab-subtabs practice-modes" aria-label="Practice mode" size="small" selectedValue={mode}
+        onTabSelect={(_, data) => setMode(data.value as PracticeMode)}>
+        <Tab value="browse">All problems</Tab>
+        <Tab value="review">Review{due.length ? ` · ${due.length} due` : ""}</Tab>
+        <Tab value="interview">Interview{interviewRunning ? " · running" : ""}</Tab>
+      </TabList>
 
-      {mode === "review" ? (
+      {mode === "interview" ? (
+        <PracticeInterview vscode={vscode} practice={practice} runtime={runtime} problems={problems} />
+      ) : mode === "review" ? (
         reviewList()
       ) : (
       <>
@@ -221,10 +222,10 @@ export function PracticeSurface({
   }
 }
 
-type PracticeMode = "browse" | "review";
+type PracticeMode = "browse" | "review" | "interview";
 
 function restoreMode(raw: unknown): PracticeMode {
-  return raw === "review" ? raw : "browse";
+  return raw === "review" || raw === "interview" ? raw : "browse";
 }
 
 function FilterSelect({

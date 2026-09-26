@@ -1255,6 +1255,7 @@ export type WebviewToHostMessage =
   | { type: "revealHint"; exerciseKey: string }
   | { type: "showSolution"; exerciseKey: string }
   | { type: "compareSolution"; exerciseKey: string }
+  | { type: "saveInterview"; interview: unknown }
   | { type: "openPipelineSource" }
   | { type: "refreshPipeline" }
   | { type: "runPipeline" }
