@@ -148,7 +148,8 @@ Labs:
   (user decision): real-tool exercises may come once the app is finished.
 - API Lab (first tranche, 2026-09-26): five missions, one scenario each; no OAuth/token refresh, no POST endpoints,
   no async client patterns. One simulated API runs at a time (the active mission's); a runtime restart brings it back
-  on a new port at the next run, with the same key, day and log.
+  on a new port at the next run, with the same key, day and log. Pylance flags the injected `API_BASE_URL`, `API_KEY`
+  and `bronze` as undefined in `ingest.py`.
 - Terminal Lab: checks read the resulting state, so Datapass cannot tell whether the terminal or the editor produced
   it; scripts are read as text, never executed. A reported overlap in dbt Lab › Missions did not reproduce.
 - SQL dialects: T-SQL comparisons are case-sensitive (SQL Server's default collation is not); the translated SQL is

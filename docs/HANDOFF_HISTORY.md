@@ -9,6 +9,34 @@ Add a tranche as a new `## YYYY-MM-DD · Title` section at the top, under this p
 sections, and refer to another section by its heading, not by a position. Keep the "Checked" and "Not checked"
 notes: they say what was really run.
 
+## 2026-09-26 · API Lab: REST API ingestion into bronze (V3-4)
+
+A new "Real work" module, the API Lab (`apilab`): the learner writes `missions/<id>/ingest.py` (real Python, httpx or
+requests) that ingests a simulated REST API into the bronze layer. Julian's transport decision: the API is served by
+a small server (`runtime/apilab/server.py`) on 127.0.0.1, on its own port, one per active mission, started and
+stopped by the runtime, with a fictitious bearer key made at each mission start and shown in the Workbench. The
+server checks its own Host header and key, starts with an allowlisted environment (never the runtime's launch token)
+and writes a JSON-lines request log. The learner's file runs as trusted local Python in the kernel worker (kernel op
+`apilab_run`, refused while trusted Python is off) with `API_BASE_URL`, `API_KEY` and `bronze`
+(`append / merge / overwrite / query / columns`, schema enforcement unless `evolve=True`) in scope. Five missions
+(`content/missions/api-v1`): page pagination, cursor + transient 502/503, 429 + Retry-After with at-least-once
+duplicates, incremental load with a watermark over two API days, schema drift (v2 renames `price`, adds `currency`).
+Checks: read-only SQL on bronze, the request log and the run history (`runtime/apilab/check.py`). The missions reuse
+the shared missions panel and progress (`src/missions.ts` routes `lab: "apilab"` to `src/labs/apilab/client.ts`);
+missionlab skips the pack (`OTHER_PACKS`). Registered in `content/modules.json` (family "work") after T-1.
+
+Checked: `scripts/api_lab_smoke.py` (5 references pass; 5 untouched missions, 5 starters and 10 mutants fail; 401
+without the key, 400 on a foreign Host, 200 with both; the runtime token in no server environment, file, answer,
+state or learner `os.environ`; a run with trusted Python off refused and not recorded); `npm run compile`, `npm test`,
+`infra_missions_smoke.py`, `terminal_missions_smoke.py`, `projects_smoke.py`; `npm run package && npm run test:ui` in
+a real VS Code (58/58 after the rebase on T-1, the tab reached through "Real work"): the API Lab mission started, trusted Python enabled through its real
+confirmation dialog, the reference `ingest.py` run, Check my work passed.
+
+Not checked locally: `runtime_smoke.py` (its first kernel call has an 8 s budget and the worker's cold start took 9 to
+16 s on this machine while other sessions built; CI runs it), `exercise_packs_smoke.py`, `missions_smoke.py` and
+`npm run test:host` (the new host test "API Lab: a mission starts its simulated API…" runs in CI). Pylance flags
+`API_BASE_URL`, `API_KEY` and `bronze` in `ingest.py` as undefined (they are injected at run time).
+
 ## 2026-09-26 · Lakehouse Lab: Parquet, partitions, compaction and DuckLake (V3-3)
 
 A twelfth Workbench module, the Lakehouse Lab (`lakehouse`, command **Datapass: Open Lakehouse Lab**), teaches storage

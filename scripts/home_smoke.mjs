@@ -40,7 +40,7 @@ try {
   }
   assert.equal((moduleIdType.match(/"/g) ?? []).length / 2, MODULES.length, "ModuleId lists exactly the registry");
   for (const f of MODULE_FAMILIES) assert.ok(familyModules(f.id).length > 0, `${f.id} has modules`);
-  assert.deepEqual(familyModules("work").map(m => m.id), ["projects", "dbt", "terminal", "infra", "lakehouse"]);
+  assert.deepEqual(familyModules("work").map(m => m.id), ["projects", "dbt", "terminal", "infra", "lakehouse", "apilab"]);
 
   // Home: fixtures from the shipped projects.
   const labels = Object.fromEntries(MODULES.map(m => [m.id, m.label]));
