@@ -1,0 +1,121 @@
+{
+  "id": "append-delta-orders",
+  "version": "1",
+  "lab": "lakehouse",
+  "title": "Append to a Delta table",
+  "level": "intermediate",
+  "estimate": "20 min",
+  "skills": [
+    "Delta Lake",
+    "_delta_log",
+    "time travel",
+    "DuckDB delta extension"
+  ],
+  "ticket": {
+    "from": "Lea (Fabric team)",
+    "subject": "Please add April to the shared Delta table",
+    "body": [
+      "Our Fabric lakehouse shares `orders` as a **Delta table**: `lake/orders_delta/` holds Parquet files and a",
+      "`_delta_log/` folder of JSON commits (open them: two commits so far, both March).",
+      "",
+      "Please append April's orders from `data/orders_april.csv` as **one new commit**. Readers pinned to an older",
+      "version must still see exactly what they saw. Don't rewrite or copy files by hand: a Parquet file that no",
+      "commit mentions is invisible to Delta readers.",
+      "",
+      "Work in `delta.sql`. The lab attaches the table as `orders_delta` through DuckDB's delta extension (real Delta",
+      "reads and appends; creating Delta tables is not supported by it)."
+    ]
+  },
+  "engines": [
+    "duckdb"
+  ],
+  "delta": [
+    "lake/orders_delta"
+  ],
+  "files": {
+    "duckdb": "delta.sql"
+  },
+  "fixture": {
+    "sql": [
+      "fixtures/orders_delta.sql"
+    ]
+  },
+  "acceptance": [
+    {
+      "id": "appended",
+      "text": "orders_delta holds March and April, each order once",
+      "checks": [
+        {
+          "kind": "sql",
+          "query": "SELECT count(*), count(DISTINCT order_id) FROM orders_delta",
+          "expected": [
+            [
+              470,
+              470
+            ]
+          ],
+          "fail": "Orders are missing or doubled (all rows, distinct ids):"
+        },
+        {
+          "kind": "sql",
+          "query": "SELECT order_id, order_date, amount FROM orders_delta WHERE order_date >= DATE '2025-04-01'",
+          "expected_query": "SELECT order_id, CAST(order_date AS DATE), amount FROM read_csv('data/orders_april.csv')",
+          "fail": "April's rows are not all there as exported."
+        }
+      ]
+    },
+    {
+      "id": "one-commit",
+      "text": "The Delta log gained exactly one commit",
+      "checks": [
+        {
+          "kind": "untouched",
+          "path": "lake/orders_delta/_delta_log",
+          "count": 3,
+          "fail": "The log should hold three commits (two from the ticket, yours):"
+        }
+      ]
+    },
+    {
+      "id": "history",
+      "text": "Versions 0 and 1 still read as before (time travel)",
+      "checks": [
+        {
+          "kind": "sql",
+          "before": [
+            "ATTACH 'lake/orders_delta' AS orders_v0 (TYPE delta, VERSION 0)"
+          ],
+          "query": "SELECT count(*) FROM orders_v0",
+          "expected": [
+            [
+              150
+            ]
+          ],
+          "fail": "Version 0 changed:"
+        },
+        {
+          "kind": "sql",
+          "before": [
+            "ATTACH 'lake/orders_delta' AS orders_v1 (TYPE delta, VERSION 1)"
+          ],
+          "query": "SELECT count(*) FROM orders_v1",
+          "expected": [
+            [
+              270
+            ]
+          ],
+          "fail": "Version 1 changed:"
+        }
+      ]
+    }
+  ],
+  "hints": [
+    "Each file in `_delta_log/` is one commit: `add` lines list the Parquet files that belong to the table from that version on.",
+    "`INSERT INTO orders_delta SELECT ... FROM read_csv('data/orders_april.csv')` writes a Parquet file and the commit that adds it.",
+    "One INSERT is one commit. Ran it twice? Start over."
+  ],
+  "concepts": [
+    "delta-iceberg",
+    "time-travel"
+  ]
+}

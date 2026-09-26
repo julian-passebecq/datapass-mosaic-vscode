@@ -1,0 +1,1 @@
+CREATE OR REPLACE TABLE customers AS SELECT * FROM customers AT (VERSION => 2);

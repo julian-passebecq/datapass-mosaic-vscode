@@ -24,6 +24,7 @@ import { AirflowSurface } from "./AirflowSurface";
 import { DbtSurface } from "./DbtSurface";
 import { TerminalSurface } from "./TerminalSurface";
 import { InfraSurface } from "./InfraSurface";
+import { LakehouseSurface } from "./LakehouseSurface";
 import { FabricSurface } from "./FabricSurface";
 import { HomeSurface, RuntimeActions, runtimeTone } from "./HomeSurface";
 import { BiSurface } from "./BiSurface";
@@ -77,7 +78,8 @@ const SURFACES: Record<ModuleId, SurfaceRender> = {
   airflow: (vscode, state) => <AirflowSurface vscode={vscode} airflow={state.airflow} runtime={state.runtime} />,
   dbt: (vscode, state) => <DbtSurface vscode={vscode} dbt={state.dbt} runtime={state.runtime} />,
   terminal: (vscode, state) => <TerminalSurface vscode={vscode} terminal={state.terminal} runtime={state.runtime} />,
-  infra: (vscode, state) => <InfraSurface vscode={vscode} infra={state.infra} runtime={state.runtime} />
+  infra: (vscode, state) => <InfraSurface vscode={vscode} infra={state.infra} runtime={state.runtime} />,
+  lakehouse: (vscode, state) => <LakehouseSurface vscode={vscode} lakehouse={state.lakehouse} runtime={state.runtime} />
 };
 
 export function WorkbenchApp({ vscode }: { vscode: VsCodeApi }) {

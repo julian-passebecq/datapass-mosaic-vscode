@@ -28,9 +28,9 @@ Last updated: 2026-09-26.
 ## What exists
 
 One VS Code extension (webview Workbench + native editors, terminals, Explorer and Git) and one local FastAPI
-runtime on loopback. Eleven Workbench modules, each with a `datapass.open…` command, grouped in two families in the
+runtime on loopback. Twelve Workbench modules, each with a `datapass.open…` command, grouped in two families in the
 navigation ("Learn": Practice, Mosaic, SparkLab, Airflow, Pipeline, BI, Cloud Lab; "Real work": Projects, dbt,
-Terminal, Infra), behind a "Today" home (`datapass.openHome`: Projects and Practice progress from
+Terminal, Infra, Lakehouse), behind a "Today" home (`datapass.openHome`: Projects and Practice progress from
 `.datapass/progress.json`, the next suggested step, the runtime with its Setup/Start action):
 
 | Module (id) | What it does | Execution truth | Code |
@@ -44,6 +44,7 @@ Terminal, Infra), behind a "Today" home (`datapass.openHome`: Projects and Pract
 | dbt Lab (`dbt`) | real dbt Core + dbt-duckdb + dbt Charts (`dct`) typed by the learner in a terminal; catalog handoff; artifacts view; missions | real; installed only by **Install dbt tools** | `src/dbtLab.ts`, `src/dbtState.ts`, `runtime/missionlab`, `content/missions/dbt-v1` |
 | Terminal Lab (`terminal`) | real bash, PowerShell and Git missions; Datapass checks the resulting folder and repository | real shells; Datapass runs none of the learner's commands | `src/terminalLab.ts`, `runtime/missionlab/terminal.py`, `content/missions/terminal-v1` |
 | Infra Lab (`infra`) | Terraform on a simulated azurerm subscription, Docker and compose, VM monitoring (az, Azure Monitor alerts), Kubernetes; typed in one simulated terminal (a Pseudoterminal, no process); missions | simulation only: HCL, Dockerfiles and manifests read, never executed; no real terraform, docker, kubectl or az | `src/infraLab.ts`, `runtime/infralab`, `runtime/missionlab/infra.py`, `content/missions/infra-v1` |
+| Lakehouse Lab (`lakehouse`) | storage layout on real local files: Parquet and Hive partitions, pruning (DuckDB's EXPLAIN ANALYZE), small files and compaction, DuckLake snapshots, time travel, schema evolution, MERGE; a Delta table read and appended; 7 missions done in DuckDB SQL or Polars in `lakehouse/<id>/`; Iceberg explained only | real: DuckDB in a process bounded to the mission folder, the official ducklake and delta extensions (installed by Setup runtime), Polars as trusted Python; checks measure files and query the lake | `runtime/lakehouselab` (README), `src/labs/lakehouse`, `content/lakehouse/lakehouse-v1` |
 | Airflow Lab (`airflow`) | Airflow 3 DAG files read by a whitelisted AST reader; scheduler, runs, retries simulated | simulation, never eval/exec | `runtime/airflowlab` |
 | Pipeline Lab (`pipeline`) | Python-like pipeline source compiled to a graph; supported activity bodies run | source never eval/exec'd; SQL, quality, Python, Polars bodies real; dbt activity declared only; schedule is metadata | `runtime/datapass_runtime/pipeline_compiler.py`, `native_pipeline.py` |
 
@@ -89,7 +90,7 @@ SparkLab distributed behaviour. Static: SQL lineage. No cloud connection anywher
   `src/labs/<lab>/controller.ts`; a new runtime call goes in `src/labs/<lab>/client.ts`.
 - `runtime/datapass_runtime/` FastAPI app (`main.py`), kernels, catalog, grading; one package per lab:
   `sparklab`, `airflowlab`, `factorylab`, `sqlpoollab`, `databrickslab`, `bilab`, `dbtlab`, `sqldialects`,
-  `snowflakesql`, `missionlab`, `infralab` (each with a README where the contract is non-trivial).
+  `snowflakesql`, `missionlab`, `infralab`, `lakehouselab` (each with a README where the contract is non-trivial).
 - `content/`: `exercise-packs/<pack>/` (manifest, exercises or scenarios, `grading.server.json`, and the test-only
   `quality.json` with mutants and gate flags), `projects/<id>/` (reference walkthroughs excluded from the VSIX),
   `missions/<pack>/<id>/` (solutions and mutants excluded from the VSIX), `pylance-stubs/`, `modules.json` (the module

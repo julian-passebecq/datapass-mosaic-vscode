@@ -14,7 +14,7 @@ import type { RuntimeManager } from "./runtimeManager";
 import type { DctValidationView } from "./platform/dbtTools";
 import { loadProjectsState, readProgress } from "./projectState";
 import { emptyPracticeProgress } from "./platform/practiceProgress";
-import type { DbtToolsView, HomeViewState, DbtViewState, PracticeViewState, ProjectsHostState, SparkLabProfileView, TerminalViewState, InfraViewState, WorkbenchFocus, WorkbenchViewState } from "./webview/contracts";
+import type { DbtToolsView, HomeViewState, DbtViewState, PracticeViewState, ProjectsHostState, SparkLabProfileView, TerminalViewState, InfraViewState, LakehouseViewState, WorkbenchFocus, WorkbenchViewState } from "./webview/contracts";
 
 /** What the host adds to the state it collects: the focus, and what the lab controllers keep (see src/labs). */
 export interface WorkbenchStateExtras {
@@ -33,6 +33,7 @@ export interface WorkbenchStateExtras {
   terminal?: TerminalViewState;
   infra?: InfraViewState;
   home?: HomeViewState;
+  lakehouse?: LakehouseViewState;
 }
 
 export async function collectWorkbenchState(
@@ -101,6 +102,7 @@ export async function collectWorkbenchState(
     dbt,
     terminal: selectedModule === "terminal" ? extras.terminal : undefined,
     infra: selectedModule === "infra" ? extras.infra : undefined,
+    lakehouse: selectedModule === "lakehouse" ? extras.lakehouse : undefined,
     projects,
     focus: extras.focus,
     queryHistory: extras.queryHistory

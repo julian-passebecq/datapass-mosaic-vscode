@@ -28,7 +28,9 @@ export function MissionsPanel({
   canRun,
   blockedReason,
   openLabel = "Open the project",
-  folderNote
+  folderNote,
+  send: sendAction,
+  extra
 }: {
   state: MissionsPanelState;
   vscode: VsCodeApi;
@@ -37,6 +39,10 @@ export function MissionsPanel({
   openLabel?: string;
   /** What to say about the mission's folder once it is started. */
   folderNote: (mission: MissionView, progress: MissionProgressView) => ReactNode;
+  /** A lab with its own mission messages (the Lakehouse Lab) posts the actions itself. */
+  send?: (action: string, missionId: string) => void;
+  /** What the lab shows under the actions of a started mission (the Lakehouse Lab's Run and its output). */
+  extra?: (mission: MissionView, progress: MissionProgressView) => ReactNode;
 }) {
   const [selected, setSelected] = useState<string | undefined>(state.missions[0]?.id);
   const mission = state.missions.find(item => item.id === selected) ?? state.missions[0];
@@ -44,7 +50,7 @@ export function MissionsPanel({
   const progress = state.progress[mission.id];
   const check = progress?.lastCheck;
   const next = nextBatch(mission, progress);
-  const send = (type: string) => vscode.postMessage({ type, missionId: mission.id } as never);
+  const send = (type: string) => sendAction ? sendAction(type, mission.id) : vscode.postMessage({ type, missionId: mission.id } as never);
 
   return (
     <div className="missions">
@@ -89,6 +95,7 @@ export function MissionsPanel({
         </div>
         {!canRun && blockedReason && <p className="factory-note">{blockedReason}</p>}
         {progress?.started && <p className="factory-note">{folderNote(mission, progress)}</p>}
+        {progress?.started && extra?.(mission, progress)}
 
         <section className="mission-criteria">
           <Text weight="semibold">Acceptance criteria</Text>

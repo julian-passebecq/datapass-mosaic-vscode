@@ -21,7 +21,7 @@ dependencies = [
 
 [tool.setuptools.packages.find]
 where = ["."]
-include = ["datapass_runtime*", "sparklab*", "airflowlab*", "factorylab*", "sqlpoollab*", "databrickslab*", "bilab*", "dbtlab*", "sqldialects*", "missionlab*", "infralab*"]
+include = ["datapass_runtime*", "sparklab*", "airflowlab*", "factorylab*", "sqlpoollab*", "databrickslab*", "bilab*", "dbtlab*", "sqldialects*", "missionlab*", "infralab*", "lakehouselab*"]
 
 [tool.setuptools.package-data]
 sparklab = ["*.json", "README.md"]
@@ -33,4 +33,5 @@ bilab = ["README.md"]
 dbtlab = ["README.md"]
 missionlab = ["README.md"]
 infralab = ["README.md"]
+lakehouselab = ["README.md"]
 sqldialects = ["README.md"]

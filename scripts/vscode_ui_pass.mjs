@@ -8,6 +8,7 @@
 // 4. Mosaic: the SQL scratch file, Run active SQL, the result row in the webview.
 // 5. Practice: Submit the first exercise's starter; the runtime grades it.
 // 5b. Infra Lab: a mission started, its commands typed in the simulated terminal, Check my work passes.
+// 5c. Lakehouse Lab: a mission started, its SQL run on DuckDB from the lab, Check my work passes on the files.
 // 6. Layout: the Today home, every module reached through the family tabs, and every lab sub-tab, at a narrow
 //    Workbench width. No element may stick out of the webview (the PR #17 class of bug); a screenshot of each lands
 //    in the output folder.
@@ -375,6 +376,27 @@ try {
   const world = await waitForText(/Simulated clock/, 10000);
   step("Infra Lab: the simulated world is shown", Boolean(world));
   await shot("infra-lab");
+
+  // --- Lakehouse Lab --------------------------------------------------------------------------------------------
+  // Start the partitioning mission, write the reference SQL on disk (as a learner would save it), Run it on DuckDB,
+  // then Check my work: the checker measures the Hive folders the run wrote.
+  await command("Datapass: Open Lakehouse Lab");
+  await web().getByRole("tab", { name: "Lakehouse Lab", selected: true }).waitFor({ timeout: 60000 });
+  await web().locator(".mission-card", { hasText: "Partition the sales by month" }).click();
+  await button("Start mission").click();
+  const lakeFolder = path.join(workspace, "lakehouse", "partition-sales");
+  for (let waited = 0; !existsSync(path.join(lakeFolder, "data", "sales.csv")) && waited < 60000; waited += 500) await page.waitForTimeout(500);
+  step("Lakehouse Lab: the mission folder is built from the pack", existsSync(path.join(lakeFolder, "data", "sales.csv")));
+  writeFileSync(path.join(lakeFolder, "solution.sql"),
+    readFileSync(path.join(repo, "content", "lakehouse", "lakehouse-v1", "partition-sales", "solution", "solution.sql"), "utf8"));
+  await command("Datapass: Open Lakehouse Lab");
+  await button("Run solution.sql (DuckDB)").click();
+  const partitions = await waitForText(/lake\/sales\/year=2025\/month=3/, 60000);
+  step("Lakehouse Lab: Run wrote Hive partitions, measured on disk", Boolean(partitions));
+  await button("Check my work").click();
+  const lakePassed = await waitForText(/Mission passed\./, 60000);
+  step("Lakehouse Lab: the checker passes the mission on the files", Boolean(lakePassed));
+  await shot("lakehouse-lab");
 
   // --- Layout at a narrow width ---------------------------------------------------------------------------------
   // The Workbench sits beside the scratch editor; size the window so the webview is NARROW_WIDTH wide.

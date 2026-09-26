@@ -5,6 +5,7 @@ import { DbtController } from "./dbt/controller";
 import { FabricController } from "./fabric/controller";
 import type { WorkbenchHost } from "./host";
 import { InfraController } from "./infra/controller";
+import { LakehouseController } from "./lakehouse/controller";
 import { MissionsController } from "./missions/controller";
 import { MosaicController } from "./mosaic/controller";
 import { PipelineController } from "./pipeline/controller";
@@ -44,6 +45,7 @@ export function createLabControllers(host: WorkbenchHost) {
     dbt,
     terminal,
     infra,
+    lakehouse: new LakehouseController(host),
     airflow,
     pipeline,
     missions: new MissionsController(host, {

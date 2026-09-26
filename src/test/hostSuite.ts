@@ -783,6 +783,29 @@ export async function run(): Promise<void> {
         lab.dispose();
       }
     }],
+    ["Lakehouse Lab: the mission folder is built from the pack, the learner's SQL runs on DuckDB in it, and the checker measures the files", async () => {
+      const lab = runtime!.labs.lakehouse;
+      const listed = await lab.missions() as { missions: { id: string }[] };
+      assert.ok(listed.missions.some(mission => mission.id === "partition-sales"), JSON.stringify(listed.missions.map(m => m.id)));
+      const id = "partition-sales";
+      await lab.start(id);
+      const folder = vscode.Uri.joinPath(root, "lakehouse", id);
+      await vscode.workspace.fs.stat(vscode.Uri.joinPath(folder, "data", "sales.csv"));
+      assert.equal((await lab.check(id) as { status: string }).status, "not-yet", "the untouched starter fails");
+      const reference = await vscode.workspace.fs.readFile(vscode.Uri.joinPath(extension.extensionUri, "content", "lakehouse", "lakehouse-v1", id, "solution", "solution.sql"))
+        .then(bytes => bytes, () => undefined);
+      // The VSIX leaves the reference out; the development host has it.
+      if (reference) {
+        await vscode.workspace.fs.writeFile(vscode.Uri.joinPath(folder, "solution.sql"), reference);
+        const ran = await lab.run(id, "duckdb") as { error?: string; truth: string };
+        assert.equal(ran.error, undefined);
+        assert.match(ran.truth, /DuckDB \(real, local\)/);
+        const result = await lab.check(id) as { status: string; criteria: unknown };
+        assert.equal(result.status, "passed", JSON.stringify(result.criteria));
+      }
+      const refused = await lab.run(id, "polars").then(() => undefined, (error: Error) => error.message);
+      if (process.env.DATAPASS_TRUSTED_PYTHON !== "1") assert.match(String(refused), /trusted Python/);
+    }],
     ["Catalog tree lists layers, tables, columns and row counts, and opens a SQL scratch", async () => {
       const tree = new CatalogTreeProvider(runtime!);
       try {

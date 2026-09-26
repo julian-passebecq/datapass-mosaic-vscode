@@ -1,0 +1,104 @@
+{
+  "id": "partition-sales",
+  "version": "1",
+  "lab": "lakehouse",
+  "title": "Partition the sales by month",
+  "level": "intro",
+  "estimate": "15 min",
+  "skills": [
+    "Parquet",
+    "Hive partitions",
+    "COPY",
+    "Polars"
+  ],
+  "ticket": {
+    "from": "Nadia (analytics lead)",
+    "subject": "Can the sales land as partitioned Parquet?",
+    "body": [
+      "Hi! Every report reads `data/sales.csv` from top to bottom, and it only gets bigger. Could you write it as",
+      "Parquet under `lake/sales/`, **partitioned by year and month** the Hive way (`year=2025/month=3/\u2026`)?",
+      "",
+      "- Keep every sale: same rows, same amounts.",
+      "- The year and month live in the folder names; the files themselves don't need to repeat them.",
+      "",
+      "Use DuckDB SQL (`solution.sql`) or Polars (`solution.py`, trusted Python), whichever you prefer."
+    ]
+  },
+  "engines": [
+    "duckdb",
+    "polars"
+  ],
+  "files": {
+    "duckdb": "solution.sql",
+    "polars": "solution.py"
+  },
+  "fixture": {
+    "sql": [
+      "fixtures/sales.sql"
+    ]
+  },
+  "acceptance": [
+    {
+      "id": "layout",
+      "text": "lake/sales/ holds Parquet files in year=\u2026/month=\u2026 folders, one per month",
+      "checks": [
+        {
+          "kind": "layout",
+          "path": "lake/sales",
+          "partitions": [
+            "year",
+            "month"
+          ],
+          "count": 6,
+          "fail": "The layout is not year=\u2026/month=\u2026."
+        }
+      ]
+    },
+    {
+      "id": "rows",
+      "text": "Every sale is there, in the right partition",
+      "checks": [
+        {
+          "kind": "sql",
+          "query": "SELECT count(*), round(sum(amount), 2), count(DISTINCT sale_id) FROM read_parquet('lake/sales/**/*.parquet', hive_partitioning = true)",
+          "expected_query": "SELECT count(*), round(sum(amount), 2), count(DISTINCT sale_id) FROM read_csv('data/sales.csv')",
+          "fail": "Rows are missing or changed (count, sum of amounts, distinct ids)."
+        },
+        {
+          "kind": "sql",
+          "query": "SELECT count(*) FROM read_parquet('lake/sales/**/*.parquet', hive_partitioning = true) WHERE year <> year(CAST(sale_date AS DATE)) OR month <> month(CAST(sale_date AS DATE))",
+          "expected": [
+            [
+              0
+            ]
+          ],
+          "fail": "Some sales sit in another month's folder."
+        }
+      ]
+    },
+    {
+      "id": "no-duplicates",
+      "text": "The files don't store year and month again",
+      "checks": [
+        {
+          "kind": "parquet_columns",
+          "path": "lake/sales",
+          "absent": [
+            "year",
+            "month"
+          ],
+          "fail": "The partition columns are written twice."
+        }
+      ]
+    }
+  ],
+  "hints": [
+    "DuckDB: `COPY (SELECT ...) TO 'lake/sales' (FORMAT parquet, PARTITION_BY (year, month))`. Compute `year` and `month` from `sale_date` in the SELECT.",
+    "Polars: add `year` and `month` with `pl.col(\"sale_date\").dt.year()` / `.dt.month()`, then for each `(year, month), part` of `group_by(\"year\", \"month\")` write `part.drop(\"year\", \"month\")` to `lake/sales/year={year}/month={month}/part-0.parquet` (make the folder first). `write_parquet(..., partition_by=...)` would also keep the two columns inside every file.",
+    "Ran it twice? Start over: DuckDB refuses to write into a non-empty folder unless you ask it to overwrite."
+  ],
+  "concepts": [
+    "hive",
+    "parquet"
+  ]
+}

@@ -66,6 +66,10 @@
         "title": "Datapass: Open Infra Lab"
       },
       {
+        "command": "datapass.openLakehouseLab",
+        "title": "Datapass: Open Lakehouse Lab"
+      },
+      {
         "command": "datapass.openAirflowLab",
         "title": "Datapass: Open Airflow Lab"
       },

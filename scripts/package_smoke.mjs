@@ -71,6 +71,8 @@ for (const forbidden of [
   "content/projects/*/reference/**",
   "content/missions/*/*/solution/**",
   "content/missions/*/*/mutants/**",
+  "content/lakehouse/*/*/solution/**",
+  "content/lakehouse/*/*/mutants/**",
   "content/exercise-packs/*/quality.json",
   ".claude/**",
   ".venv/**"

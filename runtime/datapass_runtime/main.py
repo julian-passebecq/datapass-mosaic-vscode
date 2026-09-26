@@ -18,6 +18,7 @@ from missionlab.terminal import FixtureError, build_fixture
 from missionlab.infra import build_fixture as build_infra_fixture
 from infralab.shell import run_line as infra_run_line, state_view as infra_state_view
 from infralab.world import WorldError
+from lakehouselab.api import router as lakehouse_router
 
 from .auth import RuntimeAuthMiddleware
 from .catalog_lease import CatalogLease, CatalogLocked, CatalogReleased, is_lock_error
@@ -46,6 +47,8 @@ async def lifespan(_app: FastAPI):
 app = FastAPI(title="Datapass Runtime", version="0.1.0", lifespan=lifespan)
 # Every request needs this launch's token and a loopback Host header (see auth.py).
 app.add_middleware(RuntimeAuthMiddleware)
+# Lakehouse Lab routes (/api/local/lakehouse/*): runtime/lakehouselab.
+app.include_router(lakehouse_router)
 catalog_lease = CatalogLease()
 
 
