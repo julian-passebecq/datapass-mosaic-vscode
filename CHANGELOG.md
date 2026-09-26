@@ -37,6 +37,9 @@ The first version built on the full plan's V1: a Today home, and the Lakehouse, 
 - **Projects**: end-to-end stories whose steps are verified on the workspace (retail, Databricks lakehouse and ML,
   Synapse to Fabric Warehouse) (#20, #21, #23, #28).
 - A catalog tree in the Datapass sidebar (#18).
+- **VS Code native**: JSON schemas for `.datapass/project.json`, `bi/model.json`, missions and pack manifests;
+  CodeLens Run visible tests / Submit on Practice solutions and Check mission on mission files; the runtime in the
+  status bar; a "Get started with Datapass" walkthrough; no false Pylance warnings in API Lab `ingest.py` (#66).
 
 ### Changed
 

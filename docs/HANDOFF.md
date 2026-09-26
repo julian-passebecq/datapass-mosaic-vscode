@@ -31,7 +31,11 @@ One VS Code extension (webview Workbench + native editors, terminals, Explorer a
 runtime on loopback. Thirteen Workbench modules, each with a `datapass.open…` command, grouped in two families in the
 navigation ("Learn": Practice, Mosaic, SparkLab, Airflow, Pipeline, BI, Cloud Lab; "Real work": Projects, dbt,
 Terminal, Infra, Lakehouse, API), behind a "Today" home (`datapass.openHome`: Projects and Practice progress from
-`.datapass/progress.json`, the next suggested step, the runtime with its Setup/Start action):
+`.datapass/progress.json`, the next suggested step, the runtime with its Setup/Start action). VS Code itself also
+shows Datapass: the runtime in the status bar (click: set up, update, start or open Today), CodeLens "Run visible
+tests" / "Submit" above Practice solution files and "Check mission" (plus "Run ingest.py" in the API Lab) above the
+files of a started mission, JSON schemas for `.datapass/project.json`, `bi/model.json`, `mission.json` and pack
+manifests, and the "Get started with Datapass" walkthrough:
 
 | Module (id) | What it does | Execution truth | Code |
 | --- | --- | --- | --- |
@@ -87,6 +91,12 @@ SparkLab distributed behaviour. Static: SQL lineage. No cloud connection anywher
   the file's `about` says it all), its id in `ModuleId` (`src/modules.ts`), its command in `package.json` and its
   surface in `SURFACES` (`src/webview/WorkbenchApp.tsx`, a `Record<ModuleId, …>`, so a missing surface fails the
   typecheck); `scripts/home_smoke.mjs` checks the four agree. The nav, the Labs view and Today follow the registry.
+- VS Code native entry points: `src/nativeIntegration.ts` (status bar, CodeLens, their commands; every action goes
+  through `WorkbenchPanel.dispatch`, i.e. the lab controllers' own handlers), pure helpers in `src/platform/native.ts`
+  (`scripts/native_smoke.mjs`). `schemas/`: `project.schema.json` by hand (keep it in step with
+  `src/project/projectManifestModel.ts`), the others generated from the pydantic contracts by
+  `scripts/authoring/gen_json_schemas.py` (`--check` in CI); `scripts/json_schemas_smoke.mjs` validates every shipped
+  file against its schema. A changed pydantic contract means: rerun the generator.
 - A new webview message: add it to the lab's union in `contracts/<lab>.ts` and a handler in
   `src/labs/<lab>/controller.ts`; a new runtime call goes in `src/labs/<lab>/client.ts`.
 - `runtime/datapass_runtime/` FastAPI app (`main.py`), kernels, catalog, grading; one package per lab:

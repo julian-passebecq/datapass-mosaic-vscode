@@ -9,6 +9,30 @@ Add a tranche as a new `## YYYY-MM-DD · Title` section at the top, under this p
 sections, and refer to another section by its heading, not by a position. Keep the "Checked" and "Not checked"
 notes: they say what was really run.
 
+## 2026-09-26 · VS Code native: schemas, CodeLens, status bar, walkthrough (T-4, D-10)
+
+Datapass now uses what VS Code already offers instead of only the webview. JSON schemas (`schemas/`,
+`contributes.jsonValidation`) underline errors and complete keys in `.datapass/project.json` (written by hand from the
+extension's validator), `bi/model.json` (the star model), `mission.json` (missionlab, and the API Lab's own contract
+for `api-v1`) and exercise pack `manifest.json`; all but the first are generated from the runtime's pydantic models
+(`scripts/authoring/gen_json_schemas.py`, whose schema generator also accepts the line lists missionlab joins). CodeLens
+puts "Run visible tests" and "Submit" above a Practice `solution.*` file, and "Check mission" above the files of a
+started mission ("Run ingest.py" too in the API Lab); a status bar item shows the runtime (not set up, stopped,
+starting, running, needs update, error) and clicking it does the next action. Each of these calls the Workbench's own
+message handlers through `WorkbenchPanel.dispatch`, so it behaves like the button. The "Get started with Datapass"
+walkthrough has four steps: set up the runtime, open Today, first Practice problem, first mission. The API Lab pack
+ships `__builtins__.pyi` (API_BASE_URL, API_KEY, bronze), copied next to `ingest.py` when a mission starts. The
+extension now also activates in any workspace with a `.datapass/` folder, so the status bar and CodeLens are there
+before the Workbench is opened.
+
+Checked: `npm run compile`, `npm test` (new `native_smoke.mjs`, `json_schemas_smoke.mjs`: 28 missions, 18 pack
+manifests, the sample star model and the default manifest validate; broken ones fail), the Python gates,
+`gen_json_schemas.py --check`, `npm run package && npm run test:ui` (new steps: the status bar item shows the running
+runtime; the CodeLens shows above the Practice solution file). Pyright (Pylance's engine) with Pylance's default
+settings on every API Lab `ingest.py`, starter and solution: 0 warnings with the stub, 3 undefined names without it.
+Not checked: the walkthrough page by hand; Pylance itself (pyright was run instead); `httpx` must be installed in
+the interpreter VS Code selected, or Pylance reports the import (the managed runtime has it).
+
 ## 2026-09-26 · Version 0.2.0, changelog and release workflow (T-6)
 
 - `package.json` / `package-lock.json` at 0.2.0 (the plan's V1 shipped). `CHANGELOG.md` (Keep a Changelog) has one

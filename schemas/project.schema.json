@@ -1,0 +1,44 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Datapass project manifest (.datapass/project.json)",
+  "$comment": "Written by hand from src/project/projectManifestModel.ts (validateProjectManifest); keep the two in step.",
+  "type": "object",
+  "required": ["schemaVersion", "project"],
+  "properties": {
+    "schemaVersion": { "const": 1, "description": "Always 1." },
+    "project": {
+      "type": "object",
+      "required": ["id", "title"],
+      "properties": {
+        "id": { "type": "string", "minLength": 1, "pattern": "\\S", "description": "Lowercase id of the project, e.g. data-project." },
+        "title": { "type": "string", "minLength": 1, "pattern": "\\S" },
+        "description": { "type": "string" }
+      }
+    },
+    "assets": {
+      "type": "object",
+      "description": "Workspace folders, relative to the workspace root.",
+      "properties": {
+        "datasets": { "type": "string", "default": "datasets" },
+        "lakehouse": { "type": "string", "default": "lakehouse" },
+        "notebooks": { "type": "string", "default": "notebooks" },
+        "dbt": { "type": "string", "default": "dbt" },
+        "pipelines": { "type": "string", "default": "pipelines" },
+        "airflow": { "type": "string", "default": "airflow" },
+        "exercises": { "type": "string", "default": "exercises" }
+      }
+    },
+    "runtime": {
+      "type": "object",
+      "properties": {
+        "storage": { "enum": ["duckdb", "ducklake"], "default": "duckdb", "description": "The local catalog's storage." },
+        "pythonCommand": { "type": "string", "minLength": 1, "pattern": "\\S", "default": "python", "description": "The base Python used by Setup runtime." },
+        "trustedLocalPython": {
+          "type": "boolean",
+          "default": false,
+          "description": "Request trusted local Python/Polars execution. It also needs a per-machine confirmation and VS Code Workspace Trust; it is not a sandbox."
+        }
+      }
+    }
+  }
+}

@@ -21,7 +21,8 @@
     "ms-toolsai.jupyter"
   ],
   "activationEvents": [
-    "onLanguage:sql"
+    "onLanguage:sql",
+    "workspaceContains:.datapass/**"
   ],
   "contributes": {
     "commands": [
@@ -114,6 +115,34 @@
         "command": "datapass.sql.pickDialect",
         "title": "Choose SQL Dialect",
         "category": "Datapass"
+      },
+      {
+        "command": "datapass.runtime.setup",
+        "title": "Datapass: Set Up Runtime"
+      },
+      {
+        "command": "datapass.runtime.start",
+        "title": "Datapass: Start Runtime"
+      },
+      {
+        "command": "datapass.runtime.action",
+        "title": "Datapass: Runtime Action"
+      },
+      {
+        "command": "datapass.practice.runVisible",
+        "title": "Datapass: Run Visible Tests"
+      },
+      {
+        "command": "datapass.practice.submit",
+        "title": "Datapass: Submit Solution"
+      },
+      {
+        "command": "datapass.missions.check",
+        "title": "Datapass: Check Mission"
+      },
+      {
+        "command": "datapass.apilab.run",
+        "title": "Datapass: Run API Lab Ingestion"
       }
     ],
     "viewsContainers": {
@@ -179,6 +208,26 @@
         {
           "command": "datapass.catalog.copyName",
           "when": "false"
+        },
+        {
+          "command": "datapass.runtime.action",
+          "when": "false"
+        },
+        {
+          "command": "datapass.practice.runVisible",
+          "when": "resourceFilename =~ /^solution\\./"
+        },
+        {
+          "command": "datapass.practice.submit",
+          "when": "resourceFilename =~ /^solution\\./"
+        },
+        {
+          "command": "datapass.missions.check",
+          "when": "resourcePath =~ /[\\/]missions[\\/][a-z0-9-]+[\\/]/"
+        },
+        {
+          "command": "datapass.apilab.run",
+          "when": "false"
         }
       ]
     },
@@ -196,7 +245,88 @@
           "markdownDescription": "bash used by the Terminal Lab. Empty: Git Bash next to `git` or in the usual Git for Windows folders on Windows, `/bin/bash` elsewhere. Never `C:\\Windows\\System32\\bash.exe` (WSL)."
         }
       }
-    }
+    },
+    "jsonValidation": [
+      {
+        "fileMatch": "**/.datapass/project.json",
+        "url": "./schemas/project.schema.json"
+      },
+      {
+        "fileMatch": [
+          "**/bi/model.json",
+          "**/samples/bi-lab/model.json"
+        ],
+        "url": "./schemas/bi-model.schema.json"
+      },
+      {
+        "fileMatch": [
+          "**/content/missions/*/*/mission.json",
+          "!**/content/missions/api-v1/*/mission.json"
+        ],
+        "url": "./schemas/mission.schema.json"
+      },
+      {
+        "fileMatch": "**/content/missions/api-v1/*/mission.json",
+        "url": "./schemas/api-mission.schema.json"
+      },
+      {
+        "fileMatch": "**/content/exercise-packs/*/manifest.json",
+        "url": "./schemas/exercise-pack.schema.json"
+      }
+    ],
+    "walkthroughs": [
+      {
+        "id": "getStarted",
+        "title": "Get started with Datapass",
+        "description": "Set up the local runtime, open Today, solve a first Practice problem and do a first mission.",
+        "steps": [
+          {
+            "id": "setupRuntime",
+            "title": "Set up the local runtime",
+            "description": "Datapass runs SQL, grades exercises and checks missions in a local runtime on your machine. The first setup installs DuckDB, Polars and pandas in a managed environment.\n[Set up runtime](command:datapass.runtime.setup)",
+            "media": {
+              "markdown": "media/walkthrough/setup-runtime.md"
+            },
+            "completionEvents": [
+              "onCommand:datapass.runtime.setup"
+            ]
+          },
+          {
+            "id": "openToday",
+            "title": "Open Today",
+            "description": "Today shows your progress in Projects and Practice and the next step to take.\n[Open Today](command:datapass.openHome)",
+            "media": {
+              "markdown": "media/walkthrough/today.md"
+            },
+            "completionEvents": [
+              "onCommand:datapass.openHome"
+            ]
+          },
+          {
+            "id": "firstPractice",
+            "title": "Solve a first Practice problem",
+            "description": "Open a problem, write your solution in the solution file VS Code opens, then use Run visible tests or Submit above it.\n[Open Practice](command:datapass.openPractice)",
+            "media": {
+              "markdown": "media/walkthrough/practice.md"
+            },
+            "completionEvents": [
+              "onCommand:datapass.practice.submit"
+            ]
+          },
+          {
+            "id": "firstMission",
+            "title": "Do a first mission",
+            "description": "Missions are tickets done with real tools: start one in the Terminal Lab, work in its folder with your own commands, then Check mission.\n[Open the Terminal Lab](command:datapass.openTerminalLab)",
+            "media": {
+              "markdown": "media/walkthrough/mission.md"
+            },
+            "completionEvents": [
+              "onCommand:datapass.missions.check"
+            ]
+          }
+        ]
+      }
+    ]
   },
   "scripts": {
     "typecheck": "tsc -p tsconfig.json --noEmit",
@@ -207,7 +337,7 @@
     "test:host": "npm run build && node scripts/extension_host_e2e.mjs",
     "package": "vsce package --skip-license",
     "test:ui": "node scripts/vscode_ui_pass.mjs",
-    "test": "node scripts/scaffold_smoke.mjs && node scripts/runtime_endpoint_smoke.mjs && node scripts/runtime_auth_smoke.mjs && node scripts/package_smoke.mjs && node scripts/runtime_environment_smoke.mjs && node scripts/runtime_fingerprint_smoke.mjs && node scripts/trust_smoke.mjs && node scripts/mosaic_layout_smoke.mjs && node scripts/csv_import_smoke.mjs && node scripts/airflow_lab_smoke.mjs && node scripts/factory_lab_smoke.mjs && node scripts/sqlpool_lab_smoke.mjs && node scripts/databricks_lab_smoke.mjs && node scripts/bi_lab_smoke.mjs && node scripts/catalog_tree_smoke.mjs && node scripts/projects_ui_smoke.mjs && node scripts/exercise_workspace_smoke.mjs && node scripts/practice_progress_smoke.mjs && node scripts/practice_arena_smoke.mjs && node scripts/dbt_lab_smoke.mjs && node scripts/missions_ui_smoke.mjs && node scripts/practice_feedback_smoke.mjs && node scripts/mosaic_tools_smoke.mjs && node scripts/sql_dialect_smoke.mjs && node scripts/terminal_lab_smoke.mjs && node scripts/infra_lab_smoke.mjs && node scripts/message_table_smoke.mjs && node scripts/home_smoke.mjs"
+    "test": "node scripts/scaffold_smoke.mjs && node scripts/runtime_endpoint_smoke.mjs && node scripts/runtime_auth_smoke.mjs && node scripts/package_smoke.mjs && node scripts/runtime_environment_smoke.mjs && node scripts/runtime_fingerprint_smoke.mjs && node scripts/trust_smoke.mjs && node scripts/mosaic_layout_smoke.mjs && node scripts/csv_import_smoke.mjs && node scripts/airflow_lab_smoke.mjs && node scripts/factory_lab_smoke.mjs && node scripts/sqlpool_lab_smoke.mjs && node scripts/databricks_lab_smoke.mjs && node scripts/bi_lab_smoke.mjs && node scripts/catalog_tree_smoke.mjs && node scripts/projects_ui_smoke.mjs && node scripts/exercise_workspace_smoke.mjs && node scripts/practice_progress_smoke.mjs && node scripts/practice_arena_smoke.mjs && node scripts/dbt_lab_smoke.mjs && node scripts/missions_ui_smoke.mjs && node scripts/practice_feedback_smoke.mjs && node scripts/mosaic_tools_smoke.mjs && node scripts/sql_dialect_smoke.mjs && node scripts/terminal_lab_smoke.mjs && node scripts/infra_lab_smoke.mjs && node scripts/message_table_smoke.mjs && node scripts/home_smoke.mjs && node scripts/native_smoke.mjs && node scripts/json_schemas_smoke.mjs"
   },
   "dependencies": {
     "@fluentui/react-components": "^9.68.0",
@@ -224,6 +354,7 @@
     "@types/vscode": "^1.95.0",
     "@vscode/test-electron": "^3.1.0",
     "@vscode/vsce": "^4.0.0",
+    "ajv": "^8.20.0",
     "esbuild": "^0.25.9",
     "playwright-core": "^1.63.0",
     "typescript": "^5.7.2"

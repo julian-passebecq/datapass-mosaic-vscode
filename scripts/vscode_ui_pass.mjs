@@ -6,7 +6,8 @@
 // 2. Workbench: Create .datapass project, Setup runtime (managed venv), Start runtime.
 // 3. The live runtime refuses a raw request without the launch token (401) and a foreign Host (400).
 // 4. Mosaic: the SQL scratch file, Run active SQL, the result row in the webview.
-// 5. Practice: Submit the first exercise's starter; the runtime grades it.
+// 5. Practice: Submit the first exercise's starter; the runtime grades it. The runtime's status bar item and the
+//    CodeLens above the solution file are seen on the way.
 // 5b. Infra Lab: a mission started, its commands typed in the simulated terminal, Check my work passes.
 // 5c. Lakehouse Lab: a mission started, its SQL run on DuckDB from the lab, Check my work passes on the files.
 // 5d. API Lab: a mission started, trusted Python enabled, the reference ingest.py run, Check my work passes.
@@ -335,6 +336,18 @@ try {
     if (Date.now() > starterDeadline) throw new Error("Open solution created no exercises/**/solution.* file.");
     await page.waitForTimeout(500);
   }
+  // VS Code native: the runtime's status bar item, and the CodeLens above the solution file VS Code opened.
+  const statusItem = await page.locator(".statusbar-item", { hasText: "Datapass: running" }).first()
+    .waitFor({ timeout: 30000 }).then(() => true, () => false);
+  step("Status bar shows the running Datapass runtime", statusItem);
+  const lenses = await page.locator(".contentWidgets .codelens-decoration, .codelens-decoration").allInnerTexts().catch(() => []);
+  const lensDeadline = Date.now() + 30000;
+  let lensText = lenses.join(" ");
+  while (!/Run visible tests[\s\S]*Submit/.test(lensText) && Date.now() < lensDeadline) {
+    await page.waitForTimeout(500);
+    lensText = (await page.locator(".codelens-decoration").allInnerTexts().catch(() => [])).join(" ");
+  }
+  step("CodeLens Run visible tests / Submit above the solution file", /Run visible tests[\s\S]*Submit/.test(lensText), lensText.slice(0, 120));
   await command("Datapass: Open Practice");
   await button("Submit").first().click();
   const graded = await web().locator(".practice-result").first().innerText({ timeout: 90000 }).catch(() => "");
