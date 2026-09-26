@@ -224,6 +224,15 @@ def state_view(folder: Path) -> dict[str, Any]:
                                              if rollouts else None)})
     services = [{'name': o['name'], 'namespace': o['namespace'], 'endpoints': len(kube.endpoints(world, o))}
                 for o in kube_world['objects'].values() if o['kind'] == 'Service']
+    ingresses = [{'name': i['name'], 'namespace': i['namespace'], 'address': ingress.address(world, i),
+                  'hosts': [r.get('host') or '*' for r in i['spec'].get('rules') or []]} for i in ingress.ingresses(world)]
+    hpas = []
+    for h in autoscale.hpas(world):
+        status = autoscale.status(world, h)
+        low, high = autoscale.bounds(h)
+        hpas.append({'name': h['name'], 'namespace': h['namespace'], 'target': h['spec']['scaleTargetRef']['name'],
+                     'min': low, 'max': high, 'replicas': status['replicas'], 'current': status['current'],
+                     'goal': status['target']})
     journal = worldlib.read_journal(folder)
     return {
         'clock': world['clock'],
@@ -240,8 +249,12 @@ def state_view(folder: Path) -> dict[str, Any]:
         'docker': {'images': [{'tags': i['tags'], 'size_mb': i['size_mb'], 'user': i['config'].get('user')}
                               for i in world['docker']['images'].values()],
                    'containers': [{'name': c['name'], 'image': c['image'], 'status': c['status'], 'health': c['health'],
-                                   'ports': c['ports']} for c in world['docker']['containers'].values()]},
-        'kube': {'nodes': len(kube_world['nodes']), 'deployments': deployments, 'services': services},
+                                   'ports': c['ports']} for c in world['docker']['containers'].values()],
+                   'volumes': sorted(world['docker'].get('volumes', {})),
+                   'networks': [{'name': n, 'internal': bool(v.get('internal'))}
+                                for n, v in sorted(world['docker'].get('networks', {}).items())]},
+        'kube': {'nodes': len(kube_world['nodes']), 'deployments': deployments, 'services': services,
+                 'ingresses': ingresses, 'hpas': hpas},
         'journal': [{'n': e.get('n'), 'line': e.get('line'), 'exit_code': e.get('exit_code'), 'at': e.get('at')}
                     for e in journal[-12:]],
     }

@@ -2336,6 +2336,7 @@ Main commands:
   destroy       Destroy previously-created infrastructure
 
 Other commands:
+  fmt           Check the layout of the files: -check, -diff, -recursive (the lab never rewrites them)
   import        Associate existing infrastructure with a Terraform resource
   output        Show output values from your root module
   show          Show the current state

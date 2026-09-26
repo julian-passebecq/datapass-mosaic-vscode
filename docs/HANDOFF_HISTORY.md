@@ -9,6 +9,42 @@ Add a tranche as a new `## YYYY-MM-DD · Title` section at the top, under this p
 sections, and refer to another section by its heading, not by a position. Keep the "Checked" and "Not checked"
 notes: they say what was really run.
 
+## 2026-09-26 · Infra Lab depth: Terraform modules and fmt, Ingress and HPA, compose volumes and networks
+
+Package D of `handoff/PLAN.md`. Each simulator gets a second mission, and the simulators grow what those missions need.
+Everything stays simulated: no real terraform, docker, kubectl or az, files read and never executed or rewritten.
+
+- Terraform (`terraform.py`, new `tffmt.py`): local `module` blocks (source inside the folder, inputs checked against
+  the child's variables, outputs as `module.<call>.<output>`, nested calls, `depends_on`), flattened into one graph
+  with per-module scopes; addresses and `terraform.tfstate` carry `module.<call>.` as Terraform writes them; `init`
+  installs modules ("Module not installed" / "Module source has changed" until it runs again). `terraform fmt -check
+  | -diff | -recursive | -list=false` follows hclwrite's rules for a documented subset (indentation, `=` and comment
+  alignment, spacing, block headers); plain `fmt` lists the files and rewrites nothing. Mission *One data lake
+  module, two teams* (`datalake-module`): finish a module, call it twice, pass `fmt -check -recursive`; six mutants
+  (copy-paste, hard-coded global name, `count` instead of `for_each`, missing tag merge, registry source,
+  unformatted).
+- Kubernetes (`kube.py`, new `ingress.py`, `autoscale.py`): Ingress and HPA validated strictly with the API server's
+  messages; `apply` reports an invalid object and applies the others; namespaces: `create namespace`, `-A`,
+  namespace-aware `describe`/`logs`/`delete`, a deleted namespace takes its objects. `curl http://<host>/<path>`
+  goes through the mission's ingress controller (class, host, `Exact`/`Prefix`, longest match, Service port by
+  number or name). `lab load replay` plays a recorded CPU curve against the HPA in 15-second syncs (tolerance,
+  default behaviours, stabilization, min/max, scheduling by requests, overload above the CPU limit). Mission *Get
+  orders-api through Black Friday* (`black-friday-autoscale`); nine mutants.
+- Compose (`docker.py`): top-level `networks` (`internal`) and `volumes`, per-service `networks` and `volumes`
+  (short and long syntax), names resolved per shared network, no reachable port for an internal-only container,
+  database rows kept in a named volume or bind mount (else in the anonymous volume that `down` throws away),
+  `down -v`, `docker volume` / `docker network`. Mission *Stop losing the dev database* (`compose-keep-the-data`);
+  eight mutants.
+- Monitoring: a second mission on the existing engine, *Catch the ETL VM before it runs out of memory*
+  (`etl-vm-memory-leak`): fix an existing rule (same name), add an availability alert; eight command mutants.
+- Checks (`runtime/missionlab`): `tf_state.outputs`, `tf_config.modules | root_resources | formatted`,
+  `docker_container.networks | not_networks | internal | published | volume_at | data_rows`, new `k8s_ingress` and
+  `k8s_hpa`. The Infra Lab panel lists volumes, networks, ingresses and HPAs.
+
+Checked: `infra_missions_smoke.py` (8 references pass; untouched fixtures, 6 starters and 54 mutants fail),
+`runtime_smoke.py`, `npm run compile`, `npm test`, a new mission played in the simulated terminal of a real VS Code.
+Not checked: real Terraform's `fmt` output on the same files (the rules come from hclwrite's source; the shipped
+`.tf` files were written to pass both).
 ## 2026-09-26 · Faster CI and debt cleanup (D-3, D-4, D-7)
 
 - CI: uv with a cached download store replaces pip; the extension job builds once (`npm run package` runs

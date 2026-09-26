@@ -13,6 +13,8 @@ export interface InfraWorldView {
   docker: {
     images: readonly { tags: readonly string[]; size_mb: number; user?: string }[];
     containers: readonly { name: string; image: string; status: string; health?: string | null; ports: readonly (readonly number[])[] }[];
+    volumes?: readonly string[];
+    networks?: readonly { name: string; internal: boolean }[];
   };
   kube: {
     nodes: number;
@@ -21,6 +23,8 @@ export interface InfraWorldView {
       last_rollout?: { revision: number; complete: boolean; min_available?: number | null; to_image?: string } | null;
     }[];
     services: readonly { name: string; namespace: string; endpoints: number }[];
+    ingresses?: readonly { name: string; namespace: string; hosts: readonly string[]; address: string }[];
+    hpas?: readonly { name: string; namespace: string; target: string; min: number; max: number; replicas: number; current: number | null; goal: number | null }[];
   };
   journal: readonly { n?: number; line: string; exit_code: number; at?: string }[];
 }

@@ -134,17 +134,19 @@ kinds that need the catalog, dbt or Git are refused in this lab; `path`, `text`,
 
 | Kind | Looks at |
 | --- | --- |
-| `tf_state` | `terraform.tfstate`: addresses present or absent, attribute values, the instance keys of a count / for_each resource. |
+| `tf_state` | `terraform.tfstate`: addresses present or absent (module addresses included), attribute values, the instance keys of a count / for_each resource, root outputs and their values. |
 | `tf_plan` | A fresh simulated plan of the files as they are now (with the -var options of the last successful apply): it succeeds, and shows no changes. |
-| `tf_config` | The `.tf` files: a resource and its for_each / count / prevent_destroy, the names its arguments refer to (through locals), variables (type, validation, default), outputs. |
+| `tf_config` | The `.tf` files: a resource and its for_each / count / prevent_destroy, the names its arguments refer to (through locals), variables (type, validation, default), outputs, module calls (source, inputs set), whether the root module declares resources itself, and whether every `.tf` file passes `terraform fmt -check -recursive`. |
 | `azure_resource` | A resource of the simulated subscription: exists or not, created by Terraform or in the portal (an imported resource keeps its portal origin; a recreated one does not), attribute values, a count. |
 | `journal` | The shell's journal: commands run (regular expressions), commands ruled out, an order between two commands. |
 | `docker_image` | An image: built from the current Dockerfile, its base, non-root, size, lint findings it must not have, a HEALTHCHECK. |
 | `docker_build` | The build simulated again: steps that stay CACHED after a pretend change to given files, paths `.dockerignore` keeps out of the context. |
-| `docker_container` | A container by name or compose service: running, health, answering through a published port, waiting for dependencies to be healthy. |
+| `docker_container` | A container by name or compose service: running, health, answering through a published port, waiting for dependencies to be healthy, the compose networks it is (not) on, internal only, publishing a reachable port, a named volume at a path, the rows its database holds. |
 | `azure_alert` | A metric alert rule on a resource and metric (any name): enabled, severity, action group, and replayed over the scenario: fires inside given windows, silent inside others. |
 | `k8s_deployment` | A Deployment: image, ready pods, readiness probe, strategy, no crashing pod, and its last rollout: complete, target image, the fewest pods that really answered traffic. |
 | `k8s_service` | A Service: its endpoints, and whether traffic reaches the port the app listens on. |
+| `k8s_ingress` | An Ingress: its class is served, and GET http://host/path is routed by it to a given Service and answered with a given status. |
+| `k8s_hpa` | The HorizontalPodAutoscaler of a Deployment: min / max replicas and CPU target within ranges, able to compute a replica count, and the last `lab load replay` (made after the last change): overloaded minutes, peak and final replicas. |
 
 `scripts/infra_missions_smoke.py` plays every reference through the API: the references pass; the untouched fixture,
 the starter project played with the reference commands, and every mutant fail; two builds of a fixture give the same
