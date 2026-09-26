@@ -37,10 +37,13 @@ Concepts, labelled "not handled here".
 - SparkLab is not an engine here: its interpreter works on catalog tables, and these missions are about files.
 
 Checked: `npm run compile`, `npm test`, compileall, `runtime_smoke.py`, `projects_smoke.py`,
-`infra_missions_smoke.py`, `terminal_missions_smoke.py`, `exercise_packs_smoke.py`, `lakehouse_smoke.py` (30 plays:
-8 references on DuckDB and Polars pass, 6 untouched starters and 22 mutants fail, the Run bounds refuse INSTALL,
-ATTACH, SET, LOAD and a file outside the folder; about 5 min on Windows), `npm run package && npm run test:ui` with a
-Lakehouse step (mission started, SQL run from the lab, Check my work passes) in a real VS Code.
+`infra_missions_smoke.py`, `terminal_missions_smoke.py`, `exercise_packs_smoke.py` (601 / 601 / 569),
+`lakehouse_smoke.py` (34 plays: 9 references on DuckDB and Polars pass, 7 untouched starters and 25 mutants fail, the
+Run bounds refuse INSTALL, ATTACH, SET, LOAD and a file outside the folder; about 5 min on Windows), and
+`npm run package && npm run test:ui` in a real VS Code: the Lakehouse steps pass (mission started, SQL run from the
+lab, Check my work passes; the tab's layout at 478 px). That local UI run was before the rebase on the families
+navigation and before the Delta mission; one unrelated step ("BI Lab builds its warehouse", a notification wait)
+failed there under load.
 
 Not checked: `npm run test:host` and `missions_smoke.py` locally (CI runs them; the new host test builds, runs and
 checks `partition-sales`); the Polars Run button by hand in VS Code (the smoke runs every Polars reference through
