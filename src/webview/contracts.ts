@@ -178,7 +178,8 @@ export interface PipelineRunView {
 }
 
 export interface RuntimeEnvironmentView {
-  status: "missing" | "setting-up" | "ready" | "error";
+  /** "stale": the managed venv holds the runtime of another extension build; Update runtime reinstalls it. */
+  status: "missing" | "setting-up" | "ready" | "stale" | "error";
   python?: string;
   detail?: string;
   /** Present while status is "setting-up". */
@@ -1254,6 +1255,7 @@ export type WebviewToHostMessage =
   | { type: "revealHint"; exerciseKey: string }
   | { type: "showSolution"; exerciseKey: string }
   | { type: "compareSolution"; exerciseKey: string }
+  | { type: "saveInterview"; interview: unknown }
   | { type: "openPipelineSource" }
   | { type: "refreshPipeline" }
   | { type: "runPipeline" }

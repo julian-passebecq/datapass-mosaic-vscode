@@ -10,6 +10,9 @@
 // 6. Layout: every module tab, and every lab sub-tab, at a narrow Workbench width. No element may stick out of the
 //    webview (the PR #17 class of bug); a screenshot of each lands in the output folder.
 // 7. Stop runtime.
+// 8. Upgrade: the managed venv is made to look like an older VSIX set it up (another runtime fingerprint in its
+//    marker, a changed installed module); after a window reload the Workbench must report it stale ("needs update",
+//    no Start runtime), Update runtime must reinstall this VSIX's runtime, and the runtime must start again.
 //
 // Environment:
 //   DATAPASS_UI_VSIX       the VSIX to install (default: the newest *.vsix in the repository root)
@@ -19,13 +22,13 @@
 //   DATAPASS_UI_PYTHON     base Python for Setup runtime, written to the manifest's runtime.pythonCommand
 //                          (default: the manifest's own default, `python` on PATH)
 //   VSCODE_TEST_VERSION    VS Code build to download (default stable); DATAPASS_UI_CODE uses an installed Code instead
-//   DATAPASS_UI_KEEP=1     keep the profile, so a rerun skips Setup runtime. The kept managed venv still holds the
-//                          runtime of the VSIX that set it up: after a runtime change, run without it.
+//   DATAPASS_UI_KEEP=1     keep the profile, so a rerun skips Setup runtime. When the VSIX's runtime changed since
+//                          the kept venv was set up, the pass clicks Update runtime instead (the stale-runtime path).
 //
 // On Linux run under a virtual display with a real screen size:
 //   xvfb-run -a --server-args="-screen 0 1600x1000x24" npm run test:ui
 import { spawnSync } from "node:child_process";
-import { existsSync, mkdirSync, readdirSync, readFileSync, rmSync, statSync, writeFileSync } from "node:fs";
+import { appendFileSync, existsSync, mkdirSync, readdirSync, readFileSync, rmSync, statSync, writeFileSync } from "node:fs";
 import http from "node:http";
 import { tmpdir } from "node:os";
 import path from "node:path";
@@ -39,6 +42,9 @@ const out = path.resolve(process.env.DATAPASS_UI_OUT || path.join(repo, "test-re
 const workspace = path.join(root, "ws");
 const extensionsDir = path.join(root, "x");
 const userDataDir = path.join(root, "u");
+// Setup runtime's managed venv, in the extension's global storage, and the marker naming the runtime it installed.
+const venvRoot = path.join(userDataDir, "User", "globalStorage", "datapass.datapass-mosaic-vscode", "runtime-venv");
+const markerFile = path.join(venvRoot, "datapass-runtime.json");
 // Workbench width for the layout pass: about a third of a laptop screen, where PR #17's overflow showed.
 const NARROW_WIDTH = 520;
 
@@ -232,6 +238,14 @@ function runtimePort() {
   return { text, port: [...text.matchAll(/Uvicorn running on http:\/\/127\.0\.0\.1:(\d+)/g)].at(-1)?.[1] };
 }
 
+/** The runtime package's __init__.py as installed in the managed venv (Lib/ on Windows, lib/pythonX.Y/ elsewhere). */
+function installedRuntimeInit() {
+  const sitePackages = [path.join(venvRoot, "Lib", "site-packages")];
+  const lib = path.join(venvRoot, "lib");
+  for (const name of existsSync(lib) ? readdirSync(lib) : []) sitePackages.push(path.join(lib, name, "site-packages"));
+  return sitePackages.map(dir => path.join(dir, "datapass_runtime", "__init__.py")).find(file => existsSync(file));
+}
+
 function rawStatus(port, headers) {
   return new Promise(resolve => {
     const request = http.get({ host: "127.0.0.1", port, path: "/api/health", headers, timeout: 10000 }, response => {
@@ -268,6 +282,12 @@ try {
     await button("Setup runtime").click();
     await button("Start runtime").waitFor({ timeout: 1200000 });
     step("Setup runtime (managed venv)", true, `${Math.round((Date.now() - started) / 1000)} s`);
+  } else if (await button("Update runtime").count()) {
+    // DATAPASS_UI_KEEP=1 with a VSIX whose runtime changed since the kept venv was set up.
+    const started = Date.now();
+    await button("Update runtime").click();
+    await button("Start runtime").waitFor({ timeout: 1200000 });
+    step("Update runtime (kept venv of another build)", true, `${Math.round((Date.now() - started) / 1000)} s`);
   }
   await button("Start runtime").click();
   await button("Stop runtime").waitFor({ timeout: 180000 });
@@ -356,6 +376,39 @@ try {
     }
     step("Runtime port closed after Stop", typeof after === "string", String(after));
   }
+
+  // --- Upgrade over an existing managed venv ---------------------------------------------------------------------
+  // What a newer VSIX finds: the venv an older one set up, with that build's marker and that build's installed code.
+  const installed = JSON.parse(readFileSync(markerFile, "utf8"));
+  step("Setup recorded this VSIX's runtime fingerprint in the managed venv",
+    /^sha256:[0-9a-f]{64}$/.test(installed.fingerprint ?? ""), String(installed.fingerprint));
+  writeFileSync(markerFile, JSON.stringify({ ...installed, fingerprint: `sha256:${"0".repeat(64)}`, extensionVersion: "0.0.1-older" }));
+  const initFile = installedRuntimeInit();
+  if (!initFile) throw new Error(`No installed datapass_runtime/__init__.py under ${venvRoot}.`);
+  appendFileSync(initFile, "\nINSTALLED_BY_AN_OLDER_VSIX = True\n");
+  await command("Developer: Reload Window");
+  await page.waitForSelector(".monaco-workbench", { timeout: 180000 });
+  await page.waitForTimeout(1500);
+  await openWorkbench();
+  const stale = await waitForText(/needs update[\s\S]*installed by Datapass 0\.0\.1-older/, 30000);
+  const offersUpdate = await button("Update runtime").count() > 0;
+  const offersStart = await button("Start runtime").count() > 0;
+  step("Stale managed runtime reported after an upgrade (Update runtime, no Start runtime)",
+    Boolean(stale) && offersUpdate && !offersStart, `stale text ${Boolean(stale)}, update ${offersUpdate}, start ${offersStart}`);
+  await shot("runtime-stale");
+  const updateStarted = Date.now();
+  await button("Update runtime").click();
+  await button("Start runtime").waitFor({ timeout: 1200000 });
+  const updated = JSON.parse(readFileSync(markerFile, "utf8"));
+  const reinstalled = !readFileSync(initFile, "utf8").includes("INSTALLED_BY_AN_OLDER_VSIX");
+  step("Update runtime reinstalled this VSIX's runtime into the existing venv",
+    updated.fingerprint === installed.fingerprint && reinstalled,
+    `${Math.round((Date.now() - updateStarted) / 1000)} s; marker ${updated.fingerprint === installed.fingerprint ? "matches" : "differs"}; installed module ${reinstalled ? "replaced" : "still the old one"}`);
+  await button("Start runtime").click();
+  await button("Stop runtime").waitFor({ timeout: 180000 });
+  step("Start runtime after the update", true);
+  await button("Stop runtime").click();
+  await button("Start runtime").waitFor({ timeout: 60000 });
 } catch (error) {
   step("UI pass", false, String(error?.message ?? error).split("\n")[0].slice(0, 400));
   await shot("error");

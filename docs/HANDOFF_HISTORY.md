@@ -9,6 +9,79 @@ Add a tranche as a new `## YYYY-MM-DD · Title` section at the top, under this p
 sections, and refer to another section by its heading, not by a position. Keep the "Checked" and "Not checked"
 notes: they say what was really run.
 
+## 2026-09-26 · Practice arena: problems, spaced review, interview mode (roadmap V2-1)
+
+Three PRs, each merged on green CI.
+
+- **#44 One card per problem.** `src/platform/practiceProblems.ts` groups the catalog by `<pack>/<problem>` (the
+  semantic id of `<scenario>-<language>` variants): 268 problems for 585 variants. `PracticeProblemCard.tsx` shows the
+  prompt once and a language switch (SQL, Snowflake, T-SQL, BigQuery, Python, Polars, PySpark, dbt) with ✓ / • per
+  language. The card remembers its language, and the last language picked becomes the default elsewhere. A project
+  step opening an exercise selects its language. Progress stays per variant; the card summarizes it ("solved in 2 of
+  6"). The language filter keeps problems offered in it, and the status filter then reads that variant.
+- **#48 Spaced review** (the user chose Leitner boxes). `src/platform/practiceReview.ts`:
+  `review: { box, due }` in the variant's record. A passed Submit on a due or never-reviewed variant climbs one box
+  (1, 3, 7, 14, 30, 60 days); a failed or erroring Submit goes back to box 1 (tomorrow); a pass before the due day
+  and Run visible change nothing. Older records are due the day after their last activity. Practice › Review lists
+  due problems, most overdue first, then the weakest box, and keeps a reviewed card on screen.
+- **This PR: interview mode.** `src/platform/practiceInterview.ts` and `PracticeInterview.tsx`.
+  - Formats (the user asked for both): **Mixed interview**, which cycles SQL, Python and PySpark, and **One
+    language**, with an optional pattern.
+  - Each problem gets a pattern family from its topics (window functions, time series, deduplication, joins,
+    aggregation, nulls and quality, strings, filtering and logic). The draw avoids repeating a family while it can,
+    and draws only locally graded problems.
+  - Options: count (1–8), difficulty, and a time limit (default 15 minutes a problem). The timer runs into overtime
+    (the user's choice).
+  - The cards drop hints, reference solutions and topics (they name the pattern), and the language is locked.
+  - Submits are normal gradings: they solve the variant and move its review (the user's choice). The series is
+    followed through the variants' progress records.
+  - **Finish** shows the summary (score, time, overtime, the pattern and result of each problem). The host validates
+    it and appends it to `practice.interviews` (last 20). Past interviews are listed under the setup.
+  - The Practice modes are a `lab-subtabs` TabList, so `npm run test:ui` checks their layout.
+
+Checked:
+- `npm run compile`, `npm test`. The new `practice_arena_smoke.mjs` runs over the shipped packs and covers:
+  - grouping: every scenario is one card;
+  - the whole Leitner climb, with month and year boundaries, failures and same-day passes;
+  - 40 seeded mixed draws: SQL/Python/PySpark on three different patterns;
+  - fixed draws with difficulty and pattern filters;
+  - tracking, the summary, and parsing and trimming of the history.
+- The runtime gates, `exercise_packs_smoke.py`, `projects_smoke.py`, `npm run test:host`.
+- The packaged VSIX in real VS Code, driven by Playwright `_electron.launch` with a fresh profile under `C:\dpa`:
+  - zilla-001 as one card with six languages; the Snowflake starter failed, then the reference passed ("solved in 1
+    of 6", only the Snowflake record written);
+  - with `progress.json` aged, Review showed the card due on SQL and Snowflake; a Snowflake pass moved it from box 2
+    to box 3 (due in 7 days);
+  - a 1-minute mixed interview (eng-cross-merge SQL, zilla-024 Python, zilla-001 PySpark): languages locked, no
+    hints or topics; SQL solved at 0:09, the PySpark starter failed; overtime shown in red; the summary was saved in
+    `progress.json` and listed under Past interviews.
+  - Screenshots reviewed.
+
+Not checked: an interview kept across a VS Code window reload (the series lives in the webview state, which
+survives hiding the Workbench, not a restart).
+
+## 2026-09-26 · Stale managed runtime after an extension update
+
+Bug found by the packaged-VSIX UI pass (roadmap T-3): installing a newer VSIX over a profile kept the managed venv's
+runtime package from the OLD VSIX, and `RuntimeManager` called the environment "ready" as soon as the venv's Python
+existed. The kernel worker imports the installed package, so a Practice Submit got 400 from the old runtime.
+
+- `src/platform/runtimeFingerprint.ts`: a `sha256:` content hash of the bundled `runtime/` sources (path + content of
+  every file; bytecode, `build/`, `dist/`, `*.egg-info` and hidden folders ignored, like `.vscodeignore`), the
+  `datapass-runtime.json` marker in the venv (fingerprint, extension version, time), and the missing / ready / stale
+  decision. A venv without a marker (set up before this change) is stale. The runtime keeps version 0.1.0, so the
+  version is shown in messages only.
+- `RuntimeManager`: the environment is `stale` when the marker differs; Setup fingerprints the sources before the
+  install, removes the marker before installing and writes it after the verify step (a half-installed venv never
+  looks current). The same Setup path updates an existing venv ("Datapass runtime update" notification, same step
+  progress; uv `--reinstall-package`, pip reinstalls a local directory). `start()` re-checks and updates a stale venv
+  before starting; it never runs the old install. Unmanaged interpreters (no managed venv) are not checked.
+- Workbench: Environment "needs update", the reason in the Local runtime card, **Update runtime** in the top bar
+  instead of **Start runtime**.
+- Tests: `scripts/runtime_fingerprint_smoke.mjs` (in `npm test`); a host E2E step for the missing / stale / ready
+  decision; the UI pass's new upgrade step (tampered marker and installed module, window reload, Update runtime,
+  start), and `DATAPASS_UI_KEEP=1` now takes the Update runtime path instead of failing.
+
 ## 2026-09-26 · Short handoff: current state split from the history (roadmap T-5)
 
 `docs/CLAUDE_HANDOFF_2026-09-24.md` (1,300 lines) was split:

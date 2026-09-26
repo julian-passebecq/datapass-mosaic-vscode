@@ -1,6 +1,7 @@
 import { Badge, Button, Card, Text } from "@fluentui/react-components";
 import { practiceStatus, type PracticeProgress } from "../platform/practiceProgress";
 import { languageLabel, problemSummary, type PracticeProblem } from "../platform/practiceProblems";
+import { localDay, reviewLabel } from "../platform/practiceReview";
 import type { ExerciseSummary, RuntimeViewState } from "./contracts";
 import { HintsBlock, RowDiffView, SolutionBlock } from "./PracticeFeedback";
 import type { VsCodeApi } from "./WorkbenchApp";
@@ -22,7 +23,9 @@ export function PracticeProblemCard({
   progress,
   runtime,
   solution,
-  onLanguage
+  onLanguage,
+  badge,
+  interview = false
 }: {
   vscode: VsCodeApi;
   problem: PracticeProblem;
@@ -32,6 +35,10 @@ export function PracticeProblemCard({
   /** The reference solution the learner revealed for this variant. */
   solution?: string;
   onLanguage: (language: string) => void;
+  /** A mode's label on the card, for example "Review due". */
+  badge?: string;
+  /** Interview mode: no hints, no reference solution, no topics (they name the pattern), and the language is fixed. */
+  interview?: boolean;
 }) {
   const runtimeReady = runtime.status === "running";
   const result = runtime.practiceResult?.exerciseKey === variant.key ? runtime.practiceResult : undefined;
@@ -39,13 +46,19 @@ export function PracticeProblemCard({
   const status = practiceStatus(record);
   const summary = problemSummary(problem, progress);
   const multi = problem.variants.length > 1;
+  const statusLine = multi && status !== "not-started"
+    ? `${languageLabel(variant.language)}: ${status === "solved" ? "solved" : record?.attempts
+      ? `${record.attempts} ${record.attempts === 1 ? "run" : "runs"}, not solved yet` : "opened"}`
+    : undefined;
+  const review = reviewLabel(record, localDay(new Date()));
 
   return (
     <Card className="practice-item" data-problem={problem.key}>
       <div className="practice-meta">
+        {badge && <Badge appearance="filled" color="brand">{badge}</Badge>}
         <Badge appearance="tint">{problem.difficulty}</Badge>
         <span className="muted">{problem.packTitle} · v{variant.version}</span>
-        {summary.status !== "not-started" && (
+        {!interview && summary.status !== "not-started" && (
           <Badge appearance={summary.status === "solved" ? "filled" : "outline"}
             color={summary.status === "solved" ? "success" : "warning"}>
             {summary.status === "solved"
@@ -58,7 +71,7 @@ export function PracticeProblemCard({
       <p className="practice-prompt">{problem.prompt}</p>
 
       <div className="practice-languages" role="radiogroup" aria-label={`Language for ${problem.title}`}>
-        {problem.variants.map(item => {
+        {(interview ? [variant] : problem.variants).map(item => {
           const itemStatus = practiceStatus(progress.exercises[item.key]);
           const selected = item.key === variant.key;
           return (
@@ -69,6 +82,7 @@ export function PracticeProblemCard({
               aria-checked={selected}
               className={`practice-language${selected ? " selected" : ""} ${itemStatus}`}
               title={`${languageLabel(item.language)}: ${itemStatus === "not-started" ? "not started" : itemStatus}`}
+              disabled={interview}
               onClick={() => onLanguage(item.language)}
             >
               {languageLabel(item.language)}
@@ -76,12 +90,8 @@ export function PracticeProblemCard({
             </button>
           );
         })}
-        {multi && status !== "not-started" && (
-          <small className="muted">
-            {languageLabel(variant.language)}: {status === "solved" ? "solved" : record?.attempts
-              ? `${record.attempts} ${record.attempts === 1 ? "run" : "runs"}, not solved yet`
-              : "opened"}
-          </small>
+        {!interview && (statusLine || review) && (
+          <small className="muted">{[statusLine, review].filter(Boolean).join(" · ")}</small>
         )}
       </div>
 
@@ -141,12 +151,12 @@ export function PracticeProblemCard({
         </div>
       )}
 
-      <HintsBlock exercise={variant} record={record} vscode={vscode} />
-      <SolutionBlock exercise={variant} record={record} code={solution} vscode={vscode} />
+      {!interview && <HintsBlock exercise={variant} record={record} vscode={vscode} />}
+      {!interview && <SolutionBlock exercise={variant} record={record} code={solution} vscode={vscode} />}
 
       <div className="practice-footer">
         <div className="practice-topics">
-          {problem.topics.slice(0, 4).map(topic => <span key={topic}>{topic}</span>)}
+          {!interview && problem.topics.slice(0, 4).map(topic => <span key={topic}>{topic}</span>)}
         </div>
         <div className="button-row">
           <Button appearance="secondary" size="small"

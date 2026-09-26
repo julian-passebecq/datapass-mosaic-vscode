@@ -320,6 +320,29 @@ The smoke refuses unknown keys, a `quality.json` whose pack is not installed and
   (`solution`, or `solutions[language]` in a scenario pack) with `explanation`, after a pass or three failed gradings.
   `scripts/practice_feedback_smoke.mjs` fails when an exercise offers a solution its pack does not ship.
 
+## Problems, languages and spaced review in Practice
+
+- Practice shows one card per problem. Exercises whose keys share `<pack>/<problem>` are one problem: the variants of
+  a scenario pack (`<scenario>-<language>`, grouped by `semantic.id`) and, in a plain pack, exercises that share an
+  `id` across languages. Languages are ordered SQL, Snowflake, T-SQL, BigQuery, Python, Polars, PySpark, dbt
+  (`src/platform/practiceProblems.ts`). Give every variant of a scenario the same title and prompt: the card shows
+  them once.
+- Progress stays per language variant in `.datapass/progress.json` (`practice.exercises["<pack>/<problem>/<language>"]`).
+- Spaced review is a Leitner schedule per variant (`src/platform/practiceReview.ts`), stored as
+  `review: { "box": 1-6, "due": "YYYY-MM-DD" }` in the variant's record:
+  - a passed Submit on a variant that is due, or never reviewed, moves it up one box; it is due again after 1, 3, 7,
+    14, 30 or 60 days (box 1 to 6, box 6 stays at 60);
+  - a Submit that fails or errors sends it back to box 1, due the next day;
+  - a passed Submit before the due day changes nothing, and Run visible never moves a box;
+  - a variant opened or graded before the schedule existed is due the day after its last activity.
+  Days are the learner's local calendar days. Practice › Review lists the problems due today, most overdue first.
+- Interview mode (`src/platform/practiceInterview.ts`) draws a series by pattern family: the first family, in
+  `PATTERN_FAMILIES` order, that one of the problem's `topics` belongs to (window functions, time series,
+  deduplication, joins, aggregation, nulls and quality, strings, filtering and logic). Tag problems with those topic
+  names (for example `window-functions`, `gaps-and-islands`, `deduplication`, `left-join`, `group-by`, `nulls`) so
+  they reach mixed interviews; a problem without a family is drawn only when nothing else fits. Interview cards hide
+  hints, reference solutions and topics.
+
 ## Editor support (tab labels and Pylance)
 
 Opening an exercise (src/exerciseWorkspace.ts) also prepares the learner's VS Code, never the grading:

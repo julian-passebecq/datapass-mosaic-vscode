@@ -1596,3 +1596,129 @@ h2 { margin-bottom: 8px; font-size: 28px; }
 .practice-languages small {
   margin-left: 6px;
 }
+
+.practice-modes {
+  margin-bottom: 10px;
+}
+.practice-review-rule {
+  margin: 0 0 10px;
+  font-size: 12px;
+  line-height: 1.5;
+}
+
+.interview {
+  display: grid;
+  gap: 12px;
+}
+.interview-setup,
+.interview-summary,
+.interview-history {
+  display: grid;
+  gap: 8px;
+  padding: 12px;
+  border: 1px solid var(--vscode-panel-border);
+  border-radius: 6px;
+}
+.interview-setup p {
+  margin: 0;
+  font-size: 12px;
+  line-height: 1.5;
+}
+.interview-format {
+  display: grid;
+  gap: 6px;
+}
+.interview-format label {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  cursor: pointer;
+}
+.interview-format label span {
+  display: grid;
+  gap: 2px;
+  font-size: 12px;
+}
+.interview-options {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.interview-limit {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+}
+.interview-limit input {
+  width: 64px;
+}
+.interview-bar {
+  position: sticky;
+  top: 0;
+  z-index: 2;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 8px 16px;
+  padding: 8px 12px;
+  border: 1px solid var(--vscode-panel-border);
+  border-radius: 6px;
+  background: var(--vscode-editorWidget-background);
+}
+.interview-bar strong,
+.interview-bar small {
+  display: block;
+}
+.interview-clock {
+  font-family: var(--vscode-editor-font-family);
+  font-size: 18px;
+  font-variant-numeric: tabular-nums;
+  font-weight: 600;
+}
+.interview-bar.overtime {
+  border-color: var(--vscode-editorError-foreground);
+}
+.interview-bar.overtime .interview-clock {
+  color: var(--vscode-editorError-foreground);
+}
+.interview-summary-head {
+  display: flex;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: 6px 14px;
+}
+.interview-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 12px;
+}
+.interview-table th,
+.interview-table td {
+  padding: 5px 8px;
+  border-bottom: 1px solid var(--vscode-panel-border);
+  text-align: left;
+  vertical-align: top;
+}
+.interview-table th {
+  color: var(--vscode-descriptionForeground);
+  font-weight: 600;
+}
+.interview-history ul {
+  display: grid;
+  gap: 4px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  font-size: 12px;
+}
+.interview-history li {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 14px;
+}
+.practice-language:disabled {
+  cursor: default;
+}
