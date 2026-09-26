@@ -16,8 +16,11 @@ Last updated: 2026-09-26.
 - One branch per tranche from an up-to-date `main`, one pull request, merged on green CI. Several Claude sessions
   often work in parallel worktrees: keep changes inside the files your item owns (a lab's host code is in
   `src/labs/<lab>/` and its contract in `src/webview/contracts/<lab>.ts`).
-- CI (`.github/workflows/ci.yml`) has four jobs: `extension` (compile, Node smokes, package), `runtime` (install,
-  compileall, Pylance stubs check, runtime / exercise packs / missions / projects / terminal missions smokes),
+- A new push to a pull request cancels its previous CI run (`concurrency`); pip downloads are cached by `setup-uv`.
+- CI (`.github/workflows/ci.yml`) has four jobs: `extension` (one build through `npm run package`, then the Node
+  smokes), `runtime` (uv install, compileall, Pylance stubs check, runtime / exercise packs / projects / terminal /
+  infra missions smokes, with the dbt missions smoke running in the background meanwhile; packs are graded in parallel
+  processes),
   `extension-host` (`npm run test:host` with the dbt tools) and `vscode-ui` (the packaged VSIX driven by Playwright).
 - Record each tranche as a new dated section at the top of docs/HANDOFF_HISTORY.md (`## YYYY-MM-DD · Title`, never
   numbered or lettered), and update this file when what exists, where it lives, or a known gap changes.
@@ -136,8 +139,7 @@ Labs:
 - Pipeline Lab: the dbt activity is declared only and fails fast; wiring it needs the trusted-local opt-in extended
   to dbt, the project path validated against `assets.dbt`, and a qualified manifest/run_results pair before success.
 - Fabric's pipeline "dbt job" activity has no documented JSON `type` string: verify it before writing exercises.
-- `zilla-v1` keeps ZillaCode's company names; the NOTICE is not a legal review. The runtime CI job is long because
-  the packs smoke grades every submission.
+- `zilla-v1` keeps ZillaCode's company names; the NOTICE is not a legal review.
 
 Security (by design, keep it so): the kernel worker isolates lifecycle, it is not a sandbox; trusted Python is an
 explicit choice; dbt and dct run as the learner's own terminal commands.

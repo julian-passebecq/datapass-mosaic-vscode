@@ -40,8 +40,6 @@ VS Code
 The branch already preserves the useful parts of the previous Datapass work rather than restarting them:
 
 - `workbench-core/` — consolidated prior Workbench implementation/reference.
-- `packages/notebook-core/` — Mosaic notebook/layout + ipynb/project contracts.
-- `packages/contracts/` — shared case/workbench contracts.
 - `runtime/sparklab/` — SparkLab/ZilaCode training runtime.
 - `content/` — connected cases and exercise packs.
 - `migration-sources/` — Fabric, Airflow/dbt and previous Workbench UI donors.

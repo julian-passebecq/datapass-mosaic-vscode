@@ -27,7 +27,6 @@ runtime/build/**
 runtime/**/*.egg-info/**
 # Source maps and TypeScript sources are bundled into dist/ and not needed at runtime.
 **/*.map
-packages/**
 tsconfig.json
 .gitignore
 CLAUDE.md

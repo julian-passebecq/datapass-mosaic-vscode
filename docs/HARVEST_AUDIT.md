@@ -17,8 +17,6 @@ VS Code owns code editing, Explorer, terminals, Git, Jupyter and extension lifec
 Already retained in this repository:
 
 - `workbench-core/`: preserved integrated Workbench source/reference.
-- `packages/notebook-core/`: Mosaic notebook document/layout contracts, ipynb import/export and project serialization.
-- `packages/contracts/`: shared case/workbench/foundation contracts.
 - `runtime/sparklab/`: bounded SparkLab/ZilaCode training runtime.
 - `content/cases/`: connected DE cases.
 - `content/exercise-packs/`: Spark, pipeline and unified case exercises/grading.
