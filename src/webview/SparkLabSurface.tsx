@@ -1,38 +1,46 @@
 import { Badge, Button, Card, CardHeader, Switch, Text } from "@fluentui/react-components";
 import { useState } from "react";
-import type { RuntimeViewState, SparkLabProfileView, SparkLabRunView } from "./contracts";
+import type { PythonTrustView, RuntimeViewState, SparkLabEngine, SparkLabProfileView, SparkLabRunView } from "./contracts";
 import { ResultTable } from "./ResultTable";
+import { TrustedPythonControl } from "./TrustedPythonControl";
 import type { VsCodeApi } from "./WorkbenchApp";
 
+/** The same DataFrame operation in SparkLab's PySpark subset and in Polars, with SparkLab's note. */
 const OPERATIONS = [
-  ["Read", "spark.table()", "Shared local catalog tables"],
-  ["Rows", "filter(), where(), select()", "F.col expressions; no SQL strings"],
-  ["Shape", "withColumn(), drop(), distinct()", "Bounded semantic emulation"],
-  ["Join", "join()", "Same-name keys; inner/left/right/full/semi/anti"],
-  ["Group", "groupBy().agg()", "Common aggregation concepts"],
-  ["Window", "partition/order/rank patterns", "lag, running aggregates, row frames"],
-  ["Sort", "orderBy(), sort()", "Local deterministic results"],
-  ["Limit", "limit()", "Bounded collection"]
+  ["Read", "spark.table()", "pl.DataFrame(query(sql)).lazy()", "Shared local catalog tables"],
+  ["Rows", "filter(), where(), select()", "filter(), select()", "F.col expressions; no SQL strings"],
+  ["Shape", "withColumn(), drop(), distinct()", "with_columns(), drop(), unique()", "Bounded semantic emulation"],
+  ["Join", "join()", "join(how=…, coalesce=True)", "Same-name keys; inner/left/right/full/semi/anti"],
+  ["Group", "groupBy().agg()", "group_by().agg()", "Common aggregation concepts"],
+  ["Window", "Window.partitionBy().orderBy()", "expr.over(), sort first", "lag, running aggregates, row frames"],
+  ["Sort", "orderBy(), sort()", "sort()", "Local deterministic results"],
+  ["Limit", "limit()", "head(), limit()", "Bounded collection"]
 ] as const;
 
 export function SparkLabSurface({
   vscode,
   runtime,
-  profiles
+  profiles,
+  pythonTrust
 }: {
   vscode: VsCodeApi;
   runtime: RuntimeViewState;
   profiles: readonly SparkLabProfileView[];
+  pythonTrust: PythonTrustView;
 }) {
+  const [engine, setEngine] = useState<SparkLabEngine>("sparklab");
   const [profileId, setProfileId] = useState(profiles[0]?.id ?? "generic_8x8");
   const [aqe, setAqe] = useState(true);
   const running = runtime.status === "running";
+  const polars = engine === "polars";
+  // Reported by the running runtime itself; Polars never runs without it.
+  const polarsReady = running && runtime.trustedPython === true;
 
   return (
     <section className="lab-surface">
       <div className="lab-toolbar">
         <div>
-          <div className="eyebrow">PySpark concepts without a cluster</div>
+          <div className="eyebrow">PySpark concepts without a cluster, and Polars on one machine</div>
           <Text size={500} weight="semibold">SparkLab / ZilaCode</Text>
         </div>
         <Badge appearance="tint" color={running ? "success" : "informative"}>
@@ -42,16 +50,21 @@ export function SparkLabSurface({
 
       <div className="sparklab-hero">
         <div>
-          <h3>Run bounded PySpark-style code from a native file</h3>
+          <h3>Run bounded PySpark-style code, or the same lesson in Polars</h3>
           <p>
             SparkLab parses a whitelisted PySpark DataFrame subset without executing Python, compiles it to SQL and
             computes the result locally against the shared catalog. Stages, shuffle, cost and cluster behavior are
             simulated teaching evidence. This is not a Spark cluster and does not claim distributed parity.
           </p>
+          <p>
+            Polars is the lightweight alternative: a DataFrame engine for one machine, no cluster and no JVM. The
+            Polars engine runs your file as real local Python, only with trusted Python enabled, and shows Polars'
+            own optimized plan when the file ends with a LazyFrame.
+          </p>
         </div>
         <div className="button-row">
-          <Button appearance="primary" onClick={() => vscode.postMessage({ type: "openScratch", kind: "sparklab" })}>
-            Open SparkLab scratch
+          <Button appearance="primary" onClick={() => vscode.postMessage({ type: "openScratch", kind: polars ? "polars" : "sparklab" })}>
+            {polars ? "Open Polars scratch" : "Open SparkLab scratch"}
           </Button>
           <Button appearance="secondary" onClick={() => vscode.postMessage({ type: "selectModule", moduleId: "practice" })}>
             Browse Spark exercises
@@ -61,44 +74,62 @@ export function SparkLabSurface({
 
       <div className="sparklab-runbar">
         <label>
-          Virtual cluster profile (simulated)
-          <select value={profileId} onChange={event => setProfileId(event.target.value)}>
-            {profiles.map(profile => <option key={profile.id} value={profile.id}>{profile.label}</option>)}
+          Engine
+          <select value={engine} onChange={event => setEngine(event.target.value as SparkLabEngine)}>
+            <option value="sparklab">PySpark (SparkLab, bounded; plans simulated)</option>
+            <option value="polars">Polars (real, trusted Python)</option>
           </select>
         </label>
-        <Switch
-          label="Adaptive query execution (simulated)"
-          checked={aqe}
-          onChange={(_, data) => setAqe(data.checked)}
-        />
+        {polars ? (
+          <TrustedPythonControl vscode={vscode} trust={pythonTrust} />
+        ) : (
+          <>
+            <label>
+              Virtual cluster profile (simulated)
+              <select value={profileId} onChange={event => setProfileId(event.target.value)}>
+                {profiles.map(profile => <option key={profile.id} value={profile.id}>{profile.label}</option>)}
+              </select>
+            </label>
+            <Switch
+              label="Adaptive query execution (simulated)"
+              checked={aqe}
+              onChange={(_, data) => setAqe(data.checked)}
+            />
+          </>
+        )}
         <Button
           appearance="primary"
-          disabled={!running}
-          onClick={() => vscode.postMessage({ type: "runActiveSparkLab", profileId, aqe })}
+          disabled={polars ? !polarsReady : !running}
+          title={polars && running && !polarsReady ? "The running runtime has trusted Python off: enable it, then restart the runtime." : undefined}
+          onClick={() => vscode.postMessage({ type: "runActiveSparkLab", engine, profileId, aqe })}
         >
-          Run active SparkLab file
+          {polars ? "Run active file with Polars" : "Run active SparkLab file"}
         </Button>
       </div>
 
       {runtime.sparkRun && <SparkRunResult run={runtime.sparkRun} />}
 
       <div className="spark-operation-grid">
-        {OPERATIONS.map(([group, api, note]) => (
+        {OPERATIONS.map(([group, spark, polarsApi, note]) => (
           <Card key={group} className="spark-operation-card">
             <CardHeader
               header={<Text weight="semibold">{group}</Text>}
-              description={<Text>{api}</Text>}
+              description={<Text>{spark}</Text>}
             />
-            <div className="lab-card-body"><span className="muted">{note}</span></div>
+            <div className="lab-card-body">
+              <span>Polars: <code>{polarsApi}</code></span>
+              <span className="muted">{note}</span>
+            </div>
           </Card>
         ))}
       </div>
 
       <div className="truth-table">
-        <TruthRow capability="Source code" truth="Parsed, never executed" note="Whitelisted AST only; unsupported syntax is rejected, not approximated." />
+        <TruthRow capability="Source code" truth="Parsed, never executed" note="SparkLab: whitelisted AST only; unsupported syntax is rejected, not approximated." />
         <TruthRow capability="DataFrame result" truth="Real local computation" note="Compiled SQL runs on the shared DuckDB catalog for supported operations." />
         <TruthRow capability="Shuffle / stages / credits" truth="Simulated" note="Teaching metrics only; never presented as measured Spark telemetry." />
         <TruthRow capability="Cluster behavior" truth="Not provided" note="Executors, JVM internals and true distributed failure modes require real Spark." />
+        <TruthRow capability="Polars engine" truth="Real Polars, trusted Python" note="Your file runs as local Python in the runtime's worker, which is not a sandbox; refused while trusted Python is off. Its plan is Polars' own." />
       </div>
     </section>
   );
@@ -113,6 +144,7 @@ function SparkRunResult({ run }: { run: SparkLabRunView }) {
           {run.status === "success" ? "success" : "rejected / failed"}
         </Badge>
         <span>{run.fileName}</span>
+        <Badge appearance="outline">{run.engine === "polars" ? "Polars" : "SparkLab"}</Badge>
         <span className="muted">{run.elapsed_ms.toFixed(1)} ms local</span>
       </div>
       {run.error && <div className="error-text">{run.error.type}: {run.error.message}</div>}
@@ -120,11 +152,30 @@ function SparkRunResult({ run }: { run: SparkLabRunView }) {
       {run.result && (
         <div>
           <h4>
-            Result <Badge appearance="outline" color="success">real local computation</Badge>
+            Result <Badge appearance="outline" color="success">{run.engine === "polars" ? "real Polars" : "real local computation"}</Badge>
             <span className="muted">{run.result.rows.length} preview rows{run.result.truncated ? " (truncated)" : ""}</span>
           </h4>
           <ResultTable result={run.result} maxRows={12} />
         </div>
+      )}
+
+      {run.stdout && (
+        <div>
+          <h4>Output</h4>
+          <pre className="sparklab-sql">{run.stdout}</pre>
+        </div>
+      )}
+
+      {run.polarsPlan && (
+        <div>
+          <h4>Optimized plan <Badge appearance="outline" color="success">real Polars plan</Badge></h4>
+          <pre className="sparklab-sql">{run.polarsPlan.text}</pre>
+          <small className="muted">{run.polarsPlan.truth}. Read it bottom-up: the scan is last.</small>
+        </div>
+      )}
+
+      {run.engine === "polars" && run.status === "success" && !run.polarsPlan && (
+        <small className="muted">End the file with a LazyFrame (call .lazy() on a DataFrame) to see Polars' optimized plan.</small>
       )}
 
       {run.compiledSql && (
