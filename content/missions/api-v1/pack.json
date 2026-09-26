@@ -1,0 +1,12 @@
+{
+  "id": "api-v1",
+  "title": "API ingestion",
+  "lab": "apilab",
+  "missions": [
+    "api-paged-customers",
+    "api-cursor-retries",
+    "api-rate-limited-events",
+    "api-incremental-orders",
+    "api-schema-drift"
+  ]
+}

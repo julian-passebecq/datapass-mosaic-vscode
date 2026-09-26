@@ -58,6 +58,7 @@ jobs:
       # and must pass; the untouched fixtures, the starters and the mutants must fail.
       - run: python scripts/infra_missions_smoke.py
       - run: python -m compileall -q runtime/lakehouselab && DATAPASS_REQUIRE_DUCKLAKE=1 python scripts/lakehouse_smoke.py  # Lakehouse Lab: references pass, starters and mutants fail (real DuckDB, DuckLake, Delta, Polars)
+      - run: python scripts/api_lab_smoke.py
 
   extension-host:
     runs-on: ubuntu-latest

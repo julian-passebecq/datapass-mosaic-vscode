@@ -582,6 +582,9 @@ class Engine:
                 except Exception as error:  # a missing table is a failed check, not an outage
                     results.append({'error': str(error).splitlines()[0][:400]})
             return results
+        if op == 'apilab_run':
+            from apilab.runner import run as apilab_run
+            return apilab_run(self, request)
         if op == 'lakehouse':
             return self.catalog.lakehouse_overview()
         if op == 'spark_verify_fixture':

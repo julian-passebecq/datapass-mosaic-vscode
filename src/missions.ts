@@ -75,6 +75,14 @@ export class MissionsService {
     const root = requireRoot();
     const mission = await this.mission(id);
     const folder = vscode.Uri.joinPath(root, ...missionFolder(id).split("/"));
+    if (mission.lab === "apilab") {
+      // API Lab: the runtime copies ingest.py and API.md (never over the learner's), drops the bronze tables and
+      // starts a fresh simulated API; TICKET.md goes next to the code.
+      await this.runtime.labs.apilab.start(id);
+      await vscode.workspace.fs.writeFile(this.ticketUri(mission), new TextEncoder().encode(ticketMarkdown(mission)));
+      await this.update(id, () => ({ started: new Date().toISOString(), batches: [mission.batches[0].id], hintsShown: 0 }));
+      return folder;
+    }
     if (mission.lab === "terminal" || mission.lab === "infra") {
       await this.runtime.labs.missions.terminalMissionSetup(id);
       const ticket = this.ticketUri(mission);
@@ -99,7 +107,8 @@ export class MissionsService {
     const progress = (await this.progress()).missions[id];
     const batch = nextBatch(mission, progress);
     if (!batch) return undefined;
-    await this.runtime.labs.missions.missionSetup(id, batch.id);
+    if (mission.lab === "apilab") await this.runtime.labs.apilab.advance(id, batch.id);
+    else await this.runtime.labs.missions.missionSetup(id, batch.id);
     await this.update(id, current => ({ ...current, batches: [...current.batches, batch.id] }));
     return batch.label;
   }
@@ -122,7 +131,8 @@ export class MissionsService {
         for (const board of mission.dctBoards) dct[board] = await dctValidate(this.tools, folder, profilesDir, board);
       }
     }
-    const result = toMissionCheckView(await this.runtime.labs.missions.missionCheck(id, dct, mission.lab === "dbt"));
+    const result = toMissionCheckView(mission.lab === "apilab" ? await this.runtime.labs.apilab.check(id)
+      : await this.runtime.labs.missions.missionCheck(id, dct, mission.lab === "dbt"));
     await this.update(id, current => ({
       ...current,
       lastCheck: result,

@@ -1,0 +1,61 @@
+{
+  "id": "api-incremental-orders",
+  "version": "1",
+  "lab": "apilab",
+  "title": "Incremental orders: only what changed since last night",
+  "level": "intermediate",
+  "estimate": "40 min",
+  "skills": ["incremental load", "watermark", "updated_since", "merge / upsert"],
+  "ticket": {
+    "from": "Aisha (data engineering lead)",
+    "subject": "Stop reloading the whole order history every night",
+    "body": [
+      "The order service now supports `updated_since` (see API.md). Our nightly job still downloads everything, and",
+      "the vendor bills us per record.",
+      "",
+      "Please make `ingest.py` incremental into `bronze.api_orders_inc`:",
+      "",
+      "- first run (empty table): full load;",
+      "- next runs: ask only for orders updated since the **watermark**, the latest `updated_at` already in bronze;",
+      "- an order that changed replaces its old row (one row per `order_id`).",
+      "",
+      "Run it once today, click **Load day 2** in the Workbench (tomorrow: new orders, some cancelled or delivered),",
+      "then run it again."
+    ]
+  },
+  "requires": [
+    {"message": "Load day 2 of the API in the Workbench, then run your ingestion again.",
+     "check": {"kind": "api_run", "day": 2}}
+  ],
+  "acceptance": [
+    {
+      "id": "current-orders",
+      "text": "bronze.api_orders_inc holds every order once, in its latest state.",
+      "checks": [
+        {"kind": "sql", "sql": "SELECT count(*) AS n, count(DISTINCT order_id) AS ids, round(sum(amount), 2) AS total, count(*) FILTER (WHERE status IN ('delivered', 'cancelled')) AS changed FROM bronze.api_orders_inc",
+         "expected": [{"n": 340, "ids": 340, "total": 85698.87, "changed": 25}],
+         "fail": "The table does not hold every order once in its latest state."}
+      ]
+    },
+    {
+      "id": "incremental",
+      "text": "The day-2 run asked only for what changed since the watermark.",
+      "checks": [
+        {"kind": "api_log", "endpoint": "/v1/orders", "day": 2, "param_required": "updated_since", "max_records": 100,
+         "complete": true, "authorized": true,
+         "fail": "The day-2 run did not read only the changes since the watermark."}
+      ]
+    }
+  ],
+  "hints": [
+    "The watermark lives in bronze itself: `bronze.query(\"SELECT max(updated_at) AS w FROM bronze.api_orders_inc\")`. Check `bronze.columns(\"api_orders_inc\")` first: the table does not exist before the first run.",
+    "`updated_since` is inclusive (>=): the order at the watermark comes back. A merge on `order_id` makes that harmless.",
+    "`bronze.merge(\"api_orders_inc\", rows, key=\"order_id\")` replaces the old row of an updated order; `append` would keep both."
+  ],
+  "api": {"scenario": "orders-incremental", "seed": 41, "tables": ["api_orders_inc"]},
+  "batches": [
+    {"id": "day-1", "label": "Day 1: the order history", "day": 1},
+    {"id": "day-2", "label": "Day 2: 40 new orders, 25 updated", "day": 2}
+  ],
+  "reference": [{"run": "solution/ingest.py"}, {"batch": "day-2"}, {"run": "solution/ingest.py"}]
+}

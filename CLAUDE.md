@@ -28,6 +28,7 @@ Datapass owns:
   terminal opened in a mission folder, and its missions;
 - the Infra Lab: simulated Terraform (a subset of the azurerm provider on a simulated subscription), Docker and
   compose, VM monitoring with Azure Monitor alerts, and Kubernetes, typed in one simulated terminal, and its missions;
+- the API Lab: REST API ingestion into bronze by the learner's own Python against a simulated API served locally, and its missions;
 - the BI Lab: data warehousing on the local catalog (dimensional modeling, slowly changing dimensions, SQL lineage, star model checks);
 - the Lakehouse Lab: storage layout on real local files (Parquet, Hive partitions, pruning, compaction) and DuckLake
   tables (snapshots, time travel, schema evolution, MERGE), and its missions;
@@ -78,6 +79,13 @@ Never blur real execution and simulation.
   DuckDB's own `EXPLAIN ANALYZE`. Delta tables are read (any version) and appended through DuckDB's official `delta`
   extension, installed by Setup like ducklake (it cannot create a Delta table: the mission ships its `_delta_log`);
   no deltalake or pyiceberg. Iceberg is explained, never handled or emulated.
+- API Lab (module id `apilab`, `runtime/apilab`): "Simulated API (Datapass), your ingestion code runs for real". The REST
+  API is simulated: a small server the runtime starts on 127.0.0.1, on its own port, for the active mission, with
+  deterministic seeded data and faults (pagination, `updated_since`, 429 + Retry-After, transient 5xx, duplicates,
+  schema drift). The learner's `missions/<id>/ingest.py` is real Python (requests/httpx) run as trusted local Python
+  in the kernel worker, refused while trusted Python is off; it writes real DuckDB tables in the bronze layer through
+  `bronze.append/merge/overwrite` (schema enforcement: a new column needs `evolve=True`). Checks are real read-only
+  SQL on bronze plus the simulated API's request log and run history.
 - Airflow Lab: deterministic scheduling simulator; it is not an Airflow scheduler/executor. Airflow DAG files (the Airflow Lab panel and Practice `airflow` exercises) are parsed by a whitelisted AST reader (`runtime/airflowlab`) and NEVER eval/exec'd; scheduler and task outcomes are simulated with Airflow 3 semantics.
 - Pipeline Lab: the Python-like pipeline source is parsed by a bounded AST compiler and is NEVER eval/exec'd. Supported activity bodies may execute locally. Scheduling remains metadata/simulation.
 
@@ -92,6 +100,10 @@ Never blur real execution and simulation.
   given.
 - Never run a Terminal Lab learner's commands or scripts: the checker reads files and Git state only. Its git calls
   stay read-only and must not start anything the repository's config names (fsmonitor, hooks, pager).
+- API Lab: the simulated API server binds 127.0.0.1 on its own port (never the runtime's), checks its own Host header
+  (`127.0.0.1:<port>` / `localhost:<port>`, else 400) and its own fictitious per-mission bearer key (else 401), and
+  starts with an allowlisted environment: the runtime's launch token never reaches it, its log, its answers or the
+  learner's code. Its request log never records header values. Its scenarios come from the shipped pack only.
 - The local Python worker is process-isolated for lifecycle reasons; it is NOT a security sandbox.
 - Trusted Python/Polars must remain an explicit user choice.
 - Do not add cloud credentials, tokens, secrets, or copied local environment state.
@@ -123,13 +135,14 @@ npm install --no-audit --no-fund
 npm run compile
 npm test
 python -m pip install ./runtime
-python -m compileall -q runtime/datapass_runtime runtime/sparklab runtime/airflowlab runtime/factorylab runtime/sqlpoollab runtime/databrickslab runtime/bilab runtime/dbtlab runtime/sqldialects runtime/missionlab runtime/infralab
+python -m compileall -q runtime/datapass_runtime runtime/sparklab runtime/airflowlab runtime/factorylab runtime/sqlpoollab runtime/databrickslab runtime/bilab runtime/dbtlab runtime/sqldialects runtime/missionlab runtime/infralab runtime/apilab
 python scripts/runtime_smoke.py
 python scripts/exercise_packs_smoke.py
 python scripts/projects_smoke.py
 python scripts/terminal_missions_smoke.py   # Terminal Lab: references pass with real bash and PowerShell; untouched fixtures and mutants fail
 python scripts/infra_missions_smoke.py      # Infra Lab: references pass in the simulated shell; untouched fixtures, starters and mutants fail
 python -m compileall -q runtime/lakehouselab && python scripts/lakehouse_smoke.py   # Lakehouse Lab: references (DuckDB and Polars) pass; untouched starters and mutants fail
+python scripts/api_lab_smoke.py             # API Lab: references pass; untouched missions, starters and mutants fail; mock API auth, Host check, no runtime token
 DATAPASS_DBT_PYTHON=<python with dbt-core + dbt-duckdb> python scripts/dbt_oracle_smoke.py   # when changing runtime/dbtlab
 DATAPASS_DBT_PYTHON=<python with dbt-core + dbt-duckdb + dbt-charts> python scripts/missions_smoke.py   # missions: references pass, untouched projects and mutants fail
 npm run test:host   # with DATAPASS_E2E_PYTHON set; see docs/LOCAL_TEST.md

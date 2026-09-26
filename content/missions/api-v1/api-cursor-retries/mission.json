@@ -1,0 +1,50 @@
+{
+  "id": "api-cursor-retries",
+  "version": "1",
+  "lab": "apilab",
+  "title": "Orders API: follow the cursor, survive the 5xx",
+  "level": "intermediate",
+  "estimate": "30 min",
+  "skills": ["cursor pagination", "retries", "transient errors", "bronze layer"],
+  "ticket": {
+    "from": "Marco (platform on-call)",
+    "subject": "Nightly orders load dies on a 503 every night",
+    "body": [
+      "The shop's orders API pages with a cursor (`next_cursor`, see API.md), and its gateway is flaky: it answers",
+      "503 or 502 now and then. Our load crashes on the first one and `bronze.api_orders` stays half full.",
+      "",
+      "Please make `ingest.py` follow the cursor until the end and **retry** a request that failed with a 5xx",
+      "(a short backoff is fine), so every order lands in `bronze.api_orders`, once each.",
+      "",
+      "Don't retry a 4xx: that is our bug, not theirs."
+    ]
+  },
+  "acceptance": [
+    {
+      "id": "all-orders",
+      "text": "bronze.api_orders holds every order once, with the right amounts.",
+      "checks": [
+        {"kind": "sql", "sql": "SELECT count(*) AS n, count(DISTINCT order_id) AS ids, round(sum(amount), 2) AS total FROM bronze.api_orders",
+         "expected": [{"n": 420, "ids": 420, "total": 106280.11}],
+         "fail": "The table does not hold every order exactly once."}
+      ]
+    },
+    {
+      "id": "retried",
+      "text": "The last run met the gateway's 5xx answers, retried them, and followed the cursor to the end.",
+      "checks": [
+        {"kind": "api_run", "fail": "Your last run did not finish cleanly."},
+        {"kind": "api_log", "endpoint": "/v1/orders", "saw_status": [503], "retried_5xx": true, "complete": true,
+         "authorized": true, "fail": "The request log does not show every failed page retried until the end."}
+      ]
+    }
+  ],
+  "hints": [
+    "Loop while `next_cursor` is not null, passing it back as `cursor`. The first request has no cursor.",
+    "Wrap one request in a small function: try up to 4 times, sleep a little between attempts (0.2 s, 0.4 s…), retry only when `status_code >= 500`.",
+    "Collect all the orders, then write them once. `bronze.merge(\"api_orders\", rows, key=\"order_id\")` keeps a rerun from duplicating anything."
+  ],
+  "api": {"scenario": "orders-cursor", "seed": 23, "tables": ["api_orders"]},
+  "batches": [{"id": "day-1", "label": "The orders API", "day": 1}],
+  "reference": [{"run": "solution/ingest.py"}]
+}

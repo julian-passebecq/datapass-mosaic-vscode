@@ -19,6 +19,8 @@ from missionlab.infra import build_fixture as build_infra_fixture
 from infralab.shell import run_line as infra_run_line, state_view as infra_state_view
 from infralab.world import WorldError
 from lakehouselab.api import router as lakehouse_router
+from apilab.routes import make_router as apilab_router
+from apilab.service import service as apilab_service
 
 from .auth import RuntimeAuthMiddleware
 from .catalog_lease import CatalogLease, CatalogLocked, CatalogReleased, is_lock_error
@@ -41,6 +43,7 @@ kernel_manager = KernelManager(
 @asynccontextmanager
 async def lifespan(_app: FastAPI):
     yield
+    apilab_service.stop()
     kernel_manager.close()
 
 
@@ -609,6 +612,10 @@ def infra_state(body: InfraStateRequest) -> dict[str, object]:
         return infra_state_view(infra_folder(body.folder))
     except WorldError as error:
         raise HTTPException(status_code=409, detail=str(error)) from error
+
+
+# API Lab: a simulated REST API on its own loopback port, ingested by the learner's trusted Python (runtime/apilab).
+app.include_router(apilab_router(native_command, workspace_root))
 
 
 @app.post("/api/local/query")

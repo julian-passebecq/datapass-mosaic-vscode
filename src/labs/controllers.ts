@@ -6,6 +6,7 @@ import { FabricController } from "./fabric/controller";
 import type { WorkbenchHost } from "./host";
 import { InfraController } from "./infra/controller";
 import { LakehouseController } from "./lakehouse/controller";
+import { ApiLabController } from "./apilab/controller";
 import { MissionsController } from "./missions/controller";
 import { MosaicController } from "./mosaic/controller";
 import { PipelineController } from "./pipeline/controller";
@@ -25,6 +26,7 @@ export function createLabControllers(host: WorkbenchHost) {
   const dbt = new DbtController(host);
   const terminal = new TerminalController(host);
   const infra = new InfraController(host);
+  const apilab = new ApiLabController(host);
   const practice = new PracticeController(host);
   const fabric = new FabricController(host, {
     openPipelineSource: () => pipeline.openPipelineSource(),
@@ -46,12 +48,14 @@ export function createLabControllers(host: WorkbenchHost) {
     terminal,
     infra,
     lakehouse: new LakehouseController(host),
+    apilab,
     airflow,
     pipeline,
     missions: new MissionsController(host, {
       dbt: dbt.missionHooks,
       terminal: terminal.missionHooks,
-      infra: infra.missionHooks
+      infra: infra.missionHooks,
+      apilab: apilab.missionHooks
     })
   };
 }

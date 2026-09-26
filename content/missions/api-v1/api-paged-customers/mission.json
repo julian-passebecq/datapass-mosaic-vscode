@@ -1,0 +1,50 @@
+{
+  "id": "api-paged-customers",
+  "version": "1",
+  "lab": "apilab",
+  "title": "Land the CRM customers in bronze",
+  "level": "intro",
+  "estimate": "20 min",
+  "skills": ["REST", "bearer auth", "page pagination", "bronze layer"],
+  "ticket": {
+    "from": "Priya (analytics lead)",
+    "subject": "CRM customers: we only have the first 50",
+    "body": [
+      "Hi! Someone wired the CRM's customer API into bronze last week, but `bronze.api_customers` only has 50 rows and",
+      "the CRM says we have a lot more than that.",
+      "",
+      "The API is paginated with `page` and `page_size` (see API.md in the mission folder). Can you make `ingest.py`",
+      "load **every** customer into `bronze.api_customers`, one row per customer? The API key is in the Workbench.",
+      "",
+      "Running it twice must not double the table."
+    ]
+  },
+  "acceptance": [
+    {
+      "id": "all-customers",
+      "text": "bronze.api_customers holds every customer of the API, once each.",
+      "checks": [
+        {"kind": "sql", "sql": "SELECT count(*) AS n, count(DISTINCT id) AS ids, min(id) AS first_id, max(id) AS last_id FROM bronze.api_customers",
+         "expected": [{"n": 230, "ids": 230, "first_id": 1001, "last_id": 1230}],
+         "fail": "The table does not hold every customer exactly once."}
+      ]
+    },
+    {
+      "id": "every-page",
+      "text": "The last run followed the pagination to the last page, with the API key on every request.",
+      "checks": [
+        {"kind": "api_run", "fail": "Your last run did not finish cleanly."},
+        {"kind": "api_log", "endpoint": "/v1/customers", "complete": true, "authorized": true,
+         "fail": "The request log does not show a complete, authorized pass over the pages."}
+      ]
+    }
+  ],
+  "hints": [
+    "The first answer tells you `total_pages`. Loop from page 1 to that number, inclusive.",
+    "Collect every page's `data` in one list, then write it once with `bronze.overwrite(...)`: a rerun replaces the table instead of adding to it.",
+    "`page_size` can go up to 100: fewer requests, same result."
+  ],
+  "api": {"scenario": "customers-pages", "seed": 11, "tables": ["api_customers"]},
+  "batches": [{"id": "day-1", "label": "The CRM API", "day": 1}],
+  "reference": [{"run": "solution/ingest.py"}, {"run": "solution/ingest.py"}]
+}

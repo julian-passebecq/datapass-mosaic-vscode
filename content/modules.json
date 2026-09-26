@@ -145,6 +145,17 @@
       "mode": "real",
       "icon": "database",
       "highlights": ["Partitions and pruning read from DuckDB's EXPLAIN ANALYZE", "File counts and sizes measured on disk", "DuckLake snapshots and time travel; Delta read and appended; Iceberg explained"]
+    },
+    {
+      "id": "apilab",
+      "family": "work",
+      "label": "API Lab",
+      "description": "Ingest a REST API into bronze with your own Python: pagination, incremental loads, rate limits, retries and schema drift, against a simulated API served locally.",
+      "command": "datapass.openApiLab",
+      "execution": "Simulated API; your ingestion code runs for real (trusted Python)",
+      "mode": "hybrid",
+      "icon": "cloud-download",
+      "highlights": ["A simulated REST API on its own loopback port, with a fictitious key", "Your ingest.py runs as real local Python", "Checks read the bronze tables and the API's request log"]
     }
   ]
 }

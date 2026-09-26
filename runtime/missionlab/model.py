@@ -773,12 +773,16 @@ def load_pack(pack_dir: Path) -> dict:
     return pack
 
 
+# Packs with their own contract and checker (the API Lab's, runtime/apilab), not missionlab's.
+OTHER_PACKS = {'api-v1'}
+
+
 def find_mission(mission_id: str, root: Path | None = None) -> tuple[Mission, Path]:
     """The mission and its pack folder. Mission ids are unique across packs."""
     if not MISSION_ID.fullmatch(mission_id):
         raise ValueError('Invalid mission id.')
     root = root or missions_root()
-    for pack_dir in sorted(p for p in root.iterdir() if p.is_dir()):
+    for pack_dir in sorted(p for p in root.iterdir() if p.is_dir() and p.name not in OTHER_PACKS):
         path = pack_dir / mission_id / 'mission.json'
         if path.is_file():
             return Mission.model_validate(json.loads(path.read_text(encoding='utf-8'))), pack_dir
@@ -788,7 +792,7 @@ def find_mission(mission_id: str, root: Path | None = None) -> tuple[Mission, Pa
 def load_missions(root: Path | None = None) -> list[tuple[Mission, Path]]:
     root = root or missions_root()
     found = []
-    for pack_dir in sorted(p for p in root.iterdir() if p.is_dir()):
+    for pack_dir in sorted(p for p in root.iterdir() if p.is_dir() and p.name not in OTHER_PACKS):
         for mission_id in load_pack(pack_dir)['missions']:
             found.append(find_mission(mission_id, root))
     return found

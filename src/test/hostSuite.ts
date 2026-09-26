@@ -1224,6 +1224,31 @@ export async function run(): Promise<void> {
       assert.match(run?.stdout ?? "", /\(3, 1\)/);
       assert.deepEqual(run?.result?.columns, ["value"]);
     }],
+    ["API Lab: a mission starts its simulated API, the reference ingest.py runs as trusted Python, the checker passes", async () => {
+      assert.equal(runtime!.snapshot().trustedPython, true, "runs after the explicit-trust test");
+      const tools = { binDir: path.join(root.fsPath, "no-dbt"), venvRoot: root.fsPath, snapshot: () => ({ status: "missing" as const }) };
+      const missions = new MissionsService(extension.extensionUri, runtime!, tools);
+      const list = await missions.list("apilab");
+      assert.deepEqual(list.map(mission => mission.id), ["api-paged-customers", "api-cursor-retries", "api-rate-limited-events", "api-incremental-orders", "api-schema-drift"]);
+      const id = "api-paged-customers";
+      const folder = await missions.start(id);
+      const api = await runtime!.labs.apilab.state(id);
+      assert.equal(api.running, true);
+      assert.match(api.base_url ?? "", /^http:\/\/127\.0\.0\.1:\d+$/);
+      assert.notEqual(api.base_url, runtime!.snapshot().url, "the simulated API has its own port");
+      assert.match(api.key ?? "", /^sim_\w+$/);
+      await missions.check(id);
+      assert.equal((await missions.progress()).missions[id].lastCheck?.status, "not-yet");
+      const solution = vscode.Uri.joinPath(extension.extensionUri, "content", "missions", "api-v1", id, "solution", "ingest.py");
+      await vscode.workspace.fs.writeFile(vscode.Uri.joinPath(folder, "ingest.py"), await vscode.workspace.fs.readFile(solution));
+      const run = await runtime!.labs.apilab.run(id);
+      assert.equal(run.status, "ok", run.error ?? "");
+      assert.deepEqual(run.tables.map(table => [table.name, table.rows]), [["bronze.api_customers", 230]]);
+      await missions.check(id);
+      const last = (await missions.progress()).missions[id].lastCheck;
+      assert.equal(last?.status, "passed", JSON.stringify(last?.criteria));
+      assert.match(last?.truth ?? "", /Simulated API \(Datapass\), your ingestion code runs for real/);
+    }],
     ["ZillaCode pack grades one exercise in every language, Snowflake SQL translated to DuckDB", async () => {
       const catalog = await loadExerciseCatalog(extension.extensionUri);
       const zilla = catalog.filter(item => item.packId === "zilla-v1");
