@@ -28,6 +28,8 @@ from datapass_runtime.content import CONTENT  # noqa: E402
 from missionlab.model import load_missions  # noqa: E402
 
 DBT_PYTHON = os.getenv("DATAPASS_DBT_PYTHON", "").strip()
+# Comma-separated mission ids: play only these (the pack contract is still checked in full).
+ONLY = {m.strip() for m in os.getenv("DATAPASS_MISSIONS_ONLY", "").split(",") if m.strip()}
 EXE = ".exe" if sys.platform == "win32" else ""
 
 
@@ -137,6 +139,9 @@ def main() -> None:
         print(f"Missions pack contract checked ({len(missions)} missions). Reference runs skipped: set DATAPASS_DBT_PYTHON.")
         return
     mutants = 0
+    if ONLY:
+        missions = [(mission, pack_dir) for mission, pack_dir in missions if mission.id in ONLY]
+        assert missions, f"no dbt mission among {sorted(ONLY)}"
     for mission, pack_dir in missions:
         reference = play(mission, pack_dir, "reference")
         assert reference["status"] == "passed", f"{mission.id}: the reference solution does not pass:\n{describe(reference)}"

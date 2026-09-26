@@ -1,0 +1,187 @@
+{
+  "id": "product-price-history",
+  "version": "1",
+  "lab": "dbt",
+  "title": "Keep every list price the ERP ever had",
+  "level": "intermediate",
+  "estimate": "30-45 min",
+  "skills": [
+    "dbt snapshots",
+    "slowly changing dimensions (type 2)",
+    "check strategy",
+    "hard deletes"
+  ],
+  "ticket": {
+    "from": "Lena (pricing)",
+    "subject": "We lose the old list prices every week",
+    "body": [
+      "The ERP export replaces `erp_products` in the landing schema every week, so the warehouse only ever knows",
+      "today's list price. We need the history: which price a product had before a markdown, and when it changed.",
+      "",
+      "Can you keep every version of each product (name, subcategory, list price) with the period it was valid?",
+      "Two things we already know about this export:",
+      "",
+      "- every row gets the new `loaded_at` each week, even when nothing about the product changed;",
+      "- a discontinued product simply stops being exported. We still want its history, but it must no longer",
+      "  show up as a current product.",
+      "",
+      "This week's export is already in the landing schema. Once your history is in place, load next week's export",
+      "with **Load next batch** and run the project again the way the nightly job would."
+    ]
+  },
+  "acceptance": [
+    {
+      "id": "snapshot",
+      "text": "A snapshot snp_erp__products tracks the ERP products by product_id.",
+      "checks": [
+        {
+          "kind": "node",
+          "name": "snp_erp__products",
+          "resource_type": "snapshot",
+          "materialized": "snapshot",
+          "unique_key": [
+            "product_id"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "versions",
+      "text": "After next week's run, a product has a new version only when its name, subcategory or price changed.",
+      "checks": [
+        {
+          "kind": "sql",
+          "sql": "SELECT count(*) AS versions, count(DISTINCT product_id) AS products FROM dbt_dev_snap.snp_erp__products",
+          "expected": [
+            {
+              "versions": 12,
+              "products": 10
+            }
+          ],
+          "fail": "The snapshot does not hold one version per real change."
+        }
+      ]
+    },
+    {
+      "id": "markdowns",
+      "text": "Both markdowns keep the old price in a closed version and the new price in the current one.",
+      "checks": [
+        {
+          "kind": "sql",
+          "sql": "SELECT product_id, CAST(list_price AS DOUBLE) AS list_price, CASE WHEN dbt_valid_to IS NULL THEN 1 ELSE 0 END AS is_current FROM dbt_dev_snap.snp_erp__products WHERE product_id IN ('P02', 'P07')",
+          "expected": [
+            {
+              "product_id": "P02",
+              "list_price": 349.0,
+              "is_current": 0
+            },
+            {
+              "product_id": "P02",
+              "list_price": 329.0,
+              "is_current": 1
+            },
+            {
+              "product_id": "P07",
+              "list_price": 149.0,
+              "is_current": 0
+            },
+            {
+              "product_id": "P07",
+              "list_price": 129.0,
+              "is_current": 1
+            }
+          ],
+          "fail": "A marked-down product does not show its old and new price as expected."
+        }
+      ]
+    },
+    {
+      "id": "discontinued",
+      "text": "The discontinued trekking poles keep its history but has no current version.",
+      "checks": [
+        {
+          "kind": "sql",
+          "sql": "SELECT count(*) AS versions, count(*) FILTER (WHERE dbt_valid_to IS NULL) AS current_versions FROM dbt_dev_snap.snp_erp__products WHERE product_id = 'P10'",
+          "expected": [
+            {
+              "versions": 1,
+              "current_versions": 0
+            }
+          ],
+          "fail": "The discontinued product is missing, or still shows up as current."
+        }
+      ]
+    },
+    {
+      "id": "nightly-run",
+      "text": "Your last dbt command ran the snapshot, and everything passed.",
+      "checks": [
+        {
+          "kind": "run",
+          "no_failures": true,
+          "nodes": {
+            "snp_erp__products": [
+              "success"
+            ]
+          }
+        }
+      ]
+    }
+  ],
+  "requires": [
+    {
+      "message": "Next week's export has not landed yet: click Load next batch, then run dbt again.",
+      "check": {
+        "kind": "sql",
+        "sql": "SELECT count(*) AS n FROM snap_raw.erp_products WHERE product_id = 'P09'",
+        "expected": [
+          {
+            "n": 1
+          }
+        ]
+      }
+    }
+  ],
+  "hints": [
+    "A table that only ever holds the latest export needs something that remembers the previous rows: that is what a dbt snapshot does.",
+    "Since dbt Core 1.9 a snapshot can be declared in YAML under snapshots/, with `relation: source(...)` and a `config` block.",
+    "The timestamp strategy trusts `updated_at` to change only when the row changes. Does `loaded_at` behave like that here?",
+    "The check strategy compares the columns you list in `check_cols`; `all` would include `loaded_at` too. Look at `hard_deletes` for products that disappear."
+  ],
+  "workspace": {
+    "raw_schema": "snap_raw",
+    "dev_schema": "dbt_dev_snap"
+  },
+  "batches": [
+    {
+      "id": "week-1",
+      "label": "9 March: this week's export",
+      "sql": [
+        "fixtures/erp.sql",
+        "fixtures/shop.sql",
+        "product-price-history/fixtures/week-1.sql"
+      ]
+    },
+    {
+      "id": "week-2",
+      "label": "16 March: next week's export",
+      "sql": [
+        "product-price-history/fixtures/week-2.sql"
+      ]
+    }
+  ],
+  "reference": [
+    {
+      "batch": "week-1"
+    },
+    {
+      "dbt": "build"
+    },
+    {
+      "batch": "week-2"
+    },
+    {
+      "dbt": "build"
+    }
+  ]
+}

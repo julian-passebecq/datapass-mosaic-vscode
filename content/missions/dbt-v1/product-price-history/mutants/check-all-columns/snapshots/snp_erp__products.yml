@@ -1,0 +1,11 @@
+snapshots:
+  - name: snp_erp__products
+    description: Every version of each ERP product (SCD type 2).
+    relation: source('erp', 'erp_products')
+    config:
+      unique_key: product_id
+      # The export stamps every row with its landing time, changed or not: compare the business columns instead.
+      strategy: check
+      check_cols: all
+      # A product the ERP stops exporting was discontinued: close its current version.
+      hard_deletes: invalidate
