@@ -85,7 +85,12 @@ def build(workspace: Path, mission_id: str) -> dict:
     if target.exists():
         attic = workspace / '.datapass' / 'lakehouse' / 'attic'
         attic.mkdir(parents=True, exist_ok=True)
-        previous = attic / f'{found.id}-{datetime.now().strftime("%Y%m%d-%H%M%S")}'
+        stamp = f'{found.id}-{datetime.now().strftime("%Y%m%d-%H%M%S")}'
+        previous = attic / stamp
+        n = 1
+        while previous.exists():  # two starts in the same second
+            n += 1
+            previous = attic / f'{stamp}-{n}'
         _rename(target, previous)
     target.mkdir(parents=True)
     overlay = pack_dir / found.id / 'project'

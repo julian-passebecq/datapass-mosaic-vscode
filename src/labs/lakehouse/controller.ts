@@ -135,7 +135,8 @@ export class LakehouseController implements LabController<LakehouseMessage> {
     await this.host.refresh();
   }
 
-  /** The ticket beside the Workbench, then the learner's file for the first engine. */
+  /** The ticket beside the Workbench, then the learner's file for the first engine in the same editor group (a third
+   * column would squeeze the Workbench). */
   private async open(mission: MissionView): Promise<void> {
     const ticket = this.uri(mission.id, "TICKET.md");
     if (await exists(ticket)) await this.host.openBeside(ticket);
@@ -143,7 +144,7 @@ export class LakehouseController implements LabController<LakehouseMessage> {
     const file = detail?.files[detail.engines[0]];
     if (file) {
       const uri = this.uri(mission.id, file);
-      if (await exists(uri)) await vscode.window.showTextDocument(uri, { viewColumn: vscode.ViewColumn.Beside, preview: false });
+      if (await exists(uri)) await vscode.window.showTextDocument(uri, { viewColumn: vscode.ViewColumn.Active, preview: false });
     }
   }
 
