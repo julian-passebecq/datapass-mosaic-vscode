@@ -17,7 +17,7 @@ from typing import Any
 import uuid
 
 from .catalog import Catalog, json_value, references, statements
-from .sql_dialects import PRACTICE_DIALECTS
+from .sql_dialects import PRACTICE_DIALECTS, PRACTICE_DIALECT_OF
 from .content import compile_dbt, get_case, topological_steps
 from sparklab.safe_parser import SafeSparkParser, SparkLabSyntaxError
 from sparklab.sparklab import SparkSession
@@ -108,6 +108,7 @@ class Engine:
                 {'id':'snowflake','available':self.catalog.kind != 'sqlite','truth':'Snowflake SQL dialect translated to DuckDB with sqlglot for a documented subset; runs on DuckDB; not Snowflake'},
                 {'id':'tsql','available':self.catalog.kind != 'sqlite','truth':'T-SQL dialect translated to DuckDB with sqlglot for a documented subset; runs on DuckDB; not SQL Server'},
                 {'id':'bigquery','available':self.catalog.kind != 'sqlite','truth':'BigQuery SQL dialect translated to DuckDB with sqlglot for a documented subset; runs on DuckDB; not BigQuery'},
+                {'id':'sparksql','available':self.catalog.kind != 'sqlite','truth':'Spark SQL dialect (ANSI mode) translated to DuckDB with sqlglot for a documented subset; runs on DuckDB; not Spark'},
                 {'id':'airflow','available':True,'truth':'DAG file parsed, never executed; deterministic Airflow 3 scheduler/task simulation'},
                 {'id':'factory','available':self.catalog.kind != 'sqlite','truth':'Data Factory orchestration simulated; Copy, Lookup, Script, procedures and SparkLab notebooks run on the local catalog'},
                 {'id':'databricks','available':self.catalog.kind != 'sqlite','truth':'Databricks jobs, compute and Unity Catalog simulated; notebook and SQL tasks run on the local catalog'},
@@ -373,7 +374,7 @@ class Engine:
             python_inputs = []
             if language in {'sql', 'dbt'} | PRACTICE_DIALECTS:
                 compiled_sql = request['code']
-                dialect = language if language in PRACTICE_DIALECTS else request.get('dialect') if language == 'sql' else None
+                dialect = PRACTICE_DIALECT_OF.get(language, language) if language in PRACTICE_DIALECTS else request.get('dialect') if language == 'sql' else None
                 if dialect:
                     # A dialect translated to DuckDB for a documented subset (runtime/sqldialects); refused outside
                     # it. Practice grades one query on its fixtures; Mosaic runs a script on the catalog.

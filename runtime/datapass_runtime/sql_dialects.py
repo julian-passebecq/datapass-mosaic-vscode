@@ -7,7 +7,9 @@ from typing import Any
 
 DIALECT_IDS = ('tsql', 'snowflake', 'bigquery', 'spark', 'postgres')
 # Practice languages written in a translated dialect: graded like `sql`, with truth semantic-emulation.
-PRACTICE_DIALECTS = frozenset({'snowflake', 'tsql', 'bigquery'})
+PRACTICE_DIALECTS = frozenset({'snowflake', 'tsql', 'bigquery', 'sparksql'})
+# A Practice language whose id is not its dialect's id (`sparksql` next to the `sparklab` DataFrame language).
+PRACTICE_DIALECT_OF = {'sparksql': 'spark'}
 
 
 def catalog_types(catalog) -> dict[str, dict[str, dict[str, str]]]:

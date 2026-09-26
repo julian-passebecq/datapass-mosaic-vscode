@@ -36,7 +36,7 @@ TABLE_NAME = re.compile(r'^[a-z][a-z0-9_]{0,40}$')
 RESERVED_TABLES = {'source', 'bronze', 'silver', 'gold', 'warehouse', 'features', 'metrics',
                    # Python grading namespace names that a table must not shadow.
                    'input_rows', 'tables', 'display', 'query', 'publish'}
-NAMED_TABLE_LANGUAGES = {'sql', 'python', 'polars', 'sparklab', 'snowflake', 'tsql', 'bigquery'}
+NAMED_TABLE_LANGUAGES = {'sql', 'python', 'polars', 'sparklab', 'snowflake', 'tsql', 'bigquery', 'sparksql'}
 CLUSTER_PROFILES = set(json.loads((Path(__file__).resolve().parents[1] / 'sparklab' / 'cluster_profiles.json').read_text(encoding='utf-8')))
 # Languages graded on simulation scenarios, with the runtime adapter that grades them.
 SCENARIO_LANGUAGES = {'airflow': 'datapass-airflow-sim-v1', 'factory': 'datapass-factory-sim-v1',
@@ -144,7 +144,7 @@ class PackRegistry:
                 raise ValueError('Canonical topic must belong to exercise topics')
             if definition.language not in {'sql','python','polars','sparklab','dbt','airflow','factory','factory-notebook','sqlpool',
                                            'databricks-job','databricks-notebook','databricks-grants',
-                                           'warehouse','bi-model','dbt-sql','dbt-yml','snowflake','tsql','bigquery'}:
+                                           'warehouse','bi-model','dbt-sql','dbt-yml','snowflake','tsql','bigquery','sparksql'}:
                 raise ValueError('No grading adapter for '+definition.language)
             private = GradingDefinition.model_validate(grading[definition.id])
             refs = {'visible': [c.id for c in definition.visible_checks], 'hidden': definition.hidden_check_refs, 'edge': definition.edge_check_refs}

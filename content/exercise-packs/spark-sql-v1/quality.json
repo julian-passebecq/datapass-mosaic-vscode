@@ -1,0 +1,34 @@
+{
+  "flags": {
+    "runnable_starters": true
+  },
+  "mutants": {
+    "sparksql-missing-email": [
+      "SELECT customer_id, name FROM customers WHERE email IS NULL OR email = ''\n"
+    ],
+    "sparksql-count-if-having": [
+      "SELECT customer_id, COUNT(*) AS orders, COUNT_IF(status = 'LATE') AS late_orders\nFROM orders GROUP BY customer_id HAVING COUNT_IF(status = 'LATE') >= 1\n"
+    ],
+    "sparksql-left-anti-join": [
+      "SELECT c.customer_id, c.name FROM customers AS c LEFT SEMI JOIN orders AS o ON c.customer_id = o.customer_id\n"
+    ],
+    "sparksql-qualify-latest": [
+      "SELECT order_id, customer_id, order_date, status, amount FROM orders\nQUALIFY RANK() OVER (PARTITION BY customer_id ORDER BY order_date DESC) = 1\n"
+    ],
+    "sparksql-lag-change": [
+      "SELECT meter_id, reading_date, value,\n       value - NVL(LAG(value) OVER (PARTITION BY meter_id ORDER BY reading_date), 0) AS change\nFROM readings\n"
+    ],
+    "sparksql-datediff-shipping": [
+      "SELECT order_id, DATEDIFF(shipped_date, order_date) + 1 AS days_to_ship FROM shipments\n"
+    ],
+    "sparksql-monthly-revenue": [
+      "SELECT DATE_FORMAT(order_date, 'MM') AS month, SUM(amount) AS revenue FROM orders GROUP BY DATE_FORMAT(order_date, 'MM')\n"
+    ],
+    "sparksql-top2-with-ties": [
+      "WITH ranked AS (SELECT category, product, revenue,\n  RANK() OVER (PARTITION BY category ORDER BY revenue DESC) AS rk FROM sales)\nSELECT category, product, revenue FROM ranked WHERE rk <= 2\n"
+    ],
+    "sparksql-email-domains": [
+      "SELECT LOWER(SPLIT_PART(email, '@', 2)) AS domain, COUNT(*) AS customers\nFROM customers GROUP BY LOWER(SPLIT_PART(email, '@', 2))\n"
+    ]
+  }
+}

@@ -32,13 +32,14 @@ export interface ProblemSummary {
 }
 
 /** SQL first, then its translated dialects, then the dataframe languages, then dbt; anything else after, by name. */
-export const LANGUAGE_ORDER = ["sql", "snowflake", "tsql", "bigquery", "python", "polars", "sparklab", "dbt-sql", "dbt"];
+export const LANGUAGE_ORDER = ["sql", "snowflake", "tsql", "bigquery", "sparksql", "python", "polars", "sparklab", "dbt-sql", "dbt"];
 
 export const LANGUAGE_LABELS: Record<string, string> = {
   sql: "SQL",
   snowflake: "Snowflake",
   tsql: "T-SQL",
   bigquery: "BigQuery",
+  sparksql: "Spark SQL",
   python: "Python",
   polars: "Polars",
   sparklab: "PySpark",

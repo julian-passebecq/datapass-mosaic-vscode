@@ -1,0 +1,907 @@
+{
+  "sparksql-missing-email": {
+    "solution": "SELECT customer_id, name\nFROM customers\nWHERE NVL(TRIM(email), '') = ''\n",
+    "fixtures": [
+      {
+        "id": "example",
+        "visibility": "visible",
+        "input_rows": [],
+        "tables": {
+          "customers": [
+            {
+              "customer_id": 1,
+              "name": "Ana",
+              "email": "ana@a.io"
+            },
+            {
+              "customer_id": 2,
+              "name": "Bo",
+              "email": null
+            },
+            {
+              "customer_id": 3,
+              "name": "Cy",
+              "email": ""
+            }
+          ]
+        },
+        "expected": [
+          {
+            "customer_id": 2,
+            "name": "Bo"
+          },
+          {
+            "customer_id": 3,
+            "name": "Cy"
+          }
+        ]
+      },
+      {
+        "id": "spaces-only",
+        "visibility": "hidden",
+        "input_rows": [],
+        "tables": {
+          "customers": [
+            {
+              "customer_id": 4,
+              "name": "Di",
+              "email": "   "
+            },
+            {
+              "customer_id": 5,
+              "name": "Ed",
+              "email": " ed@e.io "
+            }
+          ]
+        },
+        "expected": [
+          {
+            "customer_id": 4,
+            "name": "Di"
+          }
+        ]
+      },
+      {
+        "id": "everyone-reachable",
+        "visibility": "edge",
+        "input_rows": [],
+        "tables": {
+          "customers": [
+            {
+              "customer_id": 6,
+              "name": "Flo",
+              "email": "flo@f.io"
+            }
+          ]
+        },
+        "expected": []
+      }
+    ]
+  },
+  "sparksql-count-if-having": {
+    "solution": "SELECT customer_id, COUNT(*) AS orders, COUNT_IF(status = 'LATE') AS late_orders\nFROM orders\nGROUP BY customer_id\nHAVING COUNT(*) >= 2\n",
+    "fixtures": [
+      {
+        "id": "example",
+        "visibility": "visible",
+        "input_rows": [],
+        "tables": {
+          "orders": [
+            {
+              "order_id": 1,
+              "customer_id": 10,
+              "order_date": "2026-01-02",
+              "status": "LATE",
+              "amount": 20.0
+            },
+            {
+              "order_id": 2,
+              "customer_id": 10,
+              "order_date": "2026-01-05",
+              "status": "ON_TIME",
+              "amount": 35.0
+            },
+            {
+              "order_id": 3,
+              "customer_id": 20,
+              "order_date": "2026-01-06",
+              "status": "LATE",
+              "amount": 12.0
+            }
+          ]
+        },
+        "expected": [
+          {
+            "customer_id": 10,
+            "orders": 2,
+            "late_orders": 1
+          }
+        ]
+      },
+      {
+        "id": "no-late-orders",
+        "visibility": "hidden",
+        "input_rows": [],
+        "tables": {
+          "orders": [
+            {
+              "order_id": 4,
+              "customer_id": 30,
+              "order_date": "2026-02-01",
+              "status": "ON_TIME",
+              "amount": 5.0
+            },
+            {
+              "order_id": 5,
+              "customer_id": 30,
+              "order_date": "2026-02-02",
+              "status": "ON_TIME",
+              "amount": 7.0
+            },
+            {
+              "order_id": 6,
+              "customer_id": 30,
+              "order_date": "2026-02-03",
+              "status": null,
+              "amount": 9.0
+            }
+          ]
+        },
+        "expected": [
+          {
+            "customer_id": 30,
+            "orders": 3,
+            "late_orders": 0
+          }
+        ]
+      },
+      {
+        "id": "single-orders-only",
+        "visibility": "edge",
+        "input_rows": [],
+        "tables": {
+          "orders": [
+            {
+              "order_id": 7,
+              "customer_id": 40,
+              "order_date": "2026-03-01",
+              "status": "LATE",
+              "amount": 1.0
+            }
+          ]
+        },
+        "expected": []
+      }
+    ]
+  },
+  "sparksql-left-anti-join": {
+    "solution": "SELECT c.customer_id, c.name\nFROM customers AS c\nLEFT ANTI JOIN orders AS o ON c.customer_id = o.customer_id\n",
+    "fixtures": [
+      {
+        "id": "example",
+        "visibility": "visible",
+        "input_rows": [],
+        "tables": {
+          "customers": [
+            {
+              "customer_id": 1,
+              "name": "Ana",
+              "email": "ana@a.io"
+            },
+            {
+              "customer_id": 2,
+              "name": "Bo",
+              "email": "bo@b.io"
+            }
+          ],
+          "orders": [
+            {
+              "order_id": 10,
+              "customer_id": 1,
+              "order_date": "2026-01-02",
+              "status": "ON_TIME",
+              "amount": 5.0
+            }
+          ]
+        },
+        "expected": [
+          {
+            "customer_id": 2,
+            "name": "Bo"
+          }
+        ]
+      },
+      {
+        "id": "guest-order",
+        "visibility": "hidden",
+        "input_rows": [],
+        "tables": {
+          "customers": [
+            {
+              "customer_id": 3,
+              "name": "Cy",
+              "email": null
+            },
+            {
+              "customer_id": 4,
+              "name": "Di",
+              "email": null
+            }
+          ],
+          "orders": [
+            {
+              "order_id": 11,
+              "customer_id": 3,
+              "order_date": "2026-01-03",
+              "status": "ON_TIME",
+              "amount": 5.0
+            },
+            {
+              "order_id": 12,
+              "customer_id": null,
+              "order_date": "2026-01-04",
+              "status": "ON_TIME",
+              "amount": 9.0
+            }
+          ]
+        },
+        "expected": [
+          {
+            "customer_id": 4,
+            "name": "Di"
+          }
+        ]
+      },
+      {
+        "id": "no-orders",
+        "visibility": "edge",
+        "input_rows": [],
+        "tables": {
+          "customers": [
+            {
+              "customer_id": 5,
+              "name": "Ed",
+              "email": null
+            }
+          ],
+          "orders": []
+        },
+        "expected": [
+          {
+            "customer_id": 5,
+            "name": "Ed"
+          }
+        ]
+      }
+    ]
+  },
+  "sparksql-qualify-latest": {
+    "solution": "SELECT order_id, customer_id, order_date, status, amount\nFROM orders\nQUALIFY ROW_NUMBER() OVER (PARTITION BY customer_id ORDER BY order_date DESC, order_id DESC) = 1\n",
+    "fixtures": [
+      {
+        "id": "example",
+        "visibility": "visible",
+        "input_rows": [],
+        "tables": {
+          "orders": [
+            {
+              "order_id": 1,
+              "customer_id": 10,
+              "order_date": "2026-01-02",
+              "status": "ON_TIME",
+              "amount": 80.0
+            },
+            {
+              "order_id": 2,
+              "customer_id": 10,
+              "order_date": "2026-01-09",
+              "status": "LATE",
+              "amount": 15.0
+            },
+            {
+              "order_id": 3,
+              "customer_id": 20,
+              "order_date": "2026-01-04",
+              "status": "ON_TIME",
+              "amount": 7.5
+            }
+          ]
+        },
+        "expected": [
+          {
+            "order_id": 3,
+            "customer_id": 20,
+            "order_date": "2026-01-04",
+            "status": "ON_TIME",
+            "amount": 7.5
+          },
+          {
+            "order_id": 2,
+            "customer_id": 10,
+            "order_date": "2026-01-09",
+            "status": "LATE",
+            "amount": 15.0
+          }
+        ]
+      },
+      {
+        "id": "same-day-orders",
+        "visibility": "hidden",
+        "input_rows": [],
+        "tables": {
+          "orders": [
+            {
+              "order_id": 4,
+              "customer_id": 30,
+              "order_date": "2026-02-01",
+              "status": "ON_TIME",
+              "amount": 99.0
+            },
+            {
+              "order_id": 5,
+              "customer_id": 30,
+              "order_date": "2026-02-01",
+              "status": "LATE",
+              "amount": 1.0
+            }
+          ]
+        },
+        "expected": [
+          {
+            "order_id": 5,
+            "customer_id": 30,
+            "order_date": "2026-02-01",
+            "status": "LATE",
+            "amount": 1.0
+          }
+        ]
+      },
+      {
+        "id": "single-order",
+        "visibility": "edge",
+        "input_rows": [],
+        "tables": {
+          "orders": [
+            {
+              "order_id": 6,
+              "customer_id": 40,
+              "order_date": "2026-03-01",
+              "status": "ON_TIME",
+              "amount": 3.0
+            }
+          ]
+        },
+        "expected": [
+          {
+            "order_id": 6,
+            "customer_id": 40,
+            "order_date": "2026-03-01",
+            "status": "ON_TIME",
+            "amount": 3.0
+          }
+        ]
+      }
+    ]
+  },
+  "sparksql-lag-change": {
+    "solution": "SELECT meter_id, reading_date, value,\n       value - LAG(value) OVER (PARTITION BY meter_id ORDER BY reading_date) AS change\nFROM readings\n",
+    "fixtures": [
+      {
+        "id": "example",
+        "visibility": "visible",
+        "input_rows": [],
+        "tables": {
+          "readings": [
+            {
+              "meter_id": "A",
+              "reading_date": "2026-01-01",
+              "value": 100.0
+            },
+            {
+              "meter_id": "A",
+              "reading_date": "2026-01-02",
+              "value": 130.0
+            },
+            {
+              "meter_id": "B",
+              "reading_date": "2026-01-01",
+              "value": 40.0
+            }
+          ]
+        },
+        "expected": [
+          {
+            "meter_id": "B",
+            "reading_date": "2026-01-01",
+            "value": 40.0,
+            "change": null
+          },
+          {
+            "meter_id": "A",
+            "reading_date": "2026-01-01",
+            "value": 100.0,
+            "change": null
+          },
+          {
+            "meter_id": "A",
+            "reading_date": "2026-01-02",
+            "value": 130.0,
+            "change": 30.0
+          }
+        ]
+      },
+      {
+        "id": "unsorted-meters",
+        "visibility": "hidden",
+        "input_rows": [],
+        "tables": {
+          "readings": [
+            {
+              "meter_id": "C",
+              "reading_date": "2026-02-03",
+              "value": 12.0
+            },
+            {
+              "meter_id": "D",
+              "reading_date": "2026-02-01",
+              "value": 50.0
+            },
+            {
+              "meter_id": "C",
+              "reading_date": "2026-02-01",
+              "value": 10.0
+            },
+            {
+              "meter_id": "D",
+              "reading_date": "2026-02-02",
+              "value": 45.0
+            }
+          ]
+        },
+        "expected": [
+          {
+            "meter_id": "D",
+            "reading_date": "2026-02-01",
+            "value": 50.0,
+            "change": null
+          },
+          {
+            "meter_id": "D",
+            "reading_date": "2026-02-02",
+            "value": 45.0,
+            "change": -5.0
+          },
+          {
+            "meter_id": "C",
+            "reading_date": "2026-02-01",
+            "value": 10.0,
+            "change": null
+          },
+          {
+            "meter_id": "C",
+            "reading_date": "2026-02-03",
+            "value": 12.0,
+            "change": 2.0
+          }
+        ]
+      },
+      {
+        "id": "one-reading",
+        "visibility": "edge",
+        "input_rows": [],
+        "tables": {
+          "readings": [
+            {
+              "meter_id": "E",
+              "reading_date": "2026-03-01",
+              "value": 0.0
+            }
+          ]
+        },
+        "expected": [
+          {
+            "meter_id": "E",
+            "reading_date": "2026-03-01",
+            "value": 0.0,
+            "change": null
+          }
+        ]
+      }
+    ]
+  },
+  "sparksql-datediff-shipping": {
+    "solution": "SELECT order_id, DATEDIFF(shipped_date, order_date) AS days_to_ship\nFROM shipments\n",
+    "fixtures": [
+      {
+        "id": "example",
+        "visibility": "visible",
+        "input_rows": [],
+        "tables": {
+          "shipments": [
+            {
+              "order_id": 1,
+              "order_date": "2026-01-02",
+              "shipped_date": "2026-01-05"
+            },
+            {
+              "order_id": 2,
+              "order_date": "2026-01-03",
+              "shipped_date": null
+            }
+          ]
+        },
+        "expected": [
+          {
+            "order_id": 1,
+            "days_to_ship": 3
+          },
+          {
+            "order_id": 2,
+            "days_to_ship": null
+          }
+        ]
+      },
+      {
+        "id": "month-boundary",
+        "visibility": "hidden",
+        "input_rows": [],
+        "tables": {
+          "shipments": [
+            {
+              "order_id": 3,
+              "order_date": "2026-01-30",
+              "shipped_date": "2026-02-02"
+            },
+            {
+              "order_id": 4,
+              "order_date": "2024-02-28",
+              "shipped_date": "2024-03-01"
+            }
+          ]
+        },
+        "expected": [
+          {
+            "order_id": 3,
+            "days_to_ship": 3
+          },
+          {
+            "order_id": 4,
+            "days_to_ship": 2
+          }
+        ]
+      },
+      {
+        "id": "same-day",
+        "visibility": "edge",
+        "input_rows": [],
+        "tables": {
+          "shipments": [
+            {
+              "order_id": 5,
+              "order_date": "2026-03-01",
+              "shipped_date": "2026-03-01"
+            }
+          ]
+        },
+        "expected": [
+          {
+            "order_id": 5,
+            "days_to_ship": 0
+          }
+        ]
+      }
+    ]
+  },
+  "sparksql-monthly-revenue": {
+    "solution": "SELECT TRUNC(order_date, 'MM') AS month, SUM(amount) AS revenue\nFROM orders\nGROUP BY TRUNC(order_date, 'MM')\n",
+    "fixtures": [
+      {
+        "id": "example",
+        "visibility": "visible",
+        "input_rows": [],
+        "tables": {
+          "orders": [
+            {
+              "order_id": 1,
+              "customer_id": 1,
+              "order_date": "2026-01-05",
+              "status": "ON_TIME",
+              "amount": 10.0
+            },
+            {
+              "order_id": 2,
+              "customer_id": 2,
+              "order_date": "2026-01-20",
+              "status": "ON_TIME",
+              "amount": 15.0
+            },
+            {
+              "order_id": 3,
+              "customer_id": 1,
+              "order_date": "2026-02-01",
+              "status": "LATE",
+              "amount": 7.0
+            }
+          ]
+        },
+        "expected": [
+          {
+            "month": "2026-01-01",
+            "revenue": 25.0
+          },
+          {
+            "month": "2026-02-01",
+            "revenue": 7.0
+          }
+        ]
+      },
+      {
+        "id": "two-januaries",
+        "visibility": "hidden",
+        "input_rows": [],
+        "tables": {
+          "orders": [
+            {
+              "order_id": 4,
+              "customer_id": 3,
+              "order_date": "2025-01-31",
+              "status": "ON_TIME",
+              "amount": 100.0
+            },
+            {
+              "order_id": 5,
+              "customer_id": 3,
+              "order_date": "2026-01-01",
+              "status": "ON_TIME",
+              "amount": 1.0
+            }
+          ]
+        },
+        "expected": [
+          {
+            "month": "2025-01-01",
+            "revenue": 100.0
+          },
+          {
+            "month": "2026-01-01",
+            "revenue": 1.0
+          }
+        ]
+      },
+      {
+        "id": "one-order",
+        "visibility": "edge",
+        "input_rows": [],
+        "tables": {
+          "orders": [
+            {
+              "order_id": 6,
+              "customer_id": 4,
+              "order_date": "2026-12-31",
+              "status": "ON_TIME",
+              "amount": 2.5
+            }
+          ]
+        },
+        "expected": [
+          {
+            "month": "2026-12-01",
+            "revenue": 2.5
+          }
+        ]
+      }
+    ]
+  },
+  "sparksql-top2-with-ties": {
+    "solution": "WITH ranked AS (\n  SELECT category, product, revenue,\n         DENSE_RANK() OVER (PARTITION BY category ORDER BY revenue DESC) AS rk\n  FROM sales\n)\nSELECT category, product, revenue FROM ranked WHERE rk <= 2\n",
+    "fixtures": [
+      {
+        "id": "example",
+        "visibility": "visible",
+        "input_rows": [],
+        "tables": {
+          "sales": [
+            {
+              "category": "books",
+              "product": "atlas",
+              "revenue": 50.0
+            },
+            {
+              "category": "books",
+              "product": "bible",
+              "revenue": 50.0
+            },
+            {
+              "category": "books",
+              "product": "comic",
+              "revenue": 20.0
+            },
+            {
+              "category": "books",
+              "product": "diary",
+              "revenue": 5.0
+            },
+            {
+              "category": "games",
+              "product": "chess",
+              "revenue": 30.0
+            }
+          ]
+        },
+        "expected": [
+          {
+            "category": "games",
+            "product": "chess",
+            "revenue": 30.0
+          },
+          {
+            "category": "books",
+            "product": "atlas",
+            "revenue": 50.0
+          },
+          {
+            "category": "books",
+            "product": "bible",
+            "revenue": 50.0
+          },
+          {
+            "category": "books",
+            "product": "comic",
+            "revenue": 20.0
+          }
+        ]
+      },
+      {
+        "id": "tie-for-second",
+        "visibility": "hidden",
+        "input_rows": [],
+        "tables": {
+          "sales": [
+            {
+              "category": "toys",
+              "product": "ball",
+              "revenue": 90.0
+            },
+            {
+              "category": "toys",
+              "product": "kite",
+              "revenue": 40.0
+            },
+            {
+              "category": "toys",
+              "product": "yoyo",
+              "revenue": 40.0
+            },
+            {
+              "category": "toys",
+              "product": "top",
+              "revenue": 10.0
+            }
+          ]
+        },
+        "expected": [
+          {
+            "category": "toys",
+            "product": "ball",
+            "revenue": 90.0
+          },
+          {
+            "category": "toys",
+            "product": "yoyo",
+            "revenue": 40.0
+          },
+          {
+            "category": "toys",
+            "product": "kite",
+            "revenue": 40.0
+          }
+        ]
+      },
+      {
+        "id": "one-product",
+        "visibility": "edge",
+        "input_rows": [],
+        "tables": {
+          "sales": [
+            {
+              "category": "misc",
+              "product": "pen",
+              "revenue": 1.0
+            }
+          ]
+        },
+        "expected": [
+          {
+            "category": "misc",
+            "product": "pen",
+            "revenue": 1.0
+          }
+        ]
+      }
+    ]
+  },
+  "sparksql-email-domains": {
+    "solution": "SELECT LOWER(SPLIT_PART(email, '@', 2)) AS domain, COUNT(*) AS customers\nFROM customers\nWHERE email IS NOT NULL\nGROUP BY LOWER(SPLIT_PART(email, '@', 2))\n",
+    "fixtures": [
+      {
+        "id": "example",
+        "visibility": "visible",
+        "input_rows": [],
+        "tables": {
+          "customers": [
+            {
+              "customer_id": 1,
+              "name": "Ana",
+              "email": "ana@mail.io"
+            },
+            {
+              "customer_id": 2,
+              "name": "Bo",
+              "email": "bo@Mail.io"
+            },
+            {
+              "customer_id": 3,
+              "name": "Cy",
+              "email": "cy@corp.eu"
+            }
+          ]
+        },
+        "expected": [
+          {
+            "domain": "corp.eu",
+            "customers": 1
+          },
+          {
+            "domain": "mail.io",
+            "customers": 2
+          }
+        ]
+      },
+      {
+        "id": "missing-emails",
+        "visibility": "hidden",
+        "input_rows": [],
+        "tables": {
+          "customers": [
+            {
+              "customer_id": 4,
+              "name": "Di",
+              "email": null
+            },
+            {
+              "customer_id": 5,
+              "name": "Ed",
+              "email": "ED@CORP.EU"
+            },
+            {
+              "customer_id": 6,
+              "name": "Flo",
+              "email": "flo@corp.eu"
+            }
+          ]
+        },
+        "expected": [
+          {
+            "domain": "corp.eu",
+            "customers": 2
+          }
+        ]
+      },
+      {
+        "id": "nobody-with-email",
+        "visibility": "edge",
+        "input_rows": [],
+        "tables": {
+          "customers": [
+            {
+              "customer_id": 7,
+              "name": "Gus",
+              "email": null
+            }
+          ]
+        },
+        "expected": []
+      }
+    ]
+  }
+}

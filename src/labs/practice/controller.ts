@@ -254,6 +254,7 @@ function extensionFor(language: string): string {
     case "snowflake":
     case "tsql":
     case "bigquery":
+    case "sparksql":
       return "sql";
     case "python":
     case "pandas":

@@ -48,7 +48,7 @@ an extension update shows "needs update" / **Update runtime** and is never start
 (`X-Datapass-Token`, Host check, `runtime/datapass_runtime/auth.py`).
 
 Practice packs: `sql-lab-v1`, `engine-lab-v1` (incl. T-SQL and BigQuery variants), `python-lab-v1`,
-`de-patterns-v1`, `spark-lab-v1`, `airflow-lab-v1`, `cloud-pipelines-v1`, `sqlpool-v1`, `databricks-v1`, `dwh-v1`,
+`de-patterns-v1`, `spark-lab-v1` (PySpark + Polars), `spark-sql-v1` (Spark SQL), `airflow-lab-v1`, `cloud-pipelines-v1`, `sqlpool-v1`, `databricks-v1`, `dwh-v1`,
 `dbt-v1`, `zilla-v1` (52 ZillaCode problems in six languages), plus `guided-spark-v1` (needs a qualified remote
 connection, not graded locally), `unified-retail-v1`, `pipeline-design-v1`, `sparklab-runtime` and `internal-demo`. Languages include SQL dialects `snowflake`, `tsql`,
 `bigquery`, translated to DuckDB (`runtime/sqldialects`, README there).
@@ -131,7 +131,7 @@ Labs:
 - Terminal Lab: checks read the resulting state, so Datapass cannot tell whether the terminal or the editor produced
   it; scripts are read as text, never executed. A reported overlap in dbt Lab › Missions did not reproduce.
 - SQL dialects: T-SQL comparisons are case-sensitive (SQL Server's default collation is not); the translated SQL is
-  one line in the read-only tab; Spark SQL and PostgreSQL have no Practice content yet (`PRACTICE_DIALECTS`); the
+  one line in the read-only tab; PostgreSQL has no Practice content yet (`PRACTICE_DIALECTS`); Spark SQL has a light first track (`spark-sql-v1`, 9 cards); the
   Snowflake subset lacks typed `DATEADD` on fixture columns, `ARRAY`/`SPLIT` and `REGEXP_SUBSTR` groups.
 - Pipeline Lab: the dbt activity is declared only and fails fast; wiring it needs the trusted-local opt-in extended
   to dbt, the project path validated against `assets.dbt`, and a qualified manifest/run_results pair before success.

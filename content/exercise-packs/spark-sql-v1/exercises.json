@@ -1,0 +1,1275 @@
+[
+  {
+    "schema_version": 1,
+    "id": "sparksql-missing-email",
+    "version": "1",
+    "title": "Customers without a usable email",
+    "difficulty": "easy",
+    "topics": [
+      "nulls",
+      "filtering"
+    ],
+    "tags": [
+      "spark-lab",
+      "spark-sql"
+    ],
+    "origin": "authored",
+    "language": "sparksql",
+    "runtime": "spark-sql-dialect-duckdb-v1",
+    "prompt": "Return the customers the marketing team cannot email: email is NULL, empty or only spaces. Output customer_id, name.",
+    "sections": [
+      {
+        "title": "Tables",
+        "body": "customers(customer_id INTEGER, name VARCHAR, email VARCHAR)"
+      },
+      {
+        "title": "Output",
+        "body": "Columns in this order: customer_id, name. Row order does not matter."
+      },
+      {
+        "title": "Common pitfall",
+        "body": "email = NULL is never true: a comparison with NULL is NULL, and WHERE keeps only true rows. Use IS NULL, or fold NULL into a value first with NVL/COALESCE."
+      }
+    ],
+    "starter_source": "-- Bug: customers whose email is NULL are missing.\nSELECT customer_id, name\nFROM customers\nWHERE email = NULL OR TRIM(email) = ''\n",
+    "fixtures": [
+      {
+        "id": "sparksql-missing-email-fixtures",
+        "version": "1"
+      }
+    ],
+    "visible_checks": [
+      {
+        "id": "example",
+        "description": "Public example: the tables shown in data_context."
+      }
+    ],
+    "hidden_check_refs": [
+      "spaces-only"
+    ],
+    "edge_check_refs": [
+      "everyone-reachable"
+    ],
+    "hints": [
+      "What does email = NULL evaluate to?",
+      "NVL(TRIM(email), '') turns NULL and blank emails into ''."
+    ],
+    "solution": {
+      "available": true,
+      "reveal": "explicit"
+    },
+    "explanation": "SQL uses three-valued logic: email = NULL is NULL, so WHERE drops the row. IS NULL tests for NULL; NVL(TRIM(email), '') = '' covers NULL, empty and space-only emails in one predicate.",
+    "follow_ups": [
+      "How would you also reject emails without an @?"
+    ],
+    "canonical_placement": {
+      "domain": "spark-sql",
+      "topic": "nulls"
+    },
+    "related_associations": [
+      "sparklab/spark-sql"
+    ],
+    "recommendation": {
+      "rank": 1,
+      "reason": "Spark SQL track"
+    },
+    "validator_version": "rows-v2",
+    "validation": {
+      "kind": "rows",
+      "ordered": false,
+      "duplicate_sensitive": true,
+      "relative_tolerance": 1e-09,
+      "absolute_tolerance": 1e-06,
+      "required_columns": [
+        "customer_id",
+        "name"
+      ],
+      "exact_schema": [
+        "customer_id",
+        "name"
+      ],
+      "forbidden_extra_columns": true,
+      "null_semantics": "equal"
+    },
+    "data_context": [
+      {
+        "name": "customers",
+        "columns": {
+          "customer_id": "INTEGER",
+          "name": "VARCHAR",
+          "email": "VARCHAR"
+        },
+        "sample_rows": [
+          {
+            "customer_id": 1,
+            "name": "Ana",
+            "email": "ana@a.io"
+          },
+          {
+            "customer_id": 2,
+            "name": "Bo",
+            "email": null
+          },
+          {
+            "customer_id": 3,
+            "name": "Cy",
+            "email": ""
+          }
+        ]
+      }
+    ],
+    "output_schema": {
+      "customer_id": "value",
+      "name": "value"
+    },
+    "runtime_requirements": [],
+    "provenance": {
+      "source": "Authored for Datapass Workbench: Spark SQL track of the Spark Lab",
+      "fixtures": "Authored for Datapass; expected rows computed from the reference solution and reviewed"
+    },
+    "constraints": {
+      "fixtures": "At most 200 rows per table; complete results are graded, truncated results never pass.",
+      "truth": "Spark SQL dialect translated to DuckDB, not Spark: sqlglot translates a documented subset (runtime/sqldialects) and the result really runs on DuckDB."
+    },
+    "truth": "semantic-emulation"
+  },
+  {
+    "schema_version": 1,
+    "id": "sparksql-count-if-having",
+    "version": "1",
+    "title": "Repeat customers and their late orders",
+    "difficulty": "easy",
+    "topics": [
+      "aggregation",
+      "having"
+    ],
+    "tags": [
+      "spark-lab",
+      "spark-sql"
+    ],
+    "origin": "authored",
+    "language": "sparksql",
+    "runtime": "spark-sql-dialect-duckdb-v1",
+    "prompt": "For each customer with at least 2 orders (any status), return the number of orders and how many of them are LATE. Output customer_id, orders, late_orders.",
+    "sections": [
+      {
+        "title": "Tables",
+        "body": "orders(order_id INTEGER, customer_id INTEGER, order_date DATE, status VARCHAR, amount DOUBLE)"
+      },
+      {
+        "title": "Output",
+        "body": "Columns in this order: customer_id, orders, late_orders. Row order does not matter."
+      },
+      {
+        "title": "Common pitfall",
+        "body": "A WHERE clause filters rows before GROUP BY, so WHERE status = 'LATE' also changes the order count. Count conditionally with COUNT_IF instead, and filter groups with HAVING."
+      }
+    ],
+    "starter_source": "-- Bug: only LATE orders are counted, so customers with on-time orders drop out.\nSELECT customer_id, COUNT(*) AS orders, COUNT(*) AS late_orders\nFROM orders\nWHERE status = 'LATE'\nGROUP BY customer_id\nHAVING COUNT(*) >= 2\n",
+    "fixtures": [
+      {
+        "id": "sparksql-count-if-having-fixtures",
+        "version": "1"
+      }
+    ],
+    "visible_checks": [
+      {
+        "id": "example",
+        "description": "Public example: the tables shown in data_context."
+      }
+    ],
+    "hidden_check_refs": [
+      "no-late-orders"
+    ],
+    "edge_check_refs": [
+      "single-orders-only"
+    ],
+    "hints": [
+      "Which rows does WHERE remove before the groups are built?",
+      "COUNT_IF(condition) counts rows where it is true."
+    ],
+    "solution": {
+      "available": true,
+      "reveal": "explicit"
+    },
+    "explanation": "WHERE runs before GROUP BY and HAVING after it. Counting a subset belongs in the aggregate (COUNT_IF, or SUM(CASE WHEN ... THEN 1 ELSE 0 END)) so the group keeps all its rows.",
+    "follow_ups": [
+      "Return the late share as a percentage; what does Spark return for 1 / 3?"
+    ],
+    "canonical_placement": {
+      "domain": "spark-sql",
+      "topic": "aggregation"
+    },
+    "related_associations": [
+      "sparklab/spark-sql"
+    ],
+    "recommendation": {
+      "rank": 2,
+      "reason": "Spark SQL track"
+    },
+    "validator_version": "rows-v2",
+    "validation": {
+      "kind": "rows",
+      "ordered": false,
+      "duplicate_sensitive": true,
+      "relative_tolerance": 1e-09,
+      "absolute_tolerance": 1e-06,
+      "required_columns": [
+        "customer_id",
+        "orders",
+        "late_orders"
+      ],
+      "exact_schema": [
+        "customer_id",
+        "orders",
+        "late_orders"
+      ],
+      "forbidden_extra_columns": true,
+      "null_semantics": "equal"
+    },
+    "data_context": [
+      {
+        "name": "orders",
+        "columns": {
+          "order_id": "INTEGER",
+          "customer_id": "INTEGER",
+          "order_date": "DATE",
+          "status": "VARCHAR",
+          "amount": "DOUBLE"
+        },
+        "sample_rows": [
+          {
+            "order_id": 1,
+            "customer_id": 10,
+            "order_date": "2026-01-02",
+            "status": "LATE",
+            "amount": 20.0
+          },
+          {
+            "order_id": 2,
+            "customer_id": 10,
+            "order_date": "2026-01-05",
+            "status": "ON_TIME",
+            "amount": 35.0
+          },
+          {
+            "order_id": 3,
+            "customer_id": 20,
+            "order_date": "2026-01-06",
+            "status": "LATE",
+            "amount": 12.0
+          }
+        ]
+      }
+    ],
+    "output_schema": {
+      "customer_id": "value",
+      "orders": "value",
+      "late_orders": "value"
+    },
+    "runtime_requirements": [],
+    "provenance": {
+      "source": "Authored for Datapass Workbench: Spark SQL track of the Spark Lab",
+      "fixtures": "Authored for Datapass; expected rows computed from the reference solution and reviewed"
+    },
+    "constraints": {
+      "fixtures": "At most 200 rows per table; complete results are graded, truncated results never pass.",
+      "truth": "Spark SQL dialect translated to DuckDB, not Spark: sqlglot translates a documented subset (runtime/sqldialects) and the result really runs on DuckDB."
+    },
+    "truth": "semantic-emulation"
+  },
+  {
+    "schema_version": 1,
+    "id": "sparksql-left-anti-join",
+    "version": "1",
+    "title": "Customers who never ordered: LEFT ANTI JOIN",
+    "difficulty": "easy",
+    "topics": [
+      "joins",
+      "anti-join",
+      "nulls"
+    ],
+    "tags": [
+      "spark-lab",
+      "spark-sql"
+    ],
+    "origin": "authored",
+    "language": "sparksql",
+    "runtime": "spark-sql-dialect-duckdb-v1",
+    "prompt": "Return the customers who have no order at all. Output customer_id, name.",
+    "sections": [
+      {
+        "title": "Tables",
+        "body": "customers(customer_id INTEGER, name VARCHAR, email VARCHAR)\norders(order_id INTEGER, customer_id INTEGER, order_date DATE, status VARCHAR, amount DOUBLE)"
+      },
+      {
+        "title": "Output",
+        "body": "Columns in this order: customer_id, name. Row order does not matter."
+      },
+      {
+        "title": "Common pitfall",
+        "body": "NOT IN (subquery) returns no row at all as soon as the subquery holds a NULL (guest orders have no customer_id). Spark's LEFT ANTI JOIN, like NOT EXISTS, only keeps rows without a match and ignores NULLs."
+      }
+    ],
+    "starter_source": "-- Bug: returns nothing once an order has a NULL customer_id.\nSELECT customer_id, name\nFROM customers\nWHERE customer_id NOT IN (SELECT customer_id FROM orders)\n",
+    "fixtures": [
+      {
+        "id": "sparksql-left-anti-join-fixtures",
+        "version": "1"
+      }
+    ],
+    "visible_checks": [
+      {
+        "id": "example",
+        "description": "Public example: the tables shown in data_context."
+      }
+    ],
+    "hidden_check_refs": [
+      "guest-order"
+    ],
+    "edge_check_refs": [
+      "no-orders"
+    ],
+    "hints": [
+      "What is 4 NOT IN (3, NULL)?",
+      "Spark has LEFT ANTI JOIN: rows of the left side with no match on the right."
+    ],
+    "solution": {
+      "available": true,
+      "reveal": "explicit"
+    },
+    "explanation": "x NOT IN (3, NULL) is NULL, never true, so one NULL in the subquery empties the result. An anti join (LEFT ANTI JOIN or NOT EXISTS) compares with =, where a NULL key simply never matches.",
+    "follow_ups": [
+      "Rewrite the answer with NOT EXISTS; which plan does Spark choose for each?"
+    ],
+    "canonical_placement": {
+      "domain": "spark-sql",
+      "topic": "joins"
+    },
+    "related_associations": [
+      "sparklab/spark-sql"
+    ],
+    "recommendation": {
+      "rank": 3,
+      "reason": "Spark SQL track"
+    },
+    "validator_version": "rows-v2",
+    "validation": {
+      "kind": "rows",
+      "ordered": false,
+      "duplicate_sensitive": true,
+      "relative_tolerance": 1e-09,
+      "absolute_tolerance": 1e-06,
+      "required_columns": [
+        "customer_id",
+        "name"
+      ],
+      "exact_schema": [
+        "customer_id",
+        "name"
+      ],
+      "forbidden_extra_columns": true,
+      "null_semantics": "equal"
+    },
+    "data_context": [
+      {
+        "name": "customers",
+        "columns": {
+          "customer_id": "INTEGER",
+          "name": "VARCHAR",
+          "email": "VARCHAR"
+        },
+        "sample_rows": [
+          {
+            "customer_id": 1,
+            "name": "Ana",
+            "email": "ana@a.io"
+          },
+          {
+            "customer_id": 2,
+            "name": "Bo",
+            "email": "bo@b.io"
+          }
+        ]
+      },
+      {
+        "name": "orders",
+        "columns": {
+          "order_id": "INTEGER",
+          "customer_id": "INTEGER",
+          "order_date": "DATE",
+          "status": "VARCHAR",
+          "amount": "DOUBLE"
+        },
+        "sample_rows": [
+          {
+            "order_id": 10,
+            "customer_id": 1,
+            "order_date": "2026-01-02",
+            "status": "ON_TIME",
+            "amount": 5.0
+          }
+        ]
+      }
+    ],
+    "output_schema": {
+      "customer_id": "value",
+      "name": "value"
+    },
+    "runtime_requirements": [],
+    "provenance": {
+      "source": "Authored for Datapass Workbench: Spark SQL track of the Spark Lab",
+      "fixtures": "Authored for Datapass; expected rows computed from the reference solution and reviewed"
+    },
+    "constraints": {
+      "fixtures": "At most 200 rows per table; complete results are graded, truncated results never pass.",
+      "truth": "Spark SQL dialect translated to DuckDB, not Spark: sqlglot translates a documented subset (runtime/sqldialects) and the result really runs on DuckDB."
+    },
+    "truth": "semantic-emulation"
+  },
+  {
+    "schema_version": 1,
+    "id": "sparksql-qualify-latest",
+    "version": "1",
+    "title": "Latest order per customer with QUALIFY",
+    "difficulty": "medium",
+    "topics": [
+      "windows",
+      "deduplication",
+      "qualify"
+    ],
+    "tags": [
+      "spark-lab",
+      "spark-sql"
+    ],
+    "origin": "authored",
+    "language": "sparksql",
+    "runtime": "spark-sql-dialect-duckdb-v1",
+    "prompt": "Return each customer's latest order, the whole row: the most recent order_date, and the highest order_id when two orders share that date. Output order_id, customer_id, order_date, status, amount.",
+    "sections": [
+      {
+        "title": "Tables",
+        "body": "orders(order_id INTEGER, customer_id INTEGER, order_date DATE, status VARCHAR, amount DOUBLE)"
+      },
+      {
+        "title": "Output",
+        "body": "Columns in this order: order_id, customer_id, order_date, status, amount. Row order does not matter."
+      },
+      {
+        "title": "Common pitfall",
+        "body": "MAX() per column mixes values from different rows (the latest date with another order's amount). Rank the rows in a window and keep the first one; QUALIFY filters on the window without a subquery. RANK keeps every tied row, ROW_NUMBER exactly one."
+      }
+    ],
+    "starter_source": "-- Bug: each column's MAX may come from a different order.\nSELECT MAX(order_id) AS order_id, customer_id, MAX(order_date) AS order_date,\n       MAX(status) AS status, MAX(amount) AS amount\nFROM orders\nGROUP BY customer_id\n",
+    "fixtures": [
+      {
+        "id": "sparksql-qualify-latest-fixtures",
+        "version": "1"
+      }
+    ],
+    "visible_checks": [
+      {
+        "id": "example",
+        "description": "Public example: the tables shown in data_context."
+      }
+    ],
+    "hidden_check_refs": [
+      "same-day-orders"
+    ],
+    "edge_check_refs": [
+      "single-order"
+    ],
+    "hints": [
+      "Do MAX(order_date) and MAX(amount) come from the same row?",
+      "ROW_NUMBER() OVER (PARTITION BY ... ORDER BY ...) = 1 in a QUALIFY clause."
+    ],
+    "solution": {
+      "available": true,
+      "reveal": "explicit"
+    },
+    "explanation": "Aggregates work column by column, so they cannot pick a row. A window numbers the rows inside each customer; QUALIFY keeps number 1. The tie-breaker (order_id DESC) makes the answer deterministic.",
+    "follow_ups": [
+      "Without QUALIFY (Apache Spark before 4.x), how do you write this with a subquery?"
+    ],
+    "canonical_placement": {
+      "domain": "spark-sql",
+      "topic": "windows"
+    },
+    "related_associations": [
+      "sparklab/spark-sql"
+    ],
+    "recommendation": {
+      "rank": 4,
+      "reason": "Spark SQL track"
+    },
+    "validator_version": "rows-v2",
+    "validation": {
+      "kind": "rows",
+      "ordered": false,
+      "duplicate_sensitive": true,
+      "relative_tolerance": 1e-09,
+      "absolute_tolerance": 1e-06,
+      "required_columns": [
+        "order_id",
+        "customer_id",
+        "order_date",
+        "status",
+        "amount"
+      ],
+      "exact_schema": [
+        "order_id",
+        "customer_id",
+        "order_date",
+        "status",
+        "amount"
+      ],
+      "forbidden_extra_columns": true,
+      "null_semantics": "equal"
+    },
+    "data_context": [
+      {
+        "name": "orders",
+        "columns": {
+          "order_id": "INTEGER",
+          "customer_id": "INTEGER",
+          "order_date": "DATE",
+          "status": "VARCHAR",
+          "amount": "DOUBLE"
+        },
+        "sample_rows": [
+          {
+            "order_id": 1,
+            "customer_id": 10,
+            "order_date": "2026-01-02",
+            "status": "ON_TIME",
+            "amount": 80.0
+          },
+          {
+            "order_id": 2,
+            "customer_id": 10,
+            "order_date": "2026-01-09",
+            "status": "LATE",
+            "amount": 15.0
+          },
+          {
+            "order_id": 3,
+            "customer_id": 20,
+            "order_date": "2026-01-04",
+            "status": "ON_TIME",
+            "amount": 7.5
+          }
+        ]
+      }
+    ],
+    "output_schema": {
+      "order_id": "value",
+      "customer_id": "value",
+      "order_date": "value",
+      "status": "value",
+      "amount": "value"
+    },
+    "runtime_requirements": [],
+    "provenance": {
+      "source": "Authored for Datapass Workbench: Spark SQL track of the Spark Lab",
+      "fixtures": "Authored for Datapass; expected rows computed from the reference solution and reviewed"
+    },
+    "constraints": {
+      "fixtures": "At most 200 rows per table; complete results are graded, truncated results never pass.",
+      "truth": "Spark SQL dialect translated to DuckDB, not Spark: sqlglot translates a documented subset (runtime/sqldialects) and the result really runs on DuckDB."
+    },
+    "truth": "semantic-emulation"
+  },
+  {
+    "schema_version": 1,
+    "id": "sparksql-lag-change",
+    "version": "1",
+    "title": "Change since the previous reading with LAG",
+    "difficulty": "medium",
+    "topics": [
+      "windows",
+      "lag"
+    ],
+    "tags": [
+      "spark-lab",
+      "spark-sql"
+    ],
+    "origin": "authored",
+    "language": "sparksql",
+    "runtime": "spark-sql-dialect-duckdb-v1",
+    "prompt": "Meters report readings. For each reading return change: this value minus the same meter's previous value (by reading_date); the first reading of a meter has a NULL change. Output meter_id, reading_date, value, change.",
+    "sections": [
+      {
+        "title": "Tables",
+        "body": "readings(meter_id VARCHAR, reading_date DATE, value DOUBLE)"
+      },
+      {
+        "title": "Output",
+        "body": "Columns in this order: meter_id, reading_date, value, change. Row order does not matter."
+      },
+      {
+        "title": "Common pitfall",
+        "body": "Without PARTITION BY, LAG reads the previous row of the whole table, so a meter's first reading is compared with another meter. Replacing the first NULL with 0 invents a change equal to the whole value."
+      }
+    ],
+    "starter_source": "-- Bug: the previous row may belong to another meter.\nSELECT meter_id, reading_date, value,\n       value - LAG(value) OVER (ORDER BY meter_id, reading_date) AS change\nFROM readings\n",
+    "fixtures": [
+      {
+        "id": "sparksql-lag-change-fixtures",
+        "version": "1"
+      }
+    ],
+    "visible_checks": [
+      {
+        "id": "example",
+        "description": "Public example: the tables shown in data_context."
+      }
+    ],
+    "hidden_check_refs": [
+      "unsorted-meters"
+    ],
+    "edge_check_refs": [
+      "one-reading"
+    ],
+    "hints": [
+      "Which rows does LAG see without PARTITION BY?",
+      "A meter's first reading has no previous value: keep NULL."
+    ],
+    "solution": {
+      "available": true,
+      "reveal": "explicit"
+    },
+    "explanation": "PARTITION BY restarts the window for every meter, so LAG never crosses from one meter to the next. LAG returns NULL for the first row of a partition, and the prompt keeps that NULL.",
+    "follow_ups": [
+      "Return only the readings whose change is negative (a meter reset)."
+    ],
+    "canonical_placement": {
+      "domain": "spark-sql",
+      "topic": "windows"
+    },
+    "related_associations": [
+      "sparklab/spark-sql"
+    ],
+    "recommendation": {
+      "rank": 5,
+      "reason": "Spark SQL track"
+    },
+    "validator_version": "rows-v2",
+    "validation": {
+      "kind": "rows",
+      "ordered": false,
+      "duplicate_sensitive": true,
+      "relative_tolerance": 1e-09,
+      "absolute_tolerance": 1e-06,
+      "required_columns": [
+        "meter_id",
+        "reading_date",
+        "value",
+        "change"
+      ],
+      "exact_schema": [
+        "meter_id",
+        "reading_date",
+        "value",
+        "change"
+      ],
+      "forbidden_extra_columns": true,
+      "null_semantics": "equal"
+    },
+    "data_context": [
+      {
+        "name": "readings",
+        "columns": {
+          "meter_id": "VARCHAR",
+          "reading_date": "DATE",
+          "value": "DOUBLE"
+        },
+        "sample_rows": [
+          {
+            "meter_id": "A",
+            "reading_date": "2026-01-01",
+            "value": 100.0
+          },
+          {
+            "meter_id": "A",
+            "reading_date": "2026-01-02",
+            "value": 130.0
+          },
+          {
+            "meter_id": "B",
+            "reading_date": "2026-01-01",
+            "value": 40.0
+          }
+        ]
+      }
+    ],
+    "output_schema": {
+      "meter_id": "value",
+      "reading_date": "value",
+      "value": "value",
+      "change": "value"
+    },
+    "runtime_requirements": [],
+    "provenance": {
+      "source": "Authored for Datapass Workbench: Spark SQL track of the Spark Lab",
+      "fixtures": "Authored for Datapass; expected rows computed from the reference solution and reviewed"
+    },
+    "constraints": {
+      "fixtures": "At most 200 rows per table; complete results are graded, truncated results never pass.",
+      "truth": "Spark SQL dialect translated to DuckDB, not Spark: sqlglot translates a documented subset (runtime/sqldialects) and the result really runs on DuckDB."
+    },
+    "truth": "semantic-emulation"
+  },
+  {
+    "schema_version": 1,
+    "id": "sparksql-datediff-shipping",
+    "version": "1",
+    "title": "Days to ship: DATEDIFF(end, start)",
+    "difficulty": "easy",
+    "topics": [
+      "dates",
+      "datediff"
+    ],
+    "tags": [
+      "spark-lab",
+      "spark-sql"
+    ],
+    "origin": "authored",
+    "language": "sparksql",
+    "runtime": "spark-sql-dialect-duckdb-v1",
+    "prompt": "For each shipment return days_to_ship, the number of days from order_date to shipped_date (0 when shipped the same day, NULL when not shipped yet). Output order_id, days_to_ship.",
+    "sections": [
+      {
+        "title": "Tables",
+        "body": "shipments(order_id INTEGER, order_date DATE, shipped_date DATE)"
+      },
+      {
+        "title": "Output",
+        "body": "Columns in this order: order_id, days_to_ship. Row order does not matter."
+      },
+      {
+        "title": "Common pitfall",
+        "body": "Spark's DATEDIFF(endDate, startDate) puts the end first, the opposite of T-SQL's DATEDIFF(day, start, end). Swapped arguments give negative durations."
+      }
+    ],
+    "starter_source": "-- Bug: every duration comes out negative.\nSELECT order_id, DATEDIFF(order_date, shipped_date) AS days_to_ship\nFROM shipments\n",
+    "fixtures": [
+      {
+        "id": "sparksql-datediff-shipping-fixtures",
+        "version": "1"
+      }
+    ],
+    "visible_checks": [
+      {
+        "id": "example",
+        "description": "Public example: the tables shown in data_context."
+      }
+    ],
+    "hidden_check_refs": [
+      "month-boundary"
+    ],
+    "edge_check_refs": [
+      "same-day"
+    ],
+    "hints": [
+      "Which argument comes first in Spark's DATEDIFF?",
+      "Order 4 crosses 29 February 2024."
+    ],
+    "solution": {
+      "available": true,
+      "reveal": "explicit"
+    },
+    "explanation": "DATEDIFF(end, start) counts days from start to end. A NULL shipped_date gives NULL, which is what the prompt asks for unshipped orders.",
+    "follow_ups": [
+      "Count the orders shipped within 2 days per week of order_date."
+    ],
+    "canonical_placement": {
+      "domain": "spark-sql",
+      "topic": "dates"
+    },
+    "related_associations": [
+      "sparklab/spark-sql"
+    ],
+    "recommendation": {
+      "rank": 6,
+      "reason": "Spark SQL track"
+    },
+    "validator_version": "rows-v2",
+    "validation": {
+      "kind": "rows",
+      "ordered": false,
+      "duplicate_sensitive": true,
+      "relative_tolerance": 1e-09,
+      "absolute_tolerance": 1e-06,
+      "required_columns": [
+        "order_id",
+        "days_to_ship"
+      ],
+      "exact_schema": [
+        "order_id",
+        "days_to_ship"
+      ],
+      "forbidden_extra_columns": true,
+      "null_semantics": "equal"
+    },
+    "data_context": [
+      {
+        "name": "shipments",
+        "columns": {
+          "order_id": "INTEGER",
+          "order_date": "DATE",
+          "shipped_date": "DATE"
+        },
+        "sample_rows": [
+          {
+            "order_id": 1,
+            "order_date": "2026-01-02",
+            "shipped_date": "2026-01-05"
+          },
+          {
+            "order_id": 2,
+            "order_date": "2026-01-03",
+            "shipped_date": null
+          }
+        ]
+      }
+    ],
+    "output_schema": {
+      "order_id": "value",
+      "days_to_ship": "value"
+    },
+    "runtime_requirements": [],
+    "provenance": {
+      "source": "Authored for Datapass Workbench: Spark SQL track of the Spark Lab",
+      "fixtures": "Authored for Datapass; expected rows computed from the reference solution and reviewed"
+    },
+    "constraints": {
+      "fixtures": "At most 200 rows per table; complete results are graded, truncated results never pass.",
+      "truth": "Spark SQL dialect translated to DuckDB, not Spark: sqlglot translates a documented subset (runtime/sqldialects) and the result really runs on DuckDB."
+    },
+    "truth": "semantic-emulation"
+  },
+  {
+    "schema_version": 1,
+    "id": "sparksql-monthly-revenue",
+    "version": "1",
+    "title": "Monthly revenue across years: TRUNC to the month",
+    "difficulty": "medium",
+    "topics": [
+      "dates",
+      "aggregation"
+    ],
+    "tags": [
+      "spark-lab",
+      "spark-sql"
+    ],
+    "origin": "authored",
+    "language": "sparksql",
+    "runtime": "spark-sql-dialect-duckdb-v1",
+    "prompt": "Return the revenue of each calendar month, as the first day of the month (a DATE) and the sum of amount. Output month, revenue.",
+    "sections": [
+      {
+        "title": "Tables",
+        "body": "orders(order_id INTEGER, customer_id INTEGER, order_date DATE, status VARCHAR, amount DOUBLE)"
+      },
+      {
+        "title": "Output",
+        "body": "Columns in this order: month, revenue. Row order does not matter."
+      },
+      {
+        "title": "Common pitfall",
+        "body": "MONTH(order_date) is only the month number, so January 2025 and January 2026 land in the same group. TRUNC(order_date, 'MM') keeps the year and returns a DATE; DATE_TRUNC('MONTH', ...) returns a TIMESTAMP."
+      }
+    ],
+    "starter_source": "-- Bug: January 2025 and January 2026 are added together.\nSELECT MONTH(order_date) AS month, SUM(amount) AS revenue\nFROM orders\nGROUP BY MONTH(order_date)\n",
+    "fixtures": [
+      {
+        "id": "sparksql-monthly-revenue-fixtures",
+        "version": "1"
+      }
+    ],
+    "visible_checks": [
+      {
+        "id": "example",
+        "description": "Public example: the tables shown in data_context."
+      }
+    ],
+    "hidden_check_refs": [
+      "two-januaries"
+    ],
+    "edge_check_refs": [
+      "one-order"
+    ],
+    "hints": [
+      "Is MONTH('2025-01-31') different from MONTH('2026-01-01')?",
+      "TRUNC(date, 'MM') keeps year and month."
+    ],
+    "solution": {
+      "available": true,
+      "reveal": "explicit"
+    },
+    "explanation": "A month bucket needs the year too. TRUNC(order_date, 'MM') maps every date to the first day of its month as a DATE, which groups, sorts and joins to a calendar table cleanly.",
+    "follow_ups": [
+      "Add the months with no order (revenue 0) from a calendar table."
+    ],
+    "canonical_placement": {
+      "domain": "spark-sql",
+      "topic": "dates"
+    },
+    "related_associations": [
+      "sparklab/spark-sql"
+    ],
+    "recommendation": {
+      "rank": 7,
+      "reason": "Spark SQL track"
+    },
+    "validator_version": "rows-v2",
+    "validation": {
+      "kind": "rows",
+      "ordered": false,
+      "duplicate_sensitive": true,
+      "relative_tolerance": 1e-09,
+      "absolute_tolerance": 1e-06,
+      "required_columns": [
+        "month",
+        "revenue"
+      ],
+      "exact_schema": [
+        "month",
+        "revenue"
+      ],
+      "forbidden_extra_columns": true,
+      "null_semantics": "equal"
+    },
+    "data_context": [
+      {
+        "name": "orders",
+        "columns": {
+          "order_id": "INTEGER",
+          "customer_id": "INTEGER",
+          "order_date": "DATE",
+          "status": "VARCHAR",
+          "amount": "DOUBLE"
+        },
+        "sample_rows": [
+          {
+            "order_id": 1,
+            "customer_id": 1,
+            "order_date": "2026-01-05",
+            "status": "ON_TIME",
+            "amount": 10.0
+          },
+          {
+            "order_id": 2,
+            "customer_id": 2,
+            "order_date": "2026-01-20",
+            "status": "ON_TIME",
+            "amount": 15.0
+          },
+          {
+            "order_id": 3,
+            "customer_id": 1,
+            "order_date": "2026-02-01",
+            "status": "LATE",
+            "amount": 7.0
+          }
+        ]
+      }
+    ],
+    "output_schema": {
+      "month": "value",
+      "revenue": "value"
+    },
+    "runtime_requirements": [],
+    "provenance": {
+      "source": "Authored for Datapass Workbench: Spark SQL track of the Spark Lab",
+      "fixtures": "Authored for Datapass; expected rows computed from the reference solution and reviewed"
+    },
+    "constraints": {
+      "fixtures": "At most 200 rows per table; complete results are graded, truncated results never pass.",
+      "truth": "Spark SQL dialect translated to DuckDB, not Spark: sqlglot translates a documented subset (runtime/sqldialects) and the result really runs on DuckDB."
+    },
+    "truth": "semantic-emulation"
+  },
+  {
+    "schema_version": 1,
+    "id": "sparksql-top2-with-ties",
+    "version": "1",
+    "title": "Top 2 products per category, ties included",
+    "difficulty": "medium",
+    "topics": [
+      "windows",
+      "top-n",
+      "cte"
+    ],
+    "tags": [
+      "spark-lab",
+      "spark-sql"
+    ],
+    "origin": "authored",
+    "language": "sparksql",
+    "runtime": "spark-sql-dialect-duckdb-v1",
+    "prompt": "Return, per category, the products whose revenue is among the 2 highest distinct revenue values of that category (all tied products are kept). Output category, product, revenue.",
+    "sections": [
+      {
+        "title": "Tables",
+        "body": "sales(category VARCHAR, product VARCHAR, revenue DOUBLE)"
+      },
+      {
+        "title": "Output",
+        "body": "Columns in this order: category, product, revenue. Row order does not matter."
+      },
+      {
+        "title": "Common pitfall",
+        "body": "ROW_NUMBER cuts a tie arbitrarily; RANK skips a number after a tie (1, 1, 3) so the second value disappears. DENSE_RANK numbers distinct values (1, 1, 2)."
+      }
+    ],
+    "starter_source": "-- Bug: a tie is cut, and which product survives is arbitrary.\nWITH ranked AS (\n  SELECT category, product, revenue,\n         ROW_NUMBER() OVER (PARTITION BY category ORDER BY revenue DESC, product) AS rk\n  FROM sales\n)\nSELECT category, product, revenue FROM ranked WHERE rk <= 2\n",
+    "fixtures": [
+      {
+        "id": "sparksql-top2-with-ties-fixtures",
+        "version": "1"
+      }
+    ],
+    "visible_checks": [
+      {
+        "id": "example",
+        "description": "Public example: the tables shown in data_context."
+      }
+    ],
+    "hidden_check_refs": [
+      "tie-for-second"
+    ],
+    "edge_check_refs": [
+      "one-product"
+    ],
+    "hints": [
+      "Compare ROW_NUMBER, RANK and DENSE_RANK on 50, 50, 20.",
+      "The prompt counts distinct revenue values."
+    ],
+    "solution": {
+      "available": true,
+      "reveal": "explicit"
+    },
+    "explanation": "DENSE_RANK gives equal values the same number without gaps, so rk <= 2 keeps every product whose revenue is one of the two highest distinct values.",
+    "follow_ups": [
+      "What changes if the business wants at most 2 products, ties broken by product name?"
+    ],
+    "canonical_placement": {
+      "domain": "spark-sql",
+      "topic": "windows"
+    },
+    "related_associations": [
+      "sparklab/spark-sql"
+    ],
+    "recommendation": {
+      "rank": 8,
+      "reason": "Spark SQL track"
+    },
+    "validator_version": "rows-v2",
+    "validation": {
+      "kind": "rows",
+      "ordered": false,
+      "duplicate_sensitive": true,
+      "relative_tolerance": 1e-09,
+      "absolute_tolerance": 1e-06,
+      "required_columns": [
+        "category",
+        "product",
+        "revenue"
+      ],
+      "exact_schema": [
+        "category",
+        "product",
+        "revenue"
+      ],
+      "forbidden_extra_columns": true,
+      "null_semantics": "equal"
+    },
+    "data_context": [
+      {
+        "name": "sales",
+        "columns": {
+          "category": "VARCHAR",
+          "product": "VARCHAR",
+          "revenue": "DOUBLE"
+        },
+        "sample_rows": [
+          {
+            "category": "books",
+            "product": "atlas",
+            "revenue": 50.0
+          },
+          {
+            "category": "books",
+            "product": "bible",
+            "revenue": 50.0
+          },
+          {
+            "category": "books",
+            "product": "comic",
+            "revenue": 20.0
+          },
+          {
+            "category": "books",
+            "product": "diary",
+            "revenue": 5.0
+          },
+          {
+            "category": "games",
+            "product": "chess",
+            "revenue": 30.0
+          }
+        ]
+      }
+    ],
+    "output_schema": {
+      "category": "value",
+      "product": "value",
+      "revenue": "value"
+    },
+    "runtime_requirements": [],
+    "provenance": {
+      "source": "Authored for Datapass Workbench: Spark SQL track of the Spark Lab",
+      "fixtures": "Authored for Datapass; expected rows computed from the reference solution and reviewed"
+    },
+    "constraints": {
+      "fixtures": "At most 200 rows per table; complete results are graded, truncated results never pass.",
+      "truth": "Spark SQL dialect translated to DuckDB, not Spark: sqlglot translates a documented subset (runtime/sqldialects) and the result really runs on DuckDB."
+    },
+    "truth": "semantic-emulation"
+  },
+  {
+    "schema_version": 1,
+    "id": "sparksql-email-domains",
+    "version": "1",
+    "title": "Customers per email domain",
+    "difficulty": "easy",
+    "topics": [
+      "strings",
+      "aggregation"
+    ],
+    "tags": [
+      "spark-lab",
+      "spark-sql"
+    ],
+    "origin": "authored",
+    "language": "sparksql",
+    "runtime": "spark-sql-dialect-duckdb-v1",
+    "prompt": "Count the customers per email domain (the part after @), case-insensitively and in lower case. Ignore customers without an email. Output domain, customers.",
+    "sections": [
+      {
+        "title": "Tables",
+        "body": "customers(customer_id INTEGER, name VARCHAR, email VARCHAR)"
+      },
+      {
+        "title": "Output",
+        "body": "Columns in this order: domain, customers. Row order does not matter."
+      },
+      {
+        "title": "Common pitfall",
+        "body": "String comparison and GROUP BY are case-sensitive in Spark: 'Mail.io' and 'mail.io' are two groups. Normalize with LOWER before grouping; SPLIT_PART(email, '@', 2) is the part after the @."
+      }
+    ],
+    "starter_source": "-- Bug: the same domain in different cases is counted twice.\nSELECT SPLIT_PART(email, '@', 2) AS domain, COUNT(*) AS customers\nFROM customers\nWHERE email IS NOT NULL\nGROUP BY SPLIT_PART(email, '@', 2)\n",
+    "fixtures": [
+      {
+        "id": "sparksql-email-domains-fixtures",
+        "version": "1"
+      }
+    ],
+    "visible_checks": [
+      {
+        "id": "example",
+        "description": "Public example: the tables shown in data_context."
+      }
+    ],
+    "hidden_check_refs": [
+      "missing-emails"
+    ],
+    "edge_check_refs": [
+      "nobody-with-email"
+    ],
+    "hints": [
+      "Are 'Mail.io' and 'mail.io' equal in Spark?",
+      "LOWER(SPLIT_PART(email, '@', 2))."
+    ],
+    "solution": {
+      "available": true,
+      "reveal": "explicit"
+    },
+    "explanation": "GROUP BY compares strings exactly. Lower-casing the domain first puts every spelling of a domain in one group; the WHERE clause drops customers without an email before counting.",
+    "follow_ups": [
+      "Which customers have an email with no @ at all?"
+    ],
+    "canonical_placement": {
+      "domain": "spark-sql",
+      "topic": "strings"
+    },
+    "related_associations": [
+      "sparklab/spark-sql"
+    ],
+    "recommendation": {
+      "rank": 9,
+      "reason": "Spark SQL track"
+    },
+    "validator_version": "rows-v2",
+    "validation": {
+      "kind": "rows",
+      "ordered": false,
+      "duplicate_sensitive": true,
+      "relative_tolerance": 1e-09,
+      "absolute_tolerance": 1e-06,
+      "required_columns": [
+        "domain",
+        "customers"
+      ],
+      "exact_schema": [
+        "domain",
+        "customers"
+      ],
+      "forbidden_extra_columns": true,
+      "null_semantics": "equal"
+    },
+    "data_context": [
+      {
+        "name": "customers",
+        "columns": {
+          "customer_id": "INTEGER",
+          "name": "VARCHAR",
+          "email": "VARCHAR"
+        },
+        "sample_rows": [
+          {
+            "customer_id": 1,
+            "name": "Ana",
+            "email": "ana@mail.io"
+          },
+          {
+            "customer_id": 2,
+            "name": "Bo",
+            "email": "bo@Mail.io"
+          },
+          {
+            "customer_id": 3,
+            "name": "Cy",
+            "email": "cy@corp.eu"
+          }
+        ]
+      }
+    ],
+    "output_schema": {
+      "domain": "value",
+      "customers": "value"
+    },
+    "runtime_requirements": [],
+    "provenance": {
+      "source": "Authored for Datapass Workbench: Spark SQL track of the Spark Lab",
+      "fixtures": "Authored for Datapass; expected rows computed from the reference solution and reviewed"
+    },
+    "constraints": {
+      "fixtures": "At most 200 rows per table; complete results are graded, truncated results never pass.",
+      "truth": "Spark SQL dialect translated to DuckDB, not Spark: sqlglot translates a documented subset (runtime/sqldialects) and the result really runs on DuckDB."
+    },
+    "truth": "semantic-emulation"
+  }
+]
