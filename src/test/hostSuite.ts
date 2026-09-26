@@ -746,7 +746,8 @@ export async function run(): Promise<void> {
       const tools = { binDir: path.join(root.fsPath, "no-dbt"), venvRoot: root.fsPath, snapshot: () => ({ status: "missing" as const }) };
       const missions = new MissionsService(extension.extensionUri, runtime!, tools);
       const list = await missions.list("infra");
-      assert.deepEqual(list.map(mission => mission.id), ["lake-landing-zone", "containerize-ingest-api", "page-on-shir-outage", "zero-downtime-rollout"]);
+      assert.deepEqual(list.map(mission => mission.id), ["lake-landing-zone", "datalake-module", "containerize-ingest-api",
+        "compose-keep-the-data", "page-on-shir-outage", "etl-vm-memory-leak", "zero-downtime-rollout", "black-friday-autoscale"]);
       const memory = new Map<string, unknown>();
       const lab = new InfraLabSession(runtime!, { keys: () => [...memory.keys()], get: (key: string) => memory.get(key), update: async (key: string, value: unknown) => { memory.set(key, value); } } as vscode.Memento);
       try {
