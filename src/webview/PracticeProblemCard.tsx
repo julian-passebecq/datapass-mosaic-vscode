@@ -1,6 +1,7 @@
 import { Badge, Button, Card, Text } from "@fluentui/react-components";
 import { practiceStatus, type PracticeProgress } from "../platform/practiceProgress";
 import { languageLabel, problemSummary, type PracticeProblem } from "../platform/practiceProblems";
+import { localDay, reviewLabel } from "../platform/practiceReview";
 import type { ExerciseSummary, RuntimeViewState } from "./contracts";
 import { HintsBlock, RowDiffView, SolutionBlock } from "./PracticeFeedback";
 import type { VsCodeApi } from "./WorkbenchApp";
@@ -22,7 +23,8 @@ export function PracticeProblemCard({
   progress,
   runtime,
   solution,
-  onLanguage
+  onLanguage,
+  badge
 }: {
   vscode: VsCodeApi;
   problem: PracticeProblem;
@@ -32,6 +34,8 @@ export function PracticeProblemCard({
   /** The reference solution the learner revealed for this variant. */
   solution?: string;
   onLanguage: (language: string) => void;
+  /** A mode's label on the card, for example "Review due". */
+  badge?: string;
 }) {
   const runtimeReady = runtime.status === "running";
   const result = runtime.practiceResult?.exerciseKey === variant.key ? runtime.practiceResult : undefined;
@@ -39,10 +43,16 @@ export function PracticeProblemCard({
   const status = practiceStatus(record);
   const summary = problemSummary(problem, progress);
   const multi = problem.variants.length > 1;
+  const statusLine = multi && status !== "not-started"
+    ? `${languageLabel(variant.language)}: ${status === "solved" ? "solved" : record?.attempts
+      ? `${record.attempts} ${record.attempts === 1 ? "run" : "runs"}, not solved yet` : "opened"}`
+    : undefined;
+  const review = reviewLabel(record, localDay(new Date()));
 
   return (
     <Card className="practice-item" data-problem={problem.key}>
       <div className="practice-meta">
+        {badge && <Badge appearance="filled" color="brand">{badge}</Badge>}
         <Badge appearance="tint">{problem.difficulty}</Badge>
         <span className="muted">{problem.packTitle} · v{variant.version}</span>
         {summary.status !== "not-started" && (
@@ -76,12 +86,8 @@ export function PracticeProblemCard({
             </button>
           );
         })}
-        {multi && status !== "not-started" && (
-          <small className="muted">
-            {languageLabel(variant.language)}: {status === "solved" ? "solved" : record?.attempts
-              ? `${record.attempts} ${record.attempts === 1 ? "run" : "runs"}, not solved yet`
-              : "opened"}
-          </small>
+        {(statusLine || review) && (
+          <small className="muted">{[statusLine, review].filter(Boolean).join(" · ")}</small>
         )}
       </div>
 
