@@ -9,6 +9,7 @@
  */
 import type { ExerciseSummary } from "../webview/contracts";
 import { practiceStatus, type PracticeFilters, type PracticeProgress, type PracticeStatus } from "./practiceProgress";
+import { dueReviews, reviewState } from "./practiceReview";
 
 export interface PracticeProblem {
   /** `<pack>/<problem>`: the variants' keys without their language. */
@@ -148,4 +149,44 @@ export function restoreLanguages(raw: unknown): Record<string, string> {
   return Object.fromEntries(Object.entries(raw as Record<string, unknown>)
     .filter((entry): entry is [string, string] => typeof entry[1] === "string" && /^[A-Za-z0-9_-]{1,40}$/.test(entry[1]))
     .slice(0, 2000));
+}
+
+export interface DueProblem {
+  problem: PracticeProblem;
+  /** The most overdue language of the problem: the card opens on it. */
+  language: string;
+  /** Other languages of the same problem that are due too. */
+  alsoDue: string[];
+  overdue: number;
+}
+
+/** Problems with a variant due for review on `today` (a local `YYYY-MM-DD`), most overdue first. */
+export function dueProblems(problems: readonly PracticeProblem[], progress: PracticeProgress | undefined,
+  today: string): DueProblem[] {
+  const byKey = new Map<string, { problem: PracticeProblem; language: string }>();
+  for (const problem of problems) for (const variant of problem.variants) byKey.set(variant.key, { problem, language: variant.language });
+  const result = new Map<string, DueProblem>();
+  for (const due of dueReviews([...byKey.keys()], progress?.exercises ?? {}, today)) {
+    const { problem, language } = byKey.get(due.key)!;
+    const existing = result.get(problem.key);
+    if (existing) existing.alsoDue.push(language);
+    else result.set(problem.key, { problem, language, alsoDue: [], overdue: due.overdue });
+  }
+  return [...result.values()];
+}
+
+/** How many variants are scheduled, and the first day one falls due after `today`. */
+export function upcomingReviews(problems: readonly PracticeProblem[], progress: PracticeProgress | undefined,
+  today: string): { scheduled: number; next?: string } {
+  let scheduled = 0;
+  let next: string | undefined;
+  for (const problem of problems) {
+    for (const variant of problem.variants) {
+      const state = reviewState(progress?.exercises[variant.key]);
+      if (!state) continue;
+      scheduled += 1;
+      if (state.due > today && (!next || state.due < next)) next = state.due;
+    }
+  }
+  return { scheduled, next };
 }

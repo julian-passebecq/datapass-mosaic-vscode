@@ -1596,3 +1596,34 @@ h2 { margin-bottom: 8px; font-size: 28px; }
 .practice-languages small {
   margin-left: 6px;
 }
+
+.practice-modes {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 2px;
+  margin-bottom: 12px;
+  border-bottom: 1px solid var(--vscode-panel-border);
+}
+.practice-modes button {
+  padding: 5px 12px;
+  border: 0;
+  border-bottom: 2px solid transparent;
+  background: transparent;
+  color: var(--vscode-descriptionForeground);
+  font: inherit;
+  font-size: 12px;
+  cursor: pointer;
+}
+.practice-modes button.selected {
+  border-bottom-color: var(--vscode-focusBorder);
+  color: var(--vscode-foreground);
+  font-weight: 600;
+}
+.practice-modes button:focus-visible {
+  outline: 1px solid var(--vscode-focusBorder);
+}
+.practice-review-rule {
+  margin: 0 0 10px;
+  font-size: 12px;
+  line-height: 1.5;
+}

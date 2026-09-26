@@ -7,6 +7,7 @@
  * solves an exercise. Opening an exercise or grading it without a pass makes it "attempted".
  */
 import type { ExerciseSummary } from "../webview/contracts";
+import { nextReview, parseReview, type ReviewSchedule } from "./practiceReview";
 
 export type PracticeStatus = "solved" | "attempted" | "not-started";
 export type GradeMode = "run" | "submit";
@@ -26,6 +27,8 @@ export interface ExerciseProgressRecord {
   /** The first Submit that passed, and the exercise version it passed on. */
   solved?: { at: string; version: string };
   last?: PracticeAttempt;
+  /** Spaced review (platform/practiceReview.ts): the Leitner box and the day the variant is due again. */
+  review?: ReviewSchedule;
 }
 export interface PracticeProgress { exercises: Record<string, ExerciseProgressRecord> }
 
@@ -87,7 +90,9 @@ export function parsePracticeProgress(raw: unknown): PracticeProgress {
     if (solved && text(solved.at) && text(solved.version)) record.solved = { at: text(solved.at)!, version: text(solved.version)! };
     const last = attempt(entry.last);
     if (last) record.last = last;
-    if (record.openedAt || record.attempts || record.solved || record.last || record.hintsRevealed || record.solutionViewedAt) {
+    const review = parseReview(entry.review);
+    if (review) record.review = review;
+    if (record.openedAt || record.attempts || record.solved || record.last || record.hintsRevealed || record.solutionViewedAt || record.review) {
       progress.exercises[key] = record;
     }
   }
@@ -106,16 +111,25 @@ export function recordOpened(progress: PracticeProgress | undefined, key: string
   return withRecord(progress, key, record => ({ ...record, openedAt: record.openedAt ?? now }));
 }
 
-/** A grading the runtime returned. Only a passed Submit solves; a later failure never unsolves. */
+/**
+ * A grading the runtime returned. Only a passed Submit solves; a later failure never unsolves. A Submit also moves
+ * the variant in the spaced-review schedule.
+ */
 export function recordGrade(progress: PracticeProgress | undefined, key: string, version: string, mode: GradeMode,
   status: GradeStatus, now: string): PracticeProgress {
-  return withRecord(progress, key, record => ({
+  return withRecord(progress, key, record => withReview({
     ...record,
     attempts: record.attempts + 1,
     ...(status === "passed" ? {} : { failures: (record.failures ?? 0) + 1 }),
     last: { mode, status, at: now, version },
     ...(mode === "submit" && status === "passed" && !record.solved ? { solved: { at: now, version } } : {})
-  }));
+  }, nextReview(record, mode, status, now)));
+}
+
+function withReview(record: ExerciseProgressRecord, review: ReviewSchedule | undefined): ExerciseProgressRecord {
+  if (review) return { ...record, review };
+  const { review: _drop, ...rest } = record;
+  return rest;
 }
 
 /** One more hint revealed, never beyond the exercise's hints. */
