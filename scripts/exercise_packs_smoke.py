@@ -14,6 +14,7 @@ from __future__ import annotations
 
 import json
 import os
+from concurrent.futures import ProcessPoolExecutor
 from pathlib import Path
 from tempfile import TemporaryDirectory
 
@@ -84,6 +85,58 @@ def summary(result: dict) -> str:
     return ", ".join(f"{c['id']}={c['status']}" for c in result.get("checks", [])) or str(result.get("status"))
 
 
+def check_spec(manager, workspace: Path, spec: dict, quality: dict) -> tuple[dict, list[str]]:
+    """Grade one exercise's reference, starter and mutants; return its counts and failures."""
+    flags = quality.get(spec.get("pack", {}).get("id"), {}).get("flags", {})
+    failures: list[str] = []
+    counts = {"solutions": 0, "starters": 0, "mutants": 0}
+    reference = solution(spec["id"])["source"]
+    result = grade(manager, workspace, spec, reference)
+    counts["solutions"] += 1
+    if result["status"] != "passed":
+        failures.append(f"{spec['id']}: reference solution {result['status']} ({summary(result)})")
+    starter = spec.get("starter_source", "")
+    if starter.strip():
+        counts["starters"] += 1
+        graded = grade(manager, workspace, spec, starter)
+        refused = [check["execution_status"] != "success" for check in graded["checks"]]
+        if graded["status"] == "passed":
+            failures.append(f"{spec['id']}: starter already passes")
+        elif spec["id"] in flags.get("starters_refused_by_design", []):
+            if not all(refused):
+                failures.append(f"{spec['id']}: starter should be refused ({summary(graded)})")
+        elif flags.get("runnable_starters") and any(refused):
+            failures.append(f"{spec['id']}: starter does not execute ({summary(graded)})")
+        elif spec["id"] in flags.get("plan_only_starters", []) and not fails_only_on_plan(graded):
+            failures.append(f"{spec['id']}: starter must pass its results and fail a plan check ({summary(graded)})")
+    mutants = quality.get(spec.get("pack", {}).get("id"), {}).get("mutants", {})
+    for index, mutant in enumerate(mutants.get(spec["id"], [])):
+        counts["mutants"] += 1
+        graded = grade(manager, workspace, spec, mutant)
+        if graded["status"] == "passed":
+            failures.append(f"{spec['id']}: mutant #{index} passed; fixtures do not discriminate it")
+        elif any(check["execution_status"] != "success" for check in graded["checks"]) \
+                and not flags.get("build_errors_are_answers"):
+            # A mutant must be a runnable wrong answer, not a typo that errors.
+            failures.append(f"{spec['id']}: mutant #{index} does not execute ({summary(graded)})")
+    return counts, failures
+
+
+def grade_shard(shard: list[tuple[int, dict]], quality: dict) -> list[tuple[int, dict, list[str]]]:
+    """Grade a slice of the exercises in its own workspace and worker (DuckDB allows one writer per catalog)."""
+    results = []
+    with TemporaryDirectory(prefix="datapass-packs-smoke-") as temp:
+        workspace = Path(temp)
+        manager = KernelManager(mode="duckdb", trusted=True, timeout=60.0, max_workers=1)
+        try:
+            for position, spec in shard:
+                counts, failures = check_spec(manager, workspace, spec, quality)
+                results.append((position, counts, failures))
+        finally:
+            manager.close()
+    return results
+
+
 def main() -> None:
     quality = load_quality()
     all_specs = definitions()
@@ -95,48 +148,28 @@ def main() -> None:
             | set(data["flags"].get("starters_refused_by_design", []))
         assert listed <= own, f"{pack}/quality.json references exercises outside the pack: {sorted(listed - own)}"
 
-    def flags(spec: dict) -> dict:
-        return quality.get(spec.get("pack", {}).get("id"), {}).get("flags", {})
-
-    specs = [spec for spec in all_specs if not flags(spec).get("skip")]
+    specs = [spec for spec in all_specs
+             if not quality.get(spec.get("pack", {}).get("id"), {}).get("flags", {}).get("skip")]
+    # Exercises are independent, so they are graded in parallel processes; results are put back in exercise order
+    # so the counts and the failure list read exactly as a sequential run would.
+    # At most 8 by default: more workers on a busy desktop made kernels hit their 60 s timeout.
+    jobs = max(1, int(os.environ.get("DATAPASS_PACKS_JOBS") or min(os.cpu_count() or 1, 8)))
+    indexed = list(enumerate(specs))
+    shards = [indexed[offset::jobs] for offset in range(jobs) if indexed[offset::jobs]]
+    graded: list[tuple[int, dict, list[str]]] = []
+    if len(shards) == 1:
+        graded = grade_shard(shards[0], quality)
+    else:
+        with ProcessPoolExecutor(max_workers=len(shards)) as pool:
+            for results in pool.map(grade_shard, shards, [quality] * len(shards)):
+                graded.extend(results)
+    graded.sort(key=lambda item: item[0])
     failures: list[str] = []
     counts = {"solutions": 0, "starters": 0, "mutants": 0}
-    with TemporaryDirectory(prefix="datapass-packs-smoke-") as temp:
-        workspace = Path(temp)
-        manager = KernelManager(mode="duckdb", trusted=True, timeout=60.0, max_workers=1)
-        try:
-            for spec in specs:
-                reference = solution(spec["id"])["source"]
-                result = grade(manager, workspace, spec, reference)
-                counts["solutions"] += 1
-                if result["status"] != "passed":
-                    failures.append(f"{spec['id']}: reference solution {result['status']} ({summary(result)})")
-                starter = spec.get("starter_source", "")
-                if starter.strip():
-                    counts["starters"] += 1
-                    graded = grade(manager, workspace, spec, starter)
-                    refused = [check["execution_status"] != "success" for check in graded["checks"]]
-                    if graded["status"] == "passed":
-                        failures.append(f"{spec['id']}: starter already passes")
-                    elif spec["id"] in flags(spec).get("starters_refused_by_design", []):
-                        if not all(refused):
-                            failures.append(f"{spec['id']}: starter should be refused ({summary(graded)})")
-                    elif flags(spec).get("runnable_starters") and any(refused):
-                        failures.append(f"{spec['id']}: starter does not execute ({summary(graded)})")
-                    elif spec["id"] in flags(spec).get("plan_only_starters", []) and not fails_only_on_plan(graded):
-                        failures.append(f"{spec['id']}: starter must pass its results and fail a plan check ({summary(graded)})")
-                mutants = quality.get(spec.get("pack", {}).get("id"), {}).get("mutants", {})
-                for index, mutant in enumerate(mutants.get(spec["id"], [])):
-                    counts["mutants"] += 1
-                    graded = grade(manager, workspace, spec, mutant)
-                    if graded["status"] == "passed":
-                        failures.append(f"{spec['id']}: mutant #{index} passed; fixtures do not discriminate it")
-                    elif any(check["execution_status"] != "success" for check in graded["checks"]) \
-                            and not flags(spec).get("build_errors_are_answers"):
-                        # A mutant must be a runnable wrong answer, not a typo that errors.
-                        failures.append(f"{spec['id']}: mutant #{index} does not execute ({summary(graded)})")
-        finally:
-            manager.close()
+    for _, spec_counts, spec_failures in graded:
+        for key, value in spec_counts.items():
+            counts[key] += value
+        failures.extend(spec_failures)
     if failures:
         raise SystemExit("Exercise pack smoke failed:\n  " + "\n  ".join(failures))
     print(f"Exercise pack smoke passed: {counts['solutions']} reference solutions, "

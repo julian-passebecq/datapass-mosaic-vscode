@@ -1,1 +1,0 @@
-{"name":"@datapass/notebook-core","version":"0.1.0","private":true,"type":"module","exports":{"./*":"./src/*"},"peerDependencies":{"react-grid-layout":"^2.2.3"}}
