@@ -152,7 +152,8 @@ def main() -> None:
              if not quality.get(spec.get("pack", {}).get("id"), {}).get("flags", {}).get("skip")]
     # Exercises are independent, so they are graded in parallel processes; results are put back in exercise order
     # so the counts and the failure list read exactly as a sequential run would.
-    jobs = max(1, int(os.environ.get("DATAPASS_PACKS_JOBS") or os.cpu_count() or 1))
+    # At most 8 by default: more workers on a busy desktop made kernels hit their 60 s timeout.
+    jobs = max(1, int(os.environ.get("DATAPASS_PACKS_JOBS") or min(os.cpu_count() or 1, 8)))
     indexed = list(enumerate(specs))
     shards = [indexed[offset::jobs] for offset in range(jobs) if indexed[offset::jobs]]
     graded: list[tuple[int, dict, list[str]]] = []

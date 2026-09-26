@@ -19,9 +19,9 @@ Last updated: 2026-09-26.
 - A new push to a pull request cancels its previous CI run (`concurrency`); pip downloads are cached by `setup-uv`.
 - CI (`.github/workflows/ci.yml`) has four jobs: `extension` (one build through `npm run package`, then the Node
   smokes), `runtime` (uv install, compileall, Pylance stubs check, runtime / exercise packs / projects / terminal /
-  infra missions smokes, with the dbt missions smoke running in the background meanwhile; packs are graded in parallel
-  processes),
-  `extension-host` (`npm run test:host` with the dbt tools) and `vscode-ui` (the packaged VSIX driven by Playwright).
+  infra missions smokes; packs are graded in parallel processes),
+  `extension-host` (the dbt missions smoke, then `npm run test:host`, both with the dbt tools) and
+  `vscode-ui` (the packaged VSIX driven by Playwright).
 - Record each tranche as a new dated section at the top of docs/HANDOFF_HISTORY.md (`## YYYY-MM-DD · Title`, never
   numbered or lettered), and update this file when what exists, where it lives, or a known gap changes.
 

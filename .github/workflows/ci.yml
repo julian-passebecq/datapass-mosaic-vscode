@@ -47,19 +47,8 @@ jobs:
       - run: python scripts/authoring/gen_pylance_stubs.py --check
         env:
           PYTHONPATH: runtime
-      # Missions: every reference solution is played with real dbt Core and dbt Charts and must pass the checker;
-      # the untouched projects and the mutants must fail. It is the longest smoke, so it runs in the background
-      # while the other smokes run; "Missions smoke result" prints its log and fails the job if it failed.
-      - name: Missions smoke (background)
-        run: |
-          (
-            uv venv --seed --quiet "$RUNNER_TEMP/dbt-tools" &&
-              uv pip install --quiet --python "$RUNNER_TEMP/dbt-tools/bin/python" "dbt-core>=1.10,<1.13" "dbt-duckdb>=1.9,<1.12" "dbt-charts>=0.8,<0.9" "duckdb==$(python -c 'import duckdb; print(duckdb.__version__)')" &&
-              DATAPASS_DBT_PYTHON="$RUNNER_TEMP/dbt-tools/bin/python" python scripts/missions_smoke.py
-            echo $? > "$RUNNER_TEMP/missions.status"
-          ) > "$RUNNER_TEMP/missions.log" 2>&1 &
       - run: python scripts/runtime_smoke.py
-      # Graded in parallel processes (DATAPASS_PACKS_JOBS, default: one per CPU); same counts and failure list.
+      # Graded in parallel processes (DATAPASS_PACKS_JOBS, default: one per CPU, at most 8); same counts and failure list.
       - run: python scripts/exercise_packs_smoke.py
       - run: python scripts/projects_smoke.py
       # Terminal Lab missions: each reference script is played with real bash and PowerShell (pwsh is on the runner)
@@ -68,13 +57,6 @@ jobs:
       # Infra Lab missions: each reference is typed in the simulated shell (no real terraform, docker, kubectl or az)
       # and must pass; the untouched fixtures, the starters and the mutants must fail.
       - run: python scripts/infra_missions_smoke.py
-      - name: Missions smoke result
-        if: always()
-        timeout-minutes: 15
-        run: |
-          while [ ! -f "$RUNNER_TEMP/missions.status" ]; do sleep 2; done
-          cat "$RUNNER_TEMP/missions.log"
-          exit "$(cat "$RUNNER_TEMP/missions.status")"
 
   extension-host:
     runs-on: ubuntu-latest
@@ -98,6 +80,10 @@ jobs:
         run: |
           uv venv --seed --quiet "$RUNNER_TEMP/dbt-tools"
           uv pip install --quiet --python "$RUNNER_TEMP/dbt-tools/bin/python" "dbt-core>=1.10,<1.13" "dbt-duckdb>=1.9,<1.12" "dbt-charts>=0.8,<0.9" "duckdb==$(python -c 'import duckdb; print(duckdb.__version__)')"
+      # Missions: every reference solution is played with real dbt Core and dbt Charts and must pass the checker;
+      # the untouched projects and the mutants must fail. It runs here, with the dbt tools this job installs anyway,
+      # so the runtime job does not wait for it.
+      - run: DATAPASS_DBT_PYTHON="$RUNNER_TEMP/dbt-tools/bin/python" python scripts/missions_smoke.py
       - run: npm ci --no-audit --no-fund
       - name: Extension Development Host E2E
         run: DATAPASS_DBT_PYTHON="$RUNNER_TEMP/dbt-tools/bin/python" xvfb-run -a npm run test:host
