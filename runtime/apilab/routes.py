@@ -43,12 +43,15 @@ def _mission(mission_id: str) -> Mission:
 
 
 def copy_project(mission: Mission, folder: Path) -> list[str]:
-    """The mission's starting files (ingest.py, API.md), copied once: the learner's own files are never overwritten."""
+    """The mission's starting files (ingest.py, API.md), copied once: the learner's own files are never overwritten.
+    The pack's __builtins__.pyi (the names a run puts in scope, for Pylance) goes with them."""
     source = pack_dir() / mission.id / 'project'
     written = []
-    for path in sorted(source.rglob('*')):
+    files = [(path, path.relative_to(source)) for path in sorted(source.rglob('*'))]
+    files.append((pack_dir() / '__builtins__.pyi', Path('__builtins__.pyi')))
+    for path, relative in files:
         if path.is_file():
-            target = folder / path.relative_to(source)
+            target = folder / relative
             if not target.exists():
                 target.parent.mkdir(parents=True, exist_ok=True)
                 shutil.copyfile(path, target)

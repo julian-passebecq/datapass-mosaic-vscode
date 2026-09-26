@@ -47,6 +47,9 @@ jobs:
       - run: python scripts/authoring/gen_pylance_stubs.py --check
         env:
           PYTHONPATH: runtime
+      - run: python scripts/authoring/gen_json_schemas.py --check
+        env:
+          PYTHONPATH: runtime
       - run: python scripts/runtime_smoke.py
       # Graded in parallel processes (DATAPASS_PACKS_JOBS, default: one per CPU, at most 8); same counts and failure list.
       - run: python scripts/exercise_packs_smoke.py

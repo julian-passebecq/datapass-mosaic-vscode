@@ -50,6 +50,22 @@ export class WorkbenchPanel implements WorkbenchHost {
     );
   }
 
+  /**
+   * Open the Workbench on a view and hand it a webview message as if its surface had sent it: the status bar and the
+   * CodeLens (src/nativeIntegration.ts) reuse the lab controllers' handlers this way.
+   */
+  static async dispatch(
+    context: vscode.ExtensionContext,
+    runtimeManager: RuntimeManager,
+    pythonTrust: PythonTrustController,
+    view: WorkbenchView,
+    services: LabServices,
+    message?: WebviewToHostMessage
+  ): Promise<void> {
+    await WorkbenchPanel.show(context, runtimeManager, pythonTrust, view, services);
+    if (message) await WorkbenchPanel.current?.handleMessage(message);
+  }
+
   selectedModule: WorkbenchView;
   private readonly disposables: vscode.Disposable[] = [];
   /** Last focused file per extension, so "Run active ..." works when the Workbench shares a tab group with it. */

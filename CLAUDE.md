@@ -142,6 +142,7 @@ python scripts/projects_smoke.py
 python scripts/terminal_missions_smoke.py   # Terminal Lab: references pass with real bash and PowerShell; untouched fixtures and mutants fail
 python scripts/infra_missions_smoke.py      # Infra Lab: references pass in the simulated shell; untouched fixtures, starters and mutants fail
 python -m compileall -q runtime/lakehouselab && python scripts/lakehouse_smoke.py   # Lakehouse Lab: references (DuckDB and Polars) pass; untouched starters and mutants fail
+PYTHONPATH=runtime python scripts/authoring/gen_json_schemas.py --check   # schemas/ match the runtime's pydantic contracts
 python scripts/api_lab_smoke.py             # API Lab: references pass; untouched missions, starters and mutants fail; mock API auth, Host check, no runtime token
 DATAPASS_DBT_PYTHON=<python with dbt-core + dbt-duckdb> python scripts/dbt_oracle_smoke.py   # when changing runtime/dbtlab
 DATAPASS_DBT_PYTHON=<python with dbt-core + dbt-duckdb + dbt-charts> python scripts/missions_smoke.py   # missions: references pass, untouched projects and mutants fail

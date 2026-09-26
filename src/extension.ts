@@ -6,6 +6,7 @@ import { LabTreeProvider } from "./labTree";
 import { TerminalLabSession } from "./terminalLab";
 import { InfraLabSession } from "./infraLab";
 import { MODULES } from "./modules";
+import { registerNativeIntegration } from "./nativeIntegration";
 import { PythonTrustController } from "./pythonTrustController";
 import { registerReferenceSolutions } from "./referenceSolutions";
 import { registerQueryPlanDocuments } from "./queryPlanDocuments";
@@ -43,6 +44,8 @@ export function activate(context: vscode.ExtensionContext): void {
       void WorkbenchPanel.show(context, runtimeManager, pythonTrust, "home", dbtLab);
     })
   );
+  context.subscriptions.push(...registerNativeIntegration(runtimeManager, dbtLab.missions, context.extensionUri,
+    (view, message) => WorkbenchPanel.dispatch(context, runtimeManager, pythonTrust, view, dbtLab, message)));
   for (const module of MODULES) {
     context.subscriptions.push(
       vscode.commands.registerCommand(module.command, () => {
