@@ -25,6 +25,7 @@ import { DbtSurface } from "./DbtSurface";
 import { TerminalSurface } from "./TerminalSurface";
 import { InfraSurface } from "./InfraSurface";
 import { LakehouseSurface } from "./LakehouseSurface";
+import { ApiLabSurface } from "./ApiLabSurface";
 import { FabricSurface } from "./FabricSurface";
 import { HomeSurface, RuntimeActions, runtimeTone } from "./HomeSurface";
 import { BiSurface } from "./BiSurface";
@@ -79,7 +80,8 @@ const SURFACES: Record<ModuleId, SurfaceRender> = {
   dbt: (vscode, state) => <DbtSurface vscode={vscode} dbt={state.dbt} runtime={state.runtime} />,
   terminal: (vscode, state) => <TerminalSurface vscode={vscode} terminal={state.terminal} runtime={state.runtime} />,
   infra: (vscode, state) => <InfraSurface vscode={vscode} infra={state.infra} runtime={state.runtime} />,
-  lakehouse: (vscode, state) => <LakehouseSurface vscode={vscode} lakehouse={state.lakehouse} runtime={state.runtime} />
+  lakehouse: (vscode, state) => <LakehouseSurface vscode={vscode} lakehouse={state.lakehouse} runtime={state.runtime} />,
+  apilab: (vscode, state) => <ApiLabSurface vscode={vscode} apilab={state.apilab} runtime={state.runtime} pythonTrust={state.pythonTrust} />
 };
 
 export function WorkbenchApp({ vscode }: { vscode: VsCodeApi }) {

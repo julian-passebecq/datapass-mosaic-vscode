@@ -3,6 +3,7 @@ import { BiClient } from "./bi/client";
 import { FabricClient } from "./fabric/client";
 import { InfraClient } from "./infra/client";
 import { LakehouseClient } from "./lakehouse/client";
+import { ApiLabClient } from "./apilab/client";
 import { MissionsClient } from "./missions/client";
 import { MosaicClient } from "./mosaic/client";
 import { PipelineClient } from "./pipeline/client";
@@ -26,6 +27,7 @@ export function createLabClients(connection: RuntimeConnection) {
     bi: new BiClient(connection),
     infra: new InfraClient(connection),
     lakehouse: new LakehouseClient(connection),
+    apilab: new ApiLabClient(connection),
     missions: new MissionsClient(connection),
     projects: new ProjectsClient(connection)
   };

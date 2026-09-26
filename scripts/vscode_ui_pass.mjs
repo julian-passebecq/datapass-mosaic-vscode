@@ -9,6 +9,7 @@
 // 5. Practice: Submit the first exercise's starter; the runtime grades it.
 // 5b. Infra Lab: a mission started, its commands typed in the simulated terminal, Check my work passes.
 // 5c. Lakehouse Lab: a mission started, its SQL run on DuckDB from the lab, Check my work passes on the files.
+// 5d. API Lab: a mission started, trusted Python enabled, the reference ingest.py run, Check my work passes.
 // 6. Layout: the Today home, every module reached through the family tabs, and every lab sub-tab, at a narrow
 //    Workbench width. No element may stick out of the webview (the PR #17 class of bug); a screenshot of each lands
 //    in the output folder.
@@ -397,6 +398,36 @@ try {
   const lakePassed = await waitForText(/Mission passed\./, 60000);
   step("Lakehouse Lab: the checker passes the mission on the files", Boolean(lakePassed));
   await shot("lakehouse-lab");
+
+  // --- API Lab --------------------------------------------------------------------------------------------------
+  // Start the CRM customers mission (the runtime serves its simulated API on its own loopback port), enable trusted
+  // Python through its real confirmation dialog, write the reference ingest.py on disk, Run it, then Check my work.
+  await command("Datapass: Open API Lab");
+  await web().getByRole("tab", { name: "API Lab", selected: true }).waitFor({ timeout: 60000 });
+  await web().locator(".mission-card", { hasText: "CRM customers" }).click();
+  await button("Start mission").click();
+  const ingestFile = path.join(workspace, "missions", "api-paged-customers", "ingest.py");
+  for (let waited = 0; !existsSync(ingestFile) && waited < 60000; waited += 250) await page.waitForTimeout(250);
+  writeFileSync(ingestFile, readFileSync(path.join(repo, "content", "missions", "api-v1", "api-paged-customers", "solution", "ingest.py"), "utf8"));
+  const apiShown = await waitForText(/Authorization: Bearer sim_\w+/, 60000);
+  step("API Lab: the mission's simulated API and its fictitious key are shown", Boolean(apiShown));
+  await command("Datapass: Open API Lab");
+  await button("Enable trusted local Python…").click({ timeout: 30000 });
+  await page.locator(".monaco-dialog-box").getByRole("button", { name: "Enable trusted local Python" }).click({ timeout: 30000 });
+  await web().getByText("trusted Python on").first().waitFor({ timeout: 60000 });
+  await button("Stop runtime").waitFor({ timeout: 120000 });
+  await button("Run ingest.py").click({ timeout: 60000 });
+  const apiRun = await waitForText(/Run \d+ · day 1 · (finished|failed)/, 90000);
+  step("API Lab: ingest.py ran as trusted Python against the simulated API", apiRun?.[1] === "finished", apiRun?.[0] ?? "no run shown");
+  await shot("api-lab-run");
+  await button("Check my work").click();
+  const apiPassed = await waitForText(/Mission passed\./, 60000);
+  step("API Lab: the checker passes the mission on bronze and the request log", Boolean(apiPassed));
+  await shot("api-lab");
+  // Back to the default: trusted Python off (the rest of the pass expects it).
+  await button("Disable").click();
+  await web().getByText("trusted Python off").first().waitFor({ timeout: 60000 });
+  await button("Stop runtime").waitFor({ timeout: 120000 });
 
   // --- Layout at a narrow width ---------------------------------------------------------------------------------
   // The Workbench sits beside the scratch editor; size the window so the webview is NARROW_WIDTH wide.

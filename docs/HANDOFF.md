@@ -28,9 +28,9 @@ Last updated: 2026-09-26.
 ## What exists
 
 One VS Code extension (webview Workbench + native editors, terminals, Explorer and Git) and one local FastAPI
-runtime on loopback. Twelve Workbench modules, each with a `datapass.open…` command, grouped in two families in the
+runtime on loopback. Thirteen Workbench modules, each with a `datapass.open…` command, grouped in two families in the
 navigation ("Learn": Practice, Mosaic, SparkLab, Airflow, Pipeline, BI, Cloud Lab; "Real work": Projects, dbt,
-Terminal, Infra, Lakehouse), behind a "Today" home (`datapass.openHome`: Projects and Practice progress from
+Terminal, Infra, Lakehouse, API), behind a "Today" home (`datapass.openHome`: Projects and Practice progress from
 `.datapass/progress.json`, the next suggested step, the runtime with its Setup/Start action):
 
 | Module (id) | What it does | Execution truth | Code |
@@ -45,6 +45,7 @@ Terminal, Infra, Lakehouse), behind a "Today" home (`datapass.openHome`: Project
 | Terminal Lab (`terminal`) | real bash, PowerShell and Git missions; Datapass checks the resulting folder and repository | real shells; Datapass runs none of the learner's commands | `src/terminalLab.ts`, `runtime/missionlab/terminal.py`, `content/missions/terminal-v1` |
 | Infra Lab (`infra`) | Terraform on a simulated azurerm subscription, Docker and compose, VM monitoring (az, Azure Monitor alerts), Kubernetes; typed in one simulated terminal (a Pseudoterminal, no process); missions | simulation only: HCL, Dockerfiles and manifests read, never executed; no real terraform, docker, kubectl or az | `src/infraLab.ts`, `runtime/infralab`, `runtime/missionlab/infra.py`, `content/missions/infra-v1` |
 | Lakehouse Lab (`lakehouse`) | storage layout on real local files: Parquet and Hive partitions, pruning (DuckDB's EXPLAIN ANALYZE), small files and compaction, DuckLake snapshots, time travel, schema evolution, MERGE; a Delta table read and appended; 7 missions done in DuckDB SQL or Polars in `lakehouse/<id>/`; Iceberg explained only | real: DuckDB in a process bounded to the mission folder, the official ducklake and delta extensions (installed by Setup runtime), Polars as trusted Python; checks measure files and query the lake | `runtime/lakehouselab` (README), `src/labs/lakehouse`, `content/lakehouse/lakehouse-v1` |
+| API Lab (`apilab`) | REST API ingestion into bronze: the learner's `ingest.py` against a simulated API (own loopback port, fictitious per-mission key); 5 missions: pages, cursor + 5xx retries, 429 + duplicates, incremental watermark, schema drift | API simulated; the learner's Python real (trusted Python only); checks on bronze and the API's request log | `runtime/apilab`, `src/labs/apilab`, `content/missions/api-v1` |
 | Airflow Lab (`airflow`) | Airflow 3 DAG files read by a whitelisted AST reader; scheduler, runs, retries simulated | simulation, never eval/exec | `runtime/airflowlab` |
 | Pipeline Lab (`pipeline`) | Python-like pipeline source compiled to a graph; supported activity bodies run | source never eval/exec'd; SQL, quality, Python, Polars bodies real; dbt activity declared only; schedule is metadata | `runtime/datapass_runtime/pipeline_compiler.py`, `native_pipeline.py` |
 
@@ -63,9 +64,9 @@ connection, not graded locally), `unified-retail-v1`, `pipeline-design-v1`, `spa
 ## Truth model in one paragraph
 
 Never blur real execution and simulation. Real: Mosaic SQL on DuckDB, trusted Python/Polars, Practice grading, dbt
-Lab commands, Terminal Lab shells, BI warehouse scripts and model checks, Projects checks. Translated: SQL dialects
+Lab commands, Terminal Lab shells, API Lab ingestion code, BI warehouse scripts and model checks, Projects checks. Translated: SQL dialects
 ("<dialect> dialect translated to DuckDB, not <engine>"). Emulated: the BI Lab dbt tab ("not dbt Core"). Simulated:
-Airflow scheduling, the whole Infra Lab (Terraform, Docker, monitoring, Kubernetes), Cloud Lab orchestration, distributions and data movement, Databricks compute and DBU cost,
+Airflow scheduling, the API Lab's REST API, the whole Infra Lab (Terraform, Docker, monitoring, Kubernetes), Cloud Lab orchestration, distributions and data movement, Databricks compute and DBU cost,
 SparkLab distributed behaviour. Static: SQL lineage. No cloud connection anywhere. Details: CLAUDE.md.
 
 ## Where things live
@@ -90,7 +91,7 @@ SparkLab distributed behaviour. Static: SQL lineage. No cloud connection anywher
   `src/labs/<lab>/controller.ts`; a new runtime call goes in `src/labs/<lab>/client.ts`.
 - `runtime/datapass_runtime/` FastAPI app (`main.py`), kernels, catalog, grading; one package per lab:
   `sparklab`, `airflowlab`, `factorylab`, `sqlpoollab`, `databrickslab`, `bilab`, `dbtlab`, `sqldialects`,
-  `snowflakesql`, `missionlab`, `infralab`, `lakehouselab` (each with a README where the contract is non-trivial).
+  `snowflakesql`, `missionlab`, `infralab`, `lakehouselab`, `apilab` (each with a README where the contract is non-trivial).
 - `content/`: `exercise-packs/<pack>/` (manifest, exercises or scenarios, `grading.server.json`, and the test-only
   `quality.json` with mutants and gate flags), `projects/<id>/` (reference walkthroughs excluded from the VSIX),
   `missions/<pack>/<id>/` (solutions and mutants excluded from the VSIX), `pylance-stubs/`, `modules.json` (the module
@@ -115,6 +116,8 @@ The gates are listed in CLAUDE.md "Required quality gates"; run them all before 
   after `npm run package` for the packaged VSIX pass (docs/LOCAL_TEST.md).
 - `infra_missions_smoke.py` needs nothing but the runtime (every tool is simulated); `infra_lab_smoke.mjs` is part of
   `npm test`.
+- `api_lab_smoke.py` needs only the runtime (it installs `httpx`); it starts real simulated-API servers on loopback
+  ports and runs the learner-side code in the kernel worker with trusted Python on.
 - `dbt_oracle_smoke.py` when changing `runtime/dbtlab`, `missions_smoke.py` for missions: both need a Python with
   the dbt tools. `terminal_missions_smoke.py` needs bash and pwsh.
 - Real VS Code checks: install the VSIX with `code --install-extension <file> --force` and drive it with Playwright
@@ -143,6 +146,10 @@ Labs:
   section is accepted, not served); the HPA scales on CPU only against a recorded load (`lab load replay`), no
   cluster autoscaler. The simulated terminal has no cursor movement (history only). Real tools stay out on purpose
   (user decision): real-tool exercises may come once the app is finished.
+- API Lab (first tranche, 2026-09-26): five missions, one scenario each; no OAuth/token refresh, no POST endpoints,
+  no async client patterns. One simulated API runs at a time (the active mission's); a runtime restart brings it back
+  on a new port at the next run, with the same key, day and log. Pylance flags the injected `API_BASE_URL`, `API_KEY`
+  and `bronze` as undefined in `ingest.py`.
 - Terminal Lab: checks read the resulting state, so Datapass cannot tell whether the terminal or the editor produced
   it; scripts are read as text, never executed. A reported overlap in dbt Lab › Missions did not reproduce.
 - SQL dialects: T-SQL comparisons are case-sensitive (SQL Server's default collation is not); the translated SQL is

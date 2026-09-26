@@ -1,0 +1,67 @@
+{
+  "id": "api-schema-drift",
+  "version": "1",
+  "lab": "apilab",
+  "title": "Catalog API v2: a renamed field and a new one",
+  "level": "advanced",
+  "estimate": "40 min",
+  "skills": ["schema drift", "schema enforcement", "schema evolution", "merge / upsert"],
+  "ticket": {
+    "from": "Lucas (merchandising)",
+    "subject": "Product prices went blank after the supplier's API upgrade",
+    "body": [
+      "Our product loader reads the supplier's catalog API into `bronze.api_products` (a full snapshot each run).",
+      "Tonight they roll out **v2** (click **Load day 2** in the Workbench to see it): `price` is renamed",
+      "`unit_price`, and a new `currency` field appears.",
+      "",
+      "Downstream reads `price`, so it must stay filled for every product, and finance wants `currency` kept in",
+      "bronze. One row per `sku`, in the latest state. The loader must work on both v1 (today) and v2 (tomorrow).",
+      "",
+      "Heads-up: bronze enforces its schema. A field the table does not know is refused unless you add it on",
+      "purpose (`evolve=True`)."
+    ]
+  },
+  "requires": [
+    {"message": "Load day 2 of the API (the v2 rollout) in the Workbench, then run your ingestion again.",
+     "check": {"kind": "api_run", "day": 2}}
+  ],
+  "acceptance": [
+    {
+      "id": "prices-kept",
+      "text": "Every product has its current price in `price`, one row per sku.",
+      "checks": [
+        {"kind": "sql", "sql": "SELECT count(*) AS n, count(DISTINCT sku) AS skus, count(*) FILTER (WHERE price IS NULL) AS no_price, round(sum(price), 2) AS total FROM bronze.api_products",
+         "expected": [{"n": 135, "skus": 135, "no_price": 0, "total": 61252.1}],
+         "fail": "Some products are missing, duplicated, or without their current price."}
+      ]
+    },
+    {
+      "id": "currency-kept",
+      "text": "The new `currency` field is kept in bronze.",
+      "checks": [
+        {"kind": "sql", "sql": "SELECT count(*) FILTER (WHERE currency = 'EUR') AS eur FROM bronze.api_products",
+         "expected": [{"eur": 135}],
+         "fail": "The currency of the v2 products is not in bronze.api_products."}
+      ]
+    },
+    {
+      "id": "full-snapshot",
+      "text": "The v2 run read the whole catalog.",
+      "checks": [
+        {"kind": "api_log", "endpoint": "/v1/products", "day": 2, "complete": true, "authorized": true,
+         "fail": "The day-2 run did not read every page of the catalog."}
+      ]
+    }
+  ],
+  "hints": [
+    "Map the renamed field back before writing: `row[\"price\"] = row.pop(\"unit_price\")` when `unit_price` is there.",
+    "`currency` is new: `bronze.merge(..., evolve=True)` adds the column on purpose (existing rows get NULL until they are rewritten).",
+    "Each run is a full snapshot: merge on `sku` so repriced products replace their old row."
+  ],
+  "api": {"scenario": "products-drift", "seed": 53, "tables": ["api_products"]},
+  "batches": [
+    {"id": "day-1", "label": "Day 1: catalog API v1", "day": 1},
+    {"id": "day-2", "label": "Day 2: catalog API v2 (price renamed, currency added)", "day": 2}
+  ],
+  "reference": [{"run": "solution/ingest.py"}, {"batch": "day-2"}, {"run": "solution/ingest.py"}]
+}

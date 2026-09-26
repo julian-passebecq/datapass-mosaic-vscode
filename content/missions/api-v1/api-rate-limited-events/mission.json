@@ -1,0 +1,52 @@
+{
+  "id": "api-rate-limited-events",
+  "version": "1",
+  "lab": "apilab",
+  "title": "Events API: respect the rate limit, drop the redeliveries",
+  "level": "intermediate",
+  "estimate": "35 min",
+  "skills": ["rate limiting", "429 and Retry-After", "at-least-once delivery", "deduplication"],
+  "ticket": {
+    "from": "Jonas (product analytics)",
+    "subject": "The events vendor threatens to ban our key",
+    "body": [
+      "The clickstream vendor wrote to us: our loader hammers their API after a `429 Too Many Requests` instead of",
+      "waiting the `Retry-After` they send. One more time and they revoke the key.",
+      "",
+      "Also, their delivery is *at least once*: the same event (same `event_id`) can show up twice, a few pages",
+      "apart, and our dashboards count it twice.",
+      "",
+      "Please make `ingest.py` wait what `Retry-After` says before retrying, and keep **one row per event** in",
+      "`bronze.api_events`."
+    ]
+  },
+  "acceptance": [
+    {
+      "id": "one-row-per-event",
+      "text": "bronze.api_events holds every event exactly once.",
+      "checks": [
+        {"kind": "sql", "sql": "SELECT count(*) AS n, count(DISTINCT event_id) AS ids FROM bronze.api_events",
+         "expected": [{"n": 360, "ids": 360}],
+         "fail": "The table does not hold every event exactly once."}
+      ]
+    },
+    {
+      "id": "polite-client",
+      "text": "The last run met 429 answers and waited Retry-After every time, and read every page.",
+      "checks": [
+        {"kind": "api_run", "fail": "Your last run did not finish cleanly."},
+        {"kind": "api_log", "endpoint": "/v1/events", "saw_status": [429], "retry_after_respected": true,
+         "complete": true, "authorized": true,
+         "fail": "The request log shows requests sent during a Retry-After window, or pages never read."}
+      ]
+    }
+  ],
+  "hints": [
+    "On a 429, read `response.headers[\"Retry-After\"]` (seconds), `time.sleep()` that long, then send the same request again.",
+    "A fixed short sleep (0.2 s) or retrying at once counts as ignoring Retry-After, even if it works in the end.",
+    "Duplicates share an `event_id`: `bronze.merge(\"api_events\", rows, key=\"event_id\")` keeps one, or dedupe in Python before writing."
+  ],
+  "api": {"scenario": "events-ratelimit", "seed": 37, "tables": ["api_events"]},
+  "batches": [{"id": "day-1", "label": "The events API", "day": 1}],
+  "reference": [{"run": "solution/ingest.py"}]
+}

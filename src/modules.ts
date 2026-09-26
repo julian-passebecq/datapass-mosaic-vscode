@@ -1,6 +1,6 @@
 import registry from "../content/modules.json";
 
-export type ModuleId = "projects" | "mosaic" | "practice" | "fabric" | "bi" | "sparklab" | "dbt" | "terminal" | "infra" | "lakehouse" | "airflow" | "pipeline";
+export type ModuleId = "projects" | "mosaic" | "practice" | "fabric" | "bi" | "sparklab" | "dbt" | "terminal" | "infra" | "lakehouse" | "apilab" | "airflow" | "pipeline";
 export type ExecutionMode = "real" | "simulated" | "hybrid";
 /** "learn": guided labs and simulators; "work": projects and ticket-style missions (see content/modules.json). */
 export type ModuleFamilyId = "learn" | "work";

@@ -10,6 +10,7 @@ import type { DbtMessage, DbtViewSlice } from "./dbt";
 import type { FabricMessage, FabricRuntimeSlice, FabricViewSlice } from "./fabric";
 import type { InfraMessage, InfraViewSlice } from "./infra";
 import type { LakehouseMessage, LakehouseViewSlice } from "./lakehouse";
+import type { ApiLabMessage, ApiLabViewSlice } from "./apilab";
 import type { MissionMessage } from "./missions";
 import type { MosaicMessage, MosaicRuntimeSlice, MosaicViewSlice } from "./mosaic";
 import type { PipelineMessage, PipelineRuntimeSlice, PipelineViewSlice } from "./pipeline";
@@ -26,6 +27,7 @@ export * from "./fabric";
 export * from "./graph";
 export * from "./infra";
 export * from "./lakehouse";
+export * from "./apilab";
 export * from "./missions";
 export * from "./mosaic";
 export * from "./pipeline";
@@ -57,6 +59,7 @@ export interface WorkbenchViewState
     TerminalViewSlice,
     InfraViewSlice,
     LakehouseViewSlice,
+    ApiLabViewSlice,
     ProjectsViewSlice,
     HomeViewSlice {
   /** "home" (the Today page) or the module shown. */
@@ -87,5 +90,6 @@ export type WebviewToHostMessage =
   | TerminalMessage
   | InfraMessage
   | LakehouseMessage
+  | ApiLabMessage
   | MissionMessage
   | ProjectsMessage;
