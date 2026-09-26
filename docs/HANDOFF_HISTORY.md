@@ -9,6 +9,23 @@ Add a tranche as a new `## YYYY-MM-DD · Title` section at the top, under this p
 sections, and refer to another section by its heading, not by a position. Keep the "Checked" and "Not checked"
 notes: they say what was really run.
 
+## 2026-09-26 · Faster CI and debt cleanup (D-3, D-4, D-7)
+
+- CI: uv with a cached download store replaces pip; the extension job builds once (`npm run package` runs
+  `vscode:prepublish`, then `npm test`); a new push to a pull request cancels its previous run; the dbt missions smoke
+  moved from `runtime` to `extension-host`, which already installs the dbt tools.
+- `scripts/exercise_packs_smoke.py` grades in parallel processes (`DATAPASS_PACKS_JOBS`, default one per CPU, at most
+  8), each with its own workspace and worker, and puts the results back in exercise order.
+- Removed `packages/` (contracts, notebook-core: no importer) and the caller-less `/api/local/capabilities` and
+  `/api/local/restart` routes.
+- D-4 needed no change: the regex `ref()`/`source()` reader left `src/dbtState.ts` with the real dbt Core rebuild;
+  the dbt Lab reads only the run's `target/` artifacts.
+
+Checked: the four CI jobs green on PR #59; packs smoke 601 references / 601 starters / 569 mutants, as on main;
+runtime job 135 s against a 452 s median of the last five main runs (516, 456, 452, 434, 350), whole run 377 s
+against 452 s (extension-host, now 377 s, is the longest job); `npm run compile`, `npm test` locally.
+Not checked: 22 local workers on a busy Windows desktop hit the 60 s kernel timeout, hence the cap of 8.
+
 ## 2026-09-27 · Airflow Lab: depends_on_past across runs
 
 The simulator ran every DAG run on its own and refused `depends_on_past`. It now simulates runs in logical-date order
