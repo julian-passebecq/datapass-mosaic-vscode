@@ -40,7 +40,9 @@ runtime on loopback. Ten Workbench modules, each with a `datapass.open…` comma
 | Pipeline Lab (`pipeline`) | Python-like pipeline source compiled to a graph; supported activity bodies run | source never eval/exec'd; SQL, quality, Python, Polars bodies real; dbt activity declared only; schedule is metadata | `runtime/datapass_runtime/pipeline_compiler.py`, `native_pipeline.py` |
 
 Also: a native **Catalog** tree view (`src/catalogTree.ts`), managed runtime setup (uv when available, else venv +
-pip), explicit trusted-Python opt-in (manifest flag + per-machine modal + Workspace Trust), per-launch runtime token
+pip; Setup records a fingerprint of the bundled `runtime/` in the venv's `datapass-runtime.json`, and a mismatch after
+an extension update shows "needs update" / **Update runtime** and is never started as is,
+`src/platform/runtimeFingerprint.ts`), explicit trusted-Python opt-in (manifest flag + per-machine modal + Workspace Trust), per-launch runtime token
 (`X-Datapass-Token`, Host check, `runtime/datapass_runtime/auth.py`).
 
 Practice packs: `sql-lab-v1`, `engine-lab-v1` (incl. T-SQL and BigQuery variants), `python-lab-v1`,
