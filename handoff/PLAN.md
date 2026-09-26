@@ -41,7 +41,7 @@ Size guide: **S** < 1 h, one area · **M** 1–3 h, a few files · **L** > 3 h o
 
 ## Packages (V2)
 
-Julian, 2026-09-26: light packages first (H, I, J: all merged, version 0.2.0 ready to tag); F and G after.
+Julian, 2026-09-26: light packages first (H, I, J: all merged, version 0.2.0 ready to tag); F and G after, paused on 2026-09-26 while Julian tests 0.2.0 (resume with his feedback).
 
 Follow-ups noted by coders: select the managed venv as the Python interpreter for API Lab missions (Pylance flags `httpx` otherwise); a docs/LOCAL_TEST.md line on API Lab smokes needing a venv (a user-site runtime fails locally); the walkthrough page not yet looked at by hand; a separate `missions` CI job (branch protection is Julian's).
 
