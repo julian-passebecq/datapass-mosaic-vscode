@@ -2,7 +2,7 @@
   "name": "datapass-mosaic-vscode",
   "displayName": "Datapass Workbench",
   "description": "Local-first data-engineering practice workbench for VS Code.",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "publisher": "datapass",
   "repository": {
     "type": "git",

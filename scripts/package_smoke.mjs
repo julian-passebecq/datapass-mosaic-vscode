@@ -80,4 +80,9 @@ for (const forbidden of [
   assert.ok(ignore.includes(forbidden), `VSIX ignore is missing ${forbidden}`);
 }
 
+// The release workflow publishes this section as the release notes: every version needs one.
+const { version } = JSON.parse(await readFile("package.json", "utf8"));
+const changelog = await readFile("CHANGELOG.md", "utf8");
+assert.ok(changelog.includes(`\n## [${version}]`), `CHANGELOG.md has no "## [${version}]" section for package.json's version`);
+
 console.log("VSIX package boundary smoke passed.");

@@ -1,0 +1,57 @@
+name: Release
+
+# Pushing a tag v<version> (the version in package.json) builds the VSIX like the CI extension job and publishes it as
+# a GitHub Release whose notes are that version's CHANGELOG.md section. See docs/RELEASE.md.
+on:
+  push:
+    tags:
+      - "v*"
+
+permissions:
+  contents: write
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - name: Tag matches package.json
+        run: |
+          version="$(node -p 'require("./package.json").version')"
+          if [ "$GITHUB_REF_NAME" != "v$version" ]; then
+            echo "::error::Tag $GITHUB_REF_NAME does not match package.json version $version (expected v$version)."
+            exit 1
+          fi
+          echo "VERSION=$version" >> "$GITHUB_ENV"
+      - run: npm ci --no-audit --no-fund
+      # One build: vsce package runs vscode:prepublish (npm run compile, typecheck included), then the tests.
+      - run: npm run package
+      - run: npm test
+      - name: Release notes from CHANGELOG.md
+        run: |
+          awk -v heading="## [$VERSION]" '
+            index($0, heading) == 1 { found = 1; next }
+            found && /^## \[/ { exit }
+            found && /^\[[^]]+\]: / { exit }
+            found { print }
+          ' CHANGELOG.md > "$RUNNER_TEMP/notes.md"
+          if [ ! -s "$RUNNER_TEMP/notes.md" ]; then
+            echo "::error::CHANGELOG.md has no \"## [$VERSION]\" section."
+            exit 1
+          fi
+      - name: GitHub Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release create "$GITHUB_REF_NAME" ./*.vsix \
+            --title "Datapass Workbench $VERSION" \
+            --notes-file "$RUNNER_TEMP/notes.md" \
+            --verify-tag
