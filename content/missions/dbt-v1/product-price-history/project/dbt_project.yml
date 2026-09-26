@@ -1,0 +1,25 @@
+name: shop
+version: '1.0.0'
+config-version: 2
+profile: datapass_missions
+
+model-paths: [models]
+test-paths: [tests]
+snapshot-paths: [snapshots]
+
+vars:
+  # The schema the ingestion lands the exports in.
+  raw_schema: snap_raw
+
+models:
+  shop:
+    # Built into <target schema>_snap (dbt_dev_snap with the dbt Lab's profile).
+    +schema: snap
+    staging:
+      +materialized: view
+    marts:
+      +materialized: table
+
+snapshots:
+  shop:
+    +schema: snap

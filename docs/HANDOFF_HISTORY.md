@@ -9,6 +9,33 @@ Add a tranche as a new `## YYYY-MM-DD · Title` section at the top, under this p
 sections, and refer to another section by its heading, not by a position. Keep the "Checked" and "Not checked"
 notes: they say what was really run.
 
+## 2026-09-27 · dbt Lab: snapshot and contract missions
+
+Two warehouse tickets join the dbt Lab's `dbt-v1` missions (seven now), both done with real dbt Core:
+
+- **Keep every list price the ERP ever had** (`product-price-history`): a YAML snapshot (dbt Core 1.9+) of
+  `erp_products`, SCD type 2. The weekly export stamps every row with a new `loaded_at`, so the timestamp strategy
+  (or `check_cols: all`) makes a version per product per week; the check strategy on the business columns keeps one
+  per real change, and `hard_deletes: invalidate` closes a discontinued product. Two batches (this week, next week).
+  Mutants: timestamp on `loaded_at`, `check_cols: all`, no hard deletes.
+- **Promise finance the shape of fct_order_lines** (`order-lines-contract`): an enforced model contract with a
+  `data_type` per column (`net_amount` as `decimal(12,2)`, which needs a cast) and a dbt unit test on
+  `stg_shop__order_lines` that pins the line-discount rule. Mutants: contract not enforced, `net_amount` as double,
+  the discount applied per unit (the unit test must catch it).
+
+Checker (`runtime/missionlab`): the `node` check also reads `contract.enforced` and each column's declared
+`data_type`; a new `unit_test` kind reads the model's unit tests in the manifest (count, the columns their expected
+rows pin) and their status in `run_results.json`. `scripts/missions_smoke.py` accepts `DATAPASS_MISSIONS_ONLY` (ids,
+comma-separated) to play only some missions.
+
+Checked:
+- `missions_smoke.py` with dbt-core 1.12, dbt-duckdb and dbt-charts: all seven references pass; the untouched
+  projects and every mutant fail (the two new missions: 6 mutants);
+- `runtime_smoke.py`, compileall on `runtime/missionlab`, `npm run compile`, `npm test`.
+
+Not checked: the two missions played by hand in a real VS Code window (the Missions tab lists them from the pack; no
+UI code changed).
+
 ## 2026-09-26 · One controller, one contract and one runtime client per lab (roadmap D-6)
 
 `src/workbenchPanel.ts` (2,161 lines, 84 message types, every lab in one class), `src/webview/contracts.ts` (1,344

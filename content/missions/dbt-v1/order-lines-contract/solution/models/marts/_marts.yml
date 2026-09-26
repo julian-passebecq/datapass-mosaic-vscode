@@ -1,0 +1,33 @@
+version: 2
+
+models:
+  - name: fct_order_lines
+    description: One row per order line. Finance's reconciliation reads it; its columns and types are a contract.
+    config:
+      contract:
+        enforced: true
+    columns:
+      - name: order_id
+        data_type: varchar
+        data_tests: [not_null]
+      - name: line_number
+        data_type: integer
+      - name: order_date
+        data_type: date
+      - name: customer_id
+        data_type: varchar
+      - name: channel
+        data_type: varchar
+      - name: product_id
+        data_type: varchar
+      - name: product_name
+        data_type: varchar
+      - name: category
+        data_type: varchar
+        data_tests: [not_null]
+      - name: quantity
+        data_type: integer
+      - name: net_amount
+        data_type: decimal(12,2)
+      - name: loaded_at
+        data_type: timestamp

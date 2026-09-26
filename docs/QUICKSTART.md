@@ -295,7 +295,7 @@ catalog. (The BI Lab keeps the guided dbt emulation.)
    (`--host 127.0.0.1`) in its own terminal and opens it in VS Code's Simple Browser; **Stop dct serve** closes it and
    the catalog comes back. Build the models first: boards read what dbt built. If you installed the dbt tools before
    dbt Charts was added, use **Update dbt tools**.
-8. **Missions** (the dbt Lab's second tab). Five tickets from the analytics team, less guided than Practice: context
+8. **Missions** (the dbt Lab's second tab). Seven tickets from the analytics team, less guided than Practice: context
    and a request, acceptance criteria, hints one at a time when you ask, no pre-chewed starter.
    - *Last night's build failed on a unique test* (intro): reproduce, diagnose, fix without weakening the test.
    - *Know when a source stops arriving* (intro): source freshness, then `dbt source freshness`.
@@ -303,6 +303,10 @@ catalog. (The BI Lab keeps the guided dbt emulation.)
      **Load next batch** (tomorrow's export) and run it again.
    - *Backfill three days the scheduler missed, then schedule the job* (intermediate): `--select tag:daily --vars`, then
      an Airflow 3 DAG file that the Airflow Lab's simulator replays (parsed, never executed).
+   - *Keep every list price the ERP ever had* (intermediate): a YAML snapshot (SCD type 2) with the check strategy
+     and hard deletes, then **Load next batch** (next week's export) and run it again.
+   - *Promise finance the shape of fct_order_lines* (intermediate): an enforced model contract with column types,
+     and a dbt unit test that pins the `net_amount` rule.
    - *A sales board in dbt Charts* (intermediate): a board on the mart that validates and renders.
 
    **Start mission** copies the team's project to `missions/<id>/` (never overwriting your files), writes `TICKET.md`,
