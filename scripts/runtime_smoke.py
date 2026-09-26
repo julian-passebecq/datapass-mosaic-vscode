@@ -902,7 +902,7 @@ with TemporaryDirectory(prefix="datapass-csv-import-smoke-") as temp:
             from missionlab.model import Mission, load_missions
             everything = load_missions()
             missions = [(m, p) for m, p in everything if m.lab == "dbt"]
-            assert len(missions) == 5, [m.id for m, _ in missions]
+            assert len(missions) == 7, [m.id for m, _ in missions]
             for mission, _pack in missions:
                 for batch in mission.batches:
                     loaded = client.post("/api/local/missions/setup", json={"mission_id": mission.id, "batch_id": batch.id})

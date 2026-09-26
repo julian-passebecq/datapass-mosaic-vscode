@@ -53,7 +53,8 @@ writes `TICKET.md` there.
 | Kind | Looks at |
 | --- | --- |
 | `sql` | A read-only query on the catalog, compared to the expected rows (order-independent, numbers with a tolerance). |
-| `node` | A node of `target/manifest.json`: materialization, `unique_key`, tags, words its SQL must use. |
+| `node` | A node of `target/manifest.json` (model, seed or snapshot): materialization, `unique_key`, tags, words its SQL must use, an enforced contract and each column's declared `data_type`. |
+| `unit_test` | The dbt unit tests of a model in the manifest: how many, the columns their expected rows pin, and each one's status (`pass`) in `run_results.json`. |
 | `test` | A generic test on a model's column, still there, still an error, not filtered with `where`. |
 | `run` | `target/run_results.json` of the last command: command, node statuses, no failures, `--select`, `--full-refresh`, `--vars`. |
 | `freshness_config` | A source's `loaded_at_field` and `warn_after` / `error_after` in the manifest. |

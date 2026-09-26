@@ -19,7 +19,8 @@ import yaml
 
 from . import infra, terminal
 from .model import (AirflowCheck, BoardCheck, DctValidateCheck, FileCheck, FreshnessConfigCheck,
-                    FreshnessResultCheck, Mission, NodeCheck, RenderCheck, RunCheck, SqlCheck, TestCheck, all_checks)
+                    FreshnessResultCheck, Mission, NodeCheck, RenderCheck, RunCheck, SqlCheck, TestCheck, UnitTestCheck,
+                    all_checks)
 
 MAX_ARTIFACT_BYTES = 40_000_000
 MAX_FILE_BYTES = 400_000
@@ -125,6 +126,19 @@ def _node(check: NodeCheck, files: Files, _ctx: dict) -> Outcome:
     absent = [c for c in check.code_contains if c.lower() not in code]
     if absent:
         return False, f'{check.name} does not use {", ".join(absent)}.'
+    if check.contract_enforced is not None:
+        enforced = bool((config.get('contract') or {}).get('enforced'))
+        if enforced != check.contract_enforced:
+            return False, f'{check.name} {"has no enforced contract" if check.contract_enforced else "enforces a contract"}.'
+    if check.column_types:
+        columns = {name.lower(): column for name, column in (node.get('columns') or {}).items()}
+        for name, expected in check.column_types.items():
+            column = columns.get(name.lower())
+            if column is None:
+                return False, f'{check.name} does not declare the column {name}.'
+            declared = _type_name(column.get('data_type'))
+            if declared != _type_name(expected):
+                return False, f'{check.name}.{name} is declared as {column.get("data_type") or "no data_type"}.'
     return True, f'{check.name}: {config.get("materialized")}.'
 
 
@@ -147,6 +161,38 @@ def _test(check: TestCheck, files: Files, _ctx: dict) -> Outcome:
             return False, f'The {check.test} test on {check.model}.{check.column} was filtered or disabled.'
         return True, f'{check.test} on {check.model}.{check.column} is in place.'
     return False, f'There is no {check.test} test on {check.model}.{check.column} any more.'
+
+
+def _type_name(value: Any) -> str:
+    return re.sub(r'\s+', '', str(value or '')).lower()
+
+
+def _unit_test(check: UnitTestCheck, files: Files, _ctx: dict) -> Outcome:
+    manifest = files.json('target/manifest.json')
+    if manifest is None:
+        return False, 'No target/manifest.json yet: run dbt in the mission folder.'
+    tests = [t for t in (manifest.get('unit_tests') or {}).values() if t.get('model') == check.model]
+    if len(tests) < check.min_count:
+        return False, f'{check.model} has {len(tests)} unit test{"" if len(tests) == 1 else "s"}.'
+    if check.expect_columns:
+        wanted = {c.lower() for c in check.expect_columns}
+
+        def pinned(test: dict) -> set[str]:
+            rows = (test.get('expect') or {}).get('rows')
+            return {str(k).lower() for row in rows for k in row} if isinstance(rows, list) and all(
+                isinstance(row, dict) for row in rows) else set()
+        if not any(wanted <= pinned(t) for t in tests):
+            return False, f'No unit test of {check.model} gives expected rows with {", ".join(check.expect_columns)}.'
+    if check.passed_in_last_run:
+        results = files.json('target/run_results.json')
+        by_id = {r.get('unique_id'): r.get('status') for r in (results or {}).get('results') or []} if isinstance(results, dict) else {}
+        for test in tests:
+            status = by_id.get(test.get('unique_id'))
+            if status is None:
+                return False, f'Your last dbt command did not run the unit test {test.get("name")}.'
+            if status != 'pass':
+                return False, f'The unit test {test.get("name")} ended with status {status} in your last dbt command.'
+    return True, f'{len(tests)} unit test{"" if len(tests) == 1 else "s"} on {check.model}.'
 
 
 def _run(check: RunCheck, files: Files, _ctx: dict) -> Outcome:
@@ -368,7 +414,7 @@ def _sql(check: SqlCheck, _files: Files, ctx: dict) -> Outcome:
 
 
 CHECKS: dict[str, Callable[[Any, Files, dict], Outcome]] = {
-    'sql': _sql, 'node': _node, 'test': _test, 'run': _run, 'freshness_config': _freshness_config,
+    'sql': _sql, 'node': _node, 'test': _test, 'unit_test': _unit_test, 'run': _run, 'freshness_config': _freshness_config,
     'freshness_result': _freshness_result, 'dct_validate': _dct_validate, 'board': _board, 'render': _render,
     'file': _file, 'airflow': _airflow, **terminal.CHECKS, **infra.CHECKS,
 }
