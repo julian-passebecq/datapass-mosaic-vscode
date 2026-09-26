@@ -24,7 +24,7 @@ The first version built on the full plan's V1: a Today home, and the Lakehouse, 
 - **Practice: concept checks and production Python**: 24 concept checks with five reference sheets for what cannot
   run locally (Fabric capacities, Synapse DWUs, Databricks compute, Unity Catalog, Delta / Iceberg / DuckLake), graded
   without execution; 8 production-Python exercises graded by real pytest on the learner's tests and hidden tests
-  (trusted local Python only) (#PR).
+  (trusted local Python only) (#67).
 - **Labs**:
   - Airflow Lab: an Airflow 3 scheduling simulator on Python DAG files, including `depends_on_past` (#8, #9, #56).
   - Cloud Lab: simulated Fabric, Data Factory and Synapse pipelines, a Synapse / Fabric Warehouse SQL pool, and
