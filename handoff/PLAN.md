@@ -41,14 +41,14 @@ Size guide: **S** < 1 h, one area · **M** 1–3 h, a few files · **L** > 3 h o
 
 ## Packages (V2)
 
-Julian, 2026-09-26: light packages first (H, I, J: all merged, version 0.2.0 ready to tag); F and G after, paused on 2026-09-26 while Julian tests 0.2.0 (resume with his feedback).
+Julian, 2026-09-26: light packages first (H, I, J: all merged, version 0.2.0 ready to tag); v0.2.0 tagged and released by ARCHI (Julian: do it automatically); G GO on TAMPON 8; F later.
 
 Follow-ups noted by coders: select the managed venv as the Python interpreter for API Lab missions (Pylance flags `httpx` otherwise); a docs/LOCAL_TEST.md line on API Lab smokes needing a venv (a user-site runtime fails locally); the walkthrough page not yet looked at by hand; a separate `missions` CI job (branch protection is Julian's).
 
 | Id | Package | Size | Estimate (h · M tokens) | Model · effort | Owned files | Coder | Status |
 |---|---|---|---|---|---|---|---|
 | F | **BI-3**: KPIs, a DAX-like measure layer translated to SQL (static, labelled), dbt Charts boards real in the dbt Lab and a labelled preview in the BI Lab | L | 4–6 h · 0.3–0.6 | Opus 5.5 · high | `runtime/bilab/`, `src/labs/bi/`, `src/webview/BiSurface.tsx`, `content/exercise-packs/dwh-v1/` | — | later |
-| G | **Governance** (V3-6): row/column security (Fabric, Synapse), Databricks row filters and column masks under Unity Catalog, PII tagging, dbt model contracts; missions checked on the catalog | M–L | 3–5 h · 0.3–0.5 | Opus 5.5 · medium | `runtime/sqlpoollab/` security part, `runtime/databrickslab/` UC part, new missions | — | later |
+| G | **Governance** (V3-6): row/column security (Fabric, Synapse), Databricks row filters and column masks under Unity Catalog, PII tagging, dbt model contracts; missions checked on the catalog | M–L | 3–5 h · 0.3–0.5 | Opus 5.5 · medium | `runtime/sqlpoollab/` security part, `runtime/databrickslab/` UC part, new missions | TAMPON 8 | GO |
 | H | **Concept quizzes + reference sheets** (V2-4) and **pytest-graded production Python** (V2-5) in Practice | M | 2–4 h · 0.2–0.4 | Opus 5.5 · medium | `runtime/datapass_runtime/exercises.py` grading kinds, new packs, `src/labs/practice/` | TAMPON 7 | merged #67 · 1.75 h · ~25 M (coder estimate) |
 | I | **VS Code native** (T-4 + D-10): JSON schemas for `.datapass/project.json` and `bi/model.json`, CodeLens Run visible / Submit on solution files, runtime state in the status bar, a Walkthrough; Pylance `__builtins__.pyi` for API Lab `ingest.py` | M | 2–3 h · 0.2–0.3 | Opus 5.5 · medium | `package.json` contributes, new `schemas/`, `src/platform/` codelens/status | TAMPON 2 | merged #66 · 1.5 h · 0.2 M |
 | J | **Versions and changelog** (T-6): version bump, CHANGELOG, a release workflow attaching the VSIX (publishing a release waits for Julian) | S | < 1 h · 0.05 | Opus 5.5 · medium | `CHANGELOG.md`, `.github/workflows/release.yml`, `package.json` version | TAMPON 6 | merged #65 · 0.6 h · 0.04 M |
