@@ -1372,7 +1372,7 @@ export async function run(): Promise<void> {
       ))) as Record<string, { solution: string }>;
       const reference = await grade(pytest, pytestGrading["py-chunked"].solution, "submit");
       assert.equal(reference.status, "passed", JSON.stringify(reference.checks));
-      assert.equal(reference.runtime.engine, "pytest");
+      assert.equal(reference.runtime?.engine, "pytest");
     }]
   ];
 
