@@ -72,8 +72,12 @@ function normalizeExercise(
   const starterSource = stringValue(value.starter_source);
   if (!id || !title || !version || !language || starterSource === undefined) return undefined;
 
+  // A plain-pack variant that names a semantic problem (a Polars variant of a Spark exercise) joins that
+  // problem's card; the key of an exercise without one is unchanged, so saved progress keeps its keys.
+  const problem = stringValue(objectValue(value.semantic)?.id) ?? id;
+
   return {
-    key: `${packId}/${id}/${language}`,
+    key: `${packId}/${problem}/${language}`,
     packId,
     packTitle,
     id,

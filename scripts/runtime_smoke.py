@@ -1704,6 +1704,18 @@ with TemporaryDirectory(prefix="datapass-trust-smoke-") as temp:
         assert run["stdout"].strip() == "2", run["stdout"]
         assert run["result"]["columns"] == ["id", "amount"], run["result"]
         assert run["result"]["rows"] == [{"id": 1, "amount": 10}, {"id": 2, "amount": 20}], run["result"]
+        assert "polars_plan" not in run, "an eager DataFrame has no plan"
+
+        # Spark Lab's Polars engine: a LazyFrame is collected and Polars' own optimized plan comes back.
+        lazy = execute(
+            trusted, "trusted", workspace, "polars",
+            "import polars as pl\nframe = pl.read_csv('datasets/tiny.csv').lazy()\n"
+            "frame.filter(pl.col('amount') > 10).select('id')",
+        )
+        assert lazy["status"] == "success", lazy
+        assert lazy["result"]["rows"] == [{"id": 2}], lazy["result"]
+        assert "real" in lazy["polars_plan"]["truth"], lazy["polars_plan"]
+        assert "FILTER" in lazy["polars_plan"]["text"] or "SELECTION" in lazy["polars_plan"]["text"], lazy["polars_plan"]
     finally:
         trusted.close()
 

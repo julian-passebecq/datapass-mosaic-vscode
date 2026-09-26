@@ -42,8 +42,12 @@ export interface SparkLabSimulationView {
   comparisons: readonly { profile_id: string; aqe: boolean; duration_s: number; credits: number }[];
 }
 
+/** SparkLab: bounded PySpark subset (never executed as Python). Polars: real Polars, trusted local Python only. */
+export type SparkLabEngine = "sparklab" | "polars";
+
 export interface SparkLabRunView {
   status: "success" | "error";
+  engine: SparkLabEngine;
   fileName: string;
   profileId: string;
   aqe: boolean;
@@ -52,6 +56,10 @@ export interface SparkLabRunView {
   result?: LocalCellRunView["result"];
   error?: { type: string; message: string };
   simulation?: SparkLabSimulationView;
+  /** Polars only: print() output of the file. */
+  stdout?: string;
+  /** Polars only, when the file ends with a LazyFrame: Polars' own optimized plan (real, not modelled). */
+  polarsPlan?: { truth: string; text: string };
 }
 
 export interface SparkLabProfileView {
@@ -67,4 +75,4 @@ export interface SparkLabViewSlice {
   sparkProfiles?: readonly SparkLabProfileView[];
 }
 
-export type SparkLabMessage = { type: "runActiveSparkLab"; profileId: string; aqe: boolean };
+export type SparkLabMessage = { type: "runActiveSparkLab"; engine: SparkLabEngine; profileId: string; aqe: boolean };

@@ -917,7 +917,12 @@ export async function run(): Promise<void> {
 
       // Spark lab: plan checks grade the simulated SparkLab plan next to the result rows.
       const sparkLab = catalog.filter(item => item.packId === "spark-lab-v1");
-      assert.equal(sparkLab.length, 12);
+      assert.equal(sparkLab.length, 19);
+      // Polars variants share their Spark exercise's card (key <pack>/<spark id>/polars).
+      const sparkPolars = sparkLab.filter(item => item.language === "polars");
+      assert.equal(sparkPolars.length, 7);
+      assert.ok(sparkPolars.every(item => item.truth === "real" &&
+        sparkLab.some(spark => spark.key === item.key.replace(/\/polars$/, "/sparklab"))));
       const sparkGrading = JSON.parse(new TextDecoder().decode(await vscode.workspace.fs.readFile(
         vscode.Uri.joinPath(extension.extensionUri, "content", "exercise-packs", "spark-lab-v1", "grading.server.json")
       ))) as Record<string, { solution: string }>;

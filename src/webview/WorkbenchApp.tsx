@@ -173,7 +173,8 @@ export function WorkbenchApp({ vscode }: { vscode: VsCodeApi }) {
               <BiSurface vscode={vscode} runtime={state.runtime} bi={state.bi}
                 focus={state.focus?.module === "bi" ? state.focus : undefined} />
             ) : selected.id === "sparklab" ? (
-              <SparkLabSurface vscode={vscode} runtime={state.runtime} profiles={state.sparkProfiles ?? []} />
+              <SparkLabSurface vscode={vscode} runtime={state.runtime} profiles={state.sparkProfiles ?? []}
+                pythonTrust={state.pythonTrust} />
             ) : selected.id === "pipeline" ? (
               <PipelineSurface vscode={vscode} pipeline={state.pipeline} runtime={state.runtime} />
             ) : selected.id === "airflow" ? (

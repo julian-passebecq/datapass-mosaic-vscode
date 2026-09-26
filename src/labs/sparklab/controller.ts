@@ -1,17 +1,21 @@
 import * as vscode from "vscode";
-import type { SparkLabMessage } from "../../webview/contracts";
+import type { SparkLabEngine, SparkLabMessage } from "../../webview/contracts";
 import { activeSavedDocument, type LabController, type MessageHandlers, type WorkbenchHost } from "../host";
 
-/** SparkLab: the active .py file on the bounded SparkLab runtime (never executed as Python). */
+/**
+ * Spark Lab: the active .py file on the bounded SparkLab runtime (never executed as Python), or on real
+ * Polars when the learner picks the Polars engine (trusted local Python only; the runtime enforces it).
+ */
 export class SparkLabController implements LabController<SparkLabMessage> {
   constructor(private readonly host: WorkbenchHost) {}
 
   readonly handlers: MessageHandlers<SparkLabMessage> = {
-    runActiveSparkLab: message => this.runActiveSparkLab(message.profileId, message.aqe)
+    runActiveSparkLab: message => this.runActiveSparkLab(message.engine ?? "sparklab", message.profileId, message.aqe)
   };
 
-  private async runActiveSparkLab(profileId: string, aqe: boolean): Promise<void> {
-    const document = await activeSavedDocument(".py", "SparkLab (.py)", this.host.lastDocument(".py"));
+  private async runActiveSparkLab(engine: SparkLabEngine, profileId: string, aqe: boolean): Promise<void> {
+    const label = engine === "polars" ? "Polars" : "SparkLab";
+    const document = await activeSavedDocument(".py", `${label} (.py)`, this.host.lastDocument(".py"));
     if (!document) return;
 
     try {
@@ -19,11 +23,12 @@ export class SparkLabController implements LabController<SparkLabMessage> {
         document.getText(),
         vscode.workspace.asRelativePath(document.uri),
         profileId,
-        aqe
+        aqe,
+        engine
       );
     } catch (error) {
       void vscode.window.showErrorMessage(
-        `SparkLab execution failed: ${error instanceof Error ? error.message : String(error)}`
+        `${label} execution failed: ${error instanceof Error ? error.message : String(error)}`
       );
     }
     await this.host.refresh();

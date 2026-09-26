@@ -898,13 +898,270 @@ exercise(
 )
 
 
+# Polars variants ---------------------------------------------------------------
+# Polars is the single-machine alternative to PySpark: the same lesson, on the same fixtures, graded against
+# the rows the SparkLab reference computes. Only lessons whose starter returns wrong rows get one; the plan
+# lessons (partitions, broadcast, shuffles) have no Polars equivalent. Each variant joins its Spark exercise's
+# Practice card through `semantic.id`. `pl_code` adds the typed frames built from the fixture tables.
+POLARS_TYPES = {"INTEGER": "pl.Int64", "VARCHAR": "pl.String", "DOUBLE": "pl.Float64",
+                "DATE": "pl.String", "TIMESTAMP": "pl.String"}
+POLARS_PARSE = {"DATE": "str.to_date()", "TIMESTAMP": 'str.to_datetime("%Y-%m-%d %H:%M:%S")'}
+
+
+def polars_frames(tables: dict) -> str:
+    """Typed Polars frames from the fixture tables (lists of row dicts), empty tables included."""
+    lines = []
+    for name, columns in tables.items():
+        schema = ", ".join(f'"{column}": {POLARS_TYPES[kind]}' for column, kind in columns.items())
+        parsed = [f'pl.col("{column}").{POLARS_PARSE[kind]}' for column, kind in columns.items() if kind in POLARS_PARSE]
+        frame = f"pl.DataFrame({name}, schema={{{schema}}}, orient=\"row\")"
+        lines.append(f"{name} = {frame}" + (f".with_columns({', '.join(parsed)})" if parsed else ""))
+    return "\n".join(lines)
+
+
+POLARS: dict[str, dict] = {
+    "spark-left-join-filter-placement": dict(
+        pitfall=("A filter on an orders column after a left join removes the customers the join could not match: "
+                 "their status is null, and Polars' filter keeps only rows where the predicate is true. Filter the "
+                 "right side before joining."),
+        starter='''
+            # Bug: customers without a COMPLETED order disappear.
+            joined = customers.join(orders, on="customer_id", how="left")
+            result = joined.filter(pl.col("status") == "COMPLETED").select("customer_id", "customer_name", "order_id", "amount")
+            display(result)
+            ''',
+        solution='''
+            completed = orders.filter(pl.col("status") == "COMPLETED").select("order_id", "customer_id", "amount")
+            result = customers.join(completed, on="customer_id", how="left").select("customer_id", "customer_name", "order_id", "amount")
+            display(result)
+            ''',
+        hints=["What does filter do with a row whose status is null?",
+               "Filter orders to COMPLETED first, then left-join customers to that smaller frame."],
+        mutants=['''
+            joined = customers.join(orders, on="customer_id", how="left")
+            kept = joined.filter((pl.col("status") == "COMPLETED") | pl.col("status").is_null())
+            display(kept.select("customer_id", "customer_name", "order_id", "amount"))
+            '''],
+    ),
+    "spark-semi-join-existence": dict(
+        pitfall=("An inner join returns one row per matching order, so a customer with three orders appears three "
+                 "times. how=\"semi\" only tests existence and never duplicates the left frame (PySpark's left_semi)."),
+        starter='''
+            orders_2026 = orders.filter(pl.col("order_date").is_between(date(2026, 1, 1), date(2026, 12, 31)))
+            # Bug: a customer with several 2026 orders is returned several times.
+            result = customers.join(orders_2026, on="customer_id", how="inner").select("customer_id", "customer_name", "country")
+            display(result)
+            ''',
+        solution='''
+            orders_2026 = orders.filter(pl.col("order_date").is_between(date(2026, 1, 1), date(2026, 12, 31)))
+            display(customers.join(orders_2026, on="customer_id", how="semi"))
+            ''',
+        hints=["Which join type keeps the left rows that have a match, without adding any column?",
+               "is_between includes both bounds by default (closed=\"both\")."],
+        imports="from datetime import date\n",
+        mutants=['''
+            display(customers.join(orders, on="customer_id", how="semi"))
+            ''', '''
+            orders_2026 = orders.filter(pl.col("order_date").is_between(date(2026, 1, 1), date(2026, 12, 31), closed="none"))
+            display(customers.join(orders_2026, on="customer_id", how="semi"))
+            '''],
+    ),
+    "spark-count-column-vs-star": dict(
+        pitfall=("pl.len() counts rows; pl.col(...).count() counts non-null values (PySpark's count(\"*\") and "
+                 "count(column)). n_unique() also merges equal values and counts null as one more value."),
+        starter='''
+            # Bug: clicks equals impressions.
+            result = events.group_by("campaign_id").agg(pl.len().alias("impressions"), pl.len().alias("clicks"))
+            display(result)
+            ''',
+        solution='''
+            result = events.group_by("campaign_id").agg(
+                pl.len().alias("impressions"), pl.col("clicked_at").count().alias("clicks")
+            )
+            display(result)
+            ''',
+        hints=["Which expression ignores null values: pl.len() or pl.col(...).count()?",
+               "Two clicks at the same timestamp are still two clicks."],
+        mutants=['''
+            result = events.group_by("campaign_id").agg(
+                pl.len().alias("impressions"), pl.col("clicked_at").n_unique().alias("clicks")
+            )
+            display(result)
+            '''],
+    ),
+    "spark-null-safe-change-detection": dict(
+        pitfall=("old != new is null, not true, when either side is null, so filter drops those changes. "
+                 "ne_missing (PySpark's ~eqNullSafe, SQL IS DISTINCT FROM) treats null as a comparable value."),
+        starter='''
+            old = yesterday.rename({"email": "old_email"})
+            new = today.rename({"email": "new_email"})
+            # Bug: a change from or to null is missed.
+            result = old.join(new, on="customer_id", how="inner").filter(pl.col("old_email") != pl.col("new_email"))
+            display(result)
+            ''',
+        solution='''
+            old = yesterday.rename({"email": "old_email"})
+            new = today.rename({"email": "new_email"})
+            result = old.join(new, on="customer_id", how="inner").filter(pl.col("old_email").ne_missing(pl.col("new_email")))
+            display(result)
+            ''',
+        hints=["What is the result of null != 'a@b.io' in Polars?",
+               "Polars has null-aware comparisons: eq_missing and ne_missing."],
+        mutants=['''
+            old = yesterday.rename({"email": "old_email"})
+            new = today.rename({"email": "new_email"})
+            joined = old.join(new, on="customer_id", how="inner")
+            display(joined.filter((pl.col("old_email") != pl.col("new_email")) | pl.col("old_email").is_null()))
+            '''],
+    ),
+    "spark-full-outer-reconcile": dict(
+        pitfall=("A left join only sees invoices that exist in billing. Polars' full join keeps both key columns "
+                 "(invoice_id and invoice_id_right) unless coalesce=True; PySpark's on=\"invoice_id\" merges them. "
+                 "And inside when/then, a bare string is a column name: wrap labels in pl.lit()."),
+        starter='''
+            # Bug: invoices that exist only in the ledger are missing.
+            joined = billing.join(ledger, on="invoice_id", how="left")
+            result = joined.with_columns(
+                pl.when(pl.col("booked_amount").is_null()).then(pl.lit("missing_in_ledger"))
+                .when(pl.col("billed_amount").is_null()).then(pl.lit("missing_in_billing"))
+                .when(pl.col("billed_amount") != pl.col("booked_amount")).then(pl.lit("amount_mismatch"))
+                .otherwise(pl.lit("match"))
+                .alias("status")
+            )
+            display(result)
+            ''',
+        solution='''
+            joined = billing.join(ledger, on="invoice_id", how="full", coalesce=True)
+            result = joined.with_columns(
+                pl.when(pl.col("booked_amount").is_null()).then(pl.lit("missing_in_ledger"))
+                .when(pl.col("billed_amount").is_null()).then(pl.lit("missing_in_billing"))
+                .when(pl.col("billed_amount") != pl.col("booked_amount")).then(pl.lit("amount_mismatch"))
+                .otherwise(pl.lit("match"))
+                .alias("status")
+            )
+            display(result)
+            ''',
+        hints=["Which join type keeps the rows of both frames?",
+               "After a Polars full join, print the columns: is there one invoice_id or two?"],
+        mutants=['''
+            joined = billing.join(ledger, on="invoice_id", how="full")
+            result = joined.with_columns(
+                pl.when(pl.col("booked_amount").is_null()).then(pl.lit("missing_in_ledger"))
+                .when(pl.col("billed_amount").is_null()).then(pl.lit("missing_in_billing"))
+                .when(pl.col("billed_amount") != pl.col("booked_amount")).then(pl.lit("amount_mismatch"))
+                .otherwise(pl.lit("match"))
+                .alias("status")
+            )
+            display(result.select("invoice_id", "billed_amount", "booked_amount", "status"))
+            '''],
+    ),
+    "spark-join-fanout-before-sum": dict(
+        pitfall=("Joining orders to a one-to-many frame repeats each order once per promo code, so summing amount "
+                 "after the join counts an order several times. Reduce the many side to one row per order first."),
+        starter='''
+            # Bug: an order with two promo codes is counted twice in revenue.
+            joined = orders.join(order_promos, on="order_id", how="left")
+            result = joined.group_by("customer_id").agg(
+                pl.col("amount").sum().alias("revenue"), pl.col("promo_code").count().alias("promo_uses")
+            )
+            display(result)
+            ''',
+        solution='''
+            promo_counts = order_promos.group_by("order_id").agg(pl.len().alias("promo_count"))
+            result = (
+                orders.join(promo_counts, on="order_id", how="left")
+                .group_by("customer_id")
+                .agg(pl.col("amount").sum().alias("revenue"), pl.col("promo_count").fill_null(0).sum().alias("promo_uses"))
+            )
+            display(result)
+            ''',
+        hints=["How many rows does an order with two promo codes have after the join?",
+               "Count promo codes per order first, then join one row per order."],
+        mutants=['''
+            joined = orders.join(order_promos, on="order_id", how="left").unique(subset=["order_id"])
+            result = joined.group_by("customer_id").agg(
+                pl.col("amount").sum().alias("revenue"), pl.col("promo_code").count().alias("promo_uses")
+            )
+            display(result)
+            '''],
+    ),
+    "spark-running-total-ties": dict(
+        pitfall=("An end-of-day balance (PySpark's default RANGE frame) gives every transaction of a day the same "
+                 "total. A Polars window follows the frame's row order, not an ORDER BY: sort by (txn_date, txn_id) "
+                 "before cum_sum, or pass order_by to over()."),
+        starter='''
+            # Bug: transactions on the same date show the same balance.
+            daily = (
+                transactions.group_by("account_id", "txn_date").agg(pl.col("amount").sum().alias("day_total"))
+                .sort("account_id", "txn_date")
+                .with_columns(pl.col("day_total").cum_sum().over("account_id").alias("running_balance"))
+                .drop("day_total")
+            )
+            result = transactions.join(daily, on=["account_id", "txn_date"], how="left")
+            display(result)
+            ''',
+        solution='''
+            result = transactions.sort("account_id", "txn_date", "txn_id").with_columns(
+                pl.col("amount").cum_sum().over("account_id").alias("running_balance")
+            )
+            display(result)
+            ''',
+        hints=["Should two transactions on the same date share a balance?",
+               "cum_sum follows the rows' current order: which order does the prompt ask for?"],
+        # Rows arrive out of order: a cumulative sum must sort first.
+        extra_fixtures={
+            "unsorted-input": ("hidden", {"transactions": [
+                {"account_id": "F", "txn_id": 32, "txn_date": "2026-04-03", "amount": 7.0},
+                {"account_id": "F", "txn_id": 30, "txn_date": "2026-04-01", "amount": 100.0},
+                {"account_id": "F", "txn_id": 31, "txn_date": "2026-04-01", "amount": -40.0},
+            ]}),
+        },
+        mutants=['''
+            result = transactions.with_columns(pl.col("amount").cum_sum().over("account_id").alias("running_balance"))
+            display(result)
+            '''],
+    ),
+}
+
+
+def pl_code(spec: dict, body: str, imports: str = "") -> str:
+    return (f"{imports}import polars as pl\n\n{polars_frames(spec['tables'])}\n"
+            + textwrap.dedent(body).strip("\n") + "\n")
+
+
+def polars_variant(spec: dict) -> dict:
+    """The Polars variant of a Spark exercise: same prompt and fixtures, Polars pitfall, starter and solution."""
+    polars = POLARS[spec["id"]]
+    imports = polars.get("imports", "")
+    fixtures = dict(spec["fixtures"])
+    fixtures.update(polars.get("extra_fixtures", {}))
+    return {
+        **spec,
+        "id": spec["id"] + "-polars",
+        "language": "polars",
+        "spark_id": spec["id"],
+        "pitfall": polars["pitfall"],
+        "starter": pl_code(spec, polars["starter"], imports),
+        "solution": pl_code(spec, polars["solution"], imports),
+        "hints": polars["hints"],
+        "fixtures": fixtures,
+        "mutants": [pl_code(spec, mutant, imports) for mutant in polars["mutants"]],
+        "spark_plan": None,
+    }
+
+
 # -----------------------------------------------------------------------------
 def definition(spec: dict, rank: int) -> dict:
     sample_name = next(iter(spec["fixtures"]))
     sample_tables = spec["fixtures"][sample_name][1]
     table_lines = [f"{name}({', '.join(f'{c} {t}' for c, t in cols.items())})" for name, cols in spec["tables"].items()]
+    polars = spec.get("language") == "polars"
     sections = [
         {"title": "Tables", "body": "\n".join(table_lines)},
+        *([{"title": "Polars", "body": (
+            "Real Polars in the trusted local Python worker (enable trusted Python first). Each table arrives as a "
+            "list of row dicts in a variable of the same name; the starter turns them into typed frames. Show the "
+            "result with display(...). Same lesson and data as the PySpark variant on this card.")}] if polars else []),
         {"title": "Output", "body": f"Columns in this order: {', '.join(spec['exact_schema'])}. Row order does not matter."},
         {"title": "Common pitfall", "body": spec["pitfall"]},
     ]
@@ -923,10 +1180,10 @@ def definition(spec: dict, rank: int) -> dict:
         "title": spec["title"],
         "difficulty": spec["difficulty"],
         "topics": spec["topics"],
-        "tags": ["spark-lab", "sparklab", "pyspark"],
+        "tags": ["spark-lab", "polars"] if polars else ["spark-lab", "sparklab", "pyspark"],
         "origin": "authored",
-        "language": "sparklab",
-        "runtime": "shared-sparklab-v1",
+        "language": "polars" if polars else "sparklab",
+        "runtime": "shared-polars-v1" if polars else "shared-sparklab-v1",
         "prompt": spec["prompt"],
         "sections": sections,
         "starter_source": spec["starter"],
@@ -952,21 +1209,37 @@ def definition(spec: dict, rank: int) -> dict:
         "data_context": [{"name": name, "columns": cols, "sample_rows": sample_tables[name]}
                          for name, cols in spec["tables"].items()],
         "output_schema": {column: "value" for column in spec["exact_schema"]},
-        "runtime_requirements": ["sparklab"],
+        "runtime_requirements": [] if polars else ["sparklab"],
         "provenance": {
             "source": "Authored for Datapass Workbench: Spark DataFrame pitfalls and plan choices on SparkLab",
-            "fixtures": "Authored for Datapass; expected rows computed from the reference solution and reviewed",
+            "fixtures": ("Authored for Datapass; expected rows computed from the SparkLab reference solution and "
+                         "reviewed" if polars else
+                         "Authored for Datapass; expected rows computed from the reference solution and reviewed"),
         },
         "constraints": {
             "fixtures": "At most 200 rows per table; complete results are graded, truncated results never pass.",
-            "truth": ("Result rows run locally on DuckDB through SparkLab's bounded PySpark subset. Plan checks grade "
+            "truth": ("Real Polars, run by the trusted local Python worker (not a sandbox)." if polars else
+                      "Result rows run locally on DuckDB through SparkLab's bounded PySpark subset. Plan checks grade "
                       "SparkLab's simulated Spark plan, not Apache Spark."),
         },
-        "truth": "semantic-emulation",
+        "truth": "real" if polars else "semantic-emulation",
     }
+    if polars:
+        # Joins the Spark exercise's Practice card: same problem, another language.
+        item["semantic"] = {
+            "id": spec["spark_id"], "version": "1", "industry": "Spark lab: DataFrame pitfalls",
+            "learning_objectives": [spec["title"], "Express the same DataFrame lesson in PySpark and Polars"],
+            "variants": {"sparklab": spec["spark_id"], "polars": spec["id"]},
+            "supported_operations": POLARS_OPERATIONS,
+            "optimization": spec["explanation"],
+            "reflection": "Which part of this lesson is Spark-specific, and which holds in any DataFrame engine?",
+        }
     if spec.get("spark_plan"):
         item["spark_plan"] = spec["spark_plan"]
     return item
+
+
+POLARS_OPERATIONS = ["filter", "select", "join", "group_by", "agg", "with_columns", "sort", "over"]
 
 
 def expected_rows(engine, spec: dict, tables: dict) -> list[dict]:
@@ -999,12 +1272,14 @@ def main() -> None:
     with tempfile.TemporaryDirectory() as temp:
         engine = Engine(Path(temp), mode="duckdb")
         for rank, spec in enumerate(EXERCISES, start=1):
-            definitions.append(definition(spec, rank))
-            fixtures = []
-            for fid, (visibility, tables) in spec["fixtures"].items():
-                fixtures.append({"id": fid, "visibility": visibility, "input_rows": [], "tables": tables,
-                                 "expected": expected_rows(engine, spec, tables)})
-            grading[spec["id"]] = {"solution": spec["solution"], "fixtures": fixtures}
+            for variant in [spec] + ([polars_variant(spec)] if spec["id"] in POLARS else []):
+                definitions.append(definition(variant, rank))
+                fixtures = []
+                for fid, (visibility, tables) in variant["fixtures"].items():
+                    # The SparkLab reference computes the expected rows of both languages.
+                    fixtures.append({"id": fid, "visibility": visibility, "input_rows": [], "tables": tables,
+                                     "expected": expected_rows(engine, spec, tables)})
+                grading[variant["id"]] = {"solution": variant["solution"], "fixtures": fixtures}
         engine.catalog.db.close()
     manifest = {
         "schema_version": 1, "id": "spark-lab-v1", "version": "1",
@@ -1018,10 +1293,12 @@ def main() -> None:
     PACK.mkdir(parents=True, exist_ok=True)
     for name, data in (("manifest.json", manifest), ("exercises.json", definitions), ("grading.server.json", grading)):
         (PACK / name).write_text(json.dumps(data, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
-    write_mutants(PACK, {spec["id"]: spec["mutants"] for spec in EXERCISES})
-    for spec in EXERCISES:
-        print(f"== {spec['id']}")
-        for fixture in grading[spec["id"]]["fixtures"]:
+    mutants = {spec["id"]: spec["mutants"] for spec in EXERCISES}
+    mutants.update({spec["id"] + "-polars": polars_variant(spec)["mutants"] for spec in EXERCISES if spec["id"] in POLARS})
+    write_mutants(PACK, mutants)
+    for ident, graded in grading.items():
+        print(f"== {ident}")
+        for fixture in graded["fixtures"]:
             print(f"   {fixture['id']:28s}", json.dumps(fixture["expected"]))
 
 
