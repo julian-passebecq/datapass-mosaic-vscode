@@ -81,7 +81,7 @@ export function AirflowSurface({
 
       <div className="truth-table">
         <TruthRow capability="DAG file" truth="Parsed, never executed" note="Whitelisted AST; unsupported syntax is rejected with its line, not approximated." />
-        <TruthRow capability="Runs, task states, logs" truth="Simulated" note="Airflow 3 timetables, catchup, trigger rules, retries, sensors and branching for the supported subset." />
+        <TruthRow capability="Runs, task states, logs" truth="Simulated" note="Airflow 3 timetables, catchup, trigger rules, retries, sensors, branching and depends_on_past for the supported subset." />
         <TruthRow capability="Task code, connections, executors" truth="Not run" note="Outcomes come from the scenario above; nothing reaches a database, a shell or a worker." />
       </div>
     </section>

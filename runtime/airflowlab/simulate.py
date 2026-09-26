@@ -1,7 +1,12 @@
 """Deterministic task-instance simulation of Airflow DAG runs.
 
-Each run is simulated to completion in logical seconds after its start, with
-unlimited worker slots and no dependency between runs. Task behavior (duration,
+Each run is simulated in logical seconds after its start, with unlimited worker
+slots. Runs are independent except through depends_on_past: runs are simulated
+in logical-date order, and a depends_on_past task runs only when the same task
+succeeded or was skipped in the previous run (PrevDagrunDep: with catchup the
+previous scheduled run, otherwise the previous run of any type; the first run
+has no previous one). Otherwise it keeps no state, like everything that waits on
+it, and its run stays running. Waiting times across runs are not modelled. Task behavior (duration,
 failing attempts, sensor arrival, branch choice, short-circuit condition) comes
 from the scenario; no task code runs.
 
@@ -146,10 +151,14 @@ def _can_run(rule: str, counts: dict[str, int], upstream: int) -> bool:
 
 
 class _RunSimulator:
-    def __init__(self, dag: DagSpec, plan: RunPlan, behaviors: dict[str, TaskBehavior]):
+    def __init__(self, dag: DagSpec, plan: RunPlan, behaviors: dict[str, TaskBehavior],
+                 previous: 'RunResult | None' = None):
         self.dag = dag
         self.plan = plan
         self.behaviors = behaviors
+        self.previous = previous
+        # depends_on_past tasks held back by the previous run's state (logged once each).
+        self.blocked: set[str] = set()
         self.tis = {task_id: TaskInstance(task_id) for task_id in dag.tasks}
         self.events: list[dict[str, Any]] = []
         self.queue: list[tuple[float, int, str, str]] = []
@@ -198,9 +207,24 @@ class _RunSimulator:
                         continue
                     if not _can_run(task.trigger_rule, counts, upstream):
                         continue
+                if self._held_by_past(task, time_s):
+                    continue
                 ti.state = 'scheduled'
                 self._start_attempt(task, time_s)
                 changed = True
+
+    def _held_by_past(self, task: TaskSpec, time_s: float) -> bool:
+        if not task.depends_on_past or self.previous is None:
+            return False
+        before = self.previous.instances.get(task.task_id)
+        if before is None or before.state in ('success', 'skipped'):
+            return False
+        if task.task_id not in self.blocked:
+            self.blocked.add(task.task_id)
+            self._log(time_s, task.task_id,
+                      f"not started: depends_on_past, and {task.task_id} is {before.state or 'not run'} in the "
+                      f"previous run ({self.previous.plan.run_id})")
+        return True
 
     def _behavior(self, task_id: str) -> TaskBehavior:
         return self.behaviors.get(task_id) or TaskBehavior()
@@ -302,8 +326,10 @@ class _RunSimulator:
                              + ("; soft_fail skips it" if task.soft_fail else "; sensor timeouts are not retried"))
             self._settle(time_s)
         pending = [t for t, ti in self.tis.items() if ti.state not in TERMINAL]
-        if pending:
+        if pending and not self.blocked:
             raise AirflowLabError(f"Simulation deadlock: {', '.join(pending)} never became runnable")
+        if pending:
+            return RunResult(self.plan, 'running', self.tis, self.events)
         leaves = self.dag.leaves()
         failed = any(self.tis[leaf].state in ('failed', 'upstream_failed') for leaf in leaves)
         return RunResult(self.plan, 'failed' if failed else 'success', self.tis, self.events)
@@ -322,18 +348,34 @@ def planned_runs(dag: DagSpec, scenario: Scenario) -> list[RunPlan]:
 
 
 def simulate(dag: DagSpec, scenario: Scenario, runs: list[RunPlan] | None = None) -> list[RunResult]:
+    """Simulate `runs` (default: the scenario's planned runs). With depends_on_past, pass every run since the DAG
+    was unpaused: a run left out cannot hold back the next one."""
     unknown = set(scenario.tasks) | {t for overrides in scenario.by_logical_date.values() for t in overrides}
     unknown -= set(dag.tasks)
     if unknown:
         raise AirflowLabError(f"The DAG has no task(s) named {', '.join(sorted(unknown))}, which the scenario expects")
+    keep_last = False
     if runs is None:
-        runs = planned_runs(dag, scenario)
-    results = []
-    for plan in runs:
+        keep_last = scenario.latest_run_only and dag.cross_run
+        runs = planned_runs(dag, scenario.model_copy(update={'latest_run_only': False}) if keep_last else scenario)
+    done: dict[int, RunResult] = {}
+    for index in sorted(range(len(runs)), key=lambda i: (runs[i].logical_date, runs[i].run_after)):
+        plan = runs[index]
         behaviors = dict(scenario.tasks)
         behaviors.update(scenario.by_logical_date.get(_iso(plan.logical_date), {}))
-        results.append(_RunSimulator(dag, plan, behaviors).run())
-    return results
+        done[index] = _RunSimulator(dag, plan, behaviors, _previous_run(dag, plan, done.values())).run()
+    results = [done[i] for i in range(len(runs))]
+    return results[-1:] if keep_last else results
+
+
+def _previous_run(dag: DagSpec, plan: RunPlan, earlier: Any) -> RunResult | None:
+    """The run PrevDagrunDep compares with: with catchup, the previous scheduled run; otherwise the previous run of
+    any type (both by logical date). Only needed when a task depends on the past."""
+    if not dag.cross_run:
+        return None
+    candidates = [r for r in earlier if r.plan.logical_date < plan.logical_date
+                  and (not dag.catchup or r.plan.run_type == 'scheduled')]
+    return max(candidates, key=lambda r: (r.plan.logical_date, r.plan.run_after), default=None)
 
 
 def rendered_rows(dag: DagSpec, plan: RunPlan) -> list[dict[str, Any]]:

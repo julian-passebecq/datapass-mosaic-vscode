@@ -1400,5 +1400,214 @@
         ]
       }
     ]
+  },
+  "af-depends-on-past": {
+    "solution": "from datetime import datetime\n\nfrom airflow.sdk import DAG\nfrom airflow.providers.standard.operators.bash import BashOperator\n\nwith DAG(\n    dag_id=\"account_balances\",\n    schedule=\"@daily\",\n    start_date=datetime(2026, 3, 1),\n    catchup=True,\n) as dag:\n\n    extract = BashOperator(task_id=\"extract_ledger\", bash_command=\"extract_ledger --day {{ ds }}\")\n    roll = BashOperator(task_id=\"roll_balances\", bash_command=\"roll_balances --day {{ ds }}\", depends_on_past=True)\n    export = BashOperator(task_id=\"export_report\", bash_command=\"export_report --day {{ ds }}\")\n    extract >> roll\n    extract >> export\n",
+    "fixtures": [
+      {
+        "id": "roll-fails-day-2",
+        "visibility": "visible",
+        "input_rows": [],
+        "scenario": {
+          "now": "2026-03-04T12:00:00Z",
+          "outcome": "task_instances",
+          "columns": [
+            "logical_date",
+            "task_id",
+            "state"
+          ],
+          "by_logical_date": {
+            "2026-03-02T00:00:00+00:00": {
+              "roll_balances": {
+                "fail_attempts": "all"
+              }
+            }
+          }
+        },
+        "expected": [
+          {
+            "logical_date": "2026-03-01T00:00:00+00:00",
+            "task_id": "extract_ledger",
+            "state": "success"
+          },
+          {
+            "logical_date": "2026-03-01T00:00:00+00:00",
+            "task_id": "roll_balances",
+            "state": "success"
+          },
+          {
+            "logical_date": "2026-03-01T00:00:00+00:00",
+            "task_id": "export_report",
+            "state": "success"
+          },
+          {
+            "logical_date": "2026-03-02T00:00:00+00:00",
+            "task_id": "extract_ledger",
+            "state": "success"
+          },
+          {
+            "logical_date": "2026-03-02T00:00:00+00:00",
+            "task_id": "roll_balances",
+            "state": "failed"
+          },
+          {
+            "logical_date": "2026-03-02T00:00:00+00:00",
+            "task_id": "export_report",
+            "state": "success"
+          },
+          {
+            "logical_date": "2026-03-03T00:00:00+00:00",
+            "task_id": "extract_ledger",
+            "state": "success"
+          },
+          {
+            "logical_date": "2026-03-03T00:00:00+00:00",
+            "task_id": "roll_balances",
+            "state": null
+          },
+          {
+            "logical_date": "2026-03-03T00:00:00+00:00",
+            "task_id": "export_report",
+            "state": "success"
+          },
+          {
+            "logical_date": "2026-03-04T00:00:00+00:00",
+            "task_id": "extract_ledger",
+            "state": "success"
+          },
+          {
+            "logical_date": "2026-03-04T00:00:00+00:00",
+            "task_id": "roll_balances",
+            "state": null
+          },
+          {
+            "logical_date": "2026-03-04T00:00:00+00:00",
+            "task_id": "export_report",
+            "state": "success"
+          }
+        ]
+      },
+      {
+        "id": "run-states",
+        "visibility": "hidden",
+        "input_rows": [],
+        "scenario": {
+          "now": "2026-03-04T12:00:00Z",
+          "outcome": "runs",
+          "columns": [
+            "logical_date",
+            "state"
+          ],
+          "by_logical_date": {
+            "2026-03-02T00:00:00+00:00": {
+              "roll_balances": {
+                "fail_attempts": "all"
+              }
+            }
+          }
+        },
+        "expected": [
+          {
+            "logical_date": "2026-03-01T00:00:00+00:00",
+            "state": "success"
+          },
+          {
+            "logical_date": "2026-03-02T00:00:00+00:00",
+            "state": "failed"
+          },
+          {
+            "logical_date": "2026-03-03T00:00:00+00:00",
+            "state": "running"
+          },
+          {
+            "logical_date": "2026-03-04T00:00:00+00:00",
+            "state": "running"
+          }
+        ]
+      },
+      {
+        "id": "export-fails-day-2",
+        "visibility": "edge",
+        "input_rows": [],
+        "scenario": {
+          "now": "2026-03-04T12:00:00Z",
+          "outcome": "task_instances",
+          "columns": [
+            "logical_date",
+            "task_id",
+            "state"
+          ],
+          "by_logical_date": {
+            "2026-03-02T00:00:00+00:00": {
+              "export_report": {
+                "fail_attempts": "all"
+              }
+            }
+          }
+        },
+        "expected": [
+          {
+            "logical_date": "2026-03-01T00:00:00+00:00",
+            "task_id": "extract_ledger",
+            "state": "success"
+          },
+          {
+            "logical_date": "2026-03-01T00:00:00+00:00",
+            "task_id": "roll_balances",
+            "state": "success"
+          },
+          {
+            "logical_date": "2026-03-01T00:00:00+00:00",
+            "task_id": "export_report",
+            "state": "success"
+          },
+          {
+            "logical_date": "2026-03-02T00:00:00+00:00",
+            "task_id": "extract_ledger",
+            "state": "success"
+          },
+          {
+            "logical_date": "2026-03-02T00:00:00+00:00",
+            "task_id": "roll_balances",
+            "state": "success"
+          },
+          {
+            "logical_date": "2026-03-02T00:00:00+00:00",
+            "task_id": "export_report",
+            "state": "failed"
+          },
+          {
+            "logical_date": "2026-03-03T00:00:00+00:00",
+            "task_id": "extract_ledger",
+            "state": "success"
+          },
+          {
+            "logical_date": "2026-03-03T00:00:00+00:00",
+            "task_id": "roll_balances",
+            "state": "success"
+          },
+          {
+            "logical_date": "2026-03-03T00:00:00+00:00",
+            "task_id": "export_report",
+            "state": "success"
+          },
+          {
+            "logical_date": "2026-03-04T00:00:00+00:00",
+            "task_id": "extract_ledger",
+            "state": "success"
+          },
+          {
+            "logical_date": "2026-03-04T00:00:00+00:00",
+            "task_id": "roll_balances",
+            "state": "success"
+          },
+          {
+            "logical_date": "2026-03-04T00:00:00+00:00",
+            "task_id": "export_report",
+            "state": "success"
+          }
+        ]
+      }
+    ]
   }
 }

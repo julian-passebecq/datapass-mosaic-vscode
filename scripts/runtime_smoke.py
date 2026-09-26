@@ -123,7 +123,8 @@ for rejected, reason in [
      "dynamic start_date"),
     ("with DAG('d'):\n    a = EmptyOperator(task_id='a')\n    b = EmptyOperator(task_id='b')\n    [a] >> [b]\n",
      "list cannot be linked"),
-    ("with DAG('d'):\n    EmptyOperator(task_id='a', depends_on_past=True)\n", "depends_on_past"),
+    ("with DAG('d'):\n    EmptyOperator(task_id='a', wait_for_downstream=True)\n", "wait_for_downstream"),
+    ("with DAG('d'):\n    EmptyOperator(task_id='a', depends_on_past='yes')\n", "True or False"),
 ]:
     try:
         parse_dag(AIRFLOW_HEAD + rejected)
@@ -176,6 +177,23 @@ try:
     raise AssertionError("prev_ds must be reported as removed")
 except AirflowLabError as error:
     assert "removed" in str(error), error
+
+# depends_on_past: a failed run holds back the same task in every later run (PrevDagrunDep); the held tasks and
+# everything waiting on them keep no state and their runs stay running. A task that does not depend on the past runs.
+PAST = ("with DAG('d', schedule='@daily', start_date=datetime(2026, 3, 1), catchup=True,\n"
+        "         default_args={'depends_on_past': True}):\n"
+        "    a = EmptyOperator(task_id='a')\n    b = EmptyOperator(task_id='b')\n"
+        "    c = EmptyOperator(task_id='c', depends_on_past=False)\n    a >> b\n")
+past = dict(now="2026-03-04T12:00:00Z", by_logical_date={"2026-03-02T00:00:00+00:00": {"a": {"fail_attempts": "all"}}})
+held = {(r["logical_date"][:10], r["task_id"]): r["state"] for r in airflow_rows(PAST, **past)}
+assert [held[("2026-03-0" + d, t)] for d in "1234" for t in "abc"] == [
+    "success", "success", "success", "failed", "upstream_failed", "success",
+    None, None, "success", None, None, "success"], held
+assert [r["state"] for r in airflow_rows(PAST, outcome="runs", **past)] == ["success", "failed", "running", "running"]
+assert [r["state"] for r in airflow_rows(PAST, outcome="runs", latest_run_only=True, **past)] == ["running"]
+# Only a failure in an earlier run holds a task back; the last run's failure has nothing after it yet.
+assert [r["state"] for r in airflow_rows(PAST, outcome="runs", now="2026-03-04T12:00:00Z", by_logical_date={
+    "2026-03-04T00:00:00+00:00": {"b": {"fail_attempts": "all"}}})] == ["success", "success", "success", "failed"]
 
 def databricks_files() -> dict:
     """The Databricks Lab sample files, keyed the way the extension sends them (see src/factoryState.ts)."""

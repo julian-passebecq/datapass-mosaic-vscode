@@ -39,6 +39,8 @@ class TaskSpec:
     retries: int = 0
     retry_delay_s: float = 300.0
     execution_timeout_s: float | None = None
+    # The task runs only once the same task succeeded or was skipped in the previous DAG run.
+    depends_on_past: bool = False
     # Sensor settings (Airflow BaseSensorOperator defaults).
     poke_interval_s: float = 60.0
     timeout_s: float = 604800.0
@@ -68,6 +70,11 @@ class DagSpec:
 
     def downstream(self, task_id: str) -> list[str]:
         return [b for a, b in self.edges if a == task_id]
+
+    @property
+    def cross_run(self) -> bool:
+        """True when a run's outcome depends on the runs before it (depends_on_past)."""
+        return any(task.depends_on_past for task in self.tasks.values())
 
     def leaves(self) -> list[str]:
         sources = {a for a, _ in self.edges}

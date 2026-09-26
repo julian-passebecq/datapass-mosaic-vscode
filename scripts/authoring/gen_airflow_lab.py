@@ -1011,6 +1011,74 @@ exercise(
     ],
 )
 
+# 14 --------------------------------------------------------------------------
+PAST_BODY = '''
+    extract = BashOperator(task_id="extract_ledger", bash_command="extract_ledger --day {{ ds }}")
+    roll = BashOperator(task_id="roll_balances", bash_command="roll_balances --day {{ ds }}"{roll_args})
+    export = BashOperator(task_id="export_report", bash_command="export_report --day {{ ds }}"{export_args})
+    extract >> roll
+    extract >> export
+'''
+
+
+def past_dag(default_args: str = "", roll_args: str = "", export_args: str = "") -> str:
+    return code(CATCH_HEAD + f'''with DAG(
+    dag_id="account_balances",
+    schedule="@daily",
+    start_date=datetime(2026, 3, 1),
+    catchup=True,{default_args}
+) as dag:
+''' + PAST_BODY.replace("{roll_args}", roll_args).replace("{export_args}", export_args))
+
+
+PAST_FAILS = {"2026-03-02T00:00:00+00:00": {"roll_balances": {"fail_attempts": "all"}}}
+exercise(
+    id="af-depends-on-past",
+    title="A running balance must not skip a failed day",
+    difficulty="medium",
+    topics=["cross-run dependencies", "depends_on_past", "backfill"],
+    prompt=("roll_balances computes each day's closing balances from the previous day's closing balances. If it "
+            "fails one day, the following days must not roll balances on top of a missing day: they must wait until "
+            "the failed day is fixed. extract_ledger and export_report only depend on their own day and keep running "
+            "every day."),
+    sections=[
+        ("Across runs", "A task with depends_on_past=True starts only when the same task succeeded or was skipped in "
+                        "the previous run (with catchup, the previous scheduled run). Otherwise it keeps no state, "
+                        "like the tasks waiting on it, and its run stays running. The first run has no previous run."),
+        ("Graded", "Task states and run states over four daily runs, on a normal week and when roll_balances or "
+                   "export_report fails one day."),
+    ],
+    outcome_note="task states, then run states",
+    starter=past_dag(),
+    solution=past_dag(roll_args=", depends_on_past=True"),
+    fixtures=[
+        ("roll-fails-day-2", "visible", {"now": "2026-03-04T12:00:00Z", "outcome": "task_instances",
+                                         "columns": ["logical_date", "task_id", "state"],
+                                         "by_logical_date": PAST_FAILS}),
+        ("run-states", "hidden", {"now": "2026-03-04T12:00:00Z", "outcome": "runs",
+                                  "columns": ["logical_date", "state"], "by_logical_date": PAST_FAILS}),
+        ("export-fails-day-2", "edge", {"now": "2026-03-04T12:00:00Z", "outcome": "task_instances",
+                                        "columns": ["logical_date", "task_id", "state"],
+                                        "by_logical_date": {"2026-03-02T00:00:00+00:00": {
+                                            "export_report": {"fail_attempts": "all"}}}}),
+    ],
+    exact_schema=None,
+    hints=["The dependency you need is between runs, not between tasks: no >> can express it.",
+           "Only roll_balances carries state from one day to the next; set the argument on that task alone."],
+    explanation=("depends_on_past=True makes a task instance wait for the same task in the previous run to succeed "
+                 "or be skipped (Airflow's PrevDagrunDep). After a failure the later runs keep roll_balances without "
+                 "a state and stay running until the failed day is cleared and succeeds; extract_ledger and "
+                 "export_report, which do not carry state, keep running. Putting it in default_args would also hold "
+                 "back the independent tasks."),
+    follow_ups=["What does wait_for_downstream=True add to depends_on_past?",
+                "Why does a failed day with depends_on_past block a backfill that runs several days at once?"],
+    mutants=[
+        past_dag(default_args='\n    default_args={"depends_on_past": True},'),
+        past_dag(export_args=", depends_on_past=True"),
+        past_dag(roll_args=", retries=2"),
+    ],
+)
+
 
 # -----------------------------------------------------------------------------
 def definition(spec: dict, rank: int) -> dict:

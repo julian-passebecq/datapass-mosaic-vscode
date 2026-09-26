@@ -1337,5 +1337,106 @@
       "truth": "Simulated: the DAG file is parsed, never executed, and no Airflow scheduler, executor or worker runs. Semantics follow Airflow 3 for the supported subset."
     },
     "truth": "simulated"
+  },
+  {
+    "schema_version": 1,
+    "id": "af-depends-on-past",
+    "version": "1",
+    "title": "A running balance must not skip a failed day",
+    "difficulty": "medium",
+    "topics": [
+      "cross-run dependencies",
+      "depends_on_past",
+      "backfill"
+    ],
+    "tags": [
+      "airflow-lab",
+      "airflow",
+      "simulated"
+    ],
+    "origin": "authored",
+    "language": "airflow",
+    "runtime": "datapass-airflow-sim-v1",
+    "prompt": "roll_balances computes each day's closing balances from the previous day's closing balances. If it fails one day, the following days must not roll balances on top of a missing day: they must wait until the failed day is fixed. extract_ledger and export_report only depend on their own day and keep running every day.",
+    "sections": [
+      {
+        "title": "Simulator",
+        "body": "Your DAG file is read by a whitelisted parser and never executed. Grading simulates the Airflow 3 scheduler and task instances for each check's scenario (scheduler clock, task durations, failures, file arrival, branch choice). Times are UTC; each run is simulated to completion with free worker slots."
+      },
+      {
+        "title": "Across runs",
+        "body": "A task with depends_on_past=True starts only when the same task succeeded or was skipped in the previous run (with catchup, the previous scheduled run). Otherwise it keeps no state, like the tasks waiting on it, and its run stays running. The first run has no previous run."
+      },
+      {
+        "title": "Graded",
+        "body": "Task states and run states over four daily runs, on a normal week and when roll_balances or export_report fails one day."
+      }
+    ],
+    "starter_source": "from datetime import datetime\n\nfrom airflow.sdk import DAG\nfrom airflow.providers.standard.operators.bash import BashOperator\n\nwith DAG(\n    dag_id=\"account_balances\",\n    schedule=\"@daily\",\n    start_date=datetime(2026, 3, 1),\n    catchup=True,\n) as dag:\n\n    extract = BashOperator(task_id=\"extract_ledger\", bash_command=\"extract_ledger --day {{ ds }}\")\n    roll = BashOperator(task_id=\"roll_balances\", bash_command=\"roll_balances --day {{ ds }}\")\n    export = BashOperator(task_id=\"export_report\", bash_command=\"export_report --day {{ ds }}\")\n    extract >> roll\n    extract >> export\n",
+    "fixtures": [
+      {
+        "id": "af-depends-on-past-fixtures",
+        "version": "1"
+      }
+    ],
+    "visible_checks": [
+      {
+        "id": "roll-fails-day-2",
+        "description": "Simulated task states, then run states for the public scenario."
+      }
+    ],
+    "hidden_check_refs": [
+      "run-states"
+    ],
+    "edge_check_refs": [
+      "export-fails-day-2"
+    ],
+    "hints": [
+      "The dependency you need is between runs, not between tasks: no >> can express it.",
+      "Only roll_balances carries state from one day to the next; set the argument on that task alone."
+    ],
+    "solution": {
+      "available": true,
+      "reveal": "explicit"
+    },
+    "explanation": "depends_on_past=True makes a task instance wait for the same task in the previous run to succeed or be skipped (Airflow's PrevDagrunDep). After a failure the later runs keep roll_balances without a state and stay running until the failed day is cleared and succeeds; extract_ledger and export_report, which do not carry state, keep running. Putting it in default_args would also hold back the independent tasks.",
+    "follow_ups": [
+      "What does wait_for_downstream=True add to depends_on_past?",
+      "Why does a failed day with depends_on_past block a backfill that runs several days at once?"
+    ],
+    "canonical_placement": {
+      "domain": "airflow",
+      "topic": "cross-run dependencies"
+    },
+    "related_associations": [
+      "airflow/orchestration"
+    ],
+    "recommendation": {
+      "rank": 14,
+      "reason": "Airflow lab progression"
+    },
+    "validator_version": "rows-v2",
+    "validation": {
+      "kind": "rows",
+      "ordered": false,
+      "duplicate_sensitive": true,
+      "relative_tolerance": 1e-09,
+      "absolute_tolerance": 1e-06,
+      "required_columns": [],
+      "exact_schema": null,
+      "forbidden_extra_columns": true,
+      "null_semantics": "equal"
+    },
+    "runtime_requirements": [
+      "airflow-simulator"
+    ],
+    "provenance": {
+      "source": "Authored for Datapass Workbench: Airflow 3 scheduling and task semantics on the Airflow Lab simulator",
+      "fixtures": "Authored scenarios; expected rows computed by simulating the reference DAG and reviewed"
+    },
+    "constraints": {
+      "truth": "Simulated: the DAG file is parsed, never executed, and no Airflow scheduler, executor or worker runs. Semantics follow Airflow 3 for the supported subset."
+    },
+    "truth": "simulated"
   }
 ]
