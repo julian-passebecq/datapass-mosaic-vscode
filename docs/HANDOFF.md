@@ -28,7 +28,7 @@ Last updated: 2026-09-26.
 ## What exists
 
 One VS Code extension (webview Workbench + native editors, terminals, Explorer and Git) and one local FastAPI
-runtime on loopback. Twelve Workbench modules, each with a `datapass.open…` command, grouped in two families in the
+runtime on loopback. Thirteen Workbench modules, each with a `datapass.open…` command, grouped in two families in the
 navigation ("Learn": Practice, Mosaic, SparkLab, Airflow, Pipeline, BI, Cloud Lab; "Real work": Projects, dbt,
 Terminal, Infra, Lakehouse, API), behind a "Today" home (`datapass.openHome`: Projects and Practice progress from
 `.datapass/progress.json`, the next suggested step, the runtime with its Setup/Start action):
