@@ -8,6 +8,7 @@
  */
 import type { ExerciseSummary } from "../webview/contracts";
 import { nextReview, parseReview, type ReviewSchedule } from "./practiceReview";
+import { INTERVIEW_HISTORY, parseInterview, parseInterviews, type InterviewRecord } from "./practiceInterview";
 
 export type PracticeStatus = "solved" | "attempted" | "not-started";
 export type GradeMode = "run" | "submit";
@@ -30,7 +31,11 @@ export interface ExerciseProgressRecord {
   /** Spaced review (platform/practiceReview.ts): the Leitner box and the day the variant is due again. */
   review?: ReviewSchedule;
 }
-export interface PracticeProgress { exercises: Record<string, ExerciseProgressRecord> }
+export interface PracticeProgress {
+  exercises: Record<string, ExerciseProgressRecord>;
+  /** Interview series summaries, oldest first, the last INTERVIEW_HISTORY (platform/practiceInterview.ts). */
+  interviews?: InterviewRecord[];
+}
 
 export interface PracticeFilters {
   query: string;
@@ -96,7 +101,17 @@ export function parsePracticeProgress(raw: unknown): PracticeProgress {
       progress.exercises[key] = record;
     }
   }
+  const interviews = parseInterviews(value.interviews);
+  if (interviews.length) progress.interviews = interviews;
   return progress;
+}
+
+/** Keep a finished interview's summary; a malformed one is refused. */
+export function recordInterview(progress: PracticeProgress | undefined, raw: unknown): PracticeProgress {
+  const interview = parseInterview(raw);
+  if (!interview) throw new Error("Invalid interview summary.");
+  const current = progress ?? emptyPracticeProgress();
+  return { ...current, interviews: [...(current.interviews ?? []), interview].slice(-INTERVIEW_HISTORY) };
 }
 
 function withRecord(progress: PracticeProgress | undefined, key: string,

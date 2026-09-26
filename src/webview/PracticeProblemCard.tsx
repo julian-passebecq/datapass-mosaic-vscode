@@ -24,7 +24,8 @@ export function PracticeProblemCard({
   runtime,
   solution,
   onLanguage,
-  badge
+  badge,
+  interview = false
 }: {
   vscode: VsCodeApi;
   problem: PracticeProblem;
@@ -36,6 +37,8 @@ export function PracticeProblemCard({
   onLanguage: (language: string) => void;
   /** A mode's label on the card, for example "Review due". */
   badge?: string;
+  /** Interview mode: no hints, no reference solution, no topics (they name the pattern), and the language is fixed. */
+  interview?: boolean;
 }) {
   const runtimeReady = runtime.status === "running";
   const result = runtime.practiceResult?.exerciseKey === variant.key ? runtime.practiceResult : undefined;
@@ -55,7 +58,7 @@ export function PracticeProblemCard({
         {badge && <Badge appearance="filled" color="brand">{badge}</Badge>}
         <Badge appearance="tint">{problem.difficulty}</Badge>
         <span className="muted">{problem.packTitle} · v{variant.version}</span>
-        {summary.status !== "not-started" && (
+        {!interview && summary.status !== "not-started" && (
           <Badge appearance={summary.status === "solved" ? "filled" : "outline"}
             color={summary.status === "solved" ? "success" : "warning"}>
             {summary.status === "solved"
@@ -68,7 +71,7 @@ export function PracticeProblemCard({
       <p className="practice-prompt">{problem.prompt}</p>
 
       <div className="practice-languages" role="radiogroup" aria-label={`Language for ${problem.title}`}>
-        {problem.variants.map(item => {
+        {(interview ? [variant] : problem.variants).map(item => {
           const itemStatus = practiceStatus(progress.exercises[item.key]);
           const selected = item.key === variant.key;
           return (
@@ -79,6 +82,7 @@ export function PracticeProblemCard({
               aria-checked={selected}
               className={`practice-language${selected ? " selected" : ""} ${itemStatus}`}
               title={`${languageLabel(item.language)}: ${itemStatus === "not-started" ? "not started" : itemStatus}`}
+              disabled={interview}
               onClick={() => onLanguage(item.language)}
             >
               {languageLabel(item.language)}
@@ -86,7 +90,7 @@ export function PracticeProblemCard({
             </button>
           );
         })}
-        {(statusLine || review) && (
+        {!interview && (statusLine || review) && (
           <small className="muted">{[statusLine, review].filter(Boolean).join(" · ")}</small>
         )}
       </div>
@@ -147,12 +151,12 @@ export function PracticeProblemCard({
         </div>
       )}
 
-      <HintsBlock exercise={variant} record={record} vscode={vscode} />
-      <SolutionBlock exercise={variant} record={record} code={solution} vscode={vscode} />
+      {!interview && <HintsBlock exercise={variant} record={record} vscode={vscode} />}
+      {!interview && <SolutionBlock exercise={variant} record={record} code={solution} vscode={vscode} />}
 
       <div className="practice-footer">
         <div className="practice-topics">
-          {problem.topics.slice(0, 4).map(topic => <span key={topic}>{topic}</span>)}
+          {!interview && problem.topics.slice(0, 4).map(topic => <span key={topic}>{topic}</span>)}
         </div>
         <div className="button-row">
           <Button appearance="secondary" size="small"

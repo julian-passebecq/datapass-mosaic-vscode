@@ -15,7 +15,8 @@ try {
   await writeFile(entry, [
     `export * from ${JSON.stringify(path.resolve("src/platform/practiceProblems.ts"))};`,
     `export * from ${JSON.stringify(path.resolve("src/platform/practiceReview.ts"))};`,
-    `export { recordGrade, recordOpened, parsePracticeProgress, practiceStatus, EMPTY_FILTERS } from ${JSON.stringify(path.resolve("src/platform/practiceProgress.ts"))};`
+    `export * from ${JSON.stringify(path.resolve("src/platform/practiceInterview.ts"))};`,
+    `export { recordGrade, recordInterview, recordOpened, parsePracticeProgress, practiceStatus, EMPTY_FILTERS } from ${JSON.stringify(path.resolve("src/platform/practiceProgress.ts"))};`
   ].join("\n"));
   await esbuild.build({ entryPoints: [entry], bundle: true, platform: "node", format: "esm", target: "node20", outfile, logLevel: "silent" });
   const mod = await import(pathToFileURL(outfile).href + `?v=${Date.now()}`);
@@ -148,6 +149,79 @@ try {
   assert.equal(mod.reviewLabel(records["zilla-v1/zilla-001-popular-videos/sql"], "2026-09-25"), "Review due for 5 days · box 3 of 6");
   assert.equal(mod.reviewLabel(records["zilla-v1/zilla-003-landlord-income/sql"], "2026-09-25"), "Next review tomorrow · box 2 of 6");
   assert.equal(mod.reviewLabel(undefined, "2026-09-25"), undefined);
+
+  // Interview mode: the draw, the tracking, the summary and its history in progress.json.
+  assert.equal(mod.problemFamily(zilla)?.id, "logic", "zilla-001 filters rows");
+  const familyOf = key => mod.problemFamily(problems.find(p => p.key === key))?.id;
+  const classic = problems.filter(p => mod.problemFamily(p)).length;
+  assert.ok(classic / problems.length > 0.6, `most problems have a pattern family (${classic}/${problems.length})`);
+  const mixed = { format: "mixed", count: 3, difficulty: "", family: "" };
+  for (let seed = 1; seed <= 40; seed++) {
+    const drawn = mod.drawInterview(problems, mixed, mod.seededRandom(seed));
+    assert.deepEqual(drawn.map(item => item.language), ["sql", "python", "sparklab"], "a mixed series cycles SQL, Python, PySpark");
+    assert.equal(new Set(drawn.map(item => item.problemKey)).size, 3, "no problem twice");
+    assert.equal(new Set(drawn.map(item => item.family)).size, 3, `seed ${seed}: three different patterns`);
+    for (const item of drawn) {
+      assert.ok(item.family, "only problems with a classic pattern when enough exist");
+      assert.equal(item.exerciseKey, `${item.problemKey}/${item.language}`);
+      assert.equal(familyOf(item.problemKey), item.family);
+    }
+  }
+  assert.deepEqual(mod.drawInterview(problems, mixed, mod.seededRandom(7)), mod.drawInterview(problems, mixed, mod.seededRandom(7)),
+    "a seed replays its draw");
+  const six = mod.drawInterview(problems, { ...mixed, count: 6 }, mod.seededRandom(3));
+  assert.deepEqual(six.map(item => item.language), ["sql", "python", "sparklab", "sql", "python", "sparklab"]);
+  const windows = mod.drawInterview(problems, { format: "fixed", language: "polars", count: 4, difficulty: "hard", family: "windows" },
+    mod.seededRandom(11));
+  assert.ok(windows.length >= 1);
+  for (const item of windows) {
+    const problem = problems.find(p => p.key === item.problemKey);
+    assert.equal(item.language, "polars");
+    assert.equal(problem.difficulty, "hard");
+    assert.equal(item.family, "windows");
+  }
+  const tooMany = mod.drawInterview(problems, { format: "fixed", language: "sql", count: 8, difficulty: "", family: "strings" }, mod.seededRandom(5));
+  assert.ok(tooMany.length <= 8 && new Set(tooMany.map(i => i.problemKey)).size === tooMany.length);
+  assert.deepEqual(mod.drawInterview(problems, { format: "fixed", language: "cobol", count: 3, difficulty: "", family: "" }, mod.seededRandom(1)), []);
+  const remoteOnly = [{ ...zilla, key: "p/remote", variants: [{ ...zilla.variants[0], key: "p/remote/sql", gradingNote: "remote" }] }];
+  assert.deepEqual(mod.drawInterview(remoteOnly, { ...mixed, count: 1 }, mod.seededRandom(1)), [], "never a problem graded elsewhere");
+  assert.equal(mod.defaultLimitMinutes(3), 45);
+
+  const start = "2026-09-26T10:00:00.000Z";
+  const drawn = mod.drawInterview(problems, mixed, mod.seededRandom(2));
+  const [first, second, third] = drawn.map(item => item.exerciseKey);
+  let recs = { [first]: { attempts: 4, last: { mode: "submit", status: "passed", at: "2026-09-20T10:00:00.000Z" } } };
+  let session = mod.startInterview(drawn, mixed, 45, recs, start);
+  assert.deepEqual(session.items.map(item => [item.seenAttempts, item.submits]), [[4, 0], [0, 0], [0, 0]]);
+  assert.equal(mod.trackInterview(session, recs), session, "nothing new, same session");
+  const grade = (key, mode, status, at) => {
+    const old = recs[key] ?? { attempts: 0 };
+    recs = { ...recs, [key]: { attempts: old.attempts + 1, last: { mode, status, at } } };
+    session = mod.trackInterview(session, recs);
+  };
+  grade(first, "run", "failed", "2026-09-26T10:03:00.000Z");
+  grade(first, "submit", "failed", "2026-09-26T10:05:00.000Z");
+  grade(first, "submit", "passed", "2026-09-26T10:09:30.000Z");
+  grade(first, "submit", "failed", "2026-09-26T10:10:00.000Z");
+  grade(third, "submit", "passed", "2026-09-26T10:50:00.000Z");
+  assert.deepEqual(session.items.map(item => [item.submits, item.passedAt ?? null]),
+    [[3, "2026-09-26T10:09:30.000Z"], [0, null], [1, "2026-09-26T10:50:00.000Z"]]);
+  const record = mod.summarizeInterview(session, "2026-09-26T10:52:00.000Z");
+  assert.equal(record.elapsedSeconds, 52 * 60);
+  assert.deepEqual(record.items.map(item => [item.solved, item.solvedAfterSeconds ?? null, item.submits]),
+    [[true, 570, 3], [false, null, 0], [true, 3000, 1]]);
+  assert.equal(mod.trackInterview({ ...session, finishedAt: "x" }, {}).finishedAt, "x");
+  let kept = mod.recordInterview(undefined, record);
+  assert.deepEqual(mod.parsePracticeProgress(JSON.parse(JSON.stringify(kept))).interviews, [record], "the summary survives progress.json");
+  for (let i = 0; i < 25; i++) kept = mod.recordInterview(kept, { ...record, at: `2026-10-${String(i + 1).padStart(2, "0")}T10:00:00.000Z` });
+  assert.equal(kept.interviews.length, mod.INTERVIEW_HISTORY, "only the last 20 series are kept");
+  assert.equal(kept.interviews.at(-1).at, "2026-10-25T10:00:00.000Z");
+  assert.throws(() => mod.recordInterview(kept, { ...record, items: [{ key: "../x", solved: true, submits: 1 }] }), /Invalid interview/);
+  assert.throws(() => mod.recordInterview(kept, { ...record, format: "exam" }), /Invalid interview/);
+  assert.equal(mod.parseInterviews([{ ...record, items: [] }, record, "junk"]).length, 1, "malformed series are dropped");
+  assert.equal(mod.clock(0), "0:00");
+  assert.equal(mod.clock(754), "12:34");
+  assert.equal(mod.clock(3725), "1:02:05");
 
   console.log(`Practice arena smoke passed: ${problems.length} problems for ${catalog.length} variants.`);
 } finally {
