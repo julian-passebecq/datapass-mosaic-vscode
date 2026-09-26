@@ -5,7 +5,7 @@ import { loadBiState } from "./biState";
 import { loadDbtState } from "./dbtState";
 import { loadExerciseCatalog } from "./exerciseCatalog";
 import { loadFactoryState } from "./factoryState";
-import { MODULES, type ModuleId } from "./modules";
+import { MODULE_FAMILIES, MODULES, type WorkbenchView } from "./modules";
 import { readMosaicLayout } from "./mosaicLayoutStore";
 import { loadPipelineState } from "./pipelineState";
 import { readProjectManifest } from "./project/projectManifest";
@@ -14,7 +14,7 @@ import type { RuntimeManager } from "./runtimeManager";
 import type { DctValidationView } from "./platform/dbtTools";
 import { loadProjectsState, readProgress } from "./projectState";
 import { emptyPracticeProgress } from "./platform/practiceProgress";
-import type { DbtToolsView, DbtViewState, PracticeViewState, ProjectsHostState, SparkLabProfileView, TerminalViewState, InfraViewState, WorkbenchFocus, WorkbenchViewState } from "./webview/contracts";
+import type { DbtToolsView, HomeViewState, DbtViewState, PracticeViewState, ProjectsHostState, SparkLabProfileView, TerminalViewState, InfraViewState, WorkbenchFocus, WorkbenchViewState } from "./webview/contracts";
 
 /** What the host adds to the state it collects: the focus, and what the lab controllers keep (see src/labs). */
 export interface WorkbenchStateExtras {
@@ -32,10 +32,11 @@ export interface WorkbenchStateExtras {
   queryHistory?: readonly QueryHistoryEntry[];
   terminal?: TerminalViewState;
   infra?: InfraViewState;
+  home?: HomeViewState;
 }
 
 export async function collectWorkbenchState(
-  selectedModule: ModuleId,
+  selectedModule: WorkbenchView,
   runtimeManager: RuntimeManager,
   extensionUri: vscode.Uri,
   pythonTrust: PythonTrustController,
@@ -76,6 +77,8 @@ export async function collectWorkbenchState(
   return {
     selectedModule,
     modules: MODULES,
+    families: MODULE_FAMILIES,
+    home: selectedModule === "home" ? extras.home : undefined,
     workspace: {
       folderName: folder?.name,
       manifestExists: manifest.exists,

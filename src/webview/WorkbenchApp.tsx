@@ -12,7 +12,8 @@ import {
   webDarkTheme,
   webLightTheme
 } from "@fluentui/react-components";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import type { ModuleFamilyId, ModuleId } from "../modules";
 import type {
   HostToWebviewMessage,
   RuntimeSetupProgressView,
@@ -24,6 +25,7 @@ import { DbtSurface } from "./DbtSurface";
 import { TerminalSurface } from "./TerminalSurface";
 import { InfraSurface } from "./InfraSurface";
 import { FabricSurface } from "./FabricSurface";
+import { HomeSurface, RuntimeActions, runtimeTone } from "./HomeSurface";
 import { BiSurface } from "./BiSurface";
 import { MosaicSurface } from "./MosaicSurface";
 import { PipelineSurface } from "./PipelineSurface";
@@ -36,6 +38,47 @@ export interface VsCodeApi {
   getState(): unknown;
   setState(state: unknown): void;
 }
+
+/**
+ * One surface per module (the module list itself is content/modules.json). A new lab adds its entry here; the
+ * Record type makes a module without a surface a compile error.
+ */
+type SurfaceRender = (vscode: VsCodeApi, state: WorkbenchViewState) => ReactNode;
+const SURFACES: Record<ModuleId, SurfaceRender> = {
+  projects: (vscode, state) => <ProjectsSurface vscode={vscode} projects={state.projects} runtime={state.runtime} />,
+  mosaic: (vscode, state) => (
+    <MosaicSurface
+      vscode={vscode}
+      runtime={state.runtime}
+      pythonTrust={state.pythonTrust}
+      projectLayout={state.mosaicLayout}
+      canPersist={state.workspace.manifestExists}
+      queryHistory={state.queryHistory}
+    />
+  ),
+  practice: (vscode, state) => (
+    <PracticeSurface vscode={vscode} runtime={state.runtime}
+      practice={state.practice ?? { exercises: [], progress: { exercises: {} }, canSaveProgress: false, solutions: {} }}
+      focus={state.focus?.module === "practice" ? state.focus : undefined} />
+  ),
+  fabric: (vscode, state) => (
+    <FabricSurface vscode={vscode} runtime={state.runtime} factory={state.factory}
+      focus={state.focus?.module === "fabric" ? state.focus : undefined} />
+  ),
+  bi: (vscode, state) => (
+    <BiSurface vscode={vscode} runtime={state.runtime} bi={state.bi}
+      focus={state.focus?.module === "bi" ? state.focus : undefined} />
+  ),
+  sparklab: (vscode, state) => (
+    <SparkLabSurface vscode={vscode} runtime={state.runtime} profiles={state.sparkProfiles ?? []}
+      pythonTrust={state.pythonTrust} />
+  ),
+  pipeline: (vscode, state) => <PipelineSurface vscode={vscode} pipeline={state.pipeline} runtime={state.runtime} />,
+  airflow: (vscode, state) => <AirflowSurface vscode={vscode} airflow={state.airflow} runtime={state.runtime} />,
+  dbt: (vscode, state) => <DbtSurface vscode={vscode} dbt={state.dbt} runtime={state.runtime} />,
+  terminal: (vscode, state) => <TerminalSurface vscode={vscode} terminal={state.terminal} runtime={state.runtime} />,
+  infra: (vscode, state) => <InfraSurface vscode={vscode} infra={state.infra} runtime={state.runtime} />
+};
 
 export function WorkbenchApp({ vscode }: { vscode: VsCodeApi }) {
   const [state, setState] = useState<WorkbenchViewState | null>(null);
@@ -67,8 +110,12 @@ export function WorkbenchApp({ vscode }: { vscode: VsCodeApi }) {
     () => state?.modules.find(module => module.id === state.selectedModule),
     [state]
   );
+  // The module last shown in each family, so switching families comes back to it.
+  const lastInFamily = useRef<Partial<Record<ModuleFamilyId, ModuleId>>>({});
+  if (selected) lastInFamily.current[selected.family] = selected.id;
 
-  if (!state || !selected) {
+  const isHome = state?.selectedModule === "home";
+  if (!state || (!selected && !isHome)) {
     return (
       <FluentProvider theme={dark ? webDarkTheme : webLightTheme}>
         <div className="loading"><Spinner label="Loading Datapass Workbench…" /></div>
@@ -81,15 +128,6 @@ export function WorkbenchApp({ vscode }: { vscode: VsCodeApi }) {
   const environmentSettingUp = environment?.status === "setting-up";
   const environmentStale = environment?.status === "stale";
 
-  const runtimeTone =
-    state.runtime.status === "running"
-      ? "success"
-      : state.runtime.status === "error"
-        ? "danger"
-        : state.runtime.status === "starting"
-          ? "warning"
-          : "informative";
-
   return (
     <FluentProvider theme={dark ? webDarkTheme : webLightTheme}>
       <div className="shell">
@@ -99,110 +137,63 @@ export function WorkbenchApp({ vscode }: { vscode: VsCodeApi }) {
             <h1>Datapass Workbench</h1>
           </div>
           <div className="runtime-status">
-            <Badge appearance="tint" color={runtimeTone}>{state.runtime.status}</Badge>
-            {!environmentReady && state.runtime.status !== "running" && (
-              <Button
-                size="small"
-                appearance="primary"
-                disabled={environmentSettingUp}
-                onClick={() => vscode.postMessage({ type: "setupRuntime" })}
-              >
-                {environmentSettingUp ? "Setting up runtime…" : environmentStale ? "Update runtime" : "Setup runtime"}
-              </Button>
-            )}
-            {state.runtime.status === "running" ? (
-              <Button size="small" appearance="secondary" onClick={() => vscode.postMessage({ type: "stopRuntime" })}>
-                Stop runtime
-              </Button>
-            ) : environmentReady ? (
-              <Button
-                size="small"
-                appearance="primary"
-                disabled={state.runtime.status === "starting"}
-                onClick={() => vscode.postMessage({ type: "startRuntime" })}
-              >
-                Start runtime
-              </Button>
-            ) : null}
+            <Badge appearance="tint" color={runtimeTone(state.runtime.status)}>{state.runtime.status}</Badge>
+            <RuntimeActions vscode={vscode} runtime={state.runtime} />
           </div>
         </header>
 
-        <nav className="module-tabs" aria-label="Datapass modules">
+<nav className="module-tabs" aria-label="Datapass modules">
           <TabList
-            selectedValue={state.selectedModule}
-            onTabSelect={(_, data) => vscode.postMessage({ type: "selectModule", moduleId: data.value as typeof state.selectedModule })}
+            className="family-tabs"
+            size="small"
+            selectedValue={selected?.family ?? "home"}
+            onTabSelect={(_, data) => {
+              const family = data.value as ModuleFamilyId | "home";
+              if (family === "home") {
+                vscode.postMessage({ type: "selectHome" });
+                return;
+              }
+              const moduleId = lastInFamily.current[family] ?? state.modules.find(module => module.family === family)?.id;
+              if (moduleId) vscode.postMessage({ type: "selectModule", moduleId });
+            }}
           >
-            {state.modules.map(module => (
-              <Tab key={module.id} value={module.id}>{module.label}</Tab>
+            <Tab value="home">Today</Tab>
+            {state.families.map(family => (
+              <Tab key={family.id} value={family.id} title={family.description}>{family.label}</Tab>
             ))}
           </TabList>
+          {selected && (
+            <TabList
+              className="family-modules"
+              aria-label={`${state.families.find(family => family.id === selected.family)?.label ?? ""} modules`}
+              selectedValue={selected.id}
+              onTabSelect={(_, data) => vscode.postMessage({ type: "selectModule", moduleId: data.value as ModuleId })}
+            >
+              {state.modules.filter(module => module.family === selected.family).map(module => (
+                <Tab key={module.id} value={module.id}>{module.label}</Tab>
+              ))}
+            </TabList>
+          )}
         </nav>
 
         <main className="content-grid">
           <section className="module-main">
-            <div className="module-heading">
-              <div>
-                <div className="eyebrow">{selected.mode} execution model</div>
-                <h2>{selected.label}</h2>
-                <p>{selected.description}</p>
-              </div>
-              <Badge appearance="outline" className="execution-badge" title={selected.execution}>
-                <span>{selected.execution}</span>
-              </Badge>
-            </div>
-
-            {selected.id === "projects" ? (
-              <ProjectsSurface vscode={vscode} projects={state.projects} runtime={state.runtime} />
-            ) : selected.id === "mosaic" ? (
-              <MosaicSurface
-                vscode={vscode}
-                runtime={state.runtime}
-                pythonTrust={state.pythonTrust}
-                projectLayout={state.mosaicLayout}
-                canPersist={state.workspace.manifestExists}
-                queryHistory={state.queryHistory}
-              />
-            ) : selected.id === "practice" ? (
-              <PracticeSurface vscode={vscode} runtime={state.runtime}
-                practice={state.practice ?? { exercises: [], progress: { exercises: {} }, canSaveProgress: false, solutions: {} }}
-                focus={state.focus?.module === "practice" ? state.focus : undefined} />
-            ) : selected.id === "fabric" ? (
-              <FabricSurface vscode={vscode} runtime={state.runtime} factory={state.factory}
-                focus={state.focus?.module === "fabric" ? state.focus : undefined} />
-            ) : selected.id === "bi" ? (
-              <BiSurface vscode={vscode} runtime={state.runtime} bi={state.bi}
-                focus={state.focus?.module === "bi" ? state.focus : undefined} />
-            ) : selected.id === "sparklab" ? (
-              <SparkLabSurface vscode={vscode} runtime={state.runtime} profiles={state.sparkProfiles ?? []}
-                pythonTrust={state.pythonTrust} />
-            ) : selected.id === "pipeline" ? (
-              <PipelineSurface vscode={vscode} pipeline={state.pipeline} runtime={state.runtime} />
-            ) : selected.id === "airflow" ? (
-              <AirflowSurface vscode={vscode} airflow={state.airflow} runtime={state.runtime} />
-            ) : selected.id === "dbt" ? (
-              <DbtSurface vscode={vscode} dbt={state.dbt} runtime={state.runtime} />
-            ) : selected.id === "terminal" ? (
-              <TerminalSurface vscode={vscode} terminal={state.terminal} runtime={state.runtime} />
-            ) : selected.id === "infra" ? (
-              <InfraSurface vscode={vscode} infra={state.infra} runtime={state.runtime} />
+            {!selected ? (
+              <HomeSurface vscode={vscode} home={state.home} runtime={state.runtime}
+                modules={state.modules} families={state.families} />
             ) : (
               <>
-                <div className="feature-grid">
-                  {selected.highlights.map(highlight => (
-                    <Card key={highlight}>
-                      <CardHeader header={<Text weight="semibold">{highlight}</Text>} />
-                    </Card>
-                  ))}
-                </div>
-                <Card className="surface-card">
-                  <CardHeader
-                    header={<Text size={500} weight="semibold">VS Code-native boundary</Text>}
-                    description={<Text>Files, editors, terminals, Git and Jupyter stay native. Datapass adds the teaching surface and local execution services.</Text>}
-                  />
-                  <div className="button-row">
-                    <Button appearance="secondary" onClick={() => vscode.postMessage({ type: "openTerminal" })}>Open terminal</Button>
+                <div className="module-heading">
+                  <div>
+                    <div className="eyebrow">{selected.mode} execution model</div>
+                    <h2>{selected.label}</h2>
+                    <p>{selected.description}</p>
                   </div>
-                </Card>
+                  <Badge appearance="outline" className="execution-badge" title={selected.execution}>
+                    <span>{selected.execution}</span>
+                  </Badge>
+                </div>
+                {SURFACES[selected.id](vscode, state)}
               </>
             )}
           </section>

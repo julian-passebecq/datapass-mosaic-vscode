@@ -72,7 +72,7 @@ export async function run(): Promise<void> {
       await extension.activate();
       const commands = await vscode.commands.getCommands(true);
       for (const module of MODULES) assert.ok(commands.includes(module.command), module.command);
-      for (const command of ["datapass.catalog.refresh", "datapass.catalog.openScratch", "datapass.catalog.previewTable"]) {
+      for (const command of ["datapass.openHome", "datapass.catalog.refresh", "datapass.catalog.openScratch", "datapass.catalog.previewTable"]) {
         assert.ok(commands.includes(command), command);
       }
     }],

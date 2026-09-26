@@ -1,4 +1,4 @@
-import type { ModuleId } from "../../modules";
+import type { ModuleFamily, ModuleId, WorkbenchView } from "../../modules";
 import type { PythonTrustState } from "../../platform/pythonTrust";
 
 export type RuntimeStatus = "stopped" | "starting" | "running" | "error";
@@ -76,10 +76,12 @@ export interface WorkbenchRuntimeSlice {
   environment?: RuntimeEnvironmentView;
 }
 
-/** The Workbench shell: module tabs, the runtime card, the project manifest and the shared catalog. */
+/** The Workbench shell: the Today home, the family and module tabs, the runtime card, the project manifest and the shared catalog. */
 export type WorkbenchMessage =
   | { type: "ready" }
   | { type: "selectModule"; moduleId: ModuleId }
+  | { type: "selectHome" }
+  | { type: "openFolder" }
   | { type: "createManifest" }
   | { type: "openManifest" }
   | { type: "refreshCatalog" }
@@ -90,3 +92,49 @@ export type WorkbenchMessage =
   | { type: "startRuntime" }
   | { type: "stopRuntime" }
   | { type: "openTerminal" };
+
+/** The Today home: progress read from .datapass/progress.json and the next suggested step (src/labs/workbench/home.ts). */
+export interface HomeViewState {
+  hasWorkspace: boolean;
+  progressError?: string;
+  projects: {
+    total: number;
+    started: number;
+    completed: number;
+    /** The started project with the most recent progress that is not complete. */
+    current?: HomeProjectView;
+    list: HomeProjectView[];
+  };
+  practice: {
+    total: number;
+    solved: number;
+    attempted: number;
+    /** Exercises whose spaced review is due today or earlier (platform/practiceReview.ts dueReviews). */
+    dueReviews: number;
+  };
+  next: HomeNextStep;
+}
+
+export interface HomeProjectView {
+  id: string;
+  title: string;
+  percent: number;
+  done: number;
+  required: number;
+  nextStep?: { id: string; title: string; module: ModuleId; moduleLabel: string };
+}
+
+export type HomeNextStep =
+  | { kind: "open-folder"; title: string; detail: string }
+  | { kind: "project-step"; title: string; detail: string; projectId: string; stepId: string; module: ModuleId }
+  | { kind: "reviews"; title: string; detail: string }
+  | { kind: "start-project"; title: string; detail: string; projectId: string }
+  | { kind: "practice"; title: string; detail: string };
+
+export interface HomeViewSlice {
+  /** Present when the Today home is shown. */
+  home?: HomeViewState;
+  families: readonly ModuleFamily[];
+}
+
+export type { WorkbenchView };
