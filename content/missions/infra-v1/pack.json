@@ -10,6 +10,7 @@
     "containerize-ingest-api",
     "compose-keep-the-data",
     "page-on-shir-outage",
+    "etl-vm-memory-leak",
     "zero-downtime-rollout",
     "black-friday-autoscale"
   ]
