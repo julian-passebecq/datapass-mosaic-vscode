@@ -1,0 +1,4 @@
+az monitor metrics alert delete -n etl-vm-memory-low -g rg-etl-prod
+az monitor metrics alert create -n etl-vm-memory-low -g rg-etl-prod --scopes vm-etl-02 --condition "avg Available Memory Bytes < 1073741824" --window-size 1h --evaluation-frequency 15m --severity 2 --action ag-data-oncall --description "The ETL loader is leaking: restart it before the VM runs out of memory"
+az monitor metrics alert create -n etl-vm-unavailable -g rg-etl-prod --scopes vm-etl-02 --condition "avg VmAvailabilityMetric < 1" --window-size 5m --evaluation-frequency 1m --severity 1 --action ag-data-oncall --description "vm-etl-02 is down"
+lab alerts replay

@@ -145,7 +145,7 @@ npm run test:ui
 2. Raw requests to the live runtime port: 401 without the launch token, 400 with a foreign Host; the token never appears in the runtime log.
 3. Mosaic: the SQL scratch file, **Run active SQL**, the DuckDB result row in the webview.
 4. Practice: **Open solution** on the first exercise, then **Submit**; the runtime grades the starter.
-5. Infra Lab: **Start mission** on *Page the on-call when the self-hosted integration runtime goes down*, its
+5. Infra Lab: **Start mission** on *Catch the ETL VM before it runs out of memory*, its
    reference commands typed one by one in the simulated terminal (Playwright types into the xterm textarea, no real
    `terraform`/`docker`/`kubectl`/`az` runs), then **Check my work** passes and the simulated world shows.
 6. Layout at a 520 px Workbench: every module tab and every lab sub-tab. No element may stick out on the right unless a container scrolls or clips it (the PR #17 overflow). The probe first proves it catches a planted 2000 px block.

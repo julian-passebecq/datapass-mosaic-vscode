@@ -135,10 +135,13 @@ Labs:
 - dbt Lab: `dct serve` keeps the catalog lent while it runs; without shell integration (cmd.exe) the end of a command
   is not reported, so use **Reattach catalog**; `dbt deps` downloads packages when a project declares them; dbt
   Charts is pre-1.0 and pinned to 0.8.x (re-check its conventions before moving the pin).
-- Infra Lab (first tranche, 2026-09-26): a thin slice of four simulators with one mission each. Not simulated yet:
-  Terraform modules, remote backends and `fmt`; VM creation from Terraform; compose volumes and networks; Kubernetes
-  Ingress, HPA, StatefulSets and namespaces beyond apply. The simulated terminal has no cursor movement (history
-  only). Real tools stay out on purpose (user decision): real-tool exercises may come once the app is finished.
+- Infra Lab (`infra-v1`, 8 missions, two per simulator): Terraform modules are local only (no registry or Git
+  source, no `count`/`for_each` on a module); `fmt` checks a documented subset of hclwrite's rules and never rewrites
+  files; no remote backends; VM creation from Terraform is not simulated. Compose has networks and named volumes but
+  no `configs`, `secrets` or external volumes. Kubernetes: no StatefulSets, Jobs, PVCs or TLS termination (a `tls`
+  section is accepted, not served); the HPA scales on CPU only against a recorded load (`lab load replay`), no
+  cluster autoscaler. The simulated terminal has no cursor movement (history only). Real tools stay out on purpose
+  (user decision): real-tool exercises may come once the app is finished.
 - Terminal Lab: checks read the resulting state, so Datapass cannot tell whether the terminal or the editor produced
   it; scripts are read as text, never executed. A reported overlap in dbt Lab › Missions did not reproduce.
 - SQL dialects: T-SQL comparisons are case-sensitive (SQL Server's default collation is not); the translated SQL is
@@ -154,8 +157,7 @@ explicit choice; dbt and dct run as the learner's own terminal commands.
 
 ## Next
 
-The roadmap artifact is the source of truth for order and status. Named directions so far: Infra Lab depth (more
-missions per simulator, Terraform modules, Kubernetes Ingress/HPA), BI-3 (KPIs, a DAX-like measure layer translated to
+The roadmap artifact is the source of truth for order and status. Named directions so far: BI-3 (KPIs, a DAX-like measure layer translated to
 SQL, charts), the Cloud Lab dbt layer (Databricks `dbt_task`, Fabric dbt job).
 
 ## What not to do

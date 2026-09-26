@@ -101,7 +101,7 @@ function WorldView({ world }: { world: InfraWorldView }) {
           </p>
         ))}
       </article>
-      {(docker.images.length > 0 || docker.containers.length > 0) && (
+      {(docker.images.length > 0 || docker.containers.length > 0 || (docker.volumes?.length ?? 0) > 0) && (
         <article className="infra-card">
           <h3>Docker (simulated)</h3>
           <ul>
@@ -115,6 +115,10 @@ function WorldView({ world }: { world: InfraWorldView }) {
                 <code>{container.name}</code>{" "}
                 <small>{container.status}{container.health ? ` (${container.health})` : ""}{container.ports.length ? ` · ${container.ports.map(p => `${p[0]}→${p[1]}`).join(", ")}` : ""}</small>
               </li>
+            ))}
+            {(docker.volumes ?? []).map(volume => <li key={`vol/${volume}`}><code>volume/{volume}</code></li>)}
+            {(docker.networks ?? []).map(network => (
+              <li key={`net/${network.name}`}><code>network/{network.name}</code>{network.internal ? <small> · internal</small> : null}</li>
             ))}
           </ul>
         </article>
@@ -132,7 +136,17 @@ function WorldView({ world }: { world: InfraWorldView }) {
               </li>
             ))}
             {kube.services.map(service => (
-              <li key={`svc/${service.namespace}/${service.name}`}><code>svc/{service.name}</code> <small>{service.endpoints} endpoint(s)</small></li>
+              <li key={`svc/${service.namespace}/${service.name}`}><code>svc/{service.name}</code> <small>{service.endpoints} endpoint(s){service.namespace !== "default" ? ` · ${service.namespace}` : ""}</small></li>
+            ))}
+            {(kube.ingresses ?? []).map(ingress => (
+              <li key={`ing/${ingress.namespace}/${ingress.name}`}>
+                <code>ingress/{ingress.name}</code> <small>{ingress.hosts.join(", ")} · {ingress.address || "no controller serves it"}</small>
+              </li>
+            ))}
+            {(kube.hpas ?? []).map(hpa => (
+              <li key={`hpa/${hpa.namespace}/${hpa.name}`}>
+                <code>hpa/{hpa.name}</code> <small>{hpa.target} · {hpa.min}..{hpa.max} replicas, now {hpa.replicas} · cpu {hpa.current == null ? "unknown" : `${hpa.current}%`}/{hpa.goal ?? "?"}%</small>
+              </li>
             ))}
           </ul>
         </article>
