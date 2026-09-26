@@ -1,0 +1,202 @@
+{
+  "py-parse-amount": {
+    "solution": "from decimal import Decimal, InvalidOperation\n\n\ndef parse_amount(text: str) -> int:\n    \"\"\"Decimal amount as integer cents; ValueError when it is not an amount with at most two decimals.\"\"\"\n    try:\n        value = Decimal(text.strip())\n    except InvalidOperation as exc:\n        raise ValueError(f\"not an amount: {text!r}\") from exc\n    if not value.is_finite() or value.as_tuple().exponent < -2:\n        raise ValueError(f\"not an amount with at most two decimals: {text!r}\")\n    return int(value * 100)\n\n\ndef test_whole_and_decimals():\n    assert parse_amount(\"12.34\") == 1234\n    assert parse_amount(\" 5 \") == 500\n\n\ndef test_negative():\n    assert parse_amount(\"-0.5\") == -50\n\n\ndef test_rejects_garbage():\n    import pytest\n    for bad in [\"\", \"abc\", \"1.234\"]:\n        with pytest.raises(ValueError):\n            parse_amount(bad)\n",
+    "fixtures": [
+      {
+        "id": "own-tests",
+        "visibility": "visible",
+        "input_rows": [],
+        "expected": [],
+        "scenario": {
+          "check": "own-tests",
+          "min_tests": 3
+        }
+      },
+      {
+        "id": "hidden",
+        "visibility": "hidden",
+        "input_rows": [],
+        "expected": [],
+        "scenario": {
+          "check": "hidden",
+          "tests": "import pytest\nfrom solution import parse_amount\n\n\ndef test_float_traps():\n    # 0.29 * 100 is 28.999999999999996 in binary floating point.\n    assert parse_amount(\"0.29\") == 29\n    assert parse_amount(\"1.15\") == 115\n\n\ndef test_basic():\n    assert parse_amount(\"0\") == 0\n    assert parse_amount(\"100.1\") == 10010\n\n\n@pytest.mark.parametrize(\"bad\", [\"\", \"  \", \"12,50\", \"1.234\", \"nan\", \"inf\", \"1e3.5\"])\ndef test_rejected(bad):\n    with pytest.raises(ValueError):\n        parse_amount(bad)\n"
+        }
+      }
+    ]
+  },
+  "py-read-totals": {
+    "solution": "import csv\nfrom pathlib import Path\n\n\ndef total_by_customer(path: str | Path) -> dict[str, int]:\n    \"\"\"Total amount per customer in a UTF-8 CSV file with a header customer,amount.\"\"\"\n    totals: dict[str, int] = {}\n    with open(path, newline=\"\", encoding=\"utf-8\") as handle:\n        for row in csv.DictReader(handle):\n            if not row.get(\"customer\"):\n                continue\n            totals[row[\"customer\"]] = totals.get(row[\"customer\"], 0) + int(row[\"amount\"])\n    return totals\n\n\ndef test_totals(tmp_path):\n    f = tmp_path / \"sales.csv\"\n    f.write_text(\"customer,amount\\nana,10\\nbo,5\\nana,7\\n\", encoding=\"utf-8\")\n    assert total_by_customer(f) == {\"ana\": 17, \"bo\": 5}\n\n\ndef test_quoted_comma(tmp_path):\n    f = tmp_path / \"sales.csv\"\n    f.write_text('customer,amount\\n\"Smith, Jo\",3\\n', encoding=\"utf-8\")\n    assert total_by_customer(f) == {\"Smith, Jo\": 3}\n\n\ndef test_empty_file_has_no_totals(tmp_path):\n    f = tmp_path / \"sales.csv\"\n    f.write_text(\"customer,amount\\n\", encoding=\"utf-8\")\n    assert total_by_customer(f) == {}\n",
+    "fixtures": [
+      {
+        "id": "own-tests",
+        "visibility": "visible",
+        "input_rows": [],
+        "expected": [],
+        "scenario": {
+          "check": "own-tests",
+          "min_tests": 3
+        }
+      },
+      {
+        "id": "hidden",
+        "visibility": "hidden",
+        "input_rows": [],
+        "expected": [],
+        "scenario": {
+          "check": "hidden",
+          "tests": "from solution import total_by_customer\n\n\ndef test_quoted_names_and_unicode(tmp_path):\n    f = tmp_path / \"s.csv\"\n    f.write_text('customer,amount\\n\"Smith, Jo\",3\\nZoë,4\\n\"Smith, Jo\",2\\n\\nZoë,1\\n', encoding=\"utf-8\")\n    assert total_by_customer(f) == {\"Smith, Jo\": 5, \"Zoë\": 5}\n\n\ndef test_accepts_str_path(tmp_path):\n    f = tmp_path / \"s.csv\"\n    f.write_text(\"customer,amount\\nx,1\\n\", encoding=\"utf-8\")\n    assert total_by_customer(str(f)) == {\"x\": 1}\n\n\ndef test_windows_line_endings(tmp_path):\n    f = tmp_path / \"s.csv\"\n    f.write_bytes(\"customer,amount\\r\\na,2\\r\\na,3\\r\\n\".encode(\"utf-8\"))\n    assert total_by_customer(f) == {\"a\": 5}\n"
+        }
+      }
+    ]
+  },
+  "py-log-bad-rows": {
+    "solution": "import logging\n\nlog = logging.getLogger(\"pipeline.clean\")\n\n\ndef clean_rows(rows: list[dict]) -> list[dict]:\n    \"\"\"Keep rows whose qty is an int >= 0; log one warning per dropped row.\"\"\"\n    kept = []\n    for row in rows:\n        qty = row.get(\"qty\")\n        if isinstance(qty, int) and not isinstance(qty, bool) and qty >= 0:\n            kept.append(row)\n        else:\n            log.warning(\"dropped row %s: invalid qty %r\", row.get(\"id\"), qty)\n    return kept\n\n\ndef test_keeps_valid_rows():\n    rows = [{\"id\": 1, \"qty\": 2}, {\"id\": 2, \"qty\": 0}]\n    assert clean_rows(rows) == rows\n\n\ndef test_drops_and_logs(caplog):\n    with caplog.at_level(\"WARNING\", logger=\"pipeline.clean\"):\n        assert clean_rows([{\"id\": 7, \"qty\": -1}]) == []\n    assert \"7\" in caplog.text\n\n\ndef test_missing_qty(caplog):\n    with caplog.at_level(\"WARNING\"):\n        assert clean_rows([{\"id\": 3}]) == []\n    assert len(caplog.records) == 1\n",
+    "fixtures": [
+      {
+        "id": "own-tests",
+        "visibility": "visible",
+        "input_rows": [],
+        "expected": [],
+        "scenario": {
+          "check": "own-tests",
+          "min_tests": 3
+        }
+      },
+      {
+        "id": "hidden",
+        "visibility": "hidden",
+        "input_rows": [],
+        "expected": [],
+        "scenario": {
+          "check": "hidden",
+          "tests": "import logging\nfrom solution import clean_rows\n\n\ndef test_one_warning_per_dropped_row_on_the_right_logger(caplog):\n    with caplog.at_level(logging.DEBUG):\n        kept = clean_rows([{\"id\": \"a\", \"qty\": 1}, {\"id\": \"b\", \"qty\": -3}, {\"id\": \"c\", \"qty\": \"2\"}, {\"id\": \"d\", \"qty\": None}])\n    assert [r[\"id\"] for r in kept] == [\"a\"]\n    records = [r for r in caplog.records if r.name == \"pipeline.clean\"]\n    assert [r.levelno for r in records] == [logging.WARNING] * 3\n    assert all(any(i in r.getMessage() for i in \"bcd\") for r in records)\n\n\ndef test_bool_is_not_a_quantity(caplog):\n    with caplog.at_level(logging.WARNING, logger=\"pipeline.clean\"):\n        assert clean_rows([{\"id\": \"t\", \"qty\": True}]) == []\n\n\ndef test_nothing_logged_for_clean_input(caplog):\n    with caplog.at_level(logging.DEBUG):\n        clean_rows([{\"id\": 1, \"qty\": 5}])\n    assert not [r for r in caplog.records if r.name == \"pipeline.clean\"]\n"
+        }
+      }
+    ]
+  },
+  "py-config-errors": {
+    "solution": "import json\n\n\nclass ConfigError(ValueError):\n    \"\"\"A configuration problem; the message names the key at fault.\"\"\"\n\n\ndef load_config(text: str) -> dict:\n    \"\"\"Parse and validate a JSON config with 'source' (str) and 'batch_size' (int > 0).\"\"\"\n    try:\n        config = json.loads(text)\n    except json.JSONDecodeError as exc:\n        raise ConfigError(f\"config is not valid JSON: {exc.msg}\") from exc\n    if not isinstance(config, dict):\n        raise ConfigError(\"config must be a JSON object\")\n    if not isinstance(config.get(\"source\"), str) or not config[\"source\"]:\n        raise ConfigError(\"'source' is required and must be a non-empty string\")\n    size = config.get(\"batch_size\")\n    if not isinstance(size, int) or isinstance(size, bool) or size <= 0:\n        raise ConfigError(\"'batch_size' is required and must be an integer > 0\")\n    return config\n\n\ndef test_valid():\n    assert load_config('{\"source\": \"s3\", \"batch_size\": 10}')[\"batch_size\"] == 10\n\n\ndef test_missing_key_named():\n    import pytest\n    with pytest.raises(ConfigError, match=\"batch_size\"):\n        load_config('{\"source\": \"s3\"}')\n\n\ndef test_bad_json_is_chained():\n    import json, pytest\n    with pytest.raises(ConfigError) as info:\n        load_config(\"{oops\")\n    assert isinstance(info.value.__cause__, json.JSONDecodeError)\n",
+    "fixtures": [
+      {
+        "id": "own-tests",
+        "visibility": "visible",
+        "input_rows": [],
+        "expected": [],
+        "scenario": {
+          "check": "own-tests",
+          "min_tests": 3
+        }
+      },
+      {
+        "id": "hidden",
+        "visibility": "hidden",
+        "input_rows": [],
+        "expected": [],
+        "scenario": {
+          "check": "hidden",
+          "tests": "import json\nimport pytest\nfrom solution import ConfigError, load_config\n\n\ndef test_config_error_is_a_value_error():\n    assert issubclass(ConfigError, ValueError)\n\n\n@pytest.mark.parametrize(\"text,key\", [\n    ('{\"batch_size\": 5}', \"source\"),\n    ('{\"source\": \"\", \"batch_size\": 5}', \"source\"),\n    ('{\"source\": \"a\", \"batch_size\": 0}', \"batch_size\"),\n    ('{\"source\": \"a\", \"batch_size\": \"5\"}', \"batch_size\"),\n    ('{\"source\": \"a\", \"batch_size\": true}', \"batch_size\"),\n])\ndef test_names_the_key(text, key):\n    with pytest.raises(ConfigError, match=key):\n        load_config(text)\n\n\ndef test_invalid_json_chained():\n    with pytest.raises(ConfigError) as info:\n        load_config('{\"source\": ')\n    assert isinstance(info.value.__cause__, json.JSONDecodeError)\n\n\ndef test_not_an_object():\n    with pytest.raises(ConfigError):\n        load_config(\"[1, 2]\")\n"
+        }
+      }
+    ]
+  },
+  "py-retry-backoff": {
+    "solution": "import time\n\n\ndef retry(func, attempts=3, delay=0.5, sleep=time.sleep, retry_on=(ConnectionError, TimeoutError)):\n    \"\"\"Call func; retry the exceptions in retry_on with exponential backoff, re-raise the last one.\"\"\"\n    if attempts < 1:\n        raise ValueError(\"attempts must be at least 1\")\n    for attempt in range(attempts):\n        try:\n            return func()\n        except retry_on:\n            if attempt == attempts - 1:\n                raise\n            sleep(delay * 2 ** attempt)\n\n\ndef test_returns_after_transient_errors():\n    calls, waits = [], []\n    def flaky():\n        calls.append(1)\n        if len(calls) < 3:\n            raise ConnectionError(\"down\")\n        return \"ok\"\n    assert retry(flaky, sleep=waits.append) == \"ok\"\n    assert waits == [0.5, 1.0]\n\n\ndef test_reraises_after_last_attempt():\n    import pytest\n    def down():\n        raise TimeoutError()\n    with pytest.raises(TimeoutError):\n        retry(down, attempts=2, sleep=lambda s: None)\n\n\ndef test_other_errors_not_retried():\n    import pytest\n    waits = []\n    def broken():\n        raise KeyError(\"x\")\n    with pytest.raises(KeyError):\n        retry(broken, sleep=waits.append)\n    assert waits == []\n",
+    "fixtures": [
+      {
+        "id": "own-tests",
+        "visibility": "visible",
+        "input_rows": [],
+        "expected": [],
+        "scenario": {
+          "check": "own-tests",
+          "min_tests": 3
+        }
+      },
+      {
+        "id": "hidden",
+        "visibility": "hidden",
+        "input_rows": [],
+        "expected": [],
+        "scenario": {
+          "check": "hidden",
+          "tests": "import pytest\nfrom solution import retry\n\n\ndef test_backoff_sequence_and_call_count():\n    calls, waits = [], []\n    def always():\n        calls.append(1)\n        raise ConnectionError(\"x\")\n    with pytest.raises(ConnectionError):\n        retry(always, attempts=4, delay=0.1, sleep=waits.append)\n    assert len(calls) == 4\n    assert waits == pytest.approx([0.1, 0.2, 0.4])\n\n\ndef test_non_transient_error_is_not_retried():\n    calls, waits = [], []\n    def bad():\n        calls.append(1)\n        raise ValueError(\"bad input\")\n    with pytest.raises(ValueError):\n        retry(bad, sleep=waits.append)\n    assert calls == [1] and waits == []\n\n\ndef test_custom_retry_on():\n    calls = []\n    def flaky():\n        calls.append(1)\n        if len(calls) == 1:\n            raise KeyError(\"once\")\n        return 5\n    assert retry(flaky, retry_on=(KeyError,), sleep=lambda s: None) == 5\n\n\ndef test_success_first_time_does_not_sleep():\n    waits = []\n    assert retry(lambda: 1, sleep=waits.append) == 1\n    assert waits == []\n"
+        }
+      }
+    ]
+  },
+  "py-chunked": {
+    "solution": "from collections.abc import Iterable, Iterator\nfrom itertools import islice\nfrom typing import TypeVar\n\nT = TypeVar(\"T\")\n\n\ndef chunked(items: Iterable[T], size: int) -> Iterator[list[T]]:\n    \"\"\"Yield lists of `size` items, lazily; the last list may be shorter.\"\"\"\n    if size < 1:\n        raise ValueError(\"size must be at least 1\")\n    iterator = iter(items)\n    while batch := list(islice(iterator, size)):\n        yield batch\n\n\ndef test_even_and_remainder():\n    assert list(chunked([1, 2, 3, 4, 5], 2)) == [[1, 2], [3, 4], [5]]\n\n\ndef test_generator_input():\n    assert list(chunked((i for i in range(3)), 3)) == [[0, 1, 2]]\n\n\ndef test_bad_size():\n    import pytest\n    with pytest.raises(ValueError):\n        list(chunked([1], 0))\n",
+    "fixtures": [
+      {
+        "id": "own-tests",
+        "visibility": "visible",
+        "input_rows": [],
+        "expected": [],
+        "scenario": {
+          "check": "own-tests",
+          "min_tests": 3
+        }
+      },
+      {
+        "id": "hidden",
+        "visibility": "hidden",
+        "input_rows": [],
+        "expected": [],
+        "scenario": {
+          "check": "hidden",
+          "tests": "import itertools\nimport pytest\nfrom solution import chunked\n\n\ndef test_last_partial_batch_kept():\n    assert list(chunked(\"abcdefg\", 3)) == [[\"a\", \"b\", \"c\"], [\"d\", \"e\", \"f\"], [\"g\"]]\n\n\ndef test_empty():\n    assert list(chunked([], 4)) == []\n\n\ndef test_lazy_on_infinite_input():\n    first = next(chunked(itertools.count(), 2))\n    assert first == [0, 1]\n\n\ndef test_negative_size():\n    with pytest.raises(ValueError):\n        list(chunked([1, 2], -1))\n"
+        }
+      }
+    ]
+  },
+  "py-latest-by-key": {
+    "solution": "def latest_by_key(rows: list[dict], key: str, ts: str) -> list[dict]:\n    \"\"\"Latest row per key (ties: the later row wins), in order of the keys' first appearance.\"\"\"\n    latest: dict = {}\n    for row in rows:\n        current = latest.get(row[key])\n        if current is None or row[ts] >= current[ts]:\n            latest[row[key]] = row\n    return list(latest.values())\n\n\ndef test_latest_wins():\n    rows = [{\"id\": 1, \"t\": \"2026-01-01\", \"v\": \"a\"}, {\"id\": 1, \"t\": \"2026-02-01\", \"v\": \"b\"}]\n    assert latest_by_key(rows, \"id\", \"t\") == [rows[1]]\n\n\ndef test_keys_kept_apart():\n    rows = [{\"id\": 1, \"t\": \"1\"}, {\"id\": 2, \"t\": \"1\"}]\n    assert latest_by_key(rows, \"id\", \"t\") == rows\n\n\ndef test_tie_later_row_wins():\n    rows = [{\"id\": 1, \"t\": \"x\", \"v\": 1}, {\"id\": 1, \"t\": \"x\", \"v\": 2}]\n    assert latest_by_key(rows, \"id\", \"t\")[0][\"v\"] == 2\n",
+    "fixtures": [
+      {
+        "id": "own-tests",
+        "visibility": "visible",
+        "input_rows": [],
+        "expected": [],
+        "scenario": {
+          "check": "own-tests",
+          "min_tests": 3
+        }
+      },
+      {
+        "id": "hidden",
+        "visibility": "hidden",
+        "input_rows": [],
+        "expected": [],
+        "scenario": {
+          "check": "hidden",
+          "tests": "from solution import latest_by_key\n\n\ndef test_out_of_order_input():\n    rows = [\n        {\"k\": \"a\", \"ts\": \"2026-09-26T10:00:00\", \"v\": 2},\n        {\"k\": \"b\", \"ts\": \"2026-09-25T00:00:00\", \"v\": 1},\n        {\"k\": \"a\", \"ts\": \"2026-09-24T10:00:00\", \"v\": 0},\n    ]\n    assert [r[\"v\"] for r in latest_by_key(rows, \"k\", \"ts\")] == [2, 1]\n\n\ndef test_ties_prefer_later_rows():\n    rows = [{\"k\": 1, \"ts\": \"t\", \"v\": \"first\"}, {\"k\": 1, \"ts\": \"t\", \"v\": \"second\"}]\n    assert latest_by_key(rows, \"k\", \"ts\")[0][\"v\"] == \"second\"\n\n\ndef test_order_of_first_appearance():\n    rows = [{\"k\": \"z\", \"ts\": \"1\"}, {\"k\": \"y\", \"ts\": \"1\"}, {\"k\": \"z\", \"ts\": \"2\"}]\n    assert [r[\"k\"] for r in latest_by_key(rows, \"k\", \"ts\")] == [\"z\", \"y\"]\n\n\ndef test_empty():\n    assert latest_by_key([], \"k\", \"ts\") == []\n"
+        }
+      }
+    ]
+  },
+  "py-write-report": {
+    "solution": "import os\nimport tempfile\nfrom pathlib import Path\n\n\ndef write_report(folder: Path, name: str, text: str) -> Path:\n    \"\"\"Write text to folder/name atomically; refuse names that leave the folder.\"\"\"\n    if not name or name in {\".\", \"..\"} or \"/\" in name or \"\\\\\" in name:\n        raise ValueError(f\"not a plain file name: {name!r}\")\n    folder = Path(folder)\n    folder.mkdir(parents=True, exist_ok=True)\n    target = folder / name\n    fd, temp = tempfile.mkstemp(dir=folder, prefix=\".\" + name + \".\", suffix=\".tmp\")\n    try:\n        with os.fdopen(fd, \"w\", encoding=\"utf-8\") as handle:\n            handle.write(text)\n        os.replace(temp, target)\n    except BaseException:\n        Path(temp).unlink(missing_ok=True)\n        raise\n    return target\n\n\ndef test_writes(tmp_path):\n    path = write_report(tmp_path, \"r.txt\", \"hello\")\n    assert path.read_text(encoding=\"utf-8\") == \"hello\"\n\n\ndef test_creates_folder(tmp_path):\n    assert write_report(tmp_path / \"new\", \"r.txt\", \"x\").exists()\n\n\ndef test_refuses_parent(tmp_path):\n    import pytest\n    with pytest.raises(ValueError):\n        write_report(tmp_path, \"../escape.txt\", \"x\")\n",
+    "fixtures": [
+      {
+        "id": "own-tests",
+        "visibility": "visible",
+        "input_rows": [],
+        "expected": [],
+        "scenario": {
+          "check": "own-tests",
+          "min_tests": 3
+        }
+      },
+      {
+        "id": "hidden",
+        "visibility": "hidden",
+        "input_rows": [],
+        "expected": [],
+        "scenario": {
+          "check": "hidden",
+          "tests": "import pytest\nfrom solution import write_report\n\n\n@pytest.mark.parametrize(\"name\", [\"\", \".\", \"..\", \"../x.txt\", \"a/b.txt\", \"a\\\\b.txt\"])\ndef test_refused_names(tmp_path, name):\n    with pytest.raises(ValueError):\n        write_report(tmp_path / \"out\", name, \"x\")\n    assert not (tmp_path / \"x.txt\").exists()\n\n\ndef test_overwrite_and_no_temp_left(tmp_path):\n    write_report(tmp_path, \"r.txt\", \"one\")\n    path = write_report(tmp_path, \"r.txt\", \"two\")\n    assert path == tmp_path / \"r.txt\"\n    assert path.read_text(encoding=\"utf-8\") == \"two\"\n    assert sorted(p.name for p in tmp_path.iterdir()) == [\"r.txt\"]\n\n\ndef test_unicode(tmp_path):\n    assert write_report(tmp_path, \"zoë.txt\", \"déjà vu\").read_text(encoding=\"utf-8\") == \"déjà vu\"\n"
+        }
+      }
+    ]
+  }
+}

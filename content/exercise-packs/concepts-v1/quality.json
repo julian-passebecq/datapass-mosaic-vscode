@@ -1,0 +1,100 @@
+{
+  "flags": {
+    "runnable_starters": true
+  },
+  "mutants": {
+    "concept-fabric-cu-per-sku": [
+      "answer: a\n",
+      "answer: b\n"
+    ],
+    "concept-fabric-free-viewers": [
+      "answer: a\n",
+      "answer: b\n"
+    ],
+    "concept-fabric-pause": [
+      "answer: a\n",
+      "answer: c\n"
+    ],
+    "concept-fabric-smoothing": [
+      "answer: a\n",
+      "answer: b\n"
+    ],
+    "concept-fabric-throttling-stage": [
+      "answer: a\n",
+      "answer: c\n"
+    ],
+    "concept-synapse-distributions": [
+      "answer: I don't know\n"
+    ],
+    "concept-synapse-dwu-nodes": [
+      "answer: a\n",
+      "answer: b\n"
+    ],
+    "concept-synapse-replicate": [
+      "answer: a\n",
+      "answer: b\n"
+    ],
+    "concept-synapse-cci-rows": [
+      "answer: a\n",
+      "answer: b\n"
+    ],
+    "concept-synapse-pause": [
+      "answer: b\n",
+      "answer: c\n"
+    ],
+    "concept-dbx-job-cluster": [
+      "answer: b\n",
+      "answer: c\n"
+    ],
+    "concept-dbx-access-modes": [
+      "answer: a\n",
+      "answer: c\n"
+    ],
+    "concept-dbx-pools": [
+      "answer: a\n",
+      "answer: c\n"
+    ],
+    "concept-dbx-sql-warehouse": [
+      "answer: a\n",
+      "answer: c\n"
+    ],
+    "concept-uc-namespace": [
+      "answer: I don't know\n"
+    ],
+    "concept-uc-privileges": [
+      "answer: a\n",
+      "answer: c\n"
+    ],
+    "concept-uc-managed-external": [
+      "answer: a\n",
+      "answer: c\n"
+    ],
+    "concept-uc-volumes": [
+      "answer: b\n",
+      "answer: c\n"
+    ],
+    "concept-formats-delta-log": [
+      "answer: I don't know\n"
+    ],
+    "concept-formats-iceberg-metadata": [
+      "answer: a\n",
+      "answer: c\n"
+    ],
+    "concept-formats-partition-evolution": [
+      "answer: b\n",
+      "answer: c\n"
+    ],
+    "concept-formats-vacuum": [
+      "answer: a\n",
+      "answer: c\n"
+    ],
+    "concept-formats-ducklake": [
+      "answer: a\n",
+      "answer: c\n"
+    ],
+    "concept-formats-uniform": [
+      "answer: a\n",
+      "answer: b\n"
+    ]
+  }
+}

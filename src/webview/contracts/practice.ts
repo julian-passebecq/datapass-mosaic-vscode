@@ -29,6 +29,8 @@ export interface ExerciseSummary {
   sparkPlan?: SparkPlanView;
   /** Set when Datapass cannot grade the exercise locally; Run/Submit are disabled. */
   gradingNote?: string;
+  /** Reference sheets (Markdown shipped with the extension) the card links to; opened natively by the host. */
+  references?: string[];
 }
 
 /** Plan requirements graded on SparkLab's modeled plan at authored input sizes (not Apache Spark). */
@@ -122,4 +124,5 @@ export type PracticeMessage =
   | { type: "revealHint"; exerciseKey: string }
   | { type: "showSolution"; exerciseKey: string }
   | { type: "compareSolution"; exerciseKey: string }
+  | { type: "openReference"; exerciseKey: string; index: number }
   | { type: "saveInterview"; interview: unknown };

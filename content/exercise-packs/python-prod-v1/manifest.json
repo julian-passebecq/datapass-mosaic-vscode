@@ -1,0 +1,10 @@
+{
+  "schema_version": 1,
+  "id": "python-prod-v1",
+  "version": "1",
+  "title": "Production Python: typing, files, logging, errors, retries (graded by pytest)",
+  "enabled": true,
+  "provenance": {
+    "source": "Authored for Datapass Workbench"
+  }
+}

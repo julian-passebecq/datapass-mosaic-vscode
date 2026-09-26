@@ -106,7 +106,7 @@ class ExerciseDefinition(Contract):
     origin: Literal['internal-demo','authored','migrated']
     language: Literal['sql','sparklab','python','polars','dbt','airflow','factory','factory-notebook','sqlpool',
                       'databricks-job','databricks-notebook','databricks-grants','warehouse','bi-model','dbt-sql','dbt-yml','snowflake',
-                      'tsql','bigquery','sparksql']
+                      'tsql','bigquery','sparksql','quiz','pytest']
     runtime: str
     semantic: SemanticExercise | None = None
     prompt: str
@@ -132,7 +132,7 @@ class ExerciseDefinition(Contract):
     data_context: list[DataContext] = Field(default_factory=list)
     output_schema: dict[str, str] = Field(default_factory=dict)
     context_refs: list[str] = Field(default_factory=list)
-    truth: Literal['real','semantic-emulation','simulated','unsupported','design-only'] = 'real'
+    truth: Literal['real','semantic-emulation','simulated','unsupported','design-only','concept-check'] = 'real'
     spark_plan: SparkPlanRequirements | None = None
 
 
@@ -179,10 +179,10 @@ class ExerciseAttempt(Contract):
     fixtures: list[VersionRef]
     language: Literal['sql','sparklab','python','polars','dbt','airflow','factory','factory-notebook','sqlpool',
                       'databricks-job','databricks-notebook','databricks-grants','warehouse','bi-model','dbt-sql','dbt-yml','snowflake',
-                      'tsql','bigquery','sparksql']
+                      'tsql','bigquery','sparksql','quiz','pytest']
     status: Literal['passed','failed','error']
     checks: list[ExerciseCheck]
-    truth: Literal['real','semantic-emulation','simulated','unsupported','design-only']
+    truth: Literal['real','semantic-emulation','simulated','unsupported','design-only','concept-check']
     runtime: RuntimeIdentity
     elapsed_ms: float
     error: ExecutionError | None = None
@@ -194,7 +194,7 @@ class ExerciseResult(Contract):
     runs: list[dict[str,Any]]
     attempt: ExerciseAttempt | None = None
     workspace_revision: int
-    truth: Literal['real','semantic-emulation','simulated','unsupported','design-only']
+    truth: Literal['real','semantic-emulation','simulated','unsupported','design-only','concept-check']
     runtime: RuntimeIdentity
     elapsed_ms: float
     error: ExecutionError | None = None

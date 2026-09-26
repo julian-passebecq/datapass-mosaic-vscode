@@ -1,0 +1,957 @@
+{
+  "concept-fabric-cu-per-sku": {
+    "solution": "answer: c\n",
+    "fixtures": [
+      {
+        "id": "format",
+        "visibility": "visible",
+        "input_rows": [],
+        "expected": [],
+        "scenario": {
+          "check": "format",
+          "kind": "choice",
+          "choices": [
+            "a",
+            "b",
+            "c",
+            "d"
+          ]
+        }
+      },
+      {
+        "id": "answer",
+        "visibility": "hidden",
+        "input_rows": [],
+        "expected": [],
+        "scenario": {
+          "check": "answer",
+          "kind": "choice",
+          "choices": [
+            "a",
+            "b",
+            "c",
+            "d"
+          ],
+          "why": "The number in an F SKU is its capacity units: F2 has 2 CUs, F64 has 64 CUs, F2048 has 2048.",
+          "correct": [
+            "c"
+          ]
+        }
+      }
+    ]
+  },
+  "concept-fabric-free-viewers": {
+    "solution": "answer: c\n",
+    "fixtures": [
+      {
+        "id": "format",
+        "visibility": "visible",
+        "input_rows": [],
+        "expected": [],
+        "scenario": {
+          "check": "format",
+          "kind": "choice",
+          "choices": [
+            "a",
+            "b",
+            "c",
+            "d"
+          ]
+        }
+      },
+      {
+        "id": "answer",
+        "visibility": "hidden",
+        "input_rows": [],
+        "expected": [],
+        "scenario": {
+          "check": "answer",
+          "kind": "choice",
+          "choices": [
+            "a",
+            "b",
+            "c",
+            "d"
+          ],
+          "why": "F64 and larger include the Power BI Premium P1 viewing rights: free-licence users can read content there. Below F64, viewers still need Power BI Pro (or PPU).",
+          "correct": [
+            "c"
+          ]
+        }
+      }
+    ]
+  },
+  "concept-fabric-pause": {
+    "solution": "answer: b\n",
+    "fixtures": [
+      {
+        "id": "format",
+        "visibility": "visible",
+        "input_rows": [],
+        "expected": [],
+        "scenario": {
+          "check": "format",
+          "kind": "choice",
+          "choices": [
+            "a",
+            "b",
+            "c",
+            "d"
+          ]
+        }
+      },
+      {
+        "id": "answer",
+        "visibility": "hidden",
+        "input_rows": [],
+        "expected": [],
+        "scenario": {
+          "check": "answer",
+          "kind": "choice",
+          "choices": [
+            "a",
+            "b",
+            "c",
+            "d"
+          ],
+          "why": "Pausing stops the capacity's compute charge. OneLake storage is billed separately and continues while the capacity is paused.",
+          "correct": [
+            "b"
+          ]
+        }
+      }
+    ]
+  },
+  "concept-fabric-smoothing": {
+    "solution": "answer: c\n",
+    "fixtures": [
+      {
+        "id": "format",
+        "visibility": "visible",
+        "input_rows": [],
+        "expected": [],
+        "scenario": {
+          "check": "format",
+          "kind": "choice",
+          "choices": [
+            "a",
+            "b",
+            "c",
+            "d"
+          ]
+        }
+      },
+      {
+        "id": "answer",
+        "visibility": "hidden",
+        "input_rows": [],
+        "expected": [],
+        "scenario": {
+          "check": "answer",
+          "kind": "choice",
+          "choices": [
+            "a",
+            "b",
+            "c",
+            "d"
+          ],
+          "why": "Background operations are smoothed over 24 hours; interactive operations over at least 5 minutes. Smoothing lets a short burst run above the SKU's size and pays it back later.",
+          "correct": [
+            "c"
+          ]
+        }
+      }
+    ]
+  },
+  "concept-fabric-throttling-stage": {
+    "solution": "answer: b\n",
+    "fixtures": [
+      {
+        "id": "format",
+        "visibility": "visible",
+        "input_rows": [],
+        "expected": [],
+        "scenario": {
+          "check": "format",
+          "kind": "choice",
+          "choices": [
+            "a",
+            "b",
+            "c",
+            "d"
+          ]
+        }
+      },
+      {
+        "id": "answer",
+        "visibility": "hidden",
+        "input_rows": [],
+        "expected": [],
+        "scenario": {
+          "check": "answer",
+          "kind": "choice",
+          "choices": [
+            "a",
+            "b",
+            "c",
+            "d"
+          ],
+          "why": "Throttling has stages: over 10 minutes of future usage, interactive operations are delayed; over 60 minutes, interactive operations are rejected; over 24 hours, background jobs are rejected too.",
+          "correct": [
+            "b"
+          ]
+        }
+      }
+    ]
+  },
+  "concept-synapse-distributions": {
+    "solution": "answer: 60\n",
+    "fixtures": [
+      {
+        "id": "format",
+        "visibility": "visible",
+        "input_rows": [],
+        "expected": [],
+        "scenario": {
+          "check": "format",
+          "kind": "text",
+          "choices": []
+        }
+      },
+      {
+        "id": "answer",
+        "visibility": "hidden",
+        "input_rows": [],
+        "expected": [],
+        "scenario": {
+          "check": "answer",
+          "kind": "text",
+          "choices": [],
+          "why": "A dedicated SQL pool always spreads data over 60 distributions. Scaling the DWUs changes how many compute nodes serve those 60 distributions, not their number.",
+          "accepted": [
+            "60"
+          ]
+        }
+      }
+    ]
+  },
+  "concept-synapse-dwu-nodes": {
+    "solution": "answer: d\n",
+    "fixtures": [
+      {
+        "id": "format",
+        "visibility": "visible",
+        "input_rows": [],
+        "expected": [],
+        "scenario": {
+          "check": "format",
+          "kind": "choice",
+          "choices": [
+            "a",
+            "b",
+            "c",
+            "d"
+          ]
+        }
+      },
+      {
+        "id": "answer",
+        "visibility": "hidden",
+        "input_rows": [],
+        "expected": [],
+        "scenario": {
+          "check": "answer",
+          "kind": "choice",
+          "choices": [
+            "a",
+            "b",
+            "c",
+            "d"
+          ],
+          "why": "DW100c to DW500c run on a single compute node holding all 60 distributions; DW30000c runs 60 compute nodes, one distribution each.",
+          "correct": [
+            "d"
+          ]
+        }
+      }
+    ]
+  },
+  "concept-synapse-replicate": {
+    "solution": "answer: c\n",
+    "fixtures": [
+      {
+        "id": "format",
+        "visibility": "visible",
+        "input_rows": [],
+        "expected": [],
+        "scenario": {
+          "check": "format",
+          "kind": "choice",
+          "choices": [
+            "a",
+            "b",
+            "c",
+            "d"
+          ]
+        }
+      },
+      {
+        "id": "answer",
+        "visibility": "hidden",
+        "input_rows": [],
+        "expected": [],
+        "scenario": {
+          "check": "answer",
+          "kind": "choice",
+          "choices": [
+            "a",
+            "b",
+            "c",
+            "d"
+          ],
+          "why": "A replicated table keeps a full copy on each compute node, so joins to it need no shuffle. Microsoft recommends it for tables under about 2 GB compressed. HEAP is a storage option, not a distribution.",
+          "correct": [
+            "c"
+          ]
+        }
+      }
+    ]
+  },
+  "concept-synapse-cci-rows": {
+    "solution": "answer: c\n",
+    "fixtures": [
+      {
+        "id": "format",
+        "visibility": "visible",
+        "input_rows": [],
+        "expected": [],
+        "scenario": {
+          "check": "format",
+          "kind": "choice",
+          "choices": [
+            "a",
+            "b",
+            "c",
+            "d"
+          ]
+        }
+      },
+      {
+        "id": "answer",
+        "visibility": "hidden",
+        "input_rows": [],
+        "expected": [],
+        "scenario": {
+          "check": "answer",
+          "kind": "choice",
+          "choices": [
+            "a",
+            "b",
+            "c",
+            "d"
+          ],
+          "why": "Each of the 60 distributions builds its own row groups, so a full row group everywhere needs about 60 x 1 million rows. Partitioning multiplies that again by the number of partitions.",
+          "correct": [
+            "c"
+          ]
+        }
+      }
+    ]
+  },
+  "concept-synapse-pause": {
+    "solution": "answer: a\n",
+    "fixtures": [
+      {
+        "id": "format",
+        "visibility": "visible",
+        "input_rows": [],
+        "expected": [],
+        "scenario": {
+          "check": "format",
+          "kind": "choice",
+          "choices": [
+            "a",
+            "b",
+            "c",
+            "d"
+          ]
+        }
+      },
+      {
+        "id": "answer",
+        "visibility": "hidden",
+        "input_rows": [],
+        "expected": [],
+        "scenario": {
+          "check": "answer",
+          "kind": "choice",
+          "choices": [
+            "a",
+            "b",
+            "c",
+            "d"
+          ],
+          "why": "Pausing releases the compute and stops the DWU charge; the data stays and storage is still billed.",
+          "correct": [
+            "a"
+          ]
+        }
+      }
+    ]
+  },
+  "concept-dbx-job-cluster": {
+    "solution": "answer: a\n",
+    "fixtures": [
+      {
+        "id": "format",
+        "visibility": "visible",
+        "input_rows": [],
+        "expected": [],
+        "scenario": {
+          "check": "format",
+          "kind": "choice",
+          "choices": [
+            "a",
+            "b",
+            "c",
+            "d"
+          ]
+        }
+      },
+      {
+        "id": "answer",
+        "visibility": "hidden",
+        "input_rows": [],
+        "expected": [],
+        "scenario": {
+          "check": "answer",
+          "kind": "choice",
+          "choices": [
+            "a",
+            "b",
+            "c",
+            "d"
+          ],
+          "why": "Job compute is billed at a lower DBU rate than all-purpose compute and exists only for the run. All-purpose clusters are for interactive work.",
+          "correct": [
+            "a"
+          ]
+        }
+      }
+    ]
+  },
+  "concept-dbx-access-modes": {
+    "solution": "answer: b\n",
+    "fixtures": [
+      {
+        "id": "format",
+        "visibility": "visible",
+        "input_rows": [],
+        "expected": [],
+        "scenario": {
+          "check": "format",
+          "kind": "choice",
+          "choices": [
+            "a",
+            "b",
+            "c",
+            "d"
+          ]
+        }
+      },
+      {
+        "id": "answer",
+        "visibility": "hidden",
+        "input_rows": [],
+        "expected": [],
+        "scenario": {
+          "check": "answer",
+          "kind": "choice",
+          "choices": [
+            "a",
+            "b",
+            "c",
+            "d"
+          ],
+          "why": "Standard access mode isolates users on one cluster and enforces their Unity Catalog permissions. Dedicated mode assigns the cluster to one user or group. No-isolation shared does not support Unity Catalog.",
+          "correct": [
+            "b"
+          ]
+        }
+      }
+    ]
+  },
+  "concept-dbx-pools": {
+    "solution": "answer: b\n",
+    "fixtures": [
+      {
+        "id": "format",
+        "visibility": "visible",
+        "input_rows": [],
+        "expected": [],
+        "scenario": {
+          "check": "format",
+          "kind": "choice",
+          "choices": [
+            "a",
+            "b",
+            "c",
+            "d"
+          ]
+        }
+      },
+      {
+        "id": "answer",
+        "visibility": "hidden",
+        "input_rows": [],
+        "expected": [],
+        "scenario": {
+          "check": "answer",
+          "kind": "choice",
+          "choices": [
+            "a",
+            "b",
+            "c",
+            "d"
+          ],
+          "why": "A pool keeps VMs ready so clusters start and scale faster. Idle instances cost no DBUs, but the cloud provider still bills the VMs.",
+          "correct": [
+            "b"
+          ]
+        }
+      }
+    ]
+  },
+  "concept-dbx-sql-warehouse": {
+    "solution": "answer: b\n",
+    "fixtures": [
+      {
+        "id": "format",
+        "visibility": "visible",
+        "input_rows": [],
+        "expected": [],
+        "scenario": {
+          "check": "format",
+          "kind": "choice",
+          "choices": [
+            "a",
+            "b",
+            "c",
+            "d"
+          ]
+        }
+      },
+      {
+        "id": "answer",
+        "visibility": "hidden",
+        "input_rows": [],
+        "expected": [],
+        "scenario": {
+          "check": "answer",
+          "kind": "choice",
+          "choices": [
+            "a",
+            "b",
+            "c",
+            "d"
+          ],
+          "why": "SQL warehouses (classic, pro or serverless) serve SQL and BI tools; serverless starts in seconds and scales with the queries.",
+          "correct": [
+            "b"
+          ]
+        }
+      }
+    ]
+  },
+  "concept-uc-namespace": {
+    "solution": "answer: catalog.schema.table\n",
+    "fixtures": [
+      {
+        "id": "format",
+        "visibility": "visible",
+        "input_rows": [],
+        "expected": [],
+        "scenario": {
+          "check": "format",
+          "kind": "text",
+          "choices": []
+        }
+      },
+      {
+        "id": "answer",
+        "visibility": "hidden",
+        "input_rows": [],
+        "expected": [],
+        "scenario": {
+          "check": "answer",
+          "kind": "text",
+          "choices": [],
+          "why": "Unity Catalog names objects catalog.schema.table (for example main.sales.orders). Schemas are also called databases.",
+          "accepted": [
+            "catalog.schema.table"
+          ]
+        }
+      }
+    ]
+  },
+  "concept-uc-privileges": {
+    "solution": "answer: b\n",
+    "fixtures": [
+      {
+        "id": "format",
+        "visibility": "visible",
+        "input_rows": [],
+        "expected": [],
+        "scenario": {
+          "check": "format",
+          "kind": "choice",
+          "choices": [
+            "a",
+            "b",
+            "c",
+            "d"
+          ]
+        }
+      },
+      {
+        "id": "answer",
+        "visibility": "hidden",
+        "input_rows": [],
+        "expected": [],
+        "scenario": {
+          "check": "answer",
+          "kind": "choice",
+          "choices": [
+            "a",
+            "b",
+            "c",
+            "d"
+          ],
+          "why": "Reading a table needs USE CATALOG on its catalog, USE SCHEMA on its schema and SELECT on the table (or SELECT granted higher up, which is inherited).",
+          "correct": [
+            "b"
+          ]
+        }
+      }
+    ]
+  },
+  "concept-uc-managed-external": {
+    "solution": "answer: b\n",
+    "fixtures": [
+      {
+        "id": "format",
+        "visibility": "visible",
+        "input_rows": [],
+        "expected": [],
+        "scenario": {
+          "check": "format",
+          "kind": "choice",
+          "choices": [
+            "a",
+            "b",
+            "c",
+            "d"
+          ]
+        }
+      },
+      {
+        "id": "answer",
+        "visibility": "hidden",
+        "input_rows": [],
+        "expected": [],
+        "scenario": {
+          "check": "answer",
+          "kind": "choice",
+          "choices": [
+            "a",
+            "b",
+            "c",
+            "d"
+          ],
+          "why": "Unity Catalog manages the files of a managed table and deletes them after the drop (UNDROP works for a limited time). Dropping an external table leaves its files in place.",
+          "correct": [
+            "b"
+          ]
+        }
+      }
+    ]
+  },
+  "concept-uc-volumes": {
+    "solution": "answer: a\n",
+    "fixtures": [
+      {
+        "id": "format",
+        "visibility": "visible",
+        "input_rows": [],
+        "expected": [],
+        "scenario": {
+          "check": "format",
+          "kind": "choice",
+          "choices": [
+            "a",
+            "b",
+            "c",
+            "d"
+          ]
+        }
+      },
+      {
+        "id": "answer",
+        "visibility": "hidden",
+        "input_rows": [],
+        "expected": [],
+        "scenario": {
+          "check": "answer",
+          "kind": "choice",
+          "choices": [
+            "a",
+            "b",
+            "c",
+            "d"
+          ],
+          "why": "Volumes govern files with the same catalog.schema.name path and grants (READ VOLUME, WRITE VOLUME) as tables.",
+          "correct": [
+            "a"
+          ]
+        }
+      }
+    ]
+  },
+  "concept-formats-delta-log": {
+    "solution": "answer: _delta_log\n",
+    "fixtures": [
+      {
+        "id": "format",
+        "visibility": "visible",
+        "input_rows": [],
+        "expected": [],
+        "scenario": {
+          "check": "format",
+          "kind": "text",
+          "choices": []
+        }
+      },
+      {
+        "id": "answer",
+        "visibility": "hidden",
+        "input_rows": [],
+        "expected": [],
+        "scenario": {
+          "check": "answer",
+          "kind": "text",
+          "choices": [],
+          "why": "Delta records every commit as a JSON file in _delta_log, with Parquet checkpoints every few commits. Readers rebuild the table's current state from that log.",
+          "accepted": [
+            "_delta_log",
+            "_delta_log/"
+          ]
+        }
+      }
+    ]
+  },
+  "concept-formats-iceberg-metadata": {
+    "solution": "answer: b\n",
+    "fixtures": [
+      {
+        "id": "format",
+        "visibility": "visible",
+        "input_rows": [],
+        "expected": [],
+        "scenario": {
+          "check": "format",
+          "kind": "choice",
+          "choices": [
+            "a",
+            "b",
+            "c",
+            "d"
+          ]
+        }
+      },
+      {
+        "id": "answer",
+        "visibility": "hidden",
+        "input_rows": [],
+        "expected": [],
+        "scenario": {
+          "check": "answer",
+          "kind": "choice",
+          "choices": [
+            "a",
+            "b",
+            "c",
+            "d"
+          ],
+          "why": "Iceberg reads a tree: the current metadata.json points to a snapshot's manifest list, which lists manifests, which list the data files with their statistics. No folder listing is needed.",
+          "correct": [
+            "b"
+          ]
+        }
+      }
+    ]
+  },
+  "concept-formats-partition-evolution": {
+    "solution": "answer: a\n",
+    "fixtures": [
+      {
+        "id": "format",
+        "visibility": "visible",
+        "input_rows": [],
+        "expected": [],
+        "scenario": {
+          "check": "format",
+          "kind": "choice",
+          "choices": [
+            "a",
+            "b",
+            "c",
+            "d"
+          ]
+        }
+      },
+      {
+        "id": "answer",
+        "visibility": "hidden",
+        "input_rows": [],
+        "expected": [],
+        "scenario": {
+          "check": "answer",
+          "kind": "choice",
+          "choices": [
+            "a",
+            "b",
+            "c",
+            "d"
+          ],
+          "why": "Iceberg's hidden partitioning derives partitions from column transforms (day(ts), bucket(16, id)); partition evolution applies a new scheme to new data while old files keep theirs. Delta's answer is liquid clustering.",
+          "correct": [
+            "a"
+          ]
+        }
+      }
+    ]
+  },
+  "concept-formats-vacuum": {
+    "solution": "answer: b\n",
+    "fixtures": [
+      {
+        "id": "format",
+        "visibility": "visible",
+        "input_rows": [],
+        "expected": [],
+        "scenario": {
+          "check": "format",
+          "kind": "choice",
+          "choices": [
+            "a",
+            "b",
+            "c",
+            "d"
+          ]
+        }
+      },
+      {
+        "id": "answer",
+        "visibility": "hidden",
+        "input_rows": [],
+        "expected": [],
+        "scenario": {
+          "check": "answer",
+          "kind": "choice",
+          "choices": [
+            "a",
+            "b",
+            "c",
+            "d"
+          ],
+          "why": "VACUUM deletes files that no current version references and that are older than the retention period (7 days by default). Time travel to versions needing those files stops working. Merging small files is OPTIMIZE.",
+          "correct": [
+            "b"
+          ]
+        }
+      }
+    ]
+  },
+  "concept-formats-ducklake": {
+    "solution": "answer: b\n",
+    "fixtures": [
+      {
+        "id": "format",
+        "visibility": "visible",
+        "input_rows": [],
+        "expected": [],
+        "scenario": {
+          "check": "format",
+          "kind": "choice",
+          "choices": [
+            "a",
+            "b",
+            "c",
+            "d"
+          ]
+        }
+      },
+      {
+        "id": "answer",
+        "visibility": "hidden",
+        "input_rows": [],
+        "expected": [],
+        "scenario": {
+          "check": "answer",
+          "kind": "choice",
+          "choices": [
+            "a",
+            "b",
+            "c",
+            "d"
+          ],
+          "why": "DuckLake keeps its catalog in a SQL database and the data in Parquet files. A commit is one database transaction, which makes multi-table transactions straightforward.",
+          "correct": [
+            "b"
+          ]
+        }
+      }
+    ]
+  },
+  "concept-formats-uniform": {
+    "solution": "answer: c\n",
+    "fixtures": [
+      {
+        "id": "format",
+        "visibility": "visible",
+        "input_rows": [],
+        "expected": [],
+        "scenario": {
+          "check": "format",
+          "kind": "choice",
+          "choices": [
+            "a",
+            "b",
+            "c",
+            "d"
+          ]
+        }
+      },
+      {
+        "id": "answer",
+        "visibility": "hidden",
+        "input_rows": [],
+        "expected": [],
+        "scenario": {
+          "check": "answer",
+          "kind": "choice",
+          "choices": [
+            "a",
+            "b",
+            "c",
+            "d"
+          ],
+          "why": "UniForm (universal format) generates Iceberg metadata for a Delta table from the same Parquet files; no data is copied.",
+          "correct": [
+            "c"
+          ]
+        }
+      }
+    ]
+  }
+}

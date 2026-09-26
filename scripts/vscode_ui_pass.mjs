@@ -7,7 +7,8 @@
 // 3. The live runtime refuses a raw request without the launch token (401) and a foreign Host (400).
 // 4. Mosaic: the SQL scratch file, Run active SQL, the result row in the webview.
 // 5. Practice: Submit the first exercise's starter; the runtime grades it. The runtime's status bar item and the
-//    CodeLens above the solution file are seen on the way.
+//    CodeLens above the solution file are seen on the way. A concept check (quiz) answered
+//    and graded, its reference sheet opened; later, with trusted Python on, a pytest exercise graded by real pytest.
 // 5b. Infra Lab: a mission started, its commands typed in the simulated terminal, Check my work passes.
 // 5c. Lakehouse Lab: a mission started, its SQL run on DuckDB from the lab, Check my work passes on the files.
 // 5d. API Lab: a mission started, trusted Python enabled, the reference ingest.py run, Check my work passes.
@@ -135,12 +136,38 @@ const bodyText = () => web().locator("body").innerText();
 
 async function command(title) {
   await page.keyboard.press("Escape");
-  await page.keyboard.press("F1");
   const input = page.locator(".quick-input-widget input");
-  await input.waitFor();
+  // F1 is lost when a webview or the terminal holds the keyboard; the palette text would then land in an editor.
+  // Open the palette by the command center (a click), falling back to F1, and fill only a visible quick input.
+  const center = page.locator(".command-center-center").first();
+  if (await center.isVisible().catch(() => false)) await center.click();
+  else await page.keyboard.press("F1");
+  if (!(await input.isVisible().catch(() => false))) await page.keyboard.press("F1");
+  await input.waitFor({ state: "visible" });
   await input.fill(`>${title}`);
   await page.locator(".quick-input-list .monaco-list-row", { hasText: title }).first().waitFor();
   await page.keyboard.press("Enter");
+}
+
+/**
+ * Filter Practice on a card title, write `source` as its solution file first (Open solution never overwrites a file,
+ * and typing into Monaco through Electron is flaky), open it with Open solution, then Submit from the same card.
+ */
+async function submitPracticeCard(title, relative, source) {
+  const file = path.join(workspace, ...relative.split("/"));
+  mkdirSync(path.dirname(file), { recursive: true });
+  writeFileSync(file, source);
+  await command("Datapass: Open Practice");
+  const filter = web().getByPlaceholder("Filter SQL, Spark, Airflow, dbt…");
+  await filter.waitFor({ timeout: 60000 });
+  await filter.fill(title);
+  await web().locator(".practice-prompt").first().waitFor({ timeout: 30000 })
+    .catch(async error => { await shot(`practice-card-missing-${slug(title)}`); throw error; });
+  await button("Open solution").first().click();
+  await page.locator(".tab", { hasText: "solution" }).first().waitFor({ timeout: 30000 }).catch(() => undefined);
+  await button("Submit").first().click();
+  const text = await web().locator(".practice-result").first().innerText({ timeout: 120000 }).catch(() => "");
+  return { text, status: /^Submission[\s\S]*?\b(passed|failed|error)\b/.exec(text.trim())?.[1] };
 }
 
 async function openWorkbench(command_ = "Datapass: Open Mosaic") {
@@ -357,6 +384,21 @@ try {
     status ? `status ${status[1]}` : (graded.slice(0, 200) || errors.join(" | ").slice(0, 300) || "no result"));
   await shot("practice-submit");
 
+  // --- Practice concept check (quiz) ----------------------------------------------------------------------------
+  // A concept check: nothing runs, the runtime compares the answer line; its reference sheet opens as a native preview.
+  const quizStarter = JSON.parse(readFileSync(path.join(repo, "content", "exercise-packs", "concepts-v1", "exercises.json"), "utf8"))
+    .find(item => item.id === "concept-fabric-cu-per-sku").starter_source;
+  const quiz = await submitPracticeCard("Capacity units of an F SKU", "exercises/concept-fabric-cu-per-sku/quiz/solution.txt",
+    quizStarter.replace(/answer:\s*$/, "answer: c\n"));
+  step("Practice concept check graded by the runtime (no execution)", quiz.status === "passed" && /Correct\./.test(quiz.text),
+    quiz.status ? `status ${quiz.status}` : quiz.text.slice(0, 200) || "no result");
+  await shot("practice-quiz");
+  await web().getByRole("button", { name: /^Reference: fabric capacities/ }).click();
+  const preview = await page.locator(".tab", { hasText: "fabric-capacities" }).first().waitFor({ timeout: 30000 }).then(() => true, () => false);
+  step("Practice concept check opens its reference sheet as a Markdown preview", preview);
+  // The preview is a webview too: close it so web() finds the Workbench again.
+  if (preview) await command("View: Close Editor");
+
   // --- Infra Lab ------------------------------------------------------------------------------------------------
   // Start the ETL VM alerts mission, type its commands in the simulated terminal (a Pseudoterminal: no process runs;
   // each line goes to the runtime's simulators), then Check my work.
@@ -437,6 +479,13 @@ try {
   const apiPassed = await waitForText(/Mission passed\./, 60000);
   step("API Lab: the checker passes the mission on bronze and the request log", Boolean(apiPassed));
   await shot("api-lab");
+  // Trusted Python is on: a pytest exercise graded by real pytest (the learner's tests, then the hidden tests).
+  const pytestReference = JSON.parse(readFileSync(path.join(repo, "content", "exercise-packs", "python-prod-v1", "grading.server.json"), "utf8"))["py-chunked"].solution;
+  const pytestRun = await submitPracticeCard("Split any iterable into batches", "exercises/py-chunked/pytest/solution.py", pytestReference);
+  step("Practice pytest exercise graded by real pytest (trusted Python)", pytestRun.status === "passed",
+    pytestRun.status ? `status ${pytestRun.status}` : pytestRun.text.slice(0, 200) || "no result");
+  await shot("practice-pytest");
+  await command("Datapass: Open API Lab");
   // Back to the default: trusted Python off (the rest of the pass expects it).
   await button("Disable").click();
   await web().getByText("trusted Python off").first().waitFor({ timeout: 60000 });
