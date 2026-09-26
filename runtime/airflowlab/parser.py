@@ -70,12 +70,13 @@ REQUIRED_ARGS = {
 }
 SENSOR_ARGS = {'poke_interval', 'timeout', 'mode', 'soft_fail'}
 # BaseOperator arguments the simulator models, or accepts as metadata with no effect on the outcome.
-MODELED_ARGS = {'task_id', 'trigger_rule', 'retries', 'retry_delay', 'execution_timeout'}
+MODELED_ARGS = {'task_id', 'trigger_rule', 'retries', 'retry_delay', 'execution_timeout', 'depends_on_past',
+                'ignore_first_depends_on_past'}
 METADATA_ARGS = {'owner', 'email', 'email_on_failure', 'email_on_retry', 'pool', 'pool_slots', 'priority_weight',
                  'weight_rule', 'queue', 'doc', 'doc_md', 'max_active_tis_per_dag', 'do_xcom_push'}
 UNSUPPORTED_ARGS = {
-    'depends_on_past': 'depends_on_past links runs together; the simulator runs each DAG run independently',
-    'wait_for_downstream': 'wait_for_downstream links runs together; the simulator runs each DAG run independently',
+    'wait_for_downstream': 'wait_for_downstream (waiting for the direct downstream tasks of the previous run) is not '
+                           'simulated; depends_on_past is',
     'retry_exponential_backoff': 'exponential backoff uses a jittered delay the simulator does not reproduce',
     'max_retry_delay': 'exponential backoff is not simulated',
     'exponential_backoff': 'exponential sensor backoff is not simulated',
@@ -575,6 +576,10 @@ class DagParser:
             spec.retry_delay_s = _seconds(options['retry_delay'], 'retry_delay', line)
         if options.get('execution_timeout') is not None:
             spec.execution_timeout_s = _seconds(options['execution_timeout'], 'execution_timeout', line)
+        for name in ('depends_on_past', 'ignore_first_depends_on_past'):
+            if name in options and not isinstance(options[name], bool):
+                raise AirflowLabError(f"{name} must be True or False", line)
+        spec.depends_on_past = options.get('depends_on_past', False)
         if kind == 'sensor':
             if 'poke_interval' in options:
                 spec.poke_interval_s = _seconds(options['poke_interval'], 'poke_interval', line)

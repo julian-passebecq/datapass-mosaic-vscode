@@ -943,7 +943,7 @@ export async function run(): Promise<void> {
 
       // Airflow lab: the DAG file is parsed, never executed; scenarios are simulated.
       const airflowLab = catalog.filter(item => item.packId === "airflow-lab-v1");
-      assert.equal(airflowLab.length, 13);
+      assert.equal(airflowLab.length, 14);
       assert.ok(airflowLab.every(item => item.language === "airflow" && item.truth === "simulated"));
       const airflowGrading = JSON.parse(new TextDecoder().decode(await vscode.workspace.fs.readFile(
         vscode.Uri.joinPath(extension.extensionUri, "content", "exercise-packs", "airflow-lab-v1", "grading.server.json")
@@ -957,6 +957,10 @@ export async function run(): Promise<void> {
       const rejected = await submit(branchJoin, "import os\n");
       assert.equal(rejected.status, "failed");
       assert.match(rejected.checks[0].message, /Unsupported import/);
+      // depends_on_past: a failed day holds back the same task in the later runs.
+      const pastDay = airflowLab.find(item => item.id === "af-depends-on-past")!;
+      assert.equal((await submit(pastDay, airflowGrading[pastDay.id].solution)).status, "passed");
+      assert.equal((await submit(pastDay, pastDay.starterSource)).status, "failed", "without depends_on_past the next days roll on a missing day");
 
       // Cloud Lab pipelines: pipeline JSON and pipeline notebooks, graded on simulated runs; local data
       // activities use an isolated catalog, so the workspace catalog must not change.

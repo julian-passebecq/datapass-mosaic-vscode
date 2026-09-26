@@ -81,7 +81,8 @@ def lab_view(source: str, scenario: dict[str, Any], run_limit: int = RUN_LIMIT) 
         view.update(now=_iso(parsed.now), unpaused_at=_iso(parsed.unpaused_at))
         runs = planned_runs(dag, parsed)
         view['total_runs'] = len(runs)
-        results = simulate(dag, parsed, runs[-run_limit:])
+        # depends_on_past needs every earlier run: the first shown run may be held back by one that is not shown.
+        results = simulate(dag, parsed, runs if dag.cross_run else runs[-run_limit:])[-run_limit:]
     except (AirflowLabError, ValidationError) as exc:
         view.update(status='simulation_error', error={'message': str(exc), 'line': getattr(exc, 'line', None)})
         return view
