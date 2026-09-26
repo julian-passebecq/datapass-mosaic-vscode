@@ -9,6 +9,19 @@ Add a tranche as a new `## YYYY-MM-DD · Title` section at the top, under this p
 sections, and refer to another section by its heading, not by a position. Keep the "Checked" and "Not checked"
 notes: they say what was really run.
 
+## 2026-09-26 · Version 0.2.0, changelog and release workflow (T-6)
+
+- `package.json` / `package-lock.json` at 0.2.0 (the plan's V1 shipped). `CHANGELOG.md` (Keep a Changelog) has one
+  0.2.0 section summarising PRs #1 to #63 by theme.
+- `.github/workflows/release.yml`: a pushed tag `v*` that equals `v` + `package.json`'s version builds like the CI
+  extension job and publishes a GitHub Release with the VSIX and that version's changelog section as notes.
+  Steps in `docs/RELEASE.md`. No tag was pushed: publishing waits for Julian.
+- `scripts/package_smoke.mjs` fails when `package.json`'s version has no `## [<version>]` section in `CHANGELOG.md`.
+
+Checked: `npm run compile`, `npm test`, `npm run package` (datapass-mosaic-vscode-0.2.0.vsix); the notes extraction
+(awk) locally on CHANGELOG.md; release.yml read and YAML-parsed (actionlint not installed).
+Not checked: the Release workflow itself, which runs only on a pushed tag.
+
 ## 2026-09-26 · API Lab: REST API ingestion into bronze (V3-4)
 
 A new "Real work" module, the API Lab (`apilab`): the learner writes `missions/<id>/ingest.py` (real Python, httpx or

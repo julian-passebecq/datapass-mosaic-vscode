@@ -116,7 +116,7 @@ npm run package
 This writes `datapass-mosaic-vscode-<version>.vsix` (about 1.2 MB). Install it with **Extensions → … → Install from VSIX…**, or:
 
 ```bash
-code --install-extension datapass-mosaic-vscode-0.1.0.vsix
+code --install-extension datapass-mosaic-vscode-0.2.0.vsix
 ```
 
 The Workbench is an extension pack, so VS Code also installs the Microsoft Python and Jupyter extensions. You need Python 3.11+ on your PATH: on first use, **Setup runtime** creates a private venv for the local runtime and installs its dependencies. When [uv](https://docs.astral.sh/uv/) is installed (on your PATH, or in `~/.local/bin` or `~/.cargo/bin`), Setup uses it and takes well under a minute; otherwise it uses pip, which can take several minutes on Windows. The VSIX contains the runtime source, content packs and samples; donor trees, TypeScript sources, source maps and contributor docs are excluded (see `.vscodeignore`).
