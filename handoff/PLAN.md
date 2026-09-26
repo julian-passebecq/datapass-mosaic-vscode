@@ -1,0 +1,57 @@
+# PLAN — mosaic (Datapass Workbench, `D:\PROJ\datapass-mosaic-vscode`)
+
+Kept by `ARCHI mosaic N` (docs/roles/archi.md in claude-control). Lean on purpose: one screen per version. Estimates
+are orders of magnitude; fill **Actual** when a package merges (GALAXY Contrôle compares them every week).
+
+Updated: 2026-09-26 10:15 by ARCHI mosaic 1 · Sources: the roadmap artifact
+(https://claude.ai/artifact/RhQMPGxeuNo9GTFzH5B8aJ), docs/HANDOFF.md, merged PRs #27–#57. The old
+`docs/CLAUDE_HANDOFF_2026-09-24.md` no longer exists (split into HANDOFF.md / HANDOFF_HISTORY.md by T-5).
+
+Already done (do not redo): V1-1…V1-7, V2-1 (arena, review, interview), V2-2 (dialects), V2-3 (zilla-v1), V3-1
+(Terminal Lab), V3-2 first slice (Infra Lab), T-3 (VSIX UI pass), T-5 (short handoff), D-1, D-2, D-5, D-6 (per-lab
+split), D-9, D-11, Polars engine in SparkLab (#54), dbt snapshot/contract missions (#55), Airflow depends_on_past
+(#56), Spark SQL track (#57).
+
+## Versions
+
+| Version | Goal (one line) | Useful? | Status |
+|---|---|---|---|
+| V1 | Two new "real work" labs (lakehouse storage, API ingestion), a home page that scales past 11 modules, Infra Lab depth, a faster CI | yes: lakehouse partitioning is Julian's declared weak point, API ingestion is half the job and nothing covers it, 11 tabs no longer fit | in progress |
+| V2 | BI-3 (KPIs, DAX-like measures to SQL, dbt Charts boards), governance (RLS/CLS, masks, PII), concept quizzes + reference sheets (V2-4), pytest-graded production Python (V2-5), VS Code native bits (T-4, D-10 JSON schemas), Cloud Lab dbt layer, PostgreSQL Practice content, versioning + changelog (T-6) | yes, after V1 | later |
+| V3 | Streaming lab (V3-7), a formal lab template (T-2) | no for now: streaming is off-profile (Azure batch); D-6 already gave most of T-2's gain | parked |
+
+## Packages (V1)
+
+Packages that run at the same time own disjoint files. Shared, append-only files every package may touch with a
+small hunk (resolve by keeping both sides on rebase): `docs/HANDOFF.md`, `docs/HANDOFF_HISTORY.md` (new dated
+section at the top), `src/test/hostSuite.ts`, `runtime/datapass_runtime/main.py` (route registration only),
+`src/labs/controllers.ts`, `src/labs/clients.ts`, `src/webview/contracts/index.ts`, `package.json` (commands),
+`scripts/vscode_ui_pass.mjs`, `CLAUDE.md` (one truth-model bullet per new lab).
+
+| Id | Package | Size | Estimate (h · M tokens) | Model · effort | Owned files | Acceptance tests | Coder | Status | Actual (h · M tokens) |
+|---|---|---|---|---|---|---|---|---|---|
+| A | **T-1 Home and navigation by families**: a "Today" home (progress from `.datapass/progress.json`, next suggested step, runtime state), labs grouped in two families ("Learn", "Real work") instead of one flat tab bar; every module still reachable by its `datapass.open…` command | M | 2–4 h · 40–90 | Opus 5.5 · medium | `src/webview/WorkbenchApp.tsx` (nav shell), new `src/webview/HomeSurface.tsx`, `src/labs/workbench/`, `src/webview/contracts/workbench.ts`, `src/modules.ts`, `content/modules.json`, `src/webview/workbench.css` | `npm run compile`, `npm test`; `npm run package && npm run test:ui` passes with every module reached through the new nav at 520 px, no overflow | TAMPON 2 | GO | |
+| B | **V3-3 Lakehouse storage lab**: Parquet + partitions, small-files problem and compaction, Delta and Iceberg (versions, time travel, schema evolution, MERGE), DuckLake; the same task in Polars, DuckDB SQL and SparkLab; missions or a Practice pack checked on the files and the catalog | L | 5–8 h · 120–250 | Opus 5.5 · high | new `runtime/lakehouselab/`, `src/labs/lakehouse/`, `src/webview/contracts/lakehouse.ts`, `src/webview/LakehouseSurface.tsx`, its content pack, its smoke script, `runtime/pyproject.toml` deps | all CLAUDE.md gates + a new `scripts/lakehouse_smoke.py` (references pass, starters and mutants fail); truth labels real/emulated shown | TAMPON 3 | waits for Julian's answer on engines | |
+| C | **V3-4 API ingestion lab**: a simulated REST API (pagination, incremental load, rate limit, schema drift, transient errors) ingested into bronze by the learner's real Python; checks on the catalog and the API's request log | L | 4–7 h · 100–200 | Opus 5.5 · high | new `runtime/apilab/`, `src/labs/apilab/`, `src/webview/contracts/apilab.ts`, `src/webview/ApiLabSurface.tsx`, its missions or pack, its smoke script | all gates + `scripts/api_lab_smoke.py` (references pass, naive solutions that ignore pagination / rate limit / drift fail); token rule of CLAUDE.md intact | TAMPON 4 | waits for Julian's answer on transport | |
+| D | **Infra Lab depth**: one or two more missions per simulator; Terraform modules (local `module` blocks) and `fmt`; Kubernetes Ingress, HPA, namespaces; compose volumes and networks | M–L | 4–6 h · 80–160 | Opus 5.5 · medium | `runtime/infralab/`, `runtime/missionlab/infra.py`, `content/missions/infra-v1/`, `scripts/infra_missions_smoke.py`, `scripts/infra_lab_smoke.mjs`, `src/labs/infra/`, `src/webview/InfraSurface.tsx` | `python scripts/infra_missions_smoke.py` (every reference passes, untouched fixtures, starters and mutants fail), `npm test`, runtime smoke | TAMPON 5 | GO | |
+| E | **Debt: D-3, D-4, D-7**: delete `packages/` and the caller-less `/api/local/capabilities` and `/api/local/restart` if still unused; one dbt project reader (drop the regex reader in `src/dbtState.ts` if the real dbt Lab no longer needs it, else document why); CI: pip/uv cache, single build in the extension job, `concurrency` cancel-in-progress, parallel pack grading in `exercise_packs_smoke.py` with identical counts | M | 2–3 h · 40–80 | Opus 5.5 · medium | `.github/workflows/ci.yml`, `scripts/exercise_packs_smoke.py`, `packages/`, `src/dbtState.ts`, `runtime/datapass_runtime/main.py` (the two routes only) | the 4 CI jobs green; packs smoke reports the same counts (584 / 584 / 549 + spark-sql-v1's); runtime job at least 30 % faster than the last 5 runs on main (quote the numbers in the PR) | TAMPON 6 | GO | |
+
+Size guide: **S** < 1 h, one area · **M** 1–3 h, a few files · **L** > 3 h or hard (effort high, or split it).
+
+## Merge order
+
+E and D merge as soon as they are green (they own disjoint files). A merges next; then it tells B and C "T-1 merged:
+rebase and register your module in the new navigation". C and B merge in the order they finish, each rebased on main
+first. Every coder rebases on main right before merging and reruns the gates its rebase touched.
+
+## Escalations and decisions
+
+| Date | Package | What happened | Re-run at / consult | Result |
+|---|---|---|---|---|
+
+xhigh consult briefs: `handoff/briefs/<date>-<topic>.md` (question, options, files to read, then "## Decision").
+
+## Open questions for Julian
+
+- B: which lakehouse engines ship in the runtime (asked 2026-09-26).
+- C: how the learner's code reaches the simulated API (asked 2026-09-26).
