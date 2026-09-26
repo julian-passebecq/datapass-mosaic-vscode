@@ -14,7 +14,7 @@ import type { RuntimeManager } from "./runtimeManager";
 import type { DctValidationView } from "./platform/dbtTools";
 import { loadProjectsState, readProgress } from "./projectState";
 import { emptyPracticeProgress } from "./platform/practiceProgress";
-import type { DbtToolsView, DbtViewState, PracticeViewState, ProjectsHostState, SparkLabProfileView, TerminalViewState, WorkbenchFocus, WorkbenchViewState } from "./webview/contracts";
+import type { DbtToolsView, DbtViewState, PracticeViewState, ProjectsHostState, SparkLabProfileView, TerminalViewState, InfraViewState, WorkbenchFocus, WorkbenchViewState } from "./webview/contracts";
 
 export async function collectWorkbenchState(
   selectedModule: ModuleId,
@@ -35,6 +35,7 @@ export async function collectWorkbenchState(
     practiceSolutions?: Record<string, string>;
     queryHistory?: readonly QueryHistoryEntry[];
     terminal?: TerminalViewState;
+    infra?: InfraViewState;
   } = {}
 ): Promise<WorkbenchViewState> {
   const folder = vscode.workspace.workspaceFolders?.[0];
@@ -93,6 +94,7 @@ export async function collectWorkbenchState(
     bi,
     dbt,
     terminal: selectedModule === "terminal" ? extras.terminal : undefined,
+    infra: selectedModule === "infra" ? extras.infra : undefined,
     projects,
     focus: extras.focus,
     queryHistory: extras.queryHistory

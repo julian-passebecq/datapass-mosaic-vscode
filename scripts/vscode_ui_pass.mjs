@@ -7,6 +7,7 @@
 // 3. The live runtime refuses a raw request without the launch token (401) and a foreign Host (400).
 // 4. Mosaic: the SQL scratch file, Run active SQL, the result row in the webview.
 // 5. Practice: Submit the first exercise's starter; the runtime grades it.
+// 5b. Infra Lab: a mission started, its commands typed in the simulated terminal, Check my work passes.
 // 6. Layout: every module tab, and every lab sub-tab, at a narrow Workbench width. No element may stick out of the
 //    webview (the PR #17 class of bug); a screenshot of each lands in the output folder.
 // 7. Stop runtime.
@@ -319,6 +320,40 @@ try {
   step("Practice Submit graded by the runtime", Boolean(status),
     status ? `status ${status[1]}` : (graded.slice(0, 200) || errors.join(" | ").slice(0, 300) || "no result"));
   await shot("practice-submit");
+
+  // --- Infra Lab ------------------------------------------------------------------------------------------------
+  // Start the SHIR alerts mission, type its commands in the simulated terminal (a Pseudoterminal: no process runs;
+  // each line goes to the runtime's simulators), then Check my work.
+  await command("Datapass: Open Infra Lab");
+  await web().getByRole("tab", { name: "Infra Lab", selected: true }).waitFor({ timeout: 60000 });
+  await web().locator(".mission-card", { hasText: "self-hosted integration runtime" }).click();
+  await button("Start mission").click();
+  const infraFolder = path.join(workspace, "missions", "page-on-shir-outage");
+  const journalFile = path.join(infraFolder, ".infralab", "journal.jsonl");
+  const terminalInput = page.locator(".terminal-wrapper.active .xterm-helper-textarea, .terminal .xterm-helper-textarea").last();
+  await page.locator(".terminal-tab, .single-terminal-tab", { hasText: "Infra Lab (simulated)" }).first().waitFor({ timeout: 60000 })
+    .catch(() => undefined);
+  await terminalInput.waitFor({ timeout: 60000 });
+  const infraMission = JSON.parse(readFileSync(path.join(repo, "content", "missions", "infra-v1", "page-on-shir-outage", "mission.json"), "utf8"));
+  const lines = infraMission.reference.map(item => item.infra);
+  const journalLines = () => existsSync(journalFile) ? readFileSync(journalFile, "utf8").split("\n").filter(Boolean).length : 0;
+  for (const [index, line] of lines.entries()) {
+    await terminalInput.focus();
+    await page.keyboard.type(line, { delay: 2 });
+    await page.keyboard.press("Enter");
+    for (let waited = 0; journalLines() <= index && waited < 30000; waited += 250) await page.waitForTimeout(250);
+  }
+  step("Infra Lab: lines typed in the simulated terminal reach the simulators", journalLines() === lines.length,
+    `${journalLines()}/${lines.length} commands journaled`);
+  await page.waitForTimeout(500);
+  await shot("infra-terminal");
+  await command("Datapass: Open Infra Lab");
+  await button("Check my work").click();
+  const infraPassed = await waitForText(/Mission passed\./, 60000);
+  step("Infra Lab: the checker passes the mission on the simulated world", Boolean(infraPassed));
+  const world = await waitForText(/Simulated clock/, 10000);
+  step("Infra Lab: the simulated world is shown", Boolean(world));
+  await shot("infra-lab");
 
   // --- Layout at a narrow width ---------------------------------------------------------------------------------
   // The Workbench sits beside the scratch editor; size the window so the webview is NARROW_WIDTH wide.

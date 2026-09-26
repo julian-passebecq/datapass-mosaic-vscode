@@ -1156,6 +1156,39 @@ export interface TerminalViewState {
   missions: { missions: readonly MissionView[]; progress: Readonly<Record<string, MissionProgressView>> };
 }
 
+/** The simulated world of an Infra Lab folder (runtime/infralab/shell.py state_view). */
+export interface InfraWorldView {
+  clock: string;
+  simulated: string;
+  terraform: { initialized: boolean; configured?: boolean; resources: readonly string[]; outputs: Readonly<Record<string, string | number | boolean>> };
+  azure: {
+    resources: readonly { name: string; type: string; group: string; managed_by?: string | null }[];
+    alerts: readonly { name: string; severity: number; metric: string; enabled: boolean; actions: number }[];
+  };
+  docker: {
+    images: readonly { tags: readonly string[]; size_mb: number; user?: string }[];
+    containers: readonly { name: string; image: string; status: string; health?: string | null; ports: readonly (readonly number[])[] }[];
+  };
+  kube: {
+    nodes: number;
+    deployments: readonly {
+      name: string; namespace: string; image: string; replicas: number; ready: number; strategy: string;
+      last_rollout?: { revision: number; complete: boolean; min_available?: number | null; to_image?: string } | null;
+    }[];
+    services: readonly { name: string; namespace: string; endpoints: number }[];
+  };
+  journal: readonly { n?: number; line: string; exit_code: number; at?: string }[];
+}
+
+export interface InfraViewState {
+  /** The folder whose simulated world is shown (relative to the workspace), and the started missions to pick from. */
+  folder?: string;
+  folders: readonly string[];
+  world?: InfraWorldView;
+  worldError?: string;
+  missions: { missions: readonly MissionView[]; progress: Readonly<Record<string, MissionProgressView>> };
+}
+
 export interface DbtBoardView {
   /** Relative to the project: `charts/revenue.yml`. */
   path: string;
@@ -1197,6 +1230,7 @@ export interface WorkbenchViewState {
   bi?: BiViewState;
   dbt?: DbtViewState;
   terminal?: TerminalViewState;
+  infra?: InfraViewState;
   projects?: ProjectsViewState & ProjectsHostState;
   /** A lab tab or Practice filter to show, set when a project step opens a lab; seq changes on each request. */
   focus?: WorkbenchFocus;
@@ -1292,6 +1326,9 @@ export type WebviewToHostMessage =
   | { type: "selectTerminalShell"; shell: ShellId }
   | { type: "openLabTerminal"; missionId?: string }
   | { type: "refreshTerminalLab" }
+  | { type: "openInfraTerminal"; missionId?: string }
+  | { type: "selectInfraFolder"; folder: string }
+  | { type: "refreshInfraLab" }
   | { type: "startMission"; missionId: string }
   | { type: "restartMission"; missionId: string }
   | { type: "openMission"; missionId: string }

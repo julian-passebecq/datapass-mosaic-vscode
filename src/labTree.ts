@@ -7,7 +7,7 @@ class LabTreeItem extends vscode.TreeItem {
     this.description = module.execution;
     this.tooltip = new vscode.MarkdownString(`**${module.label}**\n\n${module.description}\n\nExecution: ${module.execution}`);
     this.command = { command: module.command, title: `Open ${module.label}` };
-    this.iconPath = new vscode.ThemeIcon(module.id === "projects" ? "checklist" : module.id === "terminal" ? "terminal" : "beaker");
+    this.iconPath = new vscode.ThemeIcon(module.id === "projects" ? "checklist" : module.id === "terminal" ? "terminal" : module.id === "infra" ? "server-environment" : "beaker");
   }
 }
 

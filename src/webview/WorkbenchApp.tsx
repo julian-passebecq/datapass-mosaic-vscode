@@ -22,6 +22,7 @@ import type {
 import { AirflowSurface } from "./AirflowSurface";
 import { DbtSurface } from "./DbtSurface";
 import { TerminalSurface } from "./TerminalSurface";
+import { InfraSurface } from "./InfraSurface";
 import { FabricSurface } from "./FabricSurface";
 import { BiSurface } from "./BiSurface";
 import { MosaicSurface } from "./MosaicSurface";
@@ -180,6 +181,8 @@ export function WorkbenchApp({ vscode }: { vscode: VsCodeApi }) {
               <DbtSurface vscode={vscode} dbt={state.dbt} runtime={state.runtime} />
             ) : selected.id === "terminal" ? (
               <TerminalSurface vscode={vscode} terminal={state.terminal} runtime={state.runtime} />
+            ) : selected.id === "infra" ? (
+              <InfraSurface vscode={vscode} infra={state.infra} runtime={state.runtime} />
             ) : (
               <>
                 <div className="feature-grid">

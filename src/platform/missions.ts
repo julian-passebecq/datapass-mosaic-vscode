@@ -62,11 +62,12 @@ export function missionFolder(id: string): string {
 /**
  * Where the ticket is written, relative to the workspace. dbt Lab: TICKET.md in the project folder, next to the code.
  * Terminal Lab: outside the mission folder, because the mission is about that folder's exact content and its Git
- * status (a TICKET.md in it would be an untracked file the learner did not make).
+ * status (a TICKET.md in it would be an untracked file the learner did not make). Infra Lab: outside too, so the
+ * build context and the folder's listing stay the learner's own.
  */
 export function ticketPath(mission: Pick<MissionView, "id" | "lab">): string {
   const folder = missionFolder(mission.id);
-  return mission.lab === "terminal" ? `.datapass/missions/tickets/${mission.id}.md` : `${folder}/TICKET.md`;
+  return mission.lab === "terminal" || mission.lab === "infra" ? `.datapass/missions/tickets/${mission.id}.md` : `${folder}/TICKET.md`;
 }
 
 export function toMissionView(raw: unknown, packId: string): MissionView | undefined {
@@ -176,7 +177,13 @@ export function ticketMarkdown(mission: MissionView): string {
     "",
     criteria,
     "",
-    ...(mission.lab === "terminal"
+    ...(mission.lab === "infra"
+      ? [
+        `Work in \`${missionFolder(mission.id)}/\`: edit the files in VS Code and type terraform, docker, kubectl or az in`,
+        "the Infra Lab's simulated terminal (it opens there). Everything is simulated: nothing is provisioned, built or",
+        "deployed, and your files are read, never executed. Check your work from the Infra Lab; hints are there too."
+      ]
+      : mission.lab === "terminal"
       ? [
         `Work in \`${missionFolder(mission.id)}/\` with your own commands (the Terminal Lab opens a terminal there). Check`,
         "your work from the Terminal Lab: a hidden checker reads the folder and its Git repository. Datapass runs none",

@@ -23,8 +23,9 @@ const PROGRESS = [".datapass", "missions", "progress.json"];
  * progress file (.datapass/missions/progress.json), and the runtime calls that load fixtures and run the checker.
  *
  * dbt Lab: the project is copied once from the pack's base project and the mission's overlay (never overwritten) and
- * the fixture batches load into the catalog. Terminal Lab: the runtime builds the folder (files and Git history) from
- * the pack; Start over moves the previous folder to .datapass/missions/attic/.
+ * the fixture batches load into the catalog. Terminal Lab and Infra Lab: the runtime builds the folder (files and Git
+ * history, or files and a simulated world) from the pack; Start over moves the previous folder to
+ * .datapass/missions/attic/.
  */
 export class MissionsService {
   private cache?: MissionView[];
@@ -74,7 +75,7 @@ export class MissionsService {
     const root = requireRoot();
     const mission = await this.mission(id);
     const folder = vscode.Uri.joinPath(root, ...missionFolder(id).split("/"));
-    if (mission.lab === "terminal") {
+    if (mission.lab === "terminal" || mission.lab === "infra") {
       await this.runtime.terminalMissionSetup(id);
       const ticket = this.ticketUri(mission);
       await vscode.workspace.fs.createDirectory(vscode.Uri.joinPath(ticket, ".."));
@@ -121,7 +122,7 @@ export class MissionsService {
         for (const board of mission.dctBoards) dct[board] = await dctValidate(this.tools, folder, profilesDir, board);
       }
     }
-    const result = toMissionCheckView(await this.runtime.missionCheck(id, dct, mission.lab !== "terminal"));
+    const result = toMissionCheckView(await this.runtime.missionCheck(id, dct, mission.lab === "dbt"));
     await this.update(id, current => ({
       ...current,
       lastCheck: result,
