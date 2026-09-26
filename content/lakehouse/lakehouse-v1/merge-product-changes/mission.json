@@ -1,0 +1,79 @@
+{
+  "id": "merge-product-changes",
+  "version": "1",
+  "lab": "lakehouse",
+  "title": "Apply the product changes in one commit",
+  "level": "advanced",
+  "estimate": "25 min",
+  "skills": [
+    "DuckLake",
+    "MERGE INTO",
+    "upserts",
+    "transactions"
+  ],
+  "ticket": {
+    "from": "Yusuf (master data)",
+    "subject": "Supplier changes for dim_product",
+    "body": [
+      "The supplier sent `data/product_changes.csv`: `op` is I (new product), U (update the name, category and",
+      "price) or D (delete the product).",
+      "",
+      "Please apply it to the DuckLake table `dim_product` **as one commit**: readers must see all of the changes",
+      "or none of them, so the lake should gain exactly one snapshot. Don't recreate the table.",
+      "Work in `merge.sql`. Tried something that went wrong? Start over gives you a clean lake."
+    ]
+  },
+  "engines": [
+    "duckdb"
+  ],
+  "ducklake": true,
+  "files": {
+    "duckdb": "merge.sql"
+  },
+  "fixture": {
+    "sql": [
+      "fixtures/products.sql"
+    ],
+    "snapshots": 2
+  },
+  "acceptance": [
+    {
+      "id": "applied",
+      "text": "dim_product has every insert, update and delete applied, once",
+      "checks": [
+        {
+          "kind": "sql",
+          "query": "SELECT product_id, name, category, price FROM dim_product",
+          "expected_query": "SELECT product_id, name, category, price FROM dim_product AT (VERSION => 1) WHERE product_id NOT IN (SELECT product_id FROM read_csv('data/product_changes.csv')) UNION ALL SELECT product_id, name, category, price FROM read_csv('data/product_changes.csv') WHERE op IN ('I', 'U')",
+          "fail": "The table does not match the change file applied once."
+        }
+      ]
+    },
+    {
+      "id": "atomic",
+      "text": "All of it is one new snapshot on the same table",
+      "checks": [
+        {
+          "kind": "snapshots",
+          "table": "dim_product",
+          "min_new": 1,
+          "max_new": 1,
+          "readable": [
+            1
+          ],
+          "not_recreated": true
+        }
+      ]
+    }
+  ],
+  "hints": [
+    "Outside a transaction each statement commits on its own, and each commit is a snapshot.",
+    "`MERGE INTO dim_product t USING (SELECT * FROM read_csv('data/product_changes.csv') WHERE op <> 'D') c ON t.product_id = c.product_id` updates the matched rows and inserts the others in one statement. DuckLake's MERGE takes one UPDATE or DELETE action, so delete the D rows with their own DELETE.",
+    "Wrap the DELETE and the MERGE in `BEGIN; \u2026 COMMIT;`: one transaction, one snapshot."
+  ],
+  "concepts": [
+    "ducklake",
+    "merge",
+    "delta-iceberg"
+  ]
+}

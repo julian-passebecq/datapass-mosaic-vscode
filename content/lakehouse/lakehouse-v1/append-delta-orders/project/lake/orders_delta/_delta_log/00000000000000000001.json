@@ -1,0 +1,2 @@
+{"commitInfo": {"timestamp": 1744156800000, "operation": "WRITE", "operationParameters": {"mode": "Append"}}}
+{"add": {"path": "part-00001.parquet", "partitionValues": {}, "size": 0, "modificationTime": 1744156800000, "dataChange": true, "stats": "{\"numRecords\": 120}"}}

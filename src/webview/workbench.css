@@ -1777,3 +1777,13 @@ h2 { margin-bottom: 8px; font-size: 28px; }
 .infra-output { margin: 4px 0 0; font-size: 12px; }
 .infra-failed code { color: var(--vscode-errorForeground); }
 .infra-clock { grid-column: 1 / -1; }
+
+/* Lakehouse Lab */
+.lakehouse-work { display: grid; gap: 8px; margin: 8px 0; min-width: 0; }
+.lakehouse-run, .lakehouse-storage { display: grid; gap: 6px; min-width: 0; }
+.lakehouse-statement { display: grid; gap: 4px; min-width: 0; }
+.lakehouse-sql { display: block; overflow-wrap: anywhere; opacity: 0.85; }
+.lakehouse-snapshots { margin: 0; padding-left: 20px; overflow-wrap: anywhere; }
+.lakehouse-concepts dl { display: grid; gap: 8px; margin: 8px 0 0; }
+.lakehouse-concept dt { font-weight: 600; }
+.lakehouse-concept dd { margin: 2px 0 0; }

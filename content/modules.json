@@ -134,6 +134,17 @@
       "mode": "simulated",
       "icon": "server-environment",
       "highlights": ["Terraform plan/apply on a simulated azurerm subscription", "Docker builds, compose and Kubernetes rollouts simulated", "Your HCL, Dockerfiles and manifests are read, never executed"]
+    },
+    {
+      "id": "lakehouse",
+      "family": "work",
+      "label": "Lakehouse Lab",
+      "description": "Storage layout on real local files: Parquet and Hive partitions, pruning, small files and compaction, then DuckLake snapshots, time travel, schema evolution and MERGE, and appends to a Delta table.",
+      "command": "datapass.openLakehouseLab",
+      "execution": "Real DuckDB, DuckLake, Delta and Polars on local files",
+      "mode": "real",
+      "icon": "database",
+      "highlights": ["Partitions and pruning read from DuckDB's EXPLAIN ANALYZE", "File counts and sizes measured on disk", "DuckLake snapshots and time travel; Delta read and appended; Iceberg explained"]
     }
   ]
 }

@@ -1,0 +1,91 @@
+{
+  "id": "undo-bad-update",
+  "version": "1",
+  "lab": "lakehouse",
+  "title": "Undo a bad update with time travel",
+  "level": "intermediate",
+  "estimate": "20 min",
+  "skills": [
+    "DuckLake",
+    "snapshots",
+    "time travel"
+  ],
+  "ticket": {
+    "from": "Marc (CRM)",
+    "subject": "Every customer is in France now",
+    "body": [
+      "Someone ran `UPDATE customers SET country = 'FR'` on the lake without a WHERE. The five customers we added",
+      "just before are real and must stay.",
+      "",
+      "`customers` is a DuckLake table: every change is a snapshot, and older snapshots can still be read. Please",
+      "put the table back as it was right before the bad update, **as a new change** on top of the history (the",
+      "auditors want to see the mistake and its fix). Don't drop or replace the table.",
+      "",
+      "Work in `fix.sql` (DuckDB SQL; the lab attaches the lake as `lake` and makes it the default database)."
+    ]
+  },
+  "engines": [
+    "duckdb"
+  ],
+  "ducklake": true,
+  "files": {
+    "duckdb": "fix.sql"
+  },
+  "fixture": {
+    "sql": [
+      "fixtures/customers.sql"
+    ],
+    "snapshots": 4
+  },
+  "acceptance": [
+    {
+      "id": "restored",
+      "text": "customers holds exactly the rows it had before the bad update",
+      "checks": [
+        {
+          "kind": "sql",
+          "query": "SELECT * FROM customers",
+          "expected_query": "SELECT * FROM customers AT (VERSION => 2)",
+          "fail": "The table is not back to its state before the update."
+        }
+      ]
+    },
+    {
+      "id": "history",
+      "text": "The fix is a new snapshot; the history (including the mistake) is still readable",
+      "checks": [
+        {
+          "kind": "snapshots",
+          "table": "customers",
+          "min_new": 1,
+          "readable": [
+            1,
+            2,
+            3
+          ],
+          "not_recreated": true
+        },
+        {
+          "kind": "sql",
+          "query": "SELECT count(*) FROM customers AT (VERSION => 3) WHERE country <> 'FR'",
+          "expected": [
+            [
+              0
+            ]
+          ],
+          "fail": "The snapshot of the mistake was changed."
+        }
+      ]
+    }
+  ],
+  "hints": [
+    "`SELECT snapshot_id, changes FROM lake.snapshots()` lists the history. Which snapshot is the last good one?",
+    "`SELECT * FROM customers AT (VERSION => n)` reads the table as it was at snapshot n.",
+    "Replace the rows inside one transaction: `BEGIN; DELETE FROM customers; INSERT INTO customers SELECT * FROM customers AT (VERSION => n); COMMIT;`"
+  ],
+  "concepts": [
+    "ducklake",
+    "time-travel",
+    "delta-iceberg"
+  ]
+}

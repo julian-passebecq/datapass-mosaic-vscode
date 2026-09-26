@@ -29,6 +29,8 @@ Datapass owns:
 - the Infra Lab: simulated Terraform (a subset of the azurerm provider on a simulated subscription), Docker and
   compose, VM monitoring with Azure Monitor alerts, and Kubernetes, typed in one simulated terminal, and its missions;
 - the BI Lab: data warehousing on the local catalog (dimensional modeling, slowly changing dimensions, SQL lineage, star model checks);
+- the Lakehouse Lab: storage layout on real local files (Parquet, Hive partitions, pruning, compaction) and DuckLake
+  tables (snapshots, time travel, schema evolution, MERGE), and its missions;
 - Airflow scheduling simulation;
 - Pipeline Lab design/execution UX;
 - the single local FastAPI control plane.
@@ -67,6 +69,15 @@ Never blur real execution and simulation.
   manifests are validated strictly and applied to a simulated cluster (scheduling, readiness, rollouts). Everything
   lives in `<folder>/.infralab/world.json`; missions check that simulated world, the state file, the shell's journal
   and the files.
+- Lakehouse Lab (module id `lakehouse`, `runtime/lakehouselab`): real and local. The learner's SQL runs on DuckDB in a
+  child process bounded to `lakehouse/<id>/` (DuckDB's `allowed_directories` + external access off + locked
+  configuration; ATTACH, INSTALL, LOAD, SET, PRAGMA refused; not a security sandbox); their Polars file runs as trusted
+  local Python only while trusted Python is on. DuckLake is the official DuckDB `ducklake` extension on the mission's
+  own lake, installed once by Setup runtime and only loaded afterwards (offline-safe). The checker measures files on
+  disk, reads rows, Parquet schemas, snapshots and time travel with DuckDB (lake attached read-only) and pruning from
+  DuckDB's own `EXPLAIN ANALYZE`. Delta tables are read (any version) and appended through DuckDB's official `delta`
+  extension, installed by Setup like ducklake (it cannot create a Delta table: the mission ships its `_delta_log`);
+  no deltalake or pyiceberg. Iceberg is explained, never handled or emulated.
 - Airflow Lab: deterministic scheduling simulator; it is not an Airflow scheduler/executor. Airflow DAG files (the Airflow Lab panel and Practice `airflow` exercises) are parsed by a whitelisted AST reader (`runtime/airflowlab`) and NEVER eval/exec'd; scheduler and task outcomes are simulated with Airflow 3 semantics.
 - Pipeline Lab: the Python-like pipeline source is parsed by a bounded AST compiler and is NEVER eval/exec'd. Supported activity bodies may execute locally. Scheduling remains metadata/simulation.
 
@@ -118,6 +129,7 @@ python scripts/exercise_packs_smoke.py
 python scripts/projects_smoke.py
 python scripts/terminal_missions_smoke.py   # Terminal Lab: references pass with real bash and PowerShell; untouched fixtures and mutants fail
 python scripts/infra_missions_smoke.py      # Infra Lab: references pass in the simulated shell; untouched fixtures, starters and mutants fail
+python -m compileall -q runtime/lakehouselab && python scripts/lakehouse_smoke.py   # Lakehouse Lab: references (DuckDB and Polars) pass; untouched starters and mutants fail
 DATAPASS_DBT_PYTHON=<python with dbt-core + dbt-duckdb> python scripts/dbt_oracle_smoke.py   # when changing runtime/dbtlab
 DATAPASS_DBT_PYTHON=<python with dbt-core + dbt-duckdb + dbt-charts> python scripts/missions_smoke.py   # missions: references pass, untouched projects and mutants fail
 npm run test:host   # with DATAPASS_E2E_PYTHON set; see docs/LOCAL_TEST.md

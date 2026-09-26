@@ -1,0 +1,4 @@
+{"commitInfo": {"timestamp": 1743465600000, "operation": "WRITE", "operationParameters": {"mode": "ErrorIfExists"}}}
+{"protocol": {"minReaderVersion": 1, "minWriterVersion": 2}}
+{"metaData": {"id": "5f0c6a8e-0000-4000-8000-000000000001", "format": {"provider": "parquet", "options": {}}, "schemaString": "{\"type\": \"struct\", \"fields\": [{\"name\": \"order_id\", \"type\": \"long\", \"nullable\": true, \"metadata\": {}}, {\"name\": \"order_date\", \"type\": \"date\", \"nullable\": true, \"metadata\": {}}, {\"name\": \"amount\", \"type\": \"double\", \"nullable\": true, \"metadata\": {}}]}", "partitionColumns": [], "configuration": {}, "createdTime": 1743465600000}}
+{"add": {"path": "part-00000.parquet", "partitionValues": {}, "size": 0, "modificationTime": 1743465600000, "dataChange": true, "stats": "{\"numRecords\": 150}"}}

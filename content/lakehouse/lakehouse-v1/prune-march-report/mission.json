@@ -1,0 +1,58 @@
+{
+  "id": "prune-march-report",
+  "version": "1",
+  "lab": "lakehouse",
+  "title": "Make the March report read one month",
+  "level": "intro",
+  "estimate": "15 min",
+  "skills": [
+    "partition pruning",
+    "EXPLAIN ANALYZE"
+  ],
+  "ticket": {
+    "from": "Tom (BI)",
+    "subject": "The March report scans the whole year",
+    "body": [
+      "`report.sql` gives the right March 2025 revenue per store, but it reads every file in `lake/sales/`.",
+      "The folders are already partitioned by year and month. Could you rewrite the filter so DuckDB only opens",
+      "March's files? Same result, please.",
+      "",
+      "Tip: `EXPLAIN ANALYZE <your query>` shows *Total Files Read* for each Parquet scan."
+    ]
+  },
+  "engines": [
+    "duckdb"
+  ],
+  "files": {
+    "duckdb": "report.sql"
+  },
+  "fixture": {
+    "sql": [
+      "fixtures/sales.sql",
+      "fixtures/sales_partitioned.sql"
+    ]
+  },
+  "acceptance": [
+    {
+      "id": "pruned",
+      "text": "report.sql returns the March 2025 revenue per store and DuckDB reads one file",
+      "checks": [
+        {
+          "kind": "pruning",
+          "file": "report.sql",
+          "expected_query": "SELECT store, round(sum(amount), 2) AS revenue FROM read_csv('data/sales.csv') WHERE sale_date >= DATE '2025-03-01' AND sale_date < DATE '2025-04-01' GROUP BY store",
+          "max_files_read": 1
+        }
+      ]
+    }
+  ],
+  "hints": [
+    "A filter on `sale_date` is checked inside each file; a filter on the partition columns is checked on the folder names, before any file opens.",
+    "Filter on `year = 2025 AND month = 3` (the columns `hive_partitioning = true` adds).",
+    "Run `EXPLAIN ANALYZE` on your query in the same file to see Total Files Read go from 6 to 1."
+  ],
+  "concepts": [
+    "pruning",
+    "hive"
+  ]
+}

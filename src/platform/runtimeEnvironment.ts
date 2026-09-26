@@ -99,6 +99,10 @@ export function runtimeVerifyArgs(): string[] {
     [
       "import fastapi, uvicorn, duckdb, polars, pandas",
       "import datapass_runtime",
+      // The Lakehouse Lab's DuckLake missions: install DuckDB's ducklake extension now, while Setup may use the
+      // network; offline it says so and Setup still succeeds (the lab only ever LOADs it afterwards).
+      "from lakehouselab.extensions import setup_install",
+      "setup_install()",
       "print('Datapass runtime environment ready')"
     ].join("; ")
   ];

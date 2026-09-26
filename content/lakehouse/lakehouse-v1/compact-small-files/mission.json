@@ -1,0 +1,96 @@
+{
+  "id": "compact-small-files",
+  "version": "1",
+  "lab": "lakehouse",
+  "title": "Compact the small files",
+  "level": "intermediate",
+  "estimate": "20 min",
+  "skills": [
+    "small files",
+    "compaction",
+    "Parquet",
+    "Polars"
+  ],
+  "ticket": {
+    "from": "Priya (platform)",
+    "subject": "210 tiny files for one week of events",
+    "body": [
+      "The click-stream job writes a small Parquet file per day partition at every micro-batch: `lake/events/`",
+      "now holds 210 files of a few kilobytes each, and every reader pays for opening them all.",
+      "",
+      "Please write a compacted copy to `lake/events_compacted/`: still partitioned by `event_date`, **one file",
+      "per day**, every event kept. Leave `lake/events/` as it is: the job reads it until we switch over.",
+      "",
+      "The Storage tab shows file counts and sizes per folder, measured on disk."
+    ]
+  },
+  "engines": [
+    "duckdb",
+    "polars"
+  ],
+  "files": {
+    "duckdb": "compact.sql",
+    "polars": "compact.py"
+  },
+  "fixture": {
+    "sql": [
+      "fixtures/events.sql"
+    ]
+  },
+  "acceptance": [
+    {
+      "id": "layout",
+      "text": "lake/events_compacted/ is partitioned by event_date, one Parquet file per day",
+      "checks": [
+        {
+          "kind": "layout",
+          "path": "lake/events_compacted",
+          "partitions": [
+            "event_date"
+          ],
+          "count": 7,
+          "fail": "The layout is not event_date=\u2026."
+        },
+        {
+          "kind": "files",
+          "path": "lake/events_compacted",
+          "count": 7,
+          "fail": "Not one file per day:"
+        }
+      ]
+    },
+    {
+      "id": "rows",
+      "text": "Every event is kept",
+      "checks": [
+        {
+          "kind": "sql",
+          "query": "SELECT count(*), sum(value_cents), count(DISTINCT event_id), count(DISTINCT event_date) FROM read_parquet('lake/events_compacted/**/*.parquet', hive_partitioning = true)",
+          "expected_query": "SELECT count(*), sum(value_cents), count(DISTINCT event_id), count(DISTINCT event_date) FROM read_parquet('lake/events/**/*.parquet', hive_partitioning = true)",
+          "fail": "Events are missing or changed."
+        }
+      ]
+    },
+    {
+      "id": "source",
+      "text": "lake/events/ is left as it was",
+      "checks": [
+        {
+          "kind": "untouched",
+          "path": "lake/events",
+          "count": 210,
+          "fail": "The source folder changed:"
+        }
+      ]
+    }
+  ],
+  "hints": [
+    "Read every small file at once: `read_parquet('lake/events/**/*.parquet', hive_partitioning = true)`.",
+    "Write it back with `PARTITION_BY (event_date)`: DuckDB writes one file per partition for a small table.",
+    "Polars: `pl.scan_parquet(\"lake/events/**/*.parquet\", hive_partitioning=True).collect().write_parquet(\"lake/events_compacted\", partition_by=\"event_date\")`."
+  ],
+  "concepts": [
+    "small-files",
+    "hive"
+  ]
+}

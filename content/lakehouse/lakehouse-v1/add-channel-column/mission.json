@@ -1,0 +1,104 @@
+{
+  "id": "add-channel-column",
+  "version": "1",
+  "lab": "lakehouse",
+  "title": "Evolve the orders table",
+  "level": "intermediate",
+  "estimate": "20 min",
+  "skills": [
+    "DuckLake",
+    "schema evolution",
+    "ALTER TABLE"
+  ],
+  "ticket": {
+    "from": "Sofia (e-commerce)",
+    "subject": "April orders come with a channel",
+    "body": [
+      "From April the shop exports a new column, `channel` (web, store or app): see `data/orders_april.csv`.",
+      "Please add it to the DuckLake table `orders` and load April. March orders predate the field: leave their",
+      "channel empty (NULL).",
+      "",
+      "Evolve the table in place: no rewrite, no new table, and last month's snapshot must still read as it was.",
+      "Work in `evolve.sql` (DuckDB SQL on the lake)."
+    ]
+  },
+  "engines": [
+    "duckdb"
+  ],
+  "ducklake": true,
+  "files": {
+    "duckdb": "evolve.sql"
+  },
+  "fixture": {
+    "sql": [
+      "fixtures/orders.sql"
+    ],
+    "snapshots": 2
+  },
+  "acceptance": [
+    {
+      "id": "column",
+      "text": "orders has a channel column of type VARCHAR",
+      "checks": [
+        {
+          "kind": "sql",
+          "query": "SELECT data_type FROM information_schema.columns WHERE table_catalog = 'lake' AND table_name = 'orders' AND column_name = 'channel'",
+          "expected": [
+            [
+              "VARCHAR"
+            ]
+          ],
+          "fail": "No channel VARCHAR column."
+        }
+      ]
+    },
+    {
+      "id": "april",
+      "text": "April is loaded with its channel; March rows have none",
+      "checks": [
+        {
+          "kind": "sql",
+          "query": "SELECT order_id, order_date, amount, channel FROM orders WHERE order_date >= DATE '2025-04-01'",
+          "expected_query": "SELECT order_id, CAST(order_date AS DATE), amount, channel FROM read_csv('data/orders_april.csv')",
+          "fail": "April's rows are not all there as exported."
+        },
+        {
+          "kind": "sql",
+          "query": "SELECT count(*), count(channel) FROM orders",
+          "expected": [
+            [
+              540,
+              240
+            ]
+          ],
+          "fail": "Rows or channels are off (all orders, orders with a channel):"
+        }
+      ]
+    },
+    {
+      "id": "in-place",
+      "text": "The table evolved in place; March's snapshot still reads",
+      "checks": [
+        {
+          "kind": "snapshots",
+          "table": "orders",
+          "min_new": 1,
+          "readable": [
+            1
+          ],
+          "not_recreated": true
+        }
+      ]
+    }
+  ],
+  "hints": [
+    "`ALTER TABLE orders ADD COLUMN channel VARCHAR` is a metadata change in DuckLake: no Parquet file is rewritten.",
+    "`INSERT INTO orders BY NAME SELECT * FROM read_csv('data/orders_april.csv')` matches the columns by name.",
+    "Old files have no channel column: DuckLake reads NULL for them."
+  ],
+  "concepts": [
+    "ducklake",
+    "schema-evolution",
+    "delta-iceberg"
+  ]
+}

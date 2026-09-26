@@ -9,6 +9,43 @@ Add a tranche as a new `## YYYY-MM-DD · Title` section at the top, under this p
 sections, and refer to another section by its heading, not by a position. Keep the "Checked" and "Not checked"
 notes: they say what was really run.
 
+## 2026-09-26 · Lakehouse Lab: Parquet, partitions, compaction and DuckLake (V3-3)
+
+A twelfth Workbench module, the Lakehouse Lab (`lakehouse`, command **Datapass: Open Lakehouse Lab**), teaches storage
+layout on real local files. Julian's decisions (2026-09-26): Parquet and DuckLake, plus Delta only through what DuckDB
+gives (its `delta` extension), no `deltalake`, `pyiceberg` or other new dependency; Iceberg is explained in the lab's
+Concepts, labelled "not handled here".
+
+- `runtime/lakehouselab` (README there): its own mission model, fixture builder, checker and routes
+  (`/api/local/lakehouse/*`, one `include_router` line in `main.py`). The learner's SQL runs on DuckDB in a child
+  process bounded to `lakehouse/<id>/`; the Polars file runs as trusted local Python only. DuckLake missions attach
+  the mission's own lake (`lake/catalog.ducklake`, Parquet under `lake/data/`).
+- Delta: DuckDB's `delta` extension reads Delta tables (any version) and appends to them, but cannot create one. The
+  seventh mission (append April to a shared Delta table as one commit, older versions unchanged) ships its
+  `_delta_log` and builds the Parquet files it lists; UPDATE / DELETE / MERGE / OPTIMIZE on Delta are not attempted.
+- The `ducklake` and `delta` extensions are installed by **Setup runtime** (`runtimeVerifyArgs` calls
+  `lakehouselab.extensions.setup_install()`); offline, Setup says so and succeeds, the Parquet missions work and the
+  DuckLake missions are refused with that explanation. The lab only LOADs it afterwards.
+- `content/lakehouse/lakehouse-v1`: seven missions: the Delta one above, and partition the sales by month (DuckDB or Polars), make the March
+  report read one month (pruning read from `EXPLAIN ANALYZE`), compact 210 small files (DuckDB or Polars), undo a bad
+  update with time travel, evolve a table's schema, apply supplier changes in one commit (DuckLake's MERGE takes a
+  single UPDATE/DELETE action, so the reference is a DELETE and a MERGE in one transaction).
+- Kept apart from the shared missionlab on purpose: a pack under `content/missions/` would break its loader and its
+  model, checker and host service were being changed by the Infra Lab work at the same time. The host reuses the
+  mission views and progress helpers of `platform/missions.ts` and `MissionsPanel` (two optional props: `send`,
+  `extra`); progress is in `.datapass/lakehouse/progress.json`, the attic in `.datapass/lakehouse/attic/`.
+- SparkLab is not an engine here: its interpreter works on catalog tables, and these missions are about files.
+
+Checked: `npm run compile`, `npm test`, compileall, `runtime_smoke.py`, `projects_smoke.py`,
+`infra_missions_smoke.py`, `terminal_missions_smoke.py`, `exercise_packs_smoke.py`, `lakehouse_smoke.py` (30 plays:
+8 references on DuckDB and Polars pass, 6 untouched starters and 22 mutants fail, the Run bounds refuse INSTALL,
+ATTACH, SET, LOAD and a file outside the folder; about 5 min on Windows), `npm run package && npm run test:ui` with a
+Lakehouse step (mission started, SQL run from the lab, Check my work passes) in a real VS Code.
+
+Not checked: `npm run test:host` and `missions_smoke.py` locally (CI runs them; the new host test builds, runs and
+checks `partition-sales`); the Polars Run button by hand in VS Code (the smoke runs every Polars reference through
+the same route).
+
 ## 2026-09-26 · Today home and navigation by families
 
 The flat tab bar of eleven modules became two rows: "Today" and the two families ("Learn", "Real work"), then the

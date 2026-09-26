@@ -1,0 +1,14 @@
+{
+  "id": "lakehouse-v1",
+  "title": "Lakehouse storage",
+  "lab": "lakehouse",
+  "missions": [
+    "partition-sales",
+    "prune-march-report",
+    "compact-small-files",
+    "undo-bad-update",
+    "add-channel-column",
+    "merge-product-changes",
+    "append-delta-orders"
+  ]
+}
