@@ -35,6 +35,7 @@ Checked:
 
 Not checked: the two missions played by hand in a real VS Code window (the Missions tab lists them from the pack; no
 UI code changed).
+
 ## 2026-09-26 · Spark Lab: Polars as the lightweight alternative to PySpark
 
 Branch `feature/spark-lab-polars`. Julian's direction: Polars available in the Spark Lab next to PySpark.
