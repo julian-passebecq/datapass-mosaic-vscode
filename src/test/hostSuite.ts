@@ -283,16 +283,16 @@ export async function run(): Promise<void> {
       assert.ok(state.catalog?.some(asset => asset.name === "source.orders"));
     }],
     ["Mosaic SQL scratch executes on real DuckDB", async () => {
-      await runtime!.runSql(scratchSpec("sql").content);
+      await runtime!.labs.mosaic.runSql(scratchSpec("sql").content);
       const run = runtime!.snapshot().lastRun;
       assert.equal(run?.status, "success", run?.error?.message);
       assert.deepEqual(run?.result?.rows, [{ datapass_ready: 1 }]);
     }],
     ["Python is refused while untrusted", async () => {
-      await assert.rejects(runtime!.runPython(scratchSpec("python").content), /Trusted local Python is disabled/);
+      await assert.rejects(runtime!.labs.mosaic.runPython(scratchSpec("python").content), /Trusted local Python is disabled/);
     }],
     ["SparkLab scratch runs bounded; unsafe source is rejected", async () => {
-      await runtime!.runSparkLab(scratchSpec("sparklab").content, "notebooks/sparklab.py", "generic_8x8", true);
+      await runtime!.labs.sparklab.runSparkLab(scratchSpec("sparklab").content, "notebooks/sparklab.py", "generic_8x8", true);
       const ok = runtime!.snapshot().sparkRun;
       assert.equal(ok?.status, "success", ok?.error?.message);
       assert.deepEqual(ok?.result?.columns, ["customer_id", "revenue"]);
@@ -300,14 +300,14 @@ export async function run(): Promise<void> {
       assert.ok(ok?.simulation?.stages.length);
       assert.equal(ok?.simulation?.credits?.fictional, true);
 
-      await runtime!.runSparkLab("import os\nos.system('echo unsafe')\n", "bad.py", "generic_8x8", true);
+      await runtime!.labs.sparklab.runSparkLab("import os\nos.system('echo unsafe')\n", "bad.py", "generic_8x8", true);
       const rejected = runtime!.snapshot().sparkRun;
       assert.equal(rejected?.status, "error");
       assert.equal(rejected?.error?.type, "SparkLabSyntaxError");
     }],
     ["Airflow Lab simulates the starter DAG without executing it", async () => {
       const clock = { now: "2026-03-05T12:00", tasks: {} };
-      await runtime!.simulateAirflow(airflowStarter(), "airflow/dags/retail_daily.py", clock);
+      await runtime!.labs.airflow.simulateAirflow(airflowStarter(), "airflow/dags/retail_daily.py", clock);
       const lab = runtime!.snapshot().airflowRun!;
       assert.equal(lab.status, "simulated", lab.error?.message);
       assert.equal(lab.dag?.dagId, "retail_daily");
@@ -321,7 +321,7 @@ export async function run(): Promise<void> {
       });
       assert.ok(lab.runs[0].events.length > 0 && lab.runs[0].rendered.some(row => row.value.includes("2026-03-05")));
 
-      await runtime!.simulateAirflow(airflowStarter(), "airflow/dags/retail_daily.py", {
+      await runtime!.labs.airflow.simulateAirflow(airflowStarter(), "airflow/dags/retail_daily.py", {
         ...clock, tasks: { incremental_load: { behavior: "fail_always" } }
       });
       const failed = runtime!.snapshot().airflowRun!;
@@ -331,7 +331,7 @@ export async function run(): Promise<void> {
       assert.equal(failedStates.publish, "upstream_failed");
       assert.equal(failedStates.cleanup, "success", "all_done cleanup still runs");
 
-      await runtime!.simulateAirflow("from airflow.sdk import DAG\nimport os\n", "broken.py", clock);
+      await runtime!.labs.airflow.simulateAirflow("from airflow.sdk import DAG\nimport os\n", "broken.py", clock);
       const broken = runtime!.snapshot().airflowRun!;
       assert.equal(broken.status, "invalid");
       assert.equal(broken.error?.line, 2);
@@ -340,7 +340,7 @@ export async function run(): Promise<void> {
       const scenario = { dataPlane: "local" as const, parameters: { run_date: "2026-03-06" }, activities: {}, triggerType: "Manual" as const };
       for (const [flavor, name] of [["fabric", "pl_retail_daily"], ["adf", "pl_retail_daily_adf"]] as const) {
         const { files, warnings } = await collectFactoryFiles(flavor);
-        await runtime!.simulateFactory({ flavor, name, path: name, document: files.pipelines[name], files, scenario, warnings });
+        await runtime!.labs.fabric.simulateFactory({ flavor, name, path: name, document: files.pipelines[name], files, scenario, warnings });
         const lab = runtime!.snapshot().factoryRun!;
         assert.equal(lab.status, "simulated", JSON.stringify(lab.issues));
         assert.equal(lab.run?.status, "Succeeded", lab.run?.explanation);
@@ -351,7 +351,7 @@ export async function run(): Promise<void> {
       assert.ok(runtime!.snapshot().catalog?.some(item => item.name === "silver.orders"));
 
       const { files } = await collectFactoryFiles("fabric");
-      await runtime!.simulateFactory({
+      await runtime!.labs.fabric.simulateFactory({
         flavor: "fabric", name: "pl_retail_daily", path: "p", document: files.pipelines.pl_retail_daily, files, warnings: [],
         scenario: { ...scenario, dataPlane: "simulated", activities: { "Silver orders": { behavior: "fail_always" } } }
       });
@@ -361,7 +361,7 @@ export async function run(): Promise<void> {
       assert.ok(failed.run?.activityRuns.some(run => run.name === "Email on notebook failure" && run.status === "Succeeded"));
       assert.deepEqual(failed.tablesChanged, []);
 
-      await runtime!.simulateFactory({
+      await runtime!.labs.fabric.simulateFactory({
         flavor: "adf", name: "pl_retail_daily", path: "p", document: files.pipelines.pl_retail_daily, files, warnings: [], scenario
       });
       const wrongProduct = runtime!.snapshot().factoryRun!;
@@ -372,7 +372,7 @@ export async function run(): Promise<void> {
       const script = async (name: string) => (await readPoolScript(`factory/sql/pool/${name}.sql`)).text!;
       const errors = (lab: { statements: { status: string; message: string }[] }) =>
         JSON.stringify(lab.statements.filter(statement => statement.status === "error"));
-      await runtime!.runSqlPool({ flavor: "synapse", script: await script("01_star_schema"), scale: 1_000_000, source: "01" });
+      await runtime!.labs.fabric.runSqlPool({ flavor: "synapse", script: await script("01_star_schema"), scale: 1_000_000, source: "01" });
       const star = runtime!.snapshot().sqlpoolRun!;
       assert.equal(star.status, "ok", errors(star));
       assert.equal(star.statements.length, 9);
@@ -386,25 +386,25 @@ export async function run(): Promise<void> {
       assert.equal(tables.get("dbo.fact_orders")?.distributionStats?.shares.length, 60);
       assert.ok(runtime!.snapshot().catalog?.some(item => item.name === "warehouse.fact_orders"));
 
-      await runtime!.runSqlPool({ flavor: "synapse", script: await script("02_partitions"), scale: 1_000_000, source: "02" });
+      await runtime!.labs.fabric.runSqlPool({ flavor: "synapse", script: await script("02_partitions"), scale: 1_000_000, source: "02" });
       const partitioned = runtime!.snapshot().sqlpoolRun!;
       assert.equal(partitioned.status, "ok", errors(partitioned));
       const scans = partitioned.statements.filter(statement => statement.kind === "SELECT").map(s => s.plan?.scans[0]?.partitionsScanned);
       assert.deepEqual(scans.slice(0, 2), [12, 1], "a function around the partition column scans every partition");
       assert.equal(partitioned.tables.find(table => table.name === "dbo.fact_sales_2026")?.partitions.length, 12);
 
-      await runtime!.runSqlPool({ flavor: "synapse", script: await script("03_procedures"), scale: 1_000_000, source: "03" });
+      await runtime!.labs.fabric.runSqlPool({ flavor: "synapse", script: await script("03_procedures"), scale: 1_000_000, source: "03" });
       const procedures = runtime!.snapshot().sqlpoolRun!;
       assert.equal(procedures.status, "ok", errors(procedures));
       assert.equal(procedures.statements.at(-1)?.message, "Top segment: Corporate");
 
-      await runtime!.runSqlPool({ flavor: "fabric", script: await script("04_fabric_warehouse"), scale: 1_000_000, source: "04" });
+      await runtime!.labs.fabric.runSqlPool({ flavor: "fabric", script: await script("04_fabric_warehouse"), scale: 1_000_000, source: "04" });
       const fabric = runtime!.snapshot().sqlpoolRun!;
       assert.equal(fabric.status, "ok", errors(fabric));
       assert.equal(fabric.flavorLabel, "Microsoft Fabric Data Warehouse");
       assert.match(fabric.tables.find(table => table.name === "dbo.fact_orders_fw")?.label ?? "", /managed layout/);
 
-      await runtime!.runSqlPool({ flavor: "fabric", script: await script("01_star_schema"), scale: 1_000_000, source: "01" });
+      await runtime!.labs.fabric.runSqlPool({ flavor: "fabric", script: await script("01_star_schema"), scale: 1_000_000, source: "01" });
       const refused = runtime!.snapshot().sqlpoolRun!;
       assert.equal(refused.status, "error");
       assert.match(refused.statements.at(-1)!.message, /takes no DISTRIBUTION/);
@@ -416,24 +416,24 @@ export async function run(): Promise<void> {
       assert.ok(files.grants?.includes("sp-ml-training") && files.compute && files.unity_catalog);
       assert.ok(Object.keys(files.notebooks).includes("databricks:/Shared/ml/nb_train_power_model"));
       const scenario = { dataPlane: "local" as const, jobParameters: {}, tasks: {}, triggerType: "one_time" as const, clusterStates: {} };
-      await runtime!.simulateDatabricks({ name: "retail_daily_dbx", path: "p", document: jobs.retail_daily_dbx, files, scenario, warnings });
+      await runtime!.labs.fabric.simulateDatabricks({ name: "retail_daily_dbx", path: "p", document: jobs.retail_daily_dbx, files, scenario, warnings });
       const retail = runtime!.snapshot().databricksRun!;
       assert.equal(retail.run?.statusLabel, "Succeeded", JSON.stringify(retail.issues.concat(retail.run?.tasks.map(t => ({ path: t.key, message: t.error })) ?? [])));
       assert.equal(retail.run?.tasks.find(t => t.key === "alert_on_failure")?.state, "excluded");
       assert.ok(retail.tablesChanged.some(table => table.name === "gold.revenue_by_segment"));
-      await runtime!.simulateDatabricks({ name: "power_model_training", path: "p", document: jobs.power_model_training, files, scenario, warnings });
+      await runtime!.labs.fabric.simulateDatabricks({ name: "power_model_training", path: "p", document: jobs.power_model_training, files, scenario, warnings });
       const power = runtime!.snapshot().databricksRun!;
       assert.equal(power.run?.statusLabel, "Succeeded", JSON.stringify(power.run?.tasks.map(t => [t.key, t.error])));
       assert.equal(power.run?.principal, "sp-ml-training");
       const state = runtime!.snapshot().databricksState!;
       assert.equal(state.mlflow.models[0]?.name, "main.ml.power_model");
       assert.equal(state.unity.owners["main.ml.power_model"], "sp-ml-training");
-      await runtime!.simulateDatabricks({ name: "retail_daily_dbx", path: "p", document: jobs.retail_daily_dbx, files, warnings,
+      await runtime!.labs.fabric.simulateDatabricks({ name: "retail_daily_dbx", path: "p", document: jobs.retail_daily_dbx, files, warnings,
         scenario: { ...scenario, dataPlane: "simulated", tasks: { ingest_orders: { behavior: "fail_always" } } } });
       const failed = runtime!.snapshot().databricksRun!;
       assert.equal(failed.run?.statusLabel, "Failed");
       assert.equal(failed.run?.tasks.find(t => t.key === "alert_on_failure")?.state, "success");
-      await runtime!.exploreDatabricks(files);
+      await runtime!.labs.fabric.exploreDatabricks(files);
       assert.equal(runtime!.snapshot().databricksState?.unity.catalog, "main");
     }],
     ["BI Lab builds the sample warehouse, traces its lineage and checks its star model", async () => {
@@ -447,7 +447,7 @@ export async function run(): Promise<void> {
       const { scripts, warnings } = await collectBiScripts();
       assert.deepEqual(warnings, []);
       const model = await readBiModel();
-      await runtime!.runBiLab({ mode: "build", source: "bi/warehouse", scripts, model: model.model, warnings });
+      await runtime!.labs.bi.runBiLab({ mode: "build", source: "bi/warehouse", scripts, model: model.model, warnings });
       const built = runtime!.snapshot().biRun!;
       assert.equal(built.status, "ok", JSON.stringify(built.stopped));
       assert.equal(built.statements.length, 14);
@@ -464,7 +464,7 @@ export async function run(): Promise<void> {
       // A broken model is reported, not run: the scripts are only analyzed this time.
       const broken = JSON.parse(JSON.stringify(model.model)) as { relationships: { active: boolean }[] };
       broken.relationships[1].active = true;
-      await runtime!.runBiLab({ mode: "analyze", source: "analysis only", scripts, model: broken, warnings: [] });
+      await runtime!.labs.bi.runBiLab({ mode: "analyze", source: "analysis only", scripts, model: broken, warnings: [] });
       const analyzed = runtime!.snapshot().biRun!;
       assert.equal(analyzed.ran, false);
       assert.deepEqual(analyzed.statements, []);
@@ -475,7 +475,7 @@ export async function run(): Promise<void> {
       assert.deepEqual(warnings, []);
       assert.ok("dbt_project.yml" in files && "models/marts/fct_sales.sql" in files && !("README.md" in files));
       assert.equal((await loadBiState()).dbtExists, true);
-      await runtime!.runBiDbt({ command: "build", select: [], selectText: "", fullRefresh: false, files, warnings });
+      await runtime!.labs.bi.runBiDbt({ command: "build", select: [], selectText: "", fullRefresh: false, files, warnings });
       const built = runtime!.snapshot().biDbtRun!;
       assert.equal(built.status, "success", JSON.stringify(built.results.filter(r => r.status === "error")));
       assert.equal(built.counts?.success, 12);
@@ -484,10 +484,10 @@ export async function run(): Promise<void> {
       assert.ok(runtime!.snapshot().catalog?.some(item => item.name === "warehouse.fct_sales" && item.row_count === 16));
       const lineage = built.lineage?.columns.find(c => c.table === "warehouse.fct_sales" && c.column === "cost_amount");
       assert.deepEqual(lineage?.origins, ["source.erp_products.unit_cost", "source.shop_order_lines.quantity"]);
-      await runtime!.runBiDbt({ command: "build", select: ["+fct_returns"], selectText: "+fct_returns", fullRefresh: false, files, warnings });
+      await runtime!.labs.bi.runBiDbt({ command: "build", select: ["+fct_returns"], selectText: "+fct_returns", fullRefresh: false, files, warnings });
       assert.ok(runtime!.snapshot().biDbtRun!.results.every(r => r.name !== "dim_date" || r.status === "success"));
       const broken = { ...files, "models/marts/fct_sales.sql": files["models/marts/fct_sales.sql"].replace("-- depends_on: {{ ref('dim_date') }}", "") };
-      await runtime!.runBiDbt({ command: "run", select: ["fct_sales"], selectText: "fct_sales", fullRefresh: false, files: broken, warnings });
+      await runtime!.labs.bi.runBiDbt({ command: "run", select: ["fct_sales"], selectText: "fct_sales", fullRefresh: false, files: broken, warnings });
       const refused = runtime!.snapshot().biDbtRun!.results[0];
       assert.equal(refused.status, "error");
       assert.match(refused.message, /depends_on/);
@@ -495,7 +495,7 @@ export async function run(): Promise<void> {
     ["the runtime lends the catalog file to another writer and takes it back", async () => {
       assert.equal(await runtime!.releaseCatalog("dbt run --select e2e"), true);
       assert.equal(runtime!.snapshot().catalogLease?.holder, "dbt run --select e2e");
-      await assert.rejects(runtime!.runSql("SELECT 1"), /409|lent to/);
+      await assert.rejects(runtime!.labs.mosaic.runSql("SELECT 1"), /409|lent to/);
       const database = path.join(root.fsPath, ".datapass", "data", "workspace.duckdb");
       const writer = spawn(python!, ["-c", [
         "import duckdb, sys",
@@ -762,7 +762,7 @@ export async function run(): Promise<void> {
         const terminal = await lab.open(relative, id);
         assert.match(terminal.name, /Infra Lab \(simulated\)/);
         assert.equal(lab.folder, relative);
-        const journal = async () => ((await runtime!.infraState(relative)) as { journal: unknown[] }).journal.length;
+        const journal = async () => ((await runtime!.labs.infra.infraState(relative)) as { journal: unknown[] }).journal.length;
         const lines = (await vscode.workspace.fs.readFile(vscode.Uri.joinPath(extension.extensionUri, "content", "missions", "infra-v1", id, "mission.json")))
           .toString();
         const reference = (JSON.parse(lines) as { reference: { infra: string }[] }).reference.map(step => step.infra);
@@ -801,7 +801,7 @@ export async function run(): Promise<void> {
         assert.ok(uri && uri.path.endsWith("/.datapass/scratch/warehouse.fct_sales.sql"));
         const text = new TextDecoder().decode(await vscode.workspace.fs.readFile(uri!));
         assert.ok(text.endsWith("SELECT * FROM warehouse.fct_sales LIMIT 100;\n"), text);
-        await runtime!.runSql(text);
+        await runtime!.labs.mosaic.runSql(text);
         assert.equal(runtime!.snapshot().lastRun?.status, "success", runtime!.snapshot().lastRun?.error?.message);
       } finally {
         tree.dispose();
@@ -812,7 +812,7 @@ export async function run(): Promise<void> {
       const exercise = catalog.find(item => item.id === "demo-sum");
       assert.ok(exercise, "demo-sum exercise missing from catalog");
       for (const mode of ["run", "submit"] as const) {
-        await runtime!.gradeExercise(exercise.key, {
+        await runtime!.labs.practice.gradeExercise(exercise.key, {
           exercise_id: exercise.id,
           exercise_version: exercise.version,
           language: exercise.language,
@@ -826,7 +826,7 @@ export async function run(): Promise<void> {
         assert.equal(result?.mode, mode);
         assert.equal(result?.status, "passed", JSON.stringify(result?.checks));
       }
-      await runtime!.gradeExercise(exercise.key, {
+      await runtime!.labs.practice.gradeExercise(exercise.key, {
         exercise_id: exercise.id,
         exercise_version: exercise.version,
         language: exercise.language,
@@ -862,7 +862,7 @@ export async function run(): Promise<void> {
       const leftJoin = lab.find(item => item.id === "sql-lab-left-preserve-customers")!;
       assert.deepEqual(leftJoin.dataContext.map(table => table.name), ["customers", "order_detail"]);
       const submit = async (exercise: typeof leftJoin, code: string, mode: "run" | "submit" = "submit") => {
-        await runtime!.gradeExercise(exercise.key, {
+        await runtime!.labs.practice.gradeExercise(exercise.key, {
           exercise_id: exercise.id, exercise_version: exercise.version, language: exercise.language,
           code, mode, notebook_id: "e2e-lab", cell_id: "solution", source_revision: 1
         });
@@ -1064,7 +1064,7 @@ export async function run(): Promise<void> {
       assert.equal(pipeline.compileStatus, "valid", JSON.stringify(pipeline.diagnostics));
       assert.equal(pipeline.graph.nodes.length, 3);
       assert.ok(pipeline.graph.nodes.every(node => node.truth === "Real local execution"));
-      await runtime!.runPipeline(pipelineStarter());
+      await runtime!.labs.pipeline.runPipeline(pipelineStarter());
       const run = runtime!.snapshot().pipelineRun;
       assert.equal(run?.status, "success", JSON.stringify(run?.tasks));
       assert.deepEqual(run?.tasks.map(task => task.status), ["success", "success", "success"]);
@@ -1072,14 +1072,14 @@ export async function run(): Promise<void> {
     ["retail demo executes the medallion flow locally", async () => {
       await vscode.workspace.fs.createDirectory(vscode.Uri.joinPath(root, "datasets"));
       await write("datasets/retail_orders.csv", retailOrdersCsv());
-      await runtime!.runRetailDemo("datasets/retail_orders.csv");
+      await runtime!.labs.fabric.runRetailDemo("datasets/retail_orders.csv");
       const demo = runtime!.snapshot().retailDemo;
       assert.equal(demo?.status, "success");
       assert.ok(demo && demo.stages.length >= 3);
       assert.ok(demo && demo.preview.rows.length > 0);
 
       // The generated retail SQL notebook then runs through Mosaic on bronze.orders.
-      await runtime!.runSql(retailSqlStarter("datasets/retail_orders.csv"));
+      await runtime!.labs.mosaic.runSql(retailSqlStarter("datasets/retail_orders.csv"));
       const sql = runtime!.snapshot().lastRun;
       assert.equal(sql?.status, "success", sql?.error?.message);
       assert.deepEqual(sql?.result?.columns, ["customer_id", "orders", "revenue"]);
@@ -1091,36 +1091,36 @@ export async function run(): Promise<void> {
       const existing = (runtime!.snapshot().catalog ?? []).map(asset => asset.name);
       const asset = suggestBronzeAsset("City Visits.csv", existing);
       assert.equal(asset, "bronze.city_visits");
-      await runtime!.importCsv(asset, text, "City Visits.csv");
+      await runtime!.labs.mosaic.importCsv(asset, text, "City Visits.csv");
       const imported = runtime!.snapshot().csvImport;
       assert.equal(imported?.asset, asset);
       assert.equal(imported?.rows_imported, 2);
       assert.deepEqual(imported?.schema.map(column => column.type), ["VARCHAR", "VARCHAR"]);
       assert.ok(runtime!.snapshot().catalog?.some(item => item.name === asset && item.row_count === 2));
       assert.match(validateBronzeAsset(asset, runtime!.snapshot().catalog!.map(item => item.name)) ?? "", /already exists/);
-      await assert.rejects(runtime!.importCsv(asset, "city\nParis\n", "again.csv"), /CSV import refused: .*already exists/);
+      await assert.rejects(runtime!.labs.mosaic.importCsv(asset, "city\nParis\n", "again.csv"), /CSV import refused: .*already exists/);
 
-      await runtime!.runSql(`SELECT SUM(CAST(visits AS INTEGER)) AS visits FROM ${asset}`);
+      await runtime!.labs.mosaic.runSql(`SELECT SUM(CAST(visits AS INTEGER)) AS visits FROM ${asset}`);
       const sum = runtime!.snapshot();
       assert.deepEqual(sum.lastRun?.result?.rows, [{ visits: 8 }], sum.lastRun?.error?.message);
       assert.equal(sum.csvImport, undefined, "a newer SQL run replaces the import preview");
     }],
     ["Mosaic data tools: typed JSON import, SUMMARIZE profile, EXPLAIN ANALYZE", async () => {
       const json = JSON.stringify([{ sku: "A1", qty: 2, price: 9.5 }, { sku: "B2", qty: 5, price: 3.25 }]);
-      const imported = await runtime!.importFile("bronze.skus_e2e", "json", Buffer.from(json).toString("base64"), "skus.json");
+      const imported = await runtime!.labs.mosaic.importFile("bronze.skus_e2e", "json", Buffer.from(json).toString("base64"), "skus.json");
       assert.equal(imported.rows_imported, 2);
       assert.equal(imported.format, "json");
       assert.ok(imported.schema.some(column => column.name === "qty" && /INT/.test(column.type)), JSON.stringify(imported.schema));
-      await assert.rejects(runtime!.importFile("bronze.skus_e2e", "json", Buffer.from(json).toString("base64"), "again.json"),
+      await assert.rejects(runtime!.labs.mosaic.importFile("bronze.skus_e2e", "json", Buffer.from(json).toString("base64"), "again.json"),
         /JSON import refused: .*already exists/);
-      await runtime!.profileTable("bronze.skus_e2e");
+      await runtime!.labs.mosaic.profileTable("bronze.skus_e2e");
       const profile = runtime!.snapshot().tableProfile!;
       assert.equal(profile.asset, "bronze.skus_e2e");
       assert.deepEqual(profile.result.rows.map(row => row.column_name), ["sku", "qty", "price"]);
-      const plan = await runtime!.explainQuery("SELECT sku, SUM(qty * price) AS revenue FROM bronze.skus_e2e GROUP BY sku", "e2e.sql");
+      const plan = await runtime!.labs.mosaic.explainQuery("SELECT sku, SUM(qty * price) AS revenue FROM bronze.skus_e2e GROUP BY sku", "e2e.sql");
       assert.match(plan.plan, /HASH_GROUP_BY/);
       assert.equal(runtime!.snapshot().queryPlan?.source, "e2e.sql");
-      await assert.rejects(runtime!.explainQuery("DROP TABLE bronze.skus_e2e"), /EXPLAIN ANALYZE refused/);
+      await assert.rejects(runtime!.labs.mosaic.explainQuery("DROP TABLE bronze.skus_e2e"), /EXPLAIN ANALYZE refused/);
     }],
     ["Mosaic SQL dialects: the status bar command writes the header; T-SQL is translated, run and explained", async () => {
       const file = vscode.Uri.joinPath(root, "dialect_e2e.sql");
@@ -1133,15 +1133,15 @@ export async function run(): Promise<void> {
       await document.save();
       const { dialect } = runDialect(document.getText());
       assert.equal(dialect, "tsql");
-      const run = await runtime!.runSql(document.getText(), dialect);
+      const run = await runtime!.labs.mosaic.runSql(document.getText(), dialect);
       assert.equal(run.status, "success", JSON.stringify(run.error));
       assert.deepEqual(run.result?.rows, [{ sku: "B2", half: 2 }], "5 / 2 is an integer division in T-SQL");
       assert.equal(run.dialect?.label, "T-SQL dialect translated to DuckDB, not SQL Server");
       assert.match(run.dialect!.sql, /qty \/\/ 2[\s\S]*LIMIT 1/);
-      const plan = await runtime!.explainQuery(document.getText(), "dialect_e2e.sql", dialect);
+      const plan = await runtime!.labs.mosaic.explainQuery(document.getText(), "dialect_e2e.sql", dialect);
       assert.equal(plan.dialect?.source, "tsql");
       assert.match(plan.truth, /not SQL Server/);
-      const refused = await runtime!.runSql("SELECT GETDATE() AS now", "tsql");
+      const refused = await runtime!.labs.mosaic.runSql("SELECT GETDATE() AS now", "tsql");
       assert.equal(refused.status, "error");
       assert.equal(refused.error?.type, "TsqlDialectError");
       await vscode.commands.executeCommand("datapass.sql.pickDialect", "duckdb");
@@ -1153,8 +1153,8 @@ export async function run(): Promise<void> {
       const retail = (await loadProjectContents(extension.extensionUri)).projects[0];
       const csv = new TextDecoder().decode(await vscode.workspace.fs.readFile(
         vscode.Uri.joinPath(root, "projects", "retail-fabric", "web_orders_2026-03-05.csv")));
-      await runtime!.importCsv("bronze.web_orders", decodeCsvBytes(new TextEncoder().encode(csv)), "web_orders_2026-03-05.csv");
-      const result = await runtime!.checkProject("retail-fabric", ["import-web-orders", "silver-web-orders"]) as {
+      await runtime!.labs.mosaic.importCsv("bronze.web_orders", decodeCsvBytes(new TextEncoder().encode(csv)), "web_orders_2026-03-05.csv");
+      const result = await runtime!.labs.projects.checkProject("retail-fabric", ["import-web-orders", "silver-web-orders"]) as {
         steps: { id: string; status: string; checks: { truth: string }[] }[];
       };
       assert.deepEqual(result.steps.map(step => [step.id, step.status]), [["import-web-orders", "passed"], ["silver-web-orders", "failed"]]);
@@ -1171,13 +1171,13 @@ export async function run(): Promise<void> {
 
       // The exercise step is verified by a real Submit, recorded by the runtime's journal.
       const exercise = (await loadExerciseCatalog(extension.extensionUri)).find(item => item.key === "de-patterns-v1/de-clean-imported-text/sql")!;
-      await runtime!.gradeExercise(exercise.key, {
+      await runtime!.labs.practice.gradeExercise(exercise.key, {
         exercise_id: exercise.id, exercise_version: exercise.version, language: exercise.language,
         code: exercise.starterSource, mode: "submit", notebook_id: "e2e-project", cell_id: "solution", source_revision: 0
       });
-      const starter = await runtime!.checkProject("retail-fabric", ["type-imported-text"]) as { steps: { status: string }[] };
+      const starter = await runtime!.labs.projects.checkProject("retail-fabric", ["type-imported-text"]) as { steps: { status: string }[] };
       assert.equal(starter.steps[0].status, "failed", "a failing submission does not verify the step");
-      await assert.rejects(runtime!.checkProject("nope", []), /Unknown project/);
+      await assert.rejects(runtime!.labs.projects.checkProject("nope", []), /Unknown project/);
     }],
     ["explicit trust restarts the runtime and runs Python for real", async () => {
       await runtime!.stopAndWait();
@@ -1185,7 +1185,7 @@ export async function run(): Promise<void> {
       const state = runtime!.snapshot();
       assert.equal(state.status, "running", state.detail);
       assert.equal(state.trustedPython, true);
-      await runtime!.runPython(scratchSpec("python").content);
+      await runtime!.labs.mosaic.runPython(scratchSpec("python").content);
       const run = runtime!.snapshot().lastRun;
       assert.equal(run?.status, "success", run?.error?.message);
       assert.match(run?.stdout ?? "", /\(3, 1\)/);
@@ -1199,7 +1199,7 @@ export async function run(): Promise<void> {
         vscode.Uri.joinPath(extension.extensionUri, "content", "exercise-packs", "zilla-v1", "grading.server.json")
       ))) as Record<string, { solutions: Record<string, string> }>;
       const submit = async (exercise: (typeof zilla)[number], code: string) => {
-        await runtime!.gradeExercise(exercise.key, {
+        await runtime!.labs.practice.gradeExercise(exercise.key, {
           exercise_id: exercise.id, exercise_version: exercise.version, language: exercise.language,
           code, mode: "submit", notebook_id: "e2e-zilla", cell_id: "solution", source_revision: 1
         });
@@ -1240,7 +1240,7 @@ export async function run(): Promise<void> {
       ))) as Record<string, { solutions: Record<string, string> }>;
       const submit = async (id: string, code: string) => {
         const exercise = engine.find(item => item.id === id)!;
-        await runtime!.gradeExercise(exercise.key, {
+        await runtime!.labs.practice.gradeExercise(exercise.key, {
           exercise_id: exercise.id, exercise_version: exercise.version, language: exercise.language,
           code, mode: "submit", notebook_id: "e2e-engine", cell_id: "solution", source_revision: 1
         });

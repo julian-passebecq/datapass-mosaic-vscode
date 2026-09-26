@@ -79,3 +79,22 @@ function collectJson<T>(
     }
   });
 }
+
+/** Pull FastAPI's `detail` out of a "Runtime request failed with HTTP 4xx: {...}" error. */
+export function runtimeErrorDetail(error: unknown): string {
+  const message = error instanceof Error ? error.message : String(error);
+  const body = /^Runtime request failed with HTTP \d+: (.*)$/s.exec(message)?.[1];
+  if (!body) return message;
+  try {
+    const detail = (JSON.parse(body) as { detail?: unknown }).detail;
+    if (typeof detail === "string") return detail;
+    if (Array.isArray(detail)) {
+      return detail
+        .map(item => (item && typeof item === "object" && "msg" in item ? String(item.msg) : String(item)))
+        .join("; ");
+    }
+  } catch {
+    // Not JSON (e.g. truncated); fall through to the raw message.
+  }
+  return message;
+}

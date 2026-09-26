@@ -139,7 +139,7 @@ class InfraPseudoterminal implements vscode.Pseudoterminal {
 
   private async send(line: string, answer?: string): Promise<void> {
     try {
-      const result = await this.runtime.infraCommand(this.folder, line, answer);
+      const result = await this.runtime.labs.infra.infraCommand(this.folder, line, answer);
       if (result.output) this.writer.fire(toTerminal(result.output.endsWith("\n") ? result.output : result.output + "\n"));
       if (result.prompt) {
         this.pending = line;

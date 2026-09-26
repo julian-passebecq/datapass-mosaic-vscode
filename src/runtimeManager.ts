@@ -3,22 +3,9 @@ import { existsSync } from "node:fs";
 import { homedir } from "node:os";
 import * as path from "node:path";
 import * as vscode from "vscode";
-import type {
-  AirflowScenarioInput,
-  BiDbtCommand,
-  BiRunMode,
-  CsvImportView,
-  FactoryFlavor,
-  FactoryScenarioInput,
-  LocalCellRunView,
-  QueryPlanView,
-  RuntimeEnvironmentView,
-  DatabricksScenarioInput,
-  RuntimeViewState,
-  SqlPoolFlavor,
-  TableProfileView
-} from "./webview/contracts";
-import type { TranslatedDialectId } from "./platform/sqlDialect";
+import type { RuntimeEnvironmentView, RuntimeViewState } from "./webview/contracts";
+import { createLabClients, type LabClients } from "./labs/clients";
+import type { RuntimeConnection } from "./labs/runtimeConnection";
 import { findFreePort, waitForDatapassHealth } from "./platform/runtimeEndpoint";
 import {
   describeSetupOutputLine,
@@ -39,15 +26,7 @@ import {
   writeRuntimeMarker
 } from "./platform/runtimeFingerprint";
 import { runtimeProcessEnv } from "./platform/pythonTrust";
-import { newRuntimeToken, requestGetJson, requestJson } from "./platform/runtimeClient";
-import { toSparkLabRunView } from "./platform/sparkLabRun";
-import { toAirflowLabView, toRuntimeScenario } from "./platform/airflowRun";
-import { toFactoryLabView, toRuntimeScenario as toFactoryScenario } from "./platform/factoryRun";
-import type { FactoryFilesPayload } from "./factoryState";
-import { toSqlPoolView } from "./platform/sqlpoolRun";
-import { toDatabricksLabView, toDatabricksScenario, toDatabricksStateView } from "./platform/databricksRun";
-import type { DatabricksFilesPayload } from "./factoryState";
-import { toBiDbtView, toBiLabView } from "./platform/biRun";
+import { newRuntimeToken, requestGetJson, requestJson, runtimeErrorDetail } from "./platform/runtimeClient";
 
 const HOST = "127.0.0.1";
 /** Catalog listing, including the first one that creates the workspace catalog. */
@@ -55,33 +34,6 @@ const CATALOG_TIMEOUT_MS = 30_000;
 // A cold start in a fresh managed venv (FastAPI, DuckDB, Polars, pandas; first
 // bytecode compilation; antivirus scanning on Windows) can exceed ten seconds.
 const STARTUP_TIMEOUT_MS = 90_000;
-
-/** One line of the Infra Lab's simulated shell, as the runtime answers it. */
-export interface InfraCommandResult {
-  output: string;
-  exit_code: number;
-  /** A question to ask before the command goes on (terraform apply's "Enter a value"). */
-  prompt?: string | null;
-  tool?: string | null;
-}
-
-export interface PipelineCompileResponse {
-  valid: boolean;
-  source_hash: string;
-  truth: string;
-  diagnostics: Array<{ line: number; column: number; message: string }>;
-  ir: null | {
-    id: string;
-    schedule: string | null;
-    tasks: Array<{
-      id: string;
-      kind: string;
-      retries: number;
-      retry_delay: number;
-    }>;
-    edges: Array<{ source: string; target: string }>;
-  };
-}
 
 export class RuntimeManager implements vscode.Disposable {
   private child?: ChildProcess;
@@ -93,6 +45,9 @@ export class RuntimeManager implements vscode.Disposable {
   private environment: RuntimeEnvironmentView;
 
   readonly onDidChange = this.changed.event;
+
+  /** The runtime clients of the labs (`labs.mosaic.runSql(...)`), one per lab, on this manager's connection. */
+  readonly labs: LabClients = createLabClients(this.connection());
 
   constructor(
     private readonly extensionUri: vscode.Uri,
@@ -396,234 +351,6 @@ export class RuntimeManager implements vscode.Disposable {
     }
   }
 
-  async gradeExercise(
-    exerciseKey: string,
-    request: {
-      exercise_id: string;
-      exercise_version: string;
-      language: string;
-      code: string;
-      mode: "run" | "submit";
-      notebook_id: string;
-      cell_id: string;
-      source_revision: number;
-    }
-  ): Promise<void> {
-    const url = this.state.status === "running" ? this.state.url : undefined;
-    if (!url) throw new Error("Start the Datapass runtime before grading an exercise.");
-    const result = await this.postJson<Omit<NonNullable<RuntimeViewState["practiceResult"]>, "exerciseKey" | "mode">>(
-      `${url}/api/local/exercise`,
-      "POST",
-      request,
-      30000
-    );
-    this.setState({
-      ...this.state,
-      detail: request.mode === "submit"
-        ? `Exercise submission: ${result.status}.`
-        : `Visible exercise checks: ${result.status}.`,
-      practiceResult: {
-        ...result,
-        exerciseKey,
-        mode: request.mode
-      }
-    });
-  }
-
-  async runRetailDemo(datasetPath: string): Promise<void> {
-    const url = this.state.status === "running" ? this.state.url : undefined;
-    if (!url) throw new Error("Start the Datapass runtime before running the retail demo.");
-    this.setState({ ...this.state, detail: "Running retail medallion demo…" });
-    try {
-      const retailDemo = await this.postJson<NonNullable<RuntimeViewState["retailDemo"]>>(
-        `${url}/api/demo/retail/run`,
-        "POST",
-        { dataset_path: datasetPath },
-        10000
-      );
-      this.setState({
-        ...this.state,
-        detail: "Retail demo completed with real local Polars + DuckDB execution.",
-        retailDemo
-      });
-      await this.refreshCatalog();
-    } catch (error) {
-      this.setState({
-        ...this.state,
-        detail: error instanceof Error ? error.message : String(error)
-      });
-      throw error;
-    }
-  }
-
-  /** Send CSV TEXT (never a path) to create a new bronze table; the runtime refuses overwrites. */
-  async importCsv(asset: string, text: string, fileName: string): Promise<CsvImportView> {
-    const url = this.state.status === "running" ? this.state.url : undefined;
-    if (!url) throw new Error("Start the Datapass runtime before importing a CSV.");
-    let response: Omit<CsvImportView, "fileName">;
-    try {
-      response = await this.postJson<Omit<CsvImportView, "fileName">>(
-        `${url}/api/local/import-csv`,
-        "POST",
-        { asset, text },
-        30000
-      );
-    } catch (error) {
-      throw new Error(`CSV import refused: ${runtimeErrorDetail(error)}`);
-    }
-    const csvImport: CsvImportView = {
-      asset: response.asset,
-      fileName,
-      rows_imported: response.rows_imported,
-      sha256: response.sha256,
-      schema: response.schema,
-      truth: response.truth,
-      result: response.result
-    };
-    this.setState({
-      ...this.state,
-      detail: `Imported ${csvImport.rows_imported} rows from ${fileName} into ${csvImport.asset} (all columns are text).`,
-      lastRun: undefined,
-      csvImport
-    });
-    await this.refreshCatalog();
-    return csvImport;
-  }
-
-  /** Runs a SQL file on the catalog; with a dialect, the runtime translates it to DuckDB first (runtime/sqldialects). */
-  async runSql(code: string, dialect?: TranslatedDialectId): Promise<LocalCellRunView> {
-    const url = this.state.status === "running" ? this.state.url : undefined;
-    if (!url) throw new Error("Start the Datapass runtime before running SQL.");
-    const lastRun = await this.postJson<NonNullable<RuntimeViewState["lastRun"]>>(
-      `${url}/api/local/execute`,
-      "POST",
-      {
-        language: "sql",
-        code,
-        notebook_id: "vscode-sql",
-        cell_id: "active-sql",
-        ...(dialect ? { dialect } : {})
-      },
-      dialect ? 30000 : 10000
-    );
-    const translated = lastRun.dialect ? ` (${lastRun.dialect.label})` : "";
-    this.setState({
-      ...this.state,
-      detail: lastRun.status === "success"
-        ? `SQL completed in ${lastRun.elapsed_ms.toFixed(1)} ms${translated}.`
-        : `SQL failed: ${lastRun.error?.message ?? "Unknown error"}`,
-      lastRun,
-      csvImport: undefined
-    });
-    await this.refreshCatalog();
-    return lastRun;
-  }
-
-  /** Parquet or JSON CONTENT (base64) into a new bronze table; the runtime keeps the file's types. */
-  async importFile(asset: string, format: "parquet" | "json", data: string, fileName: string): Promise<CsvImportView> {
-    const url = this.state.status === "running" ? this.state.url : undefined;
-    if (!url) throw new Error("Start the Datapass runtime before importing a file.");
-    let response: Omit<CsvImportView, "fileName">;
-    try {
-      response = await this.postJson<Omit<CsvImportView, "fileName">>(
-        `${url}/api/local/import-file`, "POST", { asset, format, data }, 120000);
-    } catch (error) {
-      throw new Error(`${format === "parquet" ? "Parquet" : "JSON"} import refused: ${runtimeErrorDetail(error)}`);
-    }
-    const fileImport: CsvImportView = { ...response, fileName, format };
-    this.setState({
-      ...this.state,
-      detail: `Imported ${fileImport.rows_imported} rows from ${fileName} into ${fileImport.asset} (typed columns).`,
-      lastRun: undefined,
-      csvImport: fileImport
-    });
-    await this.refreshCatalog();
-    return fileImport;
-  }
-
-  /** DuckDB SUMMARIZE of a catalog table. */
-  async profileTable(asset: string): Promise<void> {
-    const url = this.state.status === "running" ? this.state.url : undefined;
-    if (!url) throw new Error("Start the Datapass runtime before profiling a table.");
-    let tableProfile: TableProfileView;
-    try {
-      tableProfile = await this.postJson<TableProfileView>(`${url}/api/local/profile`, "POST", { asset }, 60000);
-    } catch (error) {
-      throw new Error(`Profile refused: ${runtimeErrorDetail(error)}`);
-    }
-    this.setState({ ...this.state, detail: `Profiled ${asset} in ${tableProfile.elapsed_ms.toFixed(1)} ms.`, tableProfile });
-  }
-
-  /** DuckDB EXPLAIN ANALYZE of one read-only query: it runs once to time each operator. */
-  async explainQuery(query: string, source?: string, dialect?: TranslatedDialectId): Promise<QueryPlanView> {
-    const url = this.state.status === "running" ? this.state.url : undefined;
-    if (!url) throw new Error("Start the Datapass runtime before explaining a query.");
-    let plan: QueryPlanView;
-    try {
-      plan = { ...await this.postJson<QueryPlanView>(`${url}/api/local/explain`, "POST", { query, ...(dialect ? { dialect } : {}) }, 60000), source };
-    } catch (error) {
-      throw new Error(`EXPLAIN ANALYZE refused: ${runtimeErrorDetail(error)}`);
-    }
-    this.setState({ ...this.state, detail: `Query plan measured in ${plan.elapsed_ms.toFixed(1)} ms.`, queryPlan: plan });
-    return plan;
-  }
-
-  async runPython(code: string): Promise<void> {
-    const url = this.state.status === "running" ? this.state.url : undefined;
-    if (!url) throw new Error("Start the Datapass runtime before running Python.");
-    if (!this.state.trustedPython) {
-      throw new Error("Trusted local Python is disabled for this runtime. Enable it for the workspace, then restart the runtime.");
-    }
-    const lastRun = await this.postJson<NonNullable<RuntimeViewState["lastRun"]>>(
-      `${url}/api/local/execute`,
-      "POST",
-      {
-        language: "python",
-        code,
-        notebook_id: "vscode-python",
-        cell_id: "active-python"
-      },
-      25000
-    );
-    this.setState({
-      ...this.state,
-      detail: lastRun.status === "success"
-        ? `Python completed in ${lastRun.elapsed_ms.toFixed(1)} ms (trusted local execution).`
-        : `Python failed: ${lastRun.error?.message ?? "Unknown error"}`,
-      lastRun,
-      csvImport: undefined
-    });
-    await this.refreshCatalog();
-  }
-
-  /** Bounded SparkLab: whitelisted AST to local SQL. Never executed as Python. */
-  async runSparkLab(code: string, fileName: string, profileId: string, aqe: boolean): Promise<void> {
-    const url = this.state.status === "running" ? this.state.url : undefined;
-    if (!url) throw new Error("Start the Datapass runtime before running SparkLab.");
-    const raw = await this.postJson<unknown>(
-      `${url}/api/local/execute`,
-      "POST",
-      {
-        language: "sparklab",
-        code,
-        notebook_id: "vscode-sparklab",
-        cell_id: "active-sparklab",
-        profile: profileId,
-        aqe
-      },
-      25000
-    );
-    const sparkRun = toSparkLabRunView(raw, { fileName, profileId, aqe });
-    this.setState({
-      ...this.state,
-      detail: sparkRun.status === "success"
-        ? `SparkLab result computed locally in ${sparkRun.elapsed_ms.toFixed(1)} ms; distributed metrics are simulated.`
-        : `SparkLab rejected or failed: ${sparkRun.error?.message ?? "Unknown error"}`,
-      sparkRun
-    });
-    await this.refreshCatalog();
-  }
-
   async refreshCatalog(): Promise<void> {
     const url = this.state.status === "running" ? this.state.url : undefined;
     if (!url || this.state.catalogLease) return;
@@ -653,7 +380,7 @@ export class RuntimeManager implements vscode.Disposable {
     if (!url) return false;
     if (this.state.catalogLease) return true;
     const lease = await this.postJson<{ holder?: string; since?: string }>(
-      `${url}/api/local/catalog/release`, "POST", { holder: holder.slice(0, 200) }, 30000
+      `${url}/api/local/catalog/release`, { holder: holder.slice(0, 200) }, 30000
     );
     this.output.appendLine(`Catalog lent to: ${holder}`);
     this.setState({
@@ -669,7 +396,7 @@ export class RuntimeManager implements vscode.Disposable {
     const url = this.state.status === "running" ? this.state.url : undefined;
     if (!url || !this.state.catalogLease) return true;
     try {
-      await this.postJson<unknown>(`${url}/api/local/catalog/reattach`, "POST", {}, 30000);
+      await this.postJson<unknown>(`${url}/api/local/catalog/reattach`, {}, 30000);
     } catch (error) {
       const reason = runtimeErrorDetail(error);
       this.setState({ ...this.state, detail: reason, catalogLease: { ...this.state.catalogLease, reattachError: reason } });
@@ -679,67 +406,6 @@ export class RuntimeManager implements vscode.Disposable {
     this.setState({ ...this.state, detail: "Catalog reattached: the runtime sees what dbt built.", catalogLease: undefined });
     await this.refreshCatalog();
     return true;
-  }
-
-  /** Missions: load one fixture batch of a shipped mission (the first one starts the mission over). */
-  async missionSetup(missionId: string, batchId: string): Promise<void> {
-    const url = this.requireAttached("load a mission's data");
-    try {
-      await this.postJson<unknown>(`${url}/api/local/missions/setup`, "POST", { mission_id: missionId, batch_id: batchId }, 60000);
-    } catch (error) {
-      throw new Error(runtimeErrorDetail(error));
-    }
-    await this.refreshCatalog();
-  }
-
-  /**
-   * Terminal Lab and Infra Lab missions: the runtime (re)builds `missions/<id>/` from the shipped pack (files and Git
-   * history, or files and a simulated world). The catalog is not involved, so a lent catalog does not block it.
-   */
-  async terminalMissionSetup(missionId: string): Promise<{ folder: string; previous?: string | null }> {
-    const url = this.requireRunning("start a mission");
-    try {
-      return await this.postJson<{ folder: string; previous?: string | null }>(`${url}/api/local/missions/setup`, "POST", { mission_id: missionId }, 60000);
-    } catch (error) {
-      throw new Error(runtimeErrorDetail(error));
-    }
-  }
-
-  /**
-   * Infra Lab: one line of the simulated shell in `folder` (relative to the workspace). Everything is simulated by
-   * the runtime (runtime/infralab); `answer` replies to a prompt such as terraform apply's "Enter a value".
-   */
-  async infraCommand(folder: string, line: string, answer?: string): Promise<InfraCommandResult> {
-    const url = this.requireRunning("use the Infra Lab shell");
-    try {
-      return await this.postJson<InfraCommandResult>(`${url}/api/local/infra/command`, "POST",
-        answer === undefined ? { folder, line } : { folder, line, answer }, 120000);
-    } catch (error) {
-      throw new Error(runtimeErrorDetail(error));
-    }
-  }
-
-  /** Infra Lab: what the simulated world of `folder` holds (Terraform state, subscription, Docker, cluster). */
-  async infraState(folder: string): Promise<unknown> {
-    const url = this.requireRunning("read the Infra Lab's simulated world");
-    try {
-      return await this.postJson<unknown>(`${url}/api/local/infra/state`, "POST", { folder }, 30000);
-    } catch (error) {
-      throw new Error(runtimeErrorDetail(error));
-    }
-  }
-
-  /**
-   * Missions: the hidden checker. `dct` carries the real `dct validate --json` results for the mission's boards. A
-   * Terminal Lab mission reads files and Git only (`catalog: false`), so a lent catalog does not block it.
-   */
-  async missionCheck(missionId: string, dct: Record<string, unknown>, catalog = true): Promise<unknown> {
-    const url = catalog ? this.requireAttached("check a mission") : this.requireRunning("check a mission");
-    try {
-      return await this.postJson<unknown>(`${url}/api/local/missions/check`, "POST", { mission_id: missionId, dct }, 60000);
-    } catch (error) {
-      throw new Error(runtimeErrorDetail(error));
-    }
   }
 
   private requireRunning(action: string): string {
@@ -763,256 +429,6 @@ export class RuntimeManager implements vscode.Disposable {
     if (!url) throw new Error("Start the Datapass runtime to browse the catalog.");
     if (this.state.catalogLease) throw new Error(`The catalog is lent to ${this.state.catalogLease.holder}.`);
     return this.getJson<unknown>(`${url}/api/local/catalog/schema`, 20000);
-  }
-
-  /** Airflow Lab: the DAG file's TEXT is parsed and simulated by the runtime, never executed. */
-  async simulateAirflow(source: string, fileName: string, scenario: AirflowScenarioInput): Promise<void> {
-    const url = this.state.status === "running" ? this.state.url : undefined;
-    if (!url) throw new Error("Start the Datapass runtime before simulating an Airflow DAG.");
-    const raw = await this.postJson<unknown>(
-      `${url}/api/local/airflow/simulate`,
-      "POST",
-      { source, scenario: toRuntimeScenario(scenario) },
-      20000
-    );
-    const airflowRun = toAirflowLabView(raw, fileName, scenario);
-    this.setState({
-      ...this.state,
-      detail: airflowRun.status === "simulated"
-        ? `Airflow DAG ${airflowRun.dag?.dagId ?? ""} simulated: ${airflowRun.totalRuns} run(s); nothing was executed.`
-        : `Airflow DAG not simulated: ${airflowRun.error?.message ?? "unknown error"}`,
-      airflowRun
-    });
-  }
-
-  /**
-   * Factory Lab: the runtime validates and simulates the pipeline JSON. With the local data plane,
-   * Copy, Lookup, Script, stored procedures and SparkLab notebooks act on the local catalog.
-   */
-  async simulateFactory(request: {
-    flavor: FactoryFlavor;
-    name: string;
-    path: string;
-    document: unknown;
-    files: FactoryFilesPayload;
-    scenario: FactoryScenarioInput;
-    warnings: string[];
-  }): Promise<void> {
-    const url = this.state.status === "running" ? this.state.url : undefined;
-    if (!url) throw new Error("Start the Datapass runtime before running a pipeline.");
-    const context = { flavor: request.flavor, pipelineName: request.name, path: request.path, scenario: request.scenario };
-    const { scenario, errors } = toFactoryScenario(request.scenario);
-    if (errors.length) {
-      const factoryRun = toFactoryLabView(
-        { status: "error", issues: errors.map(message => ({ path: "scenario", message, severity: "error" })) },
-        { ...context, warnings: request.warnings }
-      );
-      this.setState({ ...this.state, detail: `Pipeline ${request.name} not run: fix the scenario.`, factoryRun });
-      return;
-    }
-    const raw = await this.postJson<unknown>(
-      `${url}/api/local/factory/simulate`,
-      "POST",
-      {
-        flavor: request.flavor,
-        name: request.name,
-        document: request.document,
-        files: request.files,
-        scenario,
-        data_plane: request.scenario.dataPlane
-      },
-      60000
-    );
-    const factoryRun = toFactoryLabView(raw, { ...context, warnings: request.warnings });
-    this.setState({
-      ...this.state,
-      detail: factoryRun.run
-        ? `Pipeline ${request.name} ${factoryRun.run.status.toLowerCase()} (${factoryRun.flavorLabel}, ${factoryRun.dataPlane === "local" ? "local activities ran on the catalog" : "dry run"}).`
-        : `Pipeline ${request.name} not run: ${factoryRun.issues[0]?.message ?? factoryRun.status}`,
-      factoryRun
-    });
-    if (factoryRun.tablesChanged.length) await this.refreshCatalog();
-  }
-
-  /**
-   * SQL pool Lab: the runtime translates the T-SQL script for a documented subset and runs the data
-   * statements on the local catalog; distributions, partitions and plans are modelled. An empty
-   * script only describes the pool's tables.
-   */
-  async runSqlPool(request: { flavor: SqlPoolFlavor; script: string; scale: number; source: string; warnings?: string[] }): Promise<void> {
-    const url = this.state.status === "running" ? this.state.url : undefined;
-    if (!url) throw new Error("Start the Datapass runtime before running a SQL pool script.");
-    const raw = await this.postJson<unknown>(
-      `${url}/api/local/sqlpool/run`,
-      "POST",
-      { flavor: request.flavor, script: request.script, scale: request.scale, source: sqlPoolSourceLabel(request.source) },
-      60000
-    );
-    const sqlpoolRun = toSqlPoolView(raw, request);
-    const failed = sqlpoolRun.statements.find(statement => statement.status === "error");
-    this.setState({
-      ...this.state,
-      detail: !request.script.trim()
-        ? `SQL pool tables described (${sqlpoolRun.flavorLabel}).`
-        : failed
-          ? `SQL pool script stopped at statement ${failed.index} (line ${failed.line}): ${failed.message}`
-          : `SQL pool script ran: ${sqlpoolRun.statements.length} statement(s) on the simulated ${sqlpoolRun.flavorLabel}.`,
-      sqlpoolRun
-    });
-    if (request.script.trim()) await this.refreshCatalog();
-  }
-
-  /**
-   * BI Lab: the warehouse scripts run on the local catalog (real DuckDB), then the runtime reports the tables,
-   * the SQL lineage of the scripts (static analysis) and the star model checks (real queries).
-   */
-  async runBiLab(request: {
-    mode: BiRunMode;
-    source: string;
-    scripts: { path: string; text: string }[];
-    model: unknown;
-    modelError?: string;
-    warnings: string[];
-  }): Promise<void> {
-    const url = this.state.status === "running" ? this.state.url : undefined;
-    if (!url) throw new Error("Start the Datapass runtime before running the BI Lab.");
-    const raw = await this.postJson<unknown>(
-      `${url}/api/local/bi/lab`,
-      "POST",
-      { scripts: request.scripts, model: request.model ?? null, run: request.mode !== "analyze" },
-      120000
-    );
-    const biRun = toBiLabView(raw, request);
-    const failed = biRun.statements.find(statement => statement.status === "error");
-    this.setState({
-      ...this.state,
-      detail: failed
-        ? `BI Lab stopped at ${failed.path}, line ${failed.line}: ${failed.message}`
-        : biRun.ran
-          ? `BI Lab: ${biRun.statements.length} statement(s) ran on the local catalog (${request.source}).`
-          : `BI Lab: lineage and model checks refreshed (${request.source}).`,
-      biRun
-    });
-    if (biRun.ran) await this.refreshCatalog();
-  }
-
-  /**
-   * BI Lab dbt tab: the Datapass dbt emulation runs the command on the local catalog (Jinja in a sandbox, SQL on
-   * DuckDB) and reports the nodes, the results and the column lineage of the models. It is not dbt Core.
-   */
-  async runBiDbt(request: { command: BiDbtCommand; select: string[]; selectText: string; fullRefresh: boolean;
-    files: Record<string, string>; warnings: string[] }): Promise<void> {
-    const url = this.state.status === "running" ? this.state.url : undefined;
-    if (!url) throw new Error("Start the Datapass runtime before running dbt.");
-    const raw = await this.postJson<unknown>(
-      `${url}/api/local/bi/dbt`,
-      "POST",
-      { files: request.files, command: request.command, select: request.select, full_refresh: request.fullRefresh },
-      120000
-    );
-    const biDbtRun = toBiDbtView(raw, { command: request.command, select: request.selectText, warnings: request.warnings });
-    const counts = biDbtRun.counts ?? {};
-    this.setState({
-      ...this.state,
-      detail: biDbtRun.status === "invalid"
-        ? `dbt ${request.command} not run: ${biDbtRun.error ?? "invalid project"}`
-        : biDbtRun.status === "parsed"
-          ? `dbt project parsed: ${biDbtRun.nodes.length} nodes.`
-          : `dbt ${request.command} (Datapass emulation): ${Object.entries(counts).filter(([, n]) => n).map(([k, n]) => `${n} ${k}`).join(", ") || "nothing selected"}.`,
-      biDbtRun
-    });
-    if (biDbtRun.results.length) await this.refreshCatalog();
-  }
-
-  /**
-   * Databricks Lab: the runtime validates and simulates the job; notebook and SQL tasks run on the local
-   * catalog under Unity Catalog rules (or not at all in a dry run).
-   */
-  async simulateDatabricks(request: {
-    name: string;
-    path: string;
-    document: unknown;
-    files: DatabricksFilesPayload;
-    scenario: DatabricksScenarioInput;
-    warnings: string[];
-  }): Promise<void> {
-    const url = this.state.status === "running" ? this.state.url : undefined;
-    if (!url) throw new Error("Start the Datapass runtime before running a Databricks job.");
-    const context = { jobName: request.name, path: request.path, scenario: request.scenario, warnings: request.warnings };
-    const { scenario, errors } = toDatabricksScenario(request.scenario);
-    if (errors.length) {
-      const databricksRun = toDatabricksLabView({ status: "error", issues: errors.map(message => ({ path: "scenario", message })) }, context);
-      this.setState({ ...this.state, detail: `Job ${request.name} not run: fix the run settings.`, databricksRun });
-      return;
-    }
-    const raw = await this.postJson<unknown>(
-      `${url}/api/local/databricks/run`,
-      "POST",
-      { name: request.name, document: request.document, files: request.files, scenario, data_plane: request.scenario.dataPlane },
-      60000
-    );
-    const databricksRun = toDatabricksLabView(raw, context);
-    const record = raw && typeof raw === "object" ? raw as Record<string, unknown> : {};
-    this.setState({
-      ...this.state,
-      detail: databricksRun.run
-        ? `Job ${request.name}: ${databricksRun.run.statusLabel} (${databricksRun.dataPlane === "local" ? "tasks ran on the local catalog" : "dry run"}).`
-        : `Job ${request.name} not run: ${databricksRun.issues[0]?.message ?? databricksRun.status}`,
-      databricksRun,
-      databricksState: record.unity ? toDatabricksStateView(raw) : this.state.databricksState
-    });
-    if (databricksRun.tablesChanged.length) await this.refreshCatalog();
-  }
-
-  /** Databricks Lab: Unity Catalog, MLflow and compute as they are, without running a job. */
-  async exploreDatabricks(files: DatabricksFilesPayload): Promise<void> {
-    const url = this.state.status === "running" ? this.state.url : undefined;
-    if (!url) return;
-    const raw = await this.postJson<unknown>(`${url}/api/local/databricks/state`, "POST", { files }, 20000);
-    this.setState({ ...this.state, databricksState: toDatabricksStateView(raw) });
-  }
-
-  async runPipeline(source: string): Promise<void> {
-    const url = this.state.status === "running" ? this.state.url : undefined;
-    if (!url) throw new Error("Start the Datapass runtime before running a pipeline.");
-    const pipelineRun = await this.postJson<NonNullable<RuntimeViewState["pipelineRun"]>>(
-      `${url}/api/pipeline/run`,
-      "POST",
-      { source },
-      30000
-    );
-    this.setState({
-      ...this.state,
-      detail: pipelineRun.status === "success"
-        ? `Pipeline ${pipelineRun.pipeline_id} completed.`
-        : `Pipeline ${pipelineRun.pipeline_id} finished with failures.`,
-      pipelineRun
-    });
-    await this.refreshCatalog();
-  }
-
-  async compilePipeline(source: string): Promise<PipelineCompileResponse> {
-    const url = this.state.status === "running" ? this.state.url : undefined;
-    if (!url) throw new Error("Start the Datapass runtime before compiling a pipeline.");
-    return this.postJson<PipelineCompileResponse>(
-      `${url}/api/pipeline/compile`,
-      "POST",
-      { source }
-    );
-  }
-
-  /**
-   * Projects: the runtime verifies steps of a shipped project on the workspace catalog and its run journal.
-   * The caller keeps the result in .datapass/progress.json; manual steps are never verified.
-   */
-  async checkProject(projectId: string, steps: string[]): Promise<unknown> {
-    const url = this.state.status === "running" ? this.state.url : undefined;
-    if (!url) throw new Error("Start the Datapass runtime before verifying project steps.");
-    try {
-      return await this.postJson<unknown>(`${url}/api/local/projects/check`, "POST", { project_id: projectId, steps }, 60000);
-    } catch (error) {
-      throw new Error(runtimeErrorDetail(error));
-    }
   }
 
   /** Stop and wait for the process to exit so a restart never races the old worker. */
@@ -1138,42 +554,30 @@ export class RuntimeManager implements vscode.Disposable {
     });
   }
 
-  private postJson<T>(url: string, method: "POST", body: unknown, timeoutMs?: number): Promise<T> {
-    return requestJson<T>(url, method, body, timeoutMs, this.token);
+  private postJson<T>(url: string, body: unknown, timeoutMs?: number): Promise<T> {
+    return requestJson<T>(url, "POST", body, timeoutMs, this.token);
   }
 
   private getJson<T>(url: string, timeoutMs?: number): Promise<T> {
     return requestGetJson<T>(url, timeoutMs, this.token);
   }
 
+  /** What the lab clients use: the running URL, token-carrying requests and the shared state. */
+  private connection(): RuntimeConnection {
+    return {
+      runningUrl: () => (this.state.status === "running" ? this.state.url : undefined),
+      requireRunning: action => this.requireRunning(action),
+      requireAttached: action => this.requireAttached(action),
+      postJson: (url, body, timeoutMs) => this.postJson(url, body, timeoutMs),
+      getJson: (url, timeoutMs) => this.getJson(url, timeoutMs),
+      state: () => this.state,
+      update: patch => this.setState({ ...this.state, ...patch }),
+      refreshCatalog: () => this.refreshCatalog()
+    };
+  }
+
   private setState(next: RuntimeViewState): void {
     this.state = next;
     this.changed.fire(this.snapshot());
   }
-}
-
-
-
-/** The script's workspace path as the run journal's label; anything the runtime would refuse is dropped. */
-function sqlPoolSourceLabel(source: string): string {
-  return /^[A-Za-z0-9_./ -]{0,200}$/.test(source) ? source : "";
-}
-
-/** Pull FastAPI's `detail` out of a "Runtime request failed with HTTP 4xx: {...}" error. */
-function runtimeErrorDetail(error: unknown): string {
-  const message = error instanceof Error ? error.message : String(error);
-  const body = /^Runtime request failed with HTTP \d+: (.*)$/s.exec(message)?.[1];
-  if (!body) return message;
-  try {
-    const detail = (JSON.parse(body) as { detail?: unknown }).detail;
-    if (typeof detail === "string") return detail;
-    if (Array.isArray(detail)) {
-      return detail
-        .map(item => (item && typeof item === "object" && "msg" in item ? String(item.msg) : String(item)))
-        .join("; ");
-    }
-  } catch {
-    // Not JSON (e.g. truncated); fall through to the raw message.
-  }
-  return message;
 }

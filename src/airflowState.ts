@@ -1,6 +1,8 @@
 import * as vscode from "vscode";
 import { readProjectManifest } from "./project/projectManifest";
 import type { AirflowViewState } from "./webview/contracts";
+import { safeRelativeParts } from "./platform/workspacePaths";
+import { exists } from "./workspaceFiles";
 
 export const AIRFLOW_STARTER_FILE = "retail_daily.py";
 
@@ -24,25 +26,4 @@ export async function loadAirflowState(): Promise<AirflowViewState> {
     starterExists: await exists(vscode.Uri.joinPath(root, ...dagsParts, AIRFLOW_STARTER_FILE)),
     legacySpecPath: (await exists(legacy)) ? [...airflowParts, "main.dag.json"].join("/") : undefined
   };
-}
-
-function safeRelativeParts(value: string | undefined, fallback: string): string[] {
-  const normalized = (value ?? fallback).replaceAll("\\", "/");
-  const parts = normalized.split("/").filter(Boolean);
-  if (
-    parts.length === 0 ||
-    parts.some(part => part === "." || part === ".." || part.includes(":"))
-  ) {
-    return [fallback];
-  }
-  return parts;
-}
-
-async function exists(uri: vscode.Uri): Promise<boolean> {
-  try {
-    await vscode.workspace.fs.stat(uri);
-    return true;
-  } catch {
-    return false;
-  }
 }

@@ -14,7 +14,8 @@ Last updated: 2026-09-26.
 - `main` is the baseline. The old implementation branch `codex/bootstrap-datapass-workbench` was merged by PR #1
   (`f35dbe4`, 2026-09-24) and is history only.
 - One branch per tranche from an up-to-date `main`, one pull request, merged on green CI. Several Claude sessions
-  often work in parallel worktrees: keep changes inside the files your item owns.
+  often work in parallel worktrees: keep changes inside the files your item owns (a lab's host code is in
+  `src/labs/<lab>/` and its contract in `src/webview/contracts/<lab>.ts`).
 - CI (`.github/workflows/ci.yml`) has four jobs: `extension` (compile, Node smokes, package), `runtime` (install,
   compileall, Pylance stubs check, runtime / exercise packs / missions / projects / terminal missions smokes),
   `extension-host` (`npm run test:host` with the dbt tools) and `vscode-ui` (the packaged VSIX driven by Playwright).
@@ -62,9 +63,20 @@ SparkLab distributed behaviour. Static: SQL lineage. No cloud connection anywher
 
 ## Where things live
 
-- `src/` extension host (`extension.ts`, `workbenchPanel.ts`, `runtimeManager.ts`, `platform/` pure helpers);
-  `src/webview/` React surfaces (`WorkbenchApp.tsx`, one `*Surface.tsx` per module, `SharedGraphCanvas.tsx`,
-  `contracts.ts`); `src/test/hostSuite.ts` host E2E.
+- `src/` extension host: `extension.ts`; `workbenchPanel.ts` (the webview, the state it posts, the message table,
+  no lab code); `runtimeManager.ts` (runtime process, setup, token, shared catalog; lab calls go through
+  `runtimeManager.labs.<lab>`); `platform/` pure helpers; `workspaceFiles.ts` (`exists`, `writeIfMissing`,
+  `copyWithoutOverwrite`) and `platform/workspacePaths.ts` (`safeRelativeParts`), one copy each.
+- `src/labs/<lab>/` one folder per lab (module id, plus `workbench` for the shell and `missions` for the shared
+  missions): `controller.ts` answers that lab's webview messages (typed `MessageHandlers`), keeps its host state and
+  adds its part of the Workbench state (`contribute`); `client.ts` is its runtime HTTP client. `src/labs/controllers.ts`
+  and `src/labs/clients.ts` register them (the few cross-lab actions are wired there; labs import no other lab, which
+  `message_table_smoke.mjs` checks), and a message type no controller handles fails the typecheck.
+- `src/webview/contracts/` one contract file per lab (its views, its slice of the runtime and Workbench state, its
+  message union), composed in `contracts/index.ts` (imported as `webview/contracts`); `src/webview/` React surfaces
+  (`WorkbenchApp.tsx`, one `*Surface.tsx` per module, `SharedGraphCanvas.tsx`); `src/test/hostSuite.ts` host E2E.
+- A new webview message: add it to the lab's union in `contracts/<lab>.ts` and a handler in
+  `src/labs/<lab>/controller.ts`; a new runtime call goes in `src/labs/<lab>/client.ts`.
 - `runtime/datapass_runtime/` FastAPI app (`main.py`), kernels, catalog, grading; one package per lab:
   `sparklab`, `airflowlab`, `factorylab`, `sqlpoollab`, `databrickslab`, `bilab`, `dbtlab`, `sqldialects`,
   `snowflakesql`, `missionlab`, `infralab` (each with a README where the contract is non-trivial).

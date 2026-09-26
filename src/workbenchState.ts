@@ -16,27 +16,30 @@ import { loadProjectsState, readProgress } from "./projectState";
 import { emptyPracticeProgress } from "./platform/practiceProgress";
 import type { DbtToolsView, DbtViewState, PracticeViewState, ProjectsHostState, SparkLabProfileView, TerminalViewState, InfraViewState, WorkbenchFocus, WorkbenchViewState } from "./webview/contracts";
 
+/** What the host adds to the state it collects: the focus, and what the lab controllers keep (see src/labs). */
+export interface WorkbenchStateExtras {
+  focus?: WorkbenchFocus;
+  projects?: ProjectsHostState;
+  dbtLab?: {
+    tools: DbtToolsView;
+    selected?: string;
+    shellIntegration?: boolean;
+    validations?: ReadonlyMap<string, DctValidationView>;
+    serveUrl?: string;
+    missions?: DbtViewState["missions"];
+  };
+  practiceSolutions?: Record<string, string>;
+  queryHistory?: readonly QueryHistoryEntry[];
+  terminal?: TerminalViewState;
+  infra?: InfraViewState;
+}
+
 export async function collectWorkbenchState(
   selectedModule: ModuleId,
   runtimeManager: RuntimeManager,
   extensionUri: vscode.Uri,
   pythonTrust: PythonTrustController,
-  extras: {
-    focus?: WorkbenchFocus;
-    projects?: ProjectsHostState;
-    dbtLab?: {
-      tools: DbtToolsView;
-      selected?: string;
-      shellIntegration?: boolean;
-      validations?: ReadonlyMap<string, DctValidationView>;
-      serveUrl?: string;
-      missions?: DbtViewState["missions"];
-    };
-    practiceSolutions?: Record<string, string>;
-    queryHistory?: readonly QueryHistoryEntry[];
-    terminal?: TerminalViewState;
-    infra?: InfraViewState;
-  } = {}
+  extras: WorkbenchStateExtras = {}
 ): Promise<WorkbenchViewState> {
   const folder = vscode.workspace.workspaceFolders?.[0];
   const manifest = await readProjectManifest();

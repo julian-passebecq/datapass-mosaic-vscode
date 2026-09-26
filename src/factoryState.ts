@@ -12,6 +12,7 @@ import {
 import { SQLPOOL_LIMITS, flavorHint } from "./platform/sqlpoolRun";
 import { DATABRICKS_LIMITS, JOB_NAME, jobDesignView } from "./platform/databricksRun";
 import type { FactoryFlavor, FactoryViewState } from "./webview/contracts";
+import { copyWithoutOverwrite, exists } from "./workspaceFiles";
 
 const MAX_FILES = 400;
 const MAX_DEPTH = 6;
@@ -198,19 +199,6 @@ export async function copyFactorySamples(extensionUri: vscode.Uri): Promise<vsco
   return root;
 }
 
-export async function copyWithoutOverwrite(source: vscode.Uri, target: vscode.Uri): Promise<void> {
-  await vscode.workspace.fs.createDirectory(target);
-  for (const [name, type] of await vscode.workspace.fs.readDirectory(source)) {
-    const from = vscode.Uri.joinPath(source, name);
-    const to = vscode.Uri.joinPath(target, name);
-    if ((type & vscode.FileType.Directory) !== 0) {
-      await copyWithoutOverwrite(from, to);
-    } else if ((type & vscode.FileType.File) !== 0 && !(await exists(to))) {
-      await vscode.workspace.fs.writeFile(to, await vscode.workspace.fs.readFile(from));
-    }
-  }
-}
-
 async function listFiles(root: vscode.Uri, warnings: string[]): Promise<FactoryFile[]> {
   const found: FactoryFile[] = [];
   const walk = async (folder: vscode.Uri, prefix: string, depth: number): Promise<void> => {
@@ -239,14 +227,5 @@ export async function readText(uri: vscode.Uri): Promise<string> {
   const open = vscode.workspace.textDocuments.find(document => document.uri.toString() === uri.toString());
   if (open) return open.getText();
   return new TextDecoder().decode(await vscode.workspace.fs.readFile(uri));
-}
-
-export async function exists(uri: vscode.Uri): Promise<boolean> {
-  try {
-    await vscode.workspace.fs.stat(uri);
-    return true;
-  } catch {
-    return false;
-  }
 }
 

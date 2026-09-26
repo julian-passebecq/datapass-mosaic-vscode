@@ -225,7 +225,7 @@ export function registerCatalogTree(runtime: RuntimeManager, openWorkbench: () =
       const table = tableOf(node);
       if (!table) return;
       try {
-        await runtime.runSql(previewSql(table));
+        await runtime.labs.mosaic.runSql(previewSql(table));
         await openWorkbench();
       } catch (error) {
         void vscode.window.showErrorMessage(`Preview failed: ${error instanceof Error ? error.message : String(error)}`);
