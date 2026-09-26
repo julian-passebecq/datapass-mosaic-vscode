@@ -34,7 +34,8 @@ try {
     const packTitle = manifest?.title ?? packId;
     const base = { packId, packTitle, version: "1", starterSource: "", sections: [], hints: [], dataContext: [] };
     for (const item of (await read("exercises.json")) ?? []) {
-      catalog.push({ ...base, key: `${packId}/${item.id}/${item.language}`, id: item.id, title: item.title,
+      // A plain-pack variant naming a semantic problem joins that problem's card.
+      catalog.push({ ...base, key: `${packId}/${item.semantic?.id ?? item.id}/${item.language}`, id: item.id, title: item.title,
         difficulty: item.difficulty ?? "unspecified", language: item.language, prompt: item.prompt ?? "", topics: item.topics ?? [] });
     }
     for (const scenario of (await read("scenarios.json")) ?? []) {
@@ -62,6 +63,13 @@ try {
   const zilla = problems.find(p => p.key === "zilla-v1/zilla-001-popular-videos");
   assert.deepEqual(zilla.variants.map(v => mod.languageLabel(v.language)), ["SQL", "Snowflake", "Python", "Polars", "PySpark", "dbt"]);
   assert.ok(problems.length < catalog.length / 1.5, `${problems.length} cards for ${catalog.length} variants`);
+  // Spark lab: a Polars variant shares its PySpark exercise's card, whose key (and saved progress) is unchanged.
+  const fanout = problems.find(p => p.key === "spark-lab-v1/spark-join-fanout-before-sum");
+  assert.deepEqual(fanout.variants.map(v => v.id), ["spark-join-fanout-before-sum-polars", "spark-join-fanout-before-sum"]);
+  assert.deepEqual(fanout.variants.map(v => mod.languageLabel(v.language)), ["Polars", "PySpark"]);
+  const sparkCards = problems.filter(p => p.packId === "spark-lab-v1");
+  assert.equal(sparkCards.length, 12, "7 Polars variants join 7 of the 12 Spark cards");
+  assert.equal(sparkCards.filter(p => p.variants.length === 2).length, 7);
 
   // Progress stays per variant; the card summarizes it.
   const now = "2026-09-25T18:00:00Z";

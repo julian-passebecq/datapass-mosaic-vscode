@@ -138,7 +138,7 @@ class Engine:
         except Exception as error:
             return {'status':'failed','passed':False,'message':str(error)}
 
-    def _python(self, request: dict) -> tuple[dict, str, list[str]]:
+    def _python(self, request: dict) -> tuple[dict, str, list[str], str | None]:
         if not self.trusted_python:
             raise ValueError('Trusted local Python is disabled for this workspace. Enable it explicitly in Datapass Workbench only for code you trust; it runs as real local code and the worker is not a security sandbox.')
         if request['language'] == 'polars' and importlib.util.find_spec('polars') is None:
@@ -148,6 +148,7 @@ class Engine:
         output = BoundedText()
         shown: list[Any] = []
         shown_columns: list[str] = []
+        plans: list[str | None] = []  # one per display(): the LazyFrame's plan, else None
         dependencies: set[str] = set()
         def query(sql):
             dependencies.update(references(sql))
@@ -166,6 +167,12 @@ class Engine:
                 return [value]
             return [{'value': json_value(value)}]
         def display(value, columns=None):
+            plan = None
+            if type(value).__name__ == 'LazyFrame' and type(value).__module__.startswith('polars'):
+                # A lazy query: keep Polars' own optimized plan (real, not modelled), then collect it.
+                plan = value.explain()
+                value = value.collect()
+            plans.append(plan)
             rows = normalize(value)
             shown.append(rows)
             shown_columns[:] = list(columns if columns is not None else getattr(value, 'columns', list(rows[0]) if rows else []))
@@ -188,7 +195,8 @@ class Engine:
             result = self.catalog.publish_rows(request['output_asset'], rows, request['cell_id'], sorted(dependencies))
         else:
             result = {'columns':shown_columns, 'rows':json_value(rows[:200]),'truncated':len(rows)>200,'total_rows':len(rows)}
-        return result, output.getvalue(), sorted(dependencies)
+        # The plan of the shown result, only when that result came from a LazyFrame.
+        return result, output.getvalue(), sorted(dependencies), plans[-1] if shown else None
 
     def _partition_pruning_hints(self, frame) -> dict[str, tuple[str, str]]:
         """Find only directly provable source equality filters.
@@ -400,7 +408,10 @@ class Engine:
                     raise ValueError('Duplicate result column names cannot be represented faithfully; select distinct aliases.')
                 compiled_sql = parsed.dataframe.sql
             elif language in {'python', 'polars'}:
-                result, run['stdout'], python_inputs = self._python(request)
+                result, run['stdout'], python_inputs, polars_plan = self._python(request)
+                if polars_plan is not None:
+                    run['polars_plan'] = {'truth': 'Polars optimized plan (real, from LazyFrame.explain())',
+                                          'text': polars_plan}
             else:
                 raise ValueError('Unsupported kernel. Markdown is not executable.')
             if compiled_sql is not None:

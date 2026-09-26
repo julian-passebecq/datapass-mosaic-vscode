@@ -390,6 +390,13 @@ try {
     await web().locator("nav.module-tabs").getByRole("tab", { name: tab, exact: true }).click();
     await web().locator("nav.module-tabs [role=tab][aria-selected=true]", { hasText: tab }).waitFor();
     await checkLayout(tab);
+    if (tab === "SparkLab / ZilaCode") {
+      // The Polars engine swaps the cluster controls for the trusted Python control.
+      await web().locator(".sparklab-runbar select").first().selectOption("polars");
+      await button("Run active file with Polars").waitFor();
+      await checkLayout(`${tab} › Polars engine`);
+      await web().locator(".sparklab-runbar select").first().selectOption("sparklab");
+    }
     const subtabs = await web().locator(".lab-subtabs [role=tab]").allInnerTexts();
     for (const subtab of subtabs.slice(1)) {
       await web().locator(".lab-subtabs").getByRole("tab", { name: subtab, exact: true }).click();

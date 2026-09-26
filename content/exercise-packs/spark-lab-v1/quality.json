@@ -49,6 +49,28 @@
     ],
     "spark-window-instead-of-self-join": [
       "from pyspark.sql import functions as F\nfrom pyspark.sql.window import Window\norders = spark.table(\"orders\")\nw = Window.partitionBy(\"customer_id\").orderBy(\"order_id\")\nresult = (\n    orders.withColumn(\"customer_total\", F.sum(\"amount\").over(w))\n    .withColumn(\"amount_share\", F.col(\"amount\") / F.col(\"customer_total\"))\n)\n"
+    ],
+    "spark-left-join-filter-placement-polars": [
+      "import polars as pl\n\ncustomers = pl.DataFrame(customers, schema={\"customer_id\": pl.Int64, \"customer_name\": pl.String}, orient=\"row\")\norders = pl.DataFrame(orders, schema={\"order_id\": pl.Int64, \"customer_id\": pl.Int64, \"status\": pl.String, \"amount\": pl.Float64}, orient=\"row\")\njoined = customers.join(orders, on=\"customer_id\", how=\"left\")\nkept = joined.filter((pl.col(\"status\") == \"COMPLETED\") | pl.col(\"status\").is_null())\ndisplay(kept.select(\"customer_id\", \"customer_name\", \"order_id\", \"amount\"))\n"
+    ],
+    "spark-semi-join-existence-polars": [
+      "from datetime import date\nimport polars as pl\n\ncustomers = pl.DataFrame(customers, schema={\"customer_id\": pl.Int64, \"customer_name\": pl.String, \"country\": pl.String}, orient=\"row\")\norders = pl.DataFrame(orders, schema={\"order_id\": pl.Int64, \"customer_id\": pl.Int64, \"order_date\": pl.String}, orient=\"row\").with_columns(pl.col(\"order_date\").str.to_date())\ndisplay(customers.join(orders, on=\"customer_id\", how=\"semi\"))\n",
+      "from datetime import date\nimport polars as pl\n\ncustomers = pl.DataFrame(customers, schema={\"customer_id\": pl.Int64, \"customer_name\": pl.String, \"country\": pl.String}, orient=\"row\")\norders = pl.DataFrame(orders, schema={\"order_id\": pl.Int64, \"customer_id\": pl.Int64, \"order_date\": pl.String}, orient=\"row\").with_columns(pl.col(\"order_date\").str.to_date())\norders_2026 = orders.filter(pl.col(\"order_date\").is_between(date(2026, 1, 1), date(2026, 12, 31), closed=\"none\"))\ndisplay(customers.join(orders_2026, on=\"customer_id\", how=\"semi\"))\n"
+    ],
+    "spark-count-column-vs-star-polars": [
+      "import polars as pl\n\nevents = pl.DataFrame(events, schema={\"event_id\": pl.Int64, \"campaign_id\": pl.String, \"clicked_at\": pl.String}, orient=\"row\").with_columns(pl.col(\"clicked_at\").str.to_datetime(\"%Y-%m-%d %H:%M:%S\"))\nresult = events.group_by(\"campaign_id\").agg(\n    pl.len().alias(\"impressions\"), pl.col(\"clicked_at\").n_unique().alias(\"clicks\")\n)\ndisplay(result)\n"
+    ],
+    "spark-null-safe-change-detection-polars": [
+      "import polars as pl\n\nyesterday = pl.DataFrame(yesterday, schema={\"customer_id\": pl.Int64, \"email\": pl.String}, orient=\"row\")\ntoday = pl.DataFrame(today, schema={\"customer_id\": pl.Int64, \"email\": pl.String}, orient=\"row\")\nold = yesterday.rename({\"email\": \"old_email\"})\nnew = today.rename({\"email\": \"new_email\"})\njoined = old.join(new, on=\"customer_id\", how=\"inner\")\ndisplay(joined.filter((pl.col(\"old_email\") != pl.col(\"new_email\")) | pl.col(\"old_email\").is_null()))\n"
+    ],
+    "spark-full-outer-reconcile-polars": [
+      "import polars as pl\n\nbilling = pl.DataFrame(billing, schema={\"invoice_id\": pl.Int64, \"billed_amount\": pl.Float64}, orient=\"row\")\nledger = pl.DataFrame(ledger, schema={\"invoice_id\": pl.Int64, \"booked_amount\": pl.Float64}, orient=\"row\")\njoined = billing.join(ledger, on=\"invoice_id\", how=\"full\")\nresult = joined.with_columns(\n    pl.when(pl.col(\"booked_amount\").is_null()).then(pl.lit(\"missing_in_ledger\"))\n    .when(pl.col(\"billed_amount\").is_null()).then(pl.lit(\"missing_in_billing\"))\n    .when(pl.col(\"billed_amount\") != pl.col(\"booked_amount\")).then(pl.lit(\"amount_mismatch\"))\n    .otherwise(pl.lit(\"match\"))\n    .alias(\"status\")\n)\ndisplay(result.select(\"invoice_id\", \"billed_amount\", \"booked_amount\", \"status\"))\n"
+    ],
+    "spark-join-fanout-before-sum-polars": [
+      "import polars as pl\n\norders = pl.DataFrame(orders, schema={\"order_id\": pl.Int64, \"customer_id\": pl.Int64, \"amount\": pl.Float64}, orient=\"row\")\norder_promos = pl.DataFrame(order_promos, schema={\"order_id\": pl.Int64, \"promo_code\": pl.String}, orient=\"row\")\njoined = orders.join(order_promos, on=\"order_id\", how=\"left\").unique(subset=[\"order_id\"])\nresult = joined.group_by(\"customer_id\").agg(\n    pl.col(\"amount\").sum().alias(\"revenue\"), pl.col(\"promo_code\").count().alias(\"promo_uses\")\n)\ndisplay(result)\n"
+    ],
+    "spark-running-total-ties-polars": [
+      "import polars as pl\n\ntransactions = pl.DataFrame(transactions, schema={\"account_id\": pl.String, \"txn_id\": pl.Int64, \"txn_date\": pl.String, \"amount\": pl.Float64}, orient=\"row\").with_columns(pl.col(\"txn_date\").str.to_date())\nresult = transactions.with_columns(pl.col(\"amount\").cum_sum().over(\"account_id\").alias(\"running_balance\"))\ndisplay(result)\n"
     ]
   }
 }

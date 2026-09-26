@@ -1,4 +1,5 @@
 import type {
+  SparkLabEngine,
   SparkLabPlanNodeView,
   SparkLabRunView,
   SparkLabSimulationView,
@@ -14,12 +15,14 @@ type Raw = Record<string, unknown>;
  */
 export function toSparkLabRunView(
   raw: unknown,
-  context: { fileName: string; profileId: string; aqe: boolean }
+  context: { engine: SparkLabEngine; fileName: string; profileId: string; aqe: boolean }
 ): SparkLabRunView {
   const run = asRecord(raw);
   const error = asRecord(run.error);
+  const plan = asRecord(run.polars_plan);
   return {
     status: run.status === "success" ? "success" : "error",
+    engine: context.engine,
     fileName: context.fileName,
     profileId: context.profileId,
     aqe: context.aqe,
@@ -29,7 +32,11 @@ export function toSparkLabRunView(
     error: run.status === "success"
       ? undefined
       : { type: str(error.type, "Error"), message: str(error.message, "SparkLab execution failed.") },
-    simulation: run.simulation ? toSimulation(asRecord(run.simulation)) : undefined
+    simulation: run.simulation ? toSimulation(asRecord(run.simulation)) : undefined,
+    stdout: typeof run.stdout === "string" && run.stdout ? run.stdout : undefined,
+    polarsPlan: typeof plan.text === "string"
+      ? { truth: str(plan.truth, "Polars optimized plan (real)"), text: plan.text }
+      : undefined
   };
 }
 

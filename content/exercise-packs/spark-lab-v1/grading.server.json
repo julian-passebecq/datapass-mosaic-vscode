@@ -144,8 +144,280 @@
       }
     ]
   },
+  "spark-left-join-filter-placement-polars": {
+    "solution": "import polars as pl\n\ncustomers = pl.DataFrame(customers, schema={\"customer_id\": pl.Int64, \"customer_name\": pl.String}, orient=\"row\")\norders = pl.DataFrame(orders, schema={\"order_id\": pl.Int64, \"customer_id\": pl.Int64, \"status\": pl.String, \"amount\": pl.Float64}, orient=\"row\")\ncompleted = orders.filter(pl.col(\"status\") == \"COMPLETED\").select(\"order_id\", \"customer_id\", \"amount\")\nresult = customers.join(completed, on=\"customer_id\", how=\"left\").select(\"customer_id\", \"customer_name\", \"order_id\", \"amount\")\ndisplay(result)\n",
+    "fixtures": [
+      {
+        "id": "example",
+        "visibility": "visible",
+        "input_rows": [],
+        "tables": {
+          "customers": [
+            {
+              "customer_id": 1,
+              "customer_name": "Ana"
+            },
+            {
+              "customer_id": 2,
+              "customer_name": "Bo"
+            },
+            {
+              "customer_id": 3,
+              "customer_name": "Cy"
+            }
+          ],
+          "orders": [
+            {
+              "order_id": 10,
+              "customer_id": 1,
+              "status": "COMPLETED",
+              "amount": 120.0
+            },
+            {
+              "order_id": 11,
+              "customer_id": 1,
+              "status": "CANCELLED",
+              "amount": 40.0
+            },
+            {
+              "order_id": 12,
+              "customer_id": 2,
+              "status": "CANCELLED",
+              "amount": 55.0
+            }
+          ]
+        },
+        "expected": [
+          {
+            "customer_id": 1,
+            "customer_name": "Ana",
+            "order_id": 10,
+            "amount": 120.0
+          },
+          {
+            "customer_id": 2,
+            "customer_name": "Bo",
+            "order_id": null,
+            "amount": null
+          },
+          {
+            "customer_id": 3,
+            "customer_name": "Cy",
+            "order_id": null,
+            "amount": null
+          }
+        ]
+      },
+      {
+        "id": "several-completed-orders",
+        "visibility": "hidden",
+        "input_rows": [],
+        "tables": {
+          "customers": [
+            {
+              "customer_id": 4,
+              "customer_name": "Di"
+            },
+            {
+              "customer_id": 5,
+              "customer_name": "Ed"
+            }
+          ],
+          "orders": [
+            {
+              "order_id": 20,
+              "customer_id": 4,
+              "status": "COMPLETED",
+              "amount": 10.0
+            },
+            {
+              "order_id": 21,
+              "customer_id": 4,
+              "status": "COMPLETED",
+              "amount": 15.5
+            },
+            {
+              "order_id": 22,
+              "customer_id": 5,
+              "status": "PENDING",
+              "amount": 8.0
+            }
+          ]
+        },
+        "expected": [
+          {
+            "customer_id": 4,
+            "customer_name": "Di",
+            "order_id": 21,
+            "amount": 15.5
+          },
+          {
+            "customer_id": 4,
+            "customer_name": "Di",
+            "order_id": 20,
+            "amount": 10.0
+          },
+          {
+            "customer_id": 5,
+            "customer_name": "Ed",
+            "order_id": null,
+            "amount": null
+          }
+        ]
+      },
+      {
+        "id": "no-orders-at-all",
+        "visibility": "edge",
+        "input_rows": [],
+        "tables": {
+          "customers": [
+            {
+              "customer_id": 7,
+              "customer_name": "Flo"
+            }
+          ],
+          "orders": []
+        },
+        "expected": [
+          {
+            "customer_id": 7,
+            "customer_name": "Flo",
+            "order_id": null,
+            "amount": null
+          }
+        ]
+      }
+    ]
+  },
   "spark-semi-join-existence": {
     "solution": "from pyspark.sql import functions as F\ncustomers = spark.table(\"customers\")\norders = spark.table(\"orders\")\norders_2026 = orders.filter(F.col(\"order_date\").between(\"2026-01-01\", \"2026-12-31\"))\nresult = customers.join(orders_2026, on=\"customer_id\", how=\"left_semi\")\n",
+    "fixtures": [
+      {
+        "id": "example",
+        "visibility": "visible",
+        "input_rows": [],
+        "tables": {
+          "customers": [
+            {
+              "customer_id": 1,
+              "customer_name": "Ana",
+              "country": "FR"
+            },
+            {
+              "customer_id": 2,
+              "customer_name": "Bo",
+              "country": "DE"
+            },
+            {
+              "customer_id": 3,
+              "customer_name": "Cy",
+              "country": "FR"
+            }
+          ],
+          "orders": [
+            {
+              "order_id": 10,
+              "customer_id": 1,
+              "order_date": "2026-02-01"
+            },
+            {
+              "order_id": 11,
+              "customer_id": 1,
+              "order_date": "2026-03-15"
+            },
+            {
+              "order_id": 12,
+              "customer_id": 3,
+              "order_date": "2025-12-31"
+            }
+          ]
+        },
+        "expected": [
+          {
+            "customer_id": 1,
+            "customer_name": "Ana",
+            "country": "FR"
+          }
+        ]
+      },
+      {
+        "id": "year-boundaries",
+        "visibility": "hidden",
+        "input_rows": [],
+        "tables": {
+          "customers": [
+            {
+              "customer_id": 4,
+              "customer_name": "Di",
+              "country": "ES"
+            },
+            {
+              "customer_id": 5,
+              "customer_name": "Ed",
+              "country": "FR"
+            },
+            {
+              "customer_id": 6,
+              "customer_name": "Flo",
+              "country": "IT"
+            }
+          ],
+          "orders": [
+            {
+              "order_id": 20,
+              "customer_id": 4,
+              "order_date": "2026-01-01"
+            },
+            {
+              "order_id": 21,
+              "customer_id": 5,
+              "order_date": "2026-12-31"
+            },
+            {
+              "order_id": 22,
+              "customer_id": 5,
+              "order_date": "2026-06-01"
+            },
+            {
+              "order_id": 23,
+              "customer_id": 99,
+              "order_date": "2026-05-05"
+            }
+          ]
+        },
+        "expected": [
+          {
+            "customer_id": 4,
+            "customer_name": "Di",
+            "country": "ES"
+          },
+          {
+            "customer_id": 5,
+            "customer_name": "Ed",
+            "country": "FR"
+          }
+        ]
+      },
+      {
+        "id": "no-orders",
+        "visibility": "edge",
+        "input_rows": [],
+        "tables": {
+          "customers": [
+            {
+              "customer_id": 7,
+              "customer_name": "Gus",
+              "country": "FR"
+            }
+          ],
+          "orders": []
+        },
+        "expected": []
+      }
+    ]
+  },
+  "spark-semi-join-existence-polars": {
+    "solution": "from datetime import date\nimport polars as pl\n\ncustomers = pl.DataFrame(customers, schema={\"customer_id\": pl.Int64, \"customer_name\": pl.String, \"country\": pl.String}, orient=\"row\")\norders = pl.DataFrame(orders, schema={\"order_id\": pl.Int64, \"customer_id\": pl.Int64, \"order_date\": pl.String}, orient=\"row\").with_columns(pl.col(\"order_date\").str.to_date())\norders_2026 = orders.filter(pl.col(\"order_date\").is_between(date(2026, 1, 1), date(2026, 12, 31)))\ndisplay(customers.join(orders_2026, on=\"customer_id\", how=\"semi\"))\n",
     "fixtures": [
       {
         "id": "example",
@@ -384,8 +656,239 @@
       }
     ]
   },
+  "spark-count-column-vs-star-polars": {
+    "solution": "import polars as pl\n\nevents = pl.DataFrame(events, schema={\"event_id\": pl.Int64, \"campaign_id\": pl.String, \"clicked_at\": pl.String}, orient=\"row\").with_columns(pl.col(\"clicked_at\").str.to_datetime(\"%Y-%m-%d %H:%M:%S\"))\nresult = events.group_by(\"campaign_id\").agg(\n    pl.len().alias(\"impressions\"), pl.col(\"clicked_at\").count().alias(\"clicks\")\n)\ndisplay(result)\n",
+    "fixtures": [
+      {
+        "id": "example",
+        "visibility": "visible",
+        "input_rows": [],
+        "tables": {
+          "events": [
+            {
+              "event_id": 1,
+              "campaign_id": "spring",
+              "clicked_at": null
+            },
+            {
+              "event_id": 2,
+              "campaign_id": "spring",
+              "clicked_at": "2026-03-01 10:00:00"
+            },
+            {
+              "event_id": 3,
+              "campaign_id": "spring",
+              "clicked_at": null
+            },
+            {
+              "event_id": 4,
+              "campaign_id": "summer",
+              "clicked_at": "2026-06-01 09:00:00"
+            }
+          ]
+        },
+        "expected": [
+          {
+            "campaign_id": "spring",
+            "impressions": 3,
+            "clicks": 1
+          },
+          {
+            "campaign_id": "summer",
+            "impressions": 1,
+            "clicks": 1
+          }
+        ]
+      },
+      {
+        "id": "same-second-clicks",
+        "visibility": "hidden",
+        "input_rows": [],
+        "tables": {
+          "events": [
+            {
+              "event_id": 10,
+              "campaign_id": "fall",
+              "clicked_at": "2026-10-01 08:00:00"
+            },
+            {
+              "event_id": 11,
+              "campaign_id": "fall",
+              "clicked_at": "2026-10-01 08:00:00"
+            },
+            {
+              "event_id": 12,
+              "campaign_id": "fall",
+              "clicked_at": null
+            },
+            {
+              "event_id": 13,
+              "campaign_id": "winter",
+              "clicked_at": null
+            }
+          ]
+        },
+        "expected": [
+          {
+            "campaign_id": "fall",
+            "impressions": 3,
+            "clicks": 2
+          },
+          {
+            "campaign_id": "winter",
+            "impressions": 1,
+            "clicks": 0
+          }
+        ]
+      },
+      {
+        "id": "no-clicks",
+        "visibility": "edge",
+        "input_rows": [],
+        "tables": {
+          "events": [
+            {
+              "event_id": 20,
+              "campaign_id": "launch",
+              "clicked_at": null
+            },
+            {
+              "event_id": 21,
+              "campaign_id": "launch",
+              "clicked_at": null
+            }
+          ]
+        },
+        "expected": [
+          {
+            "campaign_id": "launch",
+            "impressions": 2,
+            "clicks": 0
+          }
+        ]
+      }
+    ]
+  },
   "spark-null-safe-change-detection": {
     "solution": "from pyspark.sql import functions as F\nold = spark.table(\"yesterday\").withColumnRenamed(\"email\", \"old_email\")\nnew = spark.table(\"today\").withColumnRenamed(\"email\", \"new_email\")\nresult = old.join(new, on=\"customer_id\", how=\"inner\").filter(~F.col(\"old_email\").eqNullSafe(F.col(\"new_email\")))\n",
+    "fixtures": [
+      {
+        "id": "example",
+        "visibility": "visible",
+        "input_rows": [],
+        "tables": {
+          "yesterday": [
+            {
+              "customer_id": 1,
+              "email": "ana@a.io"
+            },
+            {
+              "customer_id": 2,
+              "email": "bo@b.io"
+            },
+            {
+              "customer_id": 3,
+              "email": null
+            }
+          ],
+          "today": [
+            {
+              "customer_id": 1,
+              "email": "ana@a.io"
+            },
+            {
+              "customer_id": 2,
+              "email": "bo@new.io"
+            },
+            {
+              "customer_id": 3,
+              "email": "cy@c.io"
+            }
+          ]
+        },
+        "expected": [
+          {
+            "customer_id": 2,
+            "old_email": "bo@b.io",
+            "new_email": "bo@new.io"
+          },
+          {
+            "customer_id": 3,
+            "old_email": null,
+            "new_email": "cy@c.io"
+          }
+        ]
+      },
+      {
+        "id": "cleared-and-unchanged-null",
+        "visibility": "hidden",
+        "input_rows": [],
+        "tables": {
+          "yesterday": [
+            {
+              "customer_id": 4,
+              "email": "di@d.io"
+            },
+            {
+              "customer_id": 5,
+              "email": null
+            },
+            {
+              "customer_id": 6,
+              "email": "ed@e.io"
+            }
+          ],
+          "today": [
+            {
+              "customer_id": 4,
+              "email": null
+            },
+            {
+              "customer_id": 5,
+              "email": null
+            },
+            {
+              "customer_id": 6,
+              "email": "ed@e.io"
+            },
+            {
+              "customer_id": 7,
+              "email": "new@x.io"
+            }
+          ]
+        },
+        "expected": [
+          {
+            "customer_id": 4,
+            "old_email": "di@d.io",
+            "new_email": null
+          }
+        ]
+      },
+      {
+        "id": "nothing-changed",
+        "visibility": "edge",
+        "input_rows": [],
+        "tables": {
+          "yesterday": [
+            {
+              "customer_id": 8,
+              "email": "x@x.io"
+            }
+          ],
+          "today": [
+            {
+              "customer_id": 8,
+              "email": "x@x.io"
+            }
+          ]
+        },
+        "expected": []
+      }
+    ]
+  },
+  "spark-null-safe-change-detection-polars": {
+    "solution": "import polars as pl\n\nyesterday = pl.DataFrame(yesterday, schema={\"customer_id\": pl.Int64, \"email\": pl.String}, orient=\"row\")\ntoday = pl.DataFrame(today, schema={\"customer_id\": pl.Int64, \"email\": pl.String}, orient=\"row\")\nold = yesterday.rename({\"email\": \"old_email\"})\nnew = today.rename({\"email\": \"new_email\"})\nresult = old.join(new, on=\"customer_id\", how=\"inner\").filter(pl.col(\"old_email\").ne_missing(pl.col(\"new_email\")))\ndisplay(result)\n",
     "fixtures": [
       {
         "id": "example",
@@ -633,8 +1136,266 @@
       }
     ]
   },
+  "spark-full-outer-reconcile-polars": {
+    "solution": "import polars as pl\n\nbilling = pl.DataFrame(billing, schema={\"invoice_id\": pl.Int64, \"billed_amount\": pl.Float64}, orient=\"row\")\nledger = pl.DataFrame(ledger, schema={\"invoice_id\": pl.Int64, \"booked_amount\": pl.Float64}, orient=\"row\")\njoined = billing.join(ledger, on=\"invoice_id\", how=\"full\", coalesce=True)\nresult = joined.with_columns(\n    pl.when(pl.col(\"booked_amount\").is_null()).then(pl.lit(\"missing_in_ledger\"))\n    .when(pl.col(\"billed_amount\").is_null()).then(pl.lit(\"missing_in_billing\"))\n    .when(pl.col(\"billed_amount\") != pl.col(\"booked_amount\")).then(pl.lit(\"amount_mismatch\"))\n    .otherwise(pl.lit(\"match\"))\n    .alias(\"status\")\n)\ndisplay(result)\n",
+    "fixtures": [
+      {
+        "id": "example",
+        "visibility": "visible",
+        "input_rows": [],
+        "tables": {
+          "billing": [
+            {
+              "invoice_id": 1,
+              "billed_amount": 100.0
+            },
+            {
+              "invoice_id": 2,
+              "billed_amount": 50.0
+            },
+            {
+              "invoice_id": 3,
+              "billed_amount": 75.0
+            }
+          ],
+          "ledger": [
+            {
+              "invoice_id": 1,
+              "booked_amount": 100.0
+            },
+            {
+              "invoice_id": 2,
+              "booked_amount": 45.0
+            },
+            {
+              "invoice_id": 4,
+              "booked_amount": 20.0
+            }
+          ]
+        },
+        "expected": [
+          {
+            "invoice_id": 1,
+            "billed_amount": 100.0,
+            "booked_amount": 100.0,
+            "status": "match"
+          },
+          {
+            "invoice_id": 2,
+            "billed_amount": 50.0,
+            "booked_amount": 45.0,
+            "status": "amount_mismatch"
+          },
+          {
+            "invoice_id": 3,
+            "billed_amount": 75.0,
+            "booked_amount": null,
+            "status": "missing_in_ledger"
+          },
+          {
+            "invoice_id": 4,
+            "billed_amount": null,
+            "booked_amount": 20.0,
+            "status": "missing_in_billing"
+          }
+        ]
+      },
+      {
+        "id": "disjoint-systems",
+        "visibility": "hidden",
+        "input_rows": [],
+        "tables": {
+          "billing": [
+            {
+              "invoice_id": 10,
+              "billed_amount": 10.0
+            }
+          ],
+          "ledger": [
+            {
+              "invoice_id": 11,
+              "booked_amount": 11.0
+            },
+            {
+              "invoice_id": 12,
+              "booked_amount": 12.0
+            }
+          ]
+        },
+        "expected": [
+          {
+            "invoice_id": 11,
+            "billed_amount": null,
+            "booked_amount": 11.0,
+            "status": "missing_in_billing"
+          },
+          {
+            "invoice_id": 12,
+            "billed_amount": null,
+            "booked_amount": 12.0,
+            "status": "missing_in_billing"
+          },
+          {
+            "invoice_id": 10,
+            "billed_amount": 10.0,
+            "booked_amount": null,
+            "status": "missing_in_ledger"
+          }
+        ]
+      },
+      {
+        "id": "empty-billing",
+        "visibility": "edge",
+        "input_rows": [],
+        "tables": {
+          "billing": [],
+          "ledger": [
+            {
+              "invoice_id": 20,
+              "booked_amount": 5.0
+            }
+          ]
+        },
+        "expected": [
+          {
+            "invoice_id": 20,
+            "billed_amount": null,
+            "booked_amount": 5.0,
+            "status": "missing_in_billing"
+          }
+        ]
+      }
+    ]
+  },
   "spark-join-fanout-before-sum": {
     "solution": "from pyspark.sql import functions as F\norders = spark.table(\"orders\")\npromos = spark.table(\"order_promos\")\npromo_counts = promos.groupBy(\"order_id\").agg(F.count(\"*\").alias(\"promo_count\"))\nresult = (\n    orders.join(promo_counts, on=\"order_id\", how=\"left\")\n    .groupBy(\"customer_id\")\n    .agg(F.sum(\"amount\").alias(\"revenue\"), F.sum(F.coalesce(F.col(\"promo_count\"), F.lit(0))).alias(\"promo_uses\"))\n)\n",
+    "fixtures": [
+      {
+        "id": "example",
+        "visibility": "visible",
+        "input_rows": [],
+        "tables": {
+          "orders": [
+            {
+              "order_id": 1,
+              "customer_id": 10,
+              "amount": 100.0
+            },
+            {
+              "order_id": 2,
+              "customer_id": 10,
+              "amount": 50.0
+            },
+            {
+              "order_id": 3,
+              "customer_id": 20,
+              "amount": 80.0
+            }
+          ],
+          "order_promos": [
+            {
+              "order_id": 1,
+              "promo_code": "SPRING"
+            },
+            {
+              "order_id": 1,
+              "promo_code": "VIP"
+            },
+            {
+              "order_id": 3,
+              "promo_code": "SPRING"
+            }
+          ]
+        },
+        "expected": [
+          {
+            "customer_id": 10,
+            "revenue": 150.0,
+            "promo_uses": 2
+          },
+          {
+            "customer_id": 20,
+            "revenue": 80.0,
+            "promo_uses": 1
+          }
+        ]
+      },
+      {
+        "id": "three-promos-and-none",
+        "visibility": "hidden",
+        "input_rows": [],
+        "tables": {
+          "orders": [
+            {
+              "order_id": 4,
+              "customer_id": 30,
+              "amount": 40.0
+            },
+            {
+              "order_id": 5,
+              "customer_id": 30,
+              "amount": 60.0
+            },
+            {
+              "order_id": 6,
+              "customer_id": 40,
+              "amount": 25.0
+            }
+          ],
+          "order_promos": [
+            {
+              "order_id": 5,
+              "promo_code": "A"
+            },
+            {
+              "order_id": 5,
+              "promo_code": "B"
+            },
+            {
+              "order_id": 5,
+              "promo_code": "C"
+            }
+          ]
+        },
+        "expected": [
+          {
+            "customer_id": 30,
+            "revenue": 100.0,
+            "promo_uses": 3
+          },
+          {
+            "customer_id": 40,
+            "revenue": 25.0,
+            "promo_uses": 0
+          }
+        ]
+      },
+      {
+        "id": "no-promos",
+        "visibility": "edge",
+        "input_rows": [],
+        "tables": {
+          "orders": [
+            {
+              "order_id": 7,
+              "customer_id": 50,
+              "amount": 12.5
+            }
+          ],
+          "order_promos": []
+        },
+        "expected": [
+          {
+            "customer_id": 50,
+            "revenue": 12.5,
+            "promo_uses": 0
+          }
+        ]
+      }
+    ]
+  },
+  "spark-join-fanout-before-sum-polars": {
+    "solution": "import polars as pl\n\norders = pl.DataFrame(orders, schema={\"order_id\": pl.Int64, \"customer_id\": pl.Int64, \"amount\": pl.Float64}, orient=\"row\")\norder_promos = pl.DataFrame(order_promos, schema={\"order_id\": pl.Int64, \"promo_code\": pl.String}, orient=\"row\")\npromo_counts = order_promos.group_by(\"order_id\").agg(pl.len().alias(\"promo_count\"))\nresult = (\n    orders.join(promo_counts, on=\"order_id\", how=\"left\")\n    .group_by(\"customer_id\")\n    .agg(pl.col(\"amount\").sum().alias(\"revenue\"), pl.col(\"promo_count\").fill_null(0).sum().alias(\"promo_uses\"))\n)\ndisplay(result)\n",
     "fixtures": [
       {
         "id": "example",
@@ -910,6 +1671,211 @@
             "txn_date": "2026-03-01",
             "amount": 0.0,
             "running_balance": 0.0
+          }
+        ]
+      }
+    ]
+  },
+  "spark-running-total-ties-polars": {
+    "solution": "import polars as pl\n\ntransactions = pl.DataFrame(transactions, schema={\"account_id\": pl.String, \"txn_id\": pl.Int64, \"txn_date\": pl.String, \"amount\": pl.Float64}, orient=\"row\").with_columns(pl.col(\"txn_date\").str.to_date())\nresult = transactions.sort(\"account_id\", \"txn_date\", \"txn_id\").with_columns(\n    pl.col(\"amount\").cum_sum().over(\"account_id\").alias(\"running_balance\")\n)\ndisplay(result)\n",
+    "fixtures": [
+      {
+        "id": "example",
+        "visibility": "visible",
+        "input_rows": [],
+        "tables": {
+          "transactions": [
+            {
+              "account_id": "A",
+              "txn_id": 1,
+              "txn_date": "2026-01-01",
+              "amount": 100.0
+            },
+            {
+              "account_id": "A",
+              "txn_id": 2,
+              "txn_date": "2026-01-02",
+              "amount": -30.0
+            },
+            {
+              "account_id": "A",
+              "txn_id": 3,
+              "txn_date": "2026-01-02",
+              "amount": 50.0
+            },
+            {
+              "account_id": "B",
+              "txn_id": 4,
+              "txn_date": "2026-01-01",
+              "amount": 10.0
+            }
+          ]
+        },
+        "expected": [
+          {
+            "account_id": "B",
+            "txn_id": 4,
+            "txn_date": "2026-01-01",
+            "amount": 10.0,
+            "running_balance": 10.0
+          },
+          {
+            "account_id": "A",
+            "txn_id": 1,
+            "txn_date": "2026-01-01",
+            "amount": 100.0,
+            "running_balance": 100.0
+          },
+          {
+            "account_id": "A",
+            "txn_id": 2,
+            "txn_date": "2026-01-02",
+            "amount": -30.0,
+            "running_balance": 70.0
+          },
+          {
+            "account_id": "A",
+            "txn_id": 3,
+            "txn_date": "2026-01-02",
+            "amount": 50.0,
+            "running_balance": 120.0
+          }
+        ]
+      },
+      {
+        "id": "three-way-tie",
+        "visibility": "hidden",
+        "input_rows": [],
+        "tables": {
+          "transactions": [
+            {
+              "account_id": "C",
+              "txn_id": 10,
+              "txn_date": "2026-02-01",
+              "amount": 5.0
+            },
+            {
+              "account_id": "C",
+              "txn_id": 11,
+              "txn_date": "2026-02-01",
+              "amount": 5.0
+            },
+            {
+              "account_id": "C",
+              "txn_id": 12,
+              "txn_date": "2026-02-01",
+              "amount": 5.0
+            },
+            {
+              "account_id": "D",
+              "txn_id": 13,
+              "txn_date": "2026-02-01",
+              "amount": 1.0
+            }
+          ]
+        },
+        "expected": [
+          {
+            "account_id": "D",
+            "txn_id": 13,
+            "txn_date": "2026-02-01",
+            "amount": 1.0,
+            "running_balance": 1.0
+          },
+          {
+            "account_id": "C",
+            "txn_id": 10,
+            "txn_date": "2026-02-01",
+            "amount": 5.0,
+            "running_balance": 5.0
+          },
+          {
+            "account_id": "C",
+            "txn_id": 11,
+            "txn_date": "2026-02-01",
+            "amount": 5.0,
+            "running_balance": 10.0
+          },
+          {
+            "account_id": "C",
+            "txn_id": 12,
+            "txn_date": "2026-02-01",
+            "amount": 5.0,
+            "running_balance": 15.0
+          }
+        ]
+      },
+      {
+        "id": "single-transaction",
+        "visibility": "edge",
+        "input_rows": [],
+        "tables": {
+          "transactions": [
+            {
+              "account_id": "E",
+              "txn_id": 20,
+              "txn_date": "2026-03-01",
+              "amount": 0.0
+            }
+          ]
+        },
+        "expected": [
+          {
+            "account_id": "E",
+            "txn_id": 20,
+            "txn_date": "2026-03-01",
+            "amount": 0.0,
+            "running_balance": 0.0
+          }
+        ]
+      },
+      {
+        "id": "unsorted-input",
+        "visibility": "hidden",
+        "input_rows": [],
+        "tables": {
+          "transactions": [
+            {
+              "account_id": "F",
+              "txn_id": 32,
+              "txn_date": "2026-04-03",
+              "amount": 7.0
+            },
+            {
+              "account_id": "F",
+              "txn_id": 30,
+              "txn_date": "2026-04-01",
+              "amount": 100.0
+            },
+            {
+              "account_id": "F",
+              "txn_id": 31,
+              "txn_date": "2026-04-01",
+              "amount": -40.0
+            }
+          ]
+        },
+        "expected": [
+          {
+            "account_id": "F",
+            "txn_id": 30,
+            "txn_date": "2026-04-01",
+            "amount": 100.0,
+            "running_balance": 100.0
+          },
+          {
+            "account_id": "F",
+            "txn_id": 31,
+            "txn_date": "2026-04-01",
+            "amount": -40.0,
+            "running_balance": 60.0
+          },
+          {
+            "account_id": "F",
+            "txn_id": 32,
+            "txn_date": "2026-04-03",
+            "amount": 7.0,
+            "running_balance": 67.0
           }
         ]
       }
