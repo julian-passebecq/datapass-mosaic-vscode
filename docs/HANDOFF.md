@@ -61,7 +61,7 @@ an extension update shows "needs update" / **Update runtime** and is never start
 
 Practice packs: `sql-lab-v1`, `engine-lab-v1` (incl. T-SQL and BigQuery variants), `python-lab-v1`,
 `de-patterns-v1`, `spark-lab-v1` (PySpark + Polars), `spark-sql-v1` (Spark SQL), `airflow-lab-v1`, `cloud-pipelines-v1`, `sqlpool-v1`, `databricks-v1`, `dwh-v1`,
-`dbt-v1`, `zilla-v1` (52 ZillaCode problems in six languages), `concepts-v1` (24 concept checks: Fabric capacities, Synapse DWUs, Databricks compute, Unity Catalog, Delta / Iceberg / DuckLake), `python-prod-v1` (8 pytest exercises: typing, files, logging, errors, retries), plus `guided-spark-v1` (needs a qualified remote
+`dbt-v1`, `zilla-v1` (52 ZillaCode problems in six languages), `concepts-v1` (24 concept checks: Fabric capacities, Synapse DWUs, Databricks compute, Unity Catalog, Delta / Iceberg / DuckLake), `python-prod-v1` (8 pytest exercises: typing, files, logging, errors, retries), `governance-v1` (5: row-level security, column GRANT/DENY and dynamic data masking in the SQL pool; Unity Catalog row filters, column masks and PII tags; graded by real queries as each principal), plus `guided-spark-v1` (needs a qualified remote
 connection, not graded locally), `unified-retail-v1`, `pipeline-design-v1`, `sparklab-runtime` and `internal-demo`. Languages include SQL dialects `snowflake`, `tsql`,
 `bigquery`, translated to DuckDB (`runtime/sqldialects`, README there).
 
@@ -167,6 +167,9 @@ Labs:
   Snowflake subset lacks typed `DATEADD` on fixture columns, `ARRAY`/`SPLIT` and `REGEXP_SUBSTR` groups.
 - Pipeline Lab: the dbt activity is declared only and fails fast; wiring it needs the trusted-local opt-in extended
   to dbt, the project path validated against `assets.dbt`, and a qualified manifest/run_results pair before success.
+- Governance (`sqlpoollab/security.py`, `databrickslab/governance.py`): only SELECT is secured in the SQL pool (no BLOCK
+  predicates, views not filtered, a filter on a masked column sees the masked value); UC filters/masks are refused on
+  notebook reads and take one expression (no lookup table); no ABAC policies or table-level tags.
 - Fabric's pipeline "dbt job" activity has no documented JSON `type` string: verify it before writing exercises.
 - `zilla-v1` keeps ZillaCode's company names; the NOTICE is not a legal review.
 

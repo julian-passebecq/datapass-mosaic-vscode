@@ -38,6 +38,28 @@ Statements end with `;` or a `GO` line. A procedure takes its whole batch. A scr
 batch does. Tables live in `dbo` (the warehouse layer) and the lakehouse layers (`bronze`, `silver`, `gold`, ...);
 temporary `#tables` and three-part names are not simulated.
 
+## Data security (`security.py`)
+
+Row-level security, column-level security and dynamic data masking, as Synapse dedicated SQL pool and Fabric
+Data Warehouse write them, labelled "T-SQL security translated to DuckDB, not SQL Server". The rows and values are
+enforced for real: each `SELECT` is rewritten for the user it runs as before it is translated.
+
+| Feature | Statements |
+| --- | --- |
+| Principals | `CREATE USER <name> WITHOUT LOGIN` (or `FROM EXTERNAL PROVIDER`), `CREATE ROLE`, `ALTER ROLE ... ADD / DROP MEMBER`, `DROP USER`, `DROP ROLE` |
+| Row-level security | Predicates as inline table-valued functions (`CREATE [OR ALTER] FUNCTION s.f(@p type) RETURNS TABLE WITH SCHEMABINDING AS RETURN SELECT 1 AS result [FROM ...] WHERE ...`), `CREATE SECURITY POLICY ... ADD FILTER PREDICATE s.f(column) ON <table> [, ...] [WITH (STATE = ON / OFF)]`, `ALTER SECURITY POLICY ... WITH (STATE = ...)`, `DROP SECURITY POLICY`, `DROP FUNCTION`. `USER_NAME()`, `SUSER_SNAME()`, `CURRENT_USER` and `IS_ROLEMEMBER('role')` / `IS_MEMBER('role')` are resolved for the principal |
+| Column-level security | `GRANT / DENY / REVOKE SELECT ON <table> [(columns)] TO <principal>`; a DENY (direct or through a role) wins |
+| Dynamic data masking | `ALTER TABLE ... ALTER COLUMN ... ADD MASKED WITH (FUNCTION = 'default()' / 'email()' / 'partial(prefix,"padding",suffix)')`, `DROP MASKED`, `GRANT / REVOKE UNMASK TO <principal>` |
+| Impersonation | `EXECUTE AS USER = '<name>'` ... `REVERT` |
+
+Filter predicates apply to every principal, dbo included (as in SQL Server); dbo holds every permission and sees
+unmasked data. Refused by name: BLOCK predicates, `random()` masks, `SESSION_CONTEXT`, `EXECUTE AS LOGIN`, other
+permissions than SELECT and UNMASK, `ALTER SECURITY POLICY` changing predicates. Differences from SQL Server: only
+`SELECT` is secured (under `EXECUTE AS`, other statements are refused; as dbo, `UPDATE` and `DELETE` are not
+filtered), reads through a view are not filtered, and a filter on a masked column compares the masked value (SQL
+Server compares the real value, which is why masking is not a security boundary). The state is kept in
+`sqlpool.json` (`security`). The `principals` outcome of Practice runs the graded query as each principal.
+
 ## Differences between the flavors
 
 | Topic | Synapse dedicated SQL pool | Fabric Data Warehouse |

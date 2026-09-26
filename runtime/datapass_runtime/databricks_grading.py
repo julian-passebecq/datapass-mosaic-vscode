@@ -21,7 +21,9 @@ from databrickslab.model import DatabricksLabError
 from databrickslab.unity import PermissionDenied, lab_table
 
 from .catalog import Catalog
-from .databricks_workspace import DatabricksWorkspace
+from .catalog import references, validate_sql
+from .databricks_workspace import DatabricksWorkspace, map_names, secured_statement, table_columns
+from databrickslab.governance import mask_leaks
 from .exercise_validation import validate_result
 from .factory_grading import _column_type
 
@@ -94,11 +96,51 @@ def _run(catalog: Catalog, language: str, code: str, scenario: DbxScenario) -> l
         if not catalog.exists(scenario.table):
             return []  # no table after the run: graded as no rows
         return catalog.query(f"SELECT * FROM {scenario.table}")['rows']
+    if scenario.outcome == 'principal_rows':
+        return [row for probe in scenario.queries for row in _as_principal(workspace, catalog, probe.principal, probe.sql)]
+    if scenario.outcome == 'pii':
+        return _pii(workspace, catalog, scenario.pii_principal or '', scenario.pii_tag)
     if scenario.outcome == 'access':
         return [_probe(workspace, catalog, state, p.principal, p.action, p.object) for p in scenario.access]
     if result is None:
         raise JobRejected('The scenario runs no job')
     return outcome_rows(scenario, result, describe_mlflow(state.get('mlflow', {})))
+
+
+def _as_principal(workspace: DatabricksWorkspace, catalog: Catalog, principal: str, sql: str) -> list[dict[str, Any]]:
+    """A read-only query as the principal: Unity Catalog privileges, row filters and column masks enforced."""
+    try:
+        statements = validate_sql(map_names(sql), read_only=True)
+        if len(statements) != 1 or not statements[0].lstrip().lower().startswith(('select', 'with')):
+            raise JobRejected('A principal probe is one SELECT')
+        statement = statements[0]
+        for table in references(statement):
+            workspace.unity.check_read(principal, table.lower())
+        secured, _ = secured_statement(workspace.unity, catalog, statement, principal)
+        result = catalog.query(secured)
+    except PermissionDenied as exc:
+        return [{'principal': principal, 'denied': str(exc)}]
+    except ValueError as exc:
+        raise JobRejected(f"Probe as {principal} failed: {exc}") from None
+    return [{'principal': principal, 'denied': None, **row} for row in result['rows']]
+
+
+def _pii(workspace: DatabricksWorkspace, catalog: Catalog, principal: str, tag: str) -> list[dict[str, Any]]:
+    gov, rows = workspace.unity.governance, []
+    groups = workspace.unity.identities(principal)
+    for table, columns in sorted(gov.tags.items()):
+        for column, tags in sorted(columns.items()):
+            if tag not in tags:
+                continue
+            try:
+                leaks = mask_leaks(gov, table, column, principal, groups,
+                                   lambda name: table_columns(catalog, name),
+                                   lambda sql: catalog.db.execute(sql).fetchone()[0])
+            except ValueError as exc:
+                raise JobRejected(f"Mask of {table}.{column} failed for {principal}: {exc}") from None
+            rows.append({'table': table, 'column': column, 'tag': f"{tag}={tags[tag]}", 'principal': principal,
+                         'masked': leaks == 0})
+    return rows
 
 
 def _probe(workspace: DatabricksWorkspace, catalog: Catalog, state: dict[str, Any], principal: str, action: str,

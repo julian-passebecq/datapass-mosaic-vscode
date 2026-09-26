@@ -98,12 +98,14 @@ class Metadata:
         self.tables: dict[str, TableDesign] = {}
         self.procedures: dict[str, Procedure] = {}
         self.flavor_of: dict[str, str] = {}
+        self.security: dict[str, Any] = {}  # users, roles, predicates, policies, permissions, masks (security.py)
         if path is not None and path.exists():
             try:
                 data = json.loads(path.read_text(encoding='utf-8'))
                 self.tables = {k: TableDesign.from_json(v) for k, v in data.get('tables', {}).items()}
                 self.procedures = {k: Procedure(v['name'], [tuple(p) for p in v['parameters']], v['body'], v.get('line', 1))
                                    for k, v in data.get('procedures', {}).items()}
+                self.security = data.get('security') or {}
             except (ValueError, KeyError, TypeError):
                 self.tables, self.procedures = {}, {}
 
@@ -114,6 +116,8 @@ class Metadata:
                 'tables': {k: v.to_json() for k, v in sorted(self.tables.items())},
                 'procedures': {k: {'name': p.name, 'parameters': [list(x) for x in p.parameters], 'body': p.body,
                                    'line': p.line} for k, p in sorted(self.procedures.items())}}
+        if self.security:
+            data['security'] = self.security
         tmp = self.path.with_suffix('.tmp')
         tmp.write_text(json.dumps(data, indent=2), encoding='utf-8')
         tmp.replace(self.path)

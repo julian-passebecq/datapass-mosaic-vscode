@@ -8,7 +8,7 @@
 // 4. Mosaic: the SQL scratch file, Run active SQL, the result row in the webview.
 // 5. Practice: Submit the first exercise's starter; the runtime grades it. The runtime's status bar item and the
 //    CodeLens above the solution file are seen on the way. A concept check (quiz) answered
-//    and graded, its reference sheet opened; later, with trusted Python on, a pytest exercise graded by real pytest.
+//    and graded, its reference sheet opened; a governance exercise (row-level security) graded; later, with trusted Python on, a pytest exercise graded by real pytest.
 // 5b. Infra Lab: a mission started, its commands typed in the simulated terminal, Check my work passes.
 // 5c. Lakehouse Lab: a mission started, its SQL run on DuckDB from the lab, Check my work passes on the files.
 // 5d. API Lab: a mission started, trusted Python enabled, the reference ingest.py run, Check my work passes.
@@ -398,6 +398,16 @@ try {
   step("Practice concept check opens its reference sheet as a Markdown preview", preview);
   // The preview is a webview too: close it so web() finds the Workbench again.
   if (preview) await command("View: Close Editor");
+
+  // --- Practice governance (row-level security) -------------------------------------------------------------------
+  // The reference security predicate and policy, graded by real queries as each principal on the simulated SQL pool.
+  const governanceReference = JSON.parse(readFileSync(path.join(repo, "content", "exercise-packs", "governance-v1",
+    "grading.server.json"), "utf8"))["gov-rls-sales-reps"].solution;
+  const governance = await submitPracticeCard("Row-level security: each rep sees their own sales",
+    "exercises/gov-rls-sales-reps/sqlpool/solution.sql", governanceReference);
+  step("Practice governance exercise graded by queries as each principal (T-SQL security on DuckDB)",
+    governance.status === "passed", governance.status ? `status ${governance.status}` : governance.text.slice(0, 200) || "no result");
+  await shot("practice-governance");
 
   // --- Infra Lab ------------------------------------------------------------------------------------------------
   // Start the ETL VM alerts mission, type its commands in the simulated terminal (a Pseudoterminal: no process runs;

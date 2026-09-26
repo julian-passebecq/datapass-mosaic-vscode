@@ -6,6 +6,15 @@ Each version's section becomes the notes of its GitHub Release (see docs/RELEASE
 
 ## [Unreleased]
 
+### Added
+
+- **Governance (V3-6)**: row-level security (security predicates and policies), column-level security (GRANT / DENY
+  on columns) and dynamic data masking (`default()`, `email()`, `partial()`, UNMASK) in the Cloud Lab SQL pool, with
+  `EXECUTE AS USER` / `REVERT`, labelled "T-SQL security translated to DuckDB, not SQL Server"; Unity Catalog row
+  filters, column masks (SQL UDFs) and column tags in the Databricks Lab's `grants.sql`, enforced on SQL tasks. A
+  Practice pack `governance-v1` (5 exercises) graded by real queries as each principal, including a PII check that
+  every tagged column is masked for a group. dbt model contracts stay in the dbt Lab missions.
+
 ## [0.2.0] - 2026-09-26
 
 The first version built on the full plan's V1: a Today home, and the Lakehouse, API and deeper Infra labs.
