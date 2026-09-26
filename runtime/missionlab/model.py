@@ -488,13 +488,46 @@ class K8sServiceCheck(CheckBase):
     reachable: bool = True
 
 
+class K8sIngressCheck(CheckBase):
+    """An Ingress of the simulated cluster, and what GET http://<host><path> gets through the ingress controller."""
+    kind: Literal['k8s_ingress']
+    name: str = Field(pattern=r'^[a-z0-9][a-z0-9.-]{0,62}$')
+    namespace: str = 'default'
+    ingress_class: str | None = Field(default=None, max_length=63)
+    host: str = Field(pattern=r'^[a-z0-9*][a-z0-9.-]{0,252}$')
+    path: str = Field(default='/', pattern=r'^/[A-Za-z0-9/._~-]{0,200}$')
+    # The request must reach this Service (through this Ingress) and the app must answer with this status.
+    backend: str | None = Field(default=None, pattern=r'^[a-z0-9][a-z0-9.-]{0,62}$')
+    status: int = Field(default=200, ge=100, le=599)
+
+
+class HpaReplayShape(Contract):
+    # The last `lab load replay`, made after the last change to the HPA, the Deployment's pods or the nodes.
+    max_overloaded_minutes: int = Field(default=0, ge=0)
+    min_peak_replicas: int | None = Field(default=None, ge=1)
+    final_replicas: int | None = Field(default=None, ge=0)
+
+
+class K8sHpaCheck(CheckBase):
+    """A HorizontalPodAutoscaler of the simulated cluster: its target and bounds, whether it can compute a replica
+    count, and what it did during the replay of the mission's recorded load."""
+    kind: Literal['k8s_hpa']
+    namespace: str = 'default'
+    deployment: str = Field(pattern=r'^[a-z0-9][a-z0-9.-]{0,62}$')
+    min_replicas: tuple[int, int] | None = None
+    max_replicas: tuple[int, int] | None = None
+    cpu_utilization: tuple[int, int] | None = None
+    active: bool | None = None
+    replay: HpaReplayShape | None = None
+
+
 Check = Annotated[Union[SqlCheck, NodeCheck, TestCheck, UnitTestCheck, RunCheck, FreshnessConfigCheck,
                         FreshnessResultCheck, DctValidateCheck, BoardCheck, RenderCheck, FileCheck, AirflowCheck,
                         PathCheck, TextCheck, ListingCheck, CsvCheck, ScriptCheck, GitRepoCheck, GitBranchCheck,
                         GitLogCheck, GitFileCheck, GitTagCheck, GitIgnoreCheck, GitStashCheck, AnyOfCheck,
                         TfStateCheck, TfPlanCheck, TfConfigCheck, AzureResourceCheck, JournalCheck, DockerImageCheck,
                         DockerBuildCheck, DockerContainerCheck, AzureAlertCheck, K8sDeploymentCheck,
-                        K8sServiceCheck],
+                        K8sServiceCheck, K8sIngressCheck, K8sHpaCheck],
                   Field(discriminator='kind')]
 AnyOfCheck.model_rebuild()
 # Check kinds that need the catalog or dbt artifacts, so they belong to the dbt Lab.
@@ -503,7 +536,7 @@ DBT_KINDS = {'sql', 'node', 'test', 'unit_test', 'run', 'freshness_config', 'fre
 GIT_KINDS = {'git_repo', 'git_branch', 'git_log', 'git_file', 'git_tag', 'git_ignore', 'git_stash'}
 # Check kinds that read the Infra Lab's simulated world, so they belong to the Infra Lab.
 INFRA_KINDS = {'tf_state', 'tf_plan', 'tf_config', 'azure_resource', 'journal', 'docker_image', 'docker_build',
-               'docker_container', 'azure_alert', 'k8s_deployment', 'k8s_service'}
+               'docker_container', 'azure_alert', 'k8s_deployment', 'k8s_service', 'k8s_ingress', 'k8s_hpa'}
 
 
 class Criterion(Contract):

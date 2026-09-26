@@ -1,0 +1,17 @@
+# Draft by Sam: never applied, "something is off with the backend".
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: orders-api
+  namespace: shop
+spec:
+  rules:
+    - host: shop.contoso.test
+      http:
+        paths:
+          - path: /api
+            backend:
+              service:
+                name: orders-api
+                port:
+                  number: 8000

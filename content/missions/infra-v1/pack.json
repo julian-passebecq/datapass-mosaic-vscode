@@ -9,6 +9,7 @@
     "datalake-module",
     "containerize-ingest-api",
     "page-on-shir-outage",
-    "zero-downtime-rollout"
+    "zero-downtime-rollout",
+    "black-friday-autoscale"
   ]
 }

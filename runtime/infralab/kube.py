@@ -1,11 +1,14 @@
-"""The simulated Kubernetes cluster: `kubectl apply` of Deployments, Services, ConfigMaps and Namespaces.
+"""The simulated Kubernetes cluster: `kubectl apply` of Deployments, Services, ConfigMaps, Namespaces, Ingresses and
+HorizontalPodAutoscalers.
 
 Manifests are read with `yaml.safe_load_all` and validated strictly (unknown fields refused, as the API server's strict
 field validation does) for the documented subset. The cluster is a record in `.infralab/world.json`: nodes with
 allocatable CPU and memory, the images its registry knows (with the behaviour of the app inside: the port it listens
 on, its health path, a crash), ReplicaSets and Pods derived by a deterministic controller. A rolling update is
 simulated in five-second steps with the Deployment's maxSurge and maxUnavailable, readiness probes and the progress
-deadline, and records the fewest ready pods during the rollout. Nothing is deployed.
+deadline, and records the fewest ready pods during the rollout. Ingress routing (the cluster's ingress controller)
+is in `ingress.py`, the HorizontalPodAutoscaler and the replay of a recorded load in `autoscale.py`. Nothing is
+deployed.
 """
 from __future__ import annotations
 
@@ -26,13 +29,22 @@ BOLD, GREEN, YELLOW, RED, CYAN, DIM, RESET = '\x1b[1m', '\x1b[32m', '\x1b[33m', 
 TICK = 5
 MAX_MANIFEST_BYTES = 400_000
 
-KINDS = {'Deployment': 'apps/v1', 'Service': 'v1', 'ConfigMap': 'v1', 'Namespace': 'v1'}
+KINDS = {'Deployment': 'apps/v1', 'Service': 'v1', 'ConfigMap': 'v1', 'Namespace': 'v1',
+         'Ingress': 'networking.k8s.io/v1', 'HorizontalPodAutoscaler': 'autoscaling/v2'}
+NOUNS = {'Deployment': 'deployment.apps', 'Service': 'service', 'ConfigMap': 'configmap', 'Namespace': 'namespace',
+         'Ingress': 'ingress.networking.k8s.io', 'HorizontalPodAutoscaler': 'horizontalpodautoscaler.autoscaling'}
+PLURALS = {'Deployment': 'deployments.apps', 'Service': 'services', 'ConfigMap': 'configmaps',
+           'Namespace': 'namespaces', 'Ingress': 'ingresses.networking.k8s.io',
+           'HorizontalPodAutoscaler': 'horizontalpodautoscalers.autoscaling'}
 RESOURCE_NAMES = {
     'pods': 'Pod', 'pod': 'Pod', 'po': 'Pod', 'deployments': 'Deployment', 'deployment': 'Deployment',
     'deploy': 'Deployment', 'services': 'Service', 'service': 'Service', 'svc': 'Service', 'replicasets': 'ReplicaSet',
     'replicaset': 'ReplicaSet', 'rs': 'ReplicaSet', 'endpoints': 'Endpoints', 'ep': 'Endpoints', 'nodes': 'Node',
     'node': 'Node', 'no': 'Node', 'configmaps': 'ConfigMap', 'configmap': 'ConfigMap', 'cm': 'ConfigMap',
     'namespaces': 'Namespace', 'namespace': 'Namespace', 'ns': 'Namespace', 'events': 'Event', 'ev': 'Event',
+    'ingresses': 'Ingress', 'ingress': 'Ingress', 'ing': 'Ingress', 'ingressclasses': 'IngressClass',
+    'ingressclass': 'IngressClass', 'horizontalpodautoscalers': 'HorizontalPodAutoscaler',
+    'horizontalpodautoscaler': 'HorizontalPodAutoscaler', 'hpa': 'HorizontalPodAutoscaler',
 }
 # Fields the lab accepts, per object path; anything else is an unknown field (strict decoding).
 FIELDS = {
@@ -59,7 +71,26 @@ FIELDS = {
     'servicePort': {'name', 'port', 'targetPort', 'protocol', 'nodePort'},
     'ConfigMap': {'apiVersion', 'kind', 'metadata', 'data'},
     'Namespace': {'apiVersion', 'kind', 'metadata'},
+    'Ingress': {'apiVersion', 'kind', 'metadata', 'spec'},
+    'Ingress.spec': {'ingressClassName', 'rules', 'tls', 'defaultBackend'},
+    'ingressRule': {'host', 'http'},
+    'ingressHttp': {'paths'},
+    'ingressPath': {'path', 'pathType', 'backend'},
+    'ingressBackend': {'service', 'resource'},
+    'ingressService': {'name', 'port'},
+    'backendPort': {'number', 'name'},
+    'ingressTLS': {'hosts', 'secretName'},
+    'HorizontalPodAutoscaler': {'apiVersion', 'kind', 'metadata', 'spec'},
+    'HorizontalPodAutoscaler.spec': {'scaleTargetRef', 'minReplicas', 'maxReplicas', 'metrics', 'behavior'},
+    'scaleTargetRef': {'apiVersion', 'kind', 'name'},
+    'metric': {'type', 'resource', 'pods', 'object', 'external', 'containerResource'},
+    'resourceMetric': {'name', 'target'},
+    'metricTarget': {'type', 'averageUtilization', 'averageValue', 'value'},
+    'behavior': {'scaleUp', 'scaleDown'},
+    'scalingRules': {'stabilizationWindowSeconds', 'selectPolicy', 'policies'},
+    'scalingPolicy': {'type', 'value', 'periodSeconds'},
 }
+DNS_LABEL = re.compile(r'[a-z0-9]([-a-z0-9]*[a-z0-9])?')
 
 
 class KubeError(Exception):
@@ -197,10 +228,160 @@ def validate(doc: dict, source: str) -> dict:
             strict(port, 'servicePort', f'spec.ports[{j}]', source, kind, name)
             if 'port' not in port:
                 raise KubeError(f'The Service "{name}" is invalid: spec.ports[{j}].port: Required value')
+    elif kind == 'Ingress':
+        validate_ingress(spec, source, name)
+    elif kind == 'HorizontalPodAutoscaler':
+        validate_hpa(spec, source, name)
+    if kind == 'Namespace' and (not DNS_LABEL.fullmatch(str(name)) or meta.get('namespace')):
+        raise KubeError(f'The Namespace "{name}" is invalid: metadata.name: Invalid value: "{name}": a lowercase RFC '
+                        '1123 label must consist of lower case alphanumeric characters or \'-\'')
     return doc
 
 
+def validate_ingress(spec: dict, source: str, name: str) -> None:
+    kind = 'Ingress'
+    strict(spec, 'Ingress.spec', 'spec', source, kind, name)
+    invalid = f'The Ingress "{name}" is invalid: '
+
+    def backend(value: Any, where: str) -> None:
+        strict(value, 'ingressBackend', where, source, kind, name)
+        if 'resource' in value:
+            raise KubeError(f'{invalid}{where}.resource: resource backends are not simulated (use service)')
+        service = value.get('service')
+        if not isinstance(service, dict):
+            raise KubeError(f'{invalid}{where}: Invalid value: "": resource or service backend is required')
+        strict(service, 'ingressService', f'{where}.service', source, kind, name)
+        if not service.get('name'):
+            raise KubeError(f'{invalid}{where}.service.name: Required value')
+        port = service.get('port')
+        if not isinstance(port, dict):
+            raise KubeError(f'{invalid}{where}.service.port: Required value: port name or number is required')
+        strict(port, 'backendPort', f'{where}.service.port', source, kind, name)
+        if 'number' in port and 'name' in port:
+            raise KubeError(f'{invalid}{where}.service.port: Invalid value: cannot set both port name & port number')
+        if 'number' not in port and 'name' not in port:
+            raise KubeError(f'{invalid}{where}.service.port.name: Required value: port name or number is required')
+        if 'number' in port and (not isinstance(port['number'], int) or not 0 < port['number'] < 65536):
+            raise KubeError(f'{invalid}{where}.service.port.number: Invalid value: {port["number"]}: must be between '
+                            '1 and 65535, inclusive')
+
+    rules = spec.get('rules') or []
+    if not rules and not spec.get('defaultBackend'):
+        raise KubeError(f'{invalid}spec: Invalid value: ...: either `defaultBackend` or `rules` must be specified')
+    if spec.get('defaultBackend') is not None:
+        backend(spec['defaultBackend'], 'spec.defaultBackend')
+    for i, rule in enumerate(rules):
+        where = f'spec.rules[{i}]'
+        strict(rule, 'ingressRule', where, source, kind, name)
+        host = rule.get('host')
+        if host is not None and (':' in str(host) or not re.fullmatch(r'(\*\.)?[a-z0-9]([-a-z0-9.]*[a-z0-9])?',
+                                                                    str(host))):
+            raise KubeError(f'{invalid}{where}.host: Invalid value: "{host}": a lowercase RFC 1123 subdomain must '
+                            'consist of lower case alphanumeric characters, \'-\' or \'.\' (no port, no scheme)')
+        http = rule.get('http')
+        if http is None:
+            continue
+        strict(http, 'ingressHttp', f'{where}.http', source, kind, name)
+        paths = http.get('paths') or []
+        if not paths:
+            raise KubeError(f'{invalid}{where}.http.paths: Required value')
+        for j, path in enumerate(paths):
+            at = f'{where}.http.paths[{j}]'
+            strict(path, 'ingressPath', at, source, kind, name)
+            if 'pathType' not in path:
+                raise KubeError(f'{invalid}{at}.pathType: Required value: pathType must be specified')
+            if path['pathType'] not in ('Exact', 'Prefix', 'ImplementationSpecific'):
+                raise KubeError(f'{invalid}{at}.pathType: Unsupported value: "{path["pathType"]}": supported values: '
+                                '"Exact", "ImplementationSpecific", "Prefix"')
+            if not str(path.get('path', '')).startswith('/'):
+                raise KubeError(f'{invalid}{at}.path: Invalid value: "{path.get("path", "")}": must be an absolute '
+                                'path')
+            if 'backend' not in path:
+                raise KubeError(f'{invalid}{at}.backend: Required value')
+            backend(path['backend'], f'{at}.backend')
+    for i, tls in enumerate(spec.get('tls') or []):
+        strict(tls, 'ingressTLS', f'spec.tls[{i}]', source, kind, name)
+
+
+def validate_hpa(spec: dict, source: str, name: str) -> None:
+    kind = 'HorizontalPodAutoscaler'
+    strict(spec, 'HorizontalPodAutoscaler.spec', 'spec', source, kind, name)
+    invalid = f'The HorizontalPodAutoscaler "{name}" is invalid: '
+    target = spec.get('scaleTargetRef')
+    if not isinstance(target, dict):
+        raise KubeError(f'{invalid}spec.scaleTargetRef.kind: Required value')
+    strict(target, 'scaleTargetRef', 'spec.scaleTargetRef', source, kind, name)
+    if not target.get('kind'):
+        raise KubeError(f'{invalid}spec.scaleTargetRef.kind: Required value')
+    if not target.get('name'):
+        raise KubeError(f'{invalid}spec.scaleTargetRef.name: Required value')
+    if target['kind'] != 'Deployment':
+        raise KubeError(f'{invalid}spec.scaleTargetRef.kind: the lab scales Deployments only')
+    maximum = spec.get('maxReplicas')
+    if maximum is None:
+        raise KubeError(f'{invalid}spec.maxReplicas: Required value')
+    minimum = spec.get('minReplicas', 1)
+    if not isinstance(minimum, int) or minimum < 1:
+        raise KubeError(f'{invalid}spec.minReplicas: Invalid value: {minimum}: must be greater than or equal to 1')
+    if not isinstance(maximum, int) or maximum < 1:
+        raise KubeError(f'{invalid}spec.maxReplicas: Invalid value: {maximum}: must be greater than 0')
+    if maximum < minimum:
+        raise KubeError(f'{invalid}spec.maxReplicas: Invalid value: {maximum}: must be greater than or equal to '
+                        '`minReplicas`')
+    for i, metric in enumerate(spec.get('metrics') or []):
+        where = f'spec.metrics[{i}]'
+        strict(metric, 'metric', where, source, kind, name)
+        if metric.get('type') != 'Resource':
+            raise KubeError(f'{invalid}{where}.type: the lab simulates Resource metrics (cpu, memory) only, not '
+                            f'"{metric.get("type")}"')
+        resource = metric.get('resource')
+        if not isinstance(resource, dict):
+            raise KubeError(f'{invalid}{where}.resource: Required value: must populate information for the given '
+                            'metric source')
+        strict(resource, 'resourceMetric', f'{where}.resource', source, kind, name)
+        if resource.get('name') not in ('cpu', 'memory'):
+            raise KubeError(f'{invalid}{where}.resource.name: Required value: must specify a resource name')
+        goal = resource.get('target')
+        if not isinstance(goal, dict):
+            raise KubeError(f'{invalid}{where}.resource.target: Required value')
+        strict(goal, 'metricTarget', f'{where}.resource.target', source, kind, name)
+        if goal.get('type') != 'Utilization':
+            raise KubeError(f'{invalid}{where}.resource.target.type: the lab simulates Utilization targets only')
+        value = goal.get('averageUtilization')
+        if not isinstance(value, int) or value < 1:
+            raise KubeError(f'{invalid}{where}.resource.target.averageUtilization: Required value: must set either a '
+                            'target raw value or a target utilization')
+    behavior = spec.get('behavior')
+    if behavior is not None:
+        strict(behavior, 'behavior', 'spec.behavior', source, kind, name)
+        for part in ('scaleUp', 'scaleDown'):
+            rules = behavior.get(part)
+            if rules is None:
+                continue
+            strict(rules, 'scalingRules', f'spec.behavior.{part}', source, kind, name)
+            window = rules.get('stabilizationWindowSeconds', 0)
+            if not isinstance(window, int) or not 0 <= window <= 3600:
+                raise KubeError(f'{invalid}spec.behavior.{part}.stabilizationWindowSeconds: Invalid value: {window}: '
+                                'must be less than or equal to 3600')
+            for j, policy in enumerate(rules.get('policies') or []):
+                strict(policy, 'scalingPolicy', f'spec.behavior.{part}.policies[{j}]', source, kind, name)
+                if policy.get('type') not in ('Pods', 'Percent'):
+                    raise KubeError(f'{invalid}spec.behavior.{part}.policies[{j}].type: Unsupported value: '
+                                    f'"{policy.get("type")}": supported values: "Percent", "Pods"')
+
+
 def load_manifests(folder: Path, target: str) -> list[tuple[str, dict]]:
+    """Every object of the file or folder, validated; the first invalid one raises."""
+    out = []
+    for relative, doc, problem in read_manifests(folder, target):
+        if problem:
+            raise KubeError(problem)
+        out.append((relative, doc))
+    return out
+
+
+def read_manifests(folder: Path, target: str) -> list[tuple[str, Any, str | None]]:
+    """(file, object, error) for every object: a YAML error stops everything, an invalid object only itself."""
     path = (folder / target).resolve()
     if not path.is_relative_to(folder.resolve()):
         raise KubeError(f'error: the path "{target}" is outside the mission folder')
@@ -222,7 +403,10 @@ def load_manifests(folder: Path, target: str) -> list[tuple[str, dict]]:
         except yaml.YAMLError as error:
             raise KubeError(f'error: error parsing {relative}: {error}') from None
         for doc in docs:
-            out.append((relative, validate(doc, relative)))
+            try:
+                out.append((relative, validate(doc, relative), None))
+            except KubeError as error:
+                out.append((relative, doc, str(error)))
     return out
 
 
@@ -337,7 +521,9 @@ def probe_result(probe: dict, ports: dict, listen: int, behaviour: dict) -> tupl
 
 
 def requests_of(container: dict) -> tuple[int, int]:
-    requests = (container.get('resources') or {}).get('requests') or {}
+    resources = container.get('resources') or {}
+    # A limit without a request sets the request too, as the API server defaults it.
+    requests = {**(resources.get('limits') or {}), **(resources.get('requests') or {})}
     return cpu_millis(requests.get('cpu', 0)), memory_mib(requests.get('memory', 0))
 
 
@@ -583,44 +769,68 @@ def table(rows: list[tuple]) -> str:
 
 
 def apply(folder: Path, target: str, world: dict, namespace: str) -> tuple[str, dict]:
+    """Apply every object in order; an object that fails is reported and the others still apply, as kubectl does."""
+    from . import autoscale
     kube = kube_state(world)
-    docs = load_manifests(folder, target)
+    docs = read_manifests(folder, target)
     lines = []
+    errors = []
     rollouts = []
-    for source, doc in docs:
-        kind = doc['kind']
-        meta = doc.get('metadata') or {}
-        name = meta['name']
-        ns = meta.get('namespace') or namespace
-        if kind == 'Namespace':
-            ns = ''
-        elif ns != 'default' and key('Namespace', '', ns) not in kube['objects']:
-            raise KubeError(f'Error from server (NotFound): error when creating "{source}": namespaces "{ns}" not found')
-        k = key(kind, ns, name)
-        existing = kube['objects'].get(k)
-        stored = {'kind': kind, 'name': name, 'namespace': ns, 'labels': meta.get('labels') or {},
-                  'annotations': meta.get('annotations') or {}, 'spec': doc.get('spec') or {}, 'data': doc.get('data'),
-                  'source': source, 'created_at': existing['created_at'] if existing else world['clock']}
-        noun = {'Deployment': 'deployment.apps', 'Service': 'service', 'ConfigMap': 'configmap', 'Namespace': 'namespace'}[kind]
-        if existing and existing['spec'] == stored['spec'] and existing.get('data') == stored['data'] \
-                and existing['labels'] == stored['labels']:
-            lines.append(f'{noun}/{name} unchanged')
+    for source, doc, problem in docs:
+        if problem:
+            errors.append(problem)
             continue
-        if kind == 'Deployment' and existing:
-            if existing['spec'].get('selector') != stored['spec'].get('selector'):
-                raise KubeError(f'The Deployment "{name}" is invalid: spec.selector: Invalid value: '
-                                f'{json.dumps(stored["spec"].get("selector"))}: field is immutable')
-        kube['objects'][k] = stored
-        lines.append(f'{noun}/{name} {"configured" if existing else "created"}')
-        if kind == 'Deployment':
-            old_template = (existing or {}).get('spec', {}).get('template')
-            cause = stored['annotations'].get('kubernetes.io/change-cause')
-            if old_template != stored['spec']['template'] or not existing:
-                rollouts.append(reconcile(world, stored, cause))
-            else:
-                rollouts.append(scale_to(world, stored, int(stored['spec'].get('replicas', 1))))
+        try:
+            rollouts += apply_object(world, source, doc, namespace, lines)
+        except KubeError as error:
+            errors.append(str(error))
+    autoscale.enforce_bounds(world)
     worldlib.advance(world, 1)
-    return '\n'.join(lines) + '\n', {'applied': len(docs), 'rollouts': len(rollouts)}
+    text = '\n'.join(lines) + ('\n' if lines else '')
+    if errors:
+        text += RED + '\n'.join(errors) + RESET + '\n'
+    return text, {'applied': len(docs) - len(errors), 'rollouts': len(rollouts), 'errors': len(errors)}
+
+
+def apply_object(world: dict, source: str, doc: dict, namespace: str, lines: list[str]) -> list[dict]:
+    kube = kube_state(world)
+    rollouts = []
+    kind = doc['kind']
+    meta = doc.get('metadata') or {}
+    name = meta['name']
+    ns = meta.get('namespace') or namespace
+    if kind == 'Namespace':
+        ns = ''
+    elif ns != 'default' and key('Namespace', '', ns) not in kube['objects']:
+        raise KubeError(f'Error from server (NotFound): error when creating "{source}": namespaces "{ns}" not found')
+    elif meta.get('namespace') and namespace != 'default' and meta['namespace'] != namespace:
+        raise KubeError(f'error: the namespace from the provided object "{meta["namespace"]}" does not match the '
+                        f'namespace "{namespace}". You must pass \'--namespace={meta["namespace"]}\' to perform '
+                        'this operation.')
+    k = key(kind, ns, name)
+    existing = kube['objects'].get(k)
+    stored = {'kind': kind, 'name': name, 'namespace': ns, 'labels': meta.get('labels') or {},
+              'annotations': meta.get('annotations') or {}, 'spec': doc.get('spec') or {}, 'data': doc.get('data'),
+              'source': source, 'created_at': existing['created_at'] if existing else world['clock']}
+    noun = NOUNS[kind]
+    if existing and existing['spec'] == stored['spec'] and existing.get('data') == stored['data'] \
+            and existing['labels'] == stored['labels']:
+        lines.append(f'{noun}/{name} unchanged')
+        return rollouts
+    if kind == 'Deployment' and existing:
+        if existing['spec'].get('selector') != stored['spec'].get('selector'):
+            raise KubeError(f'The Deployment "{name}" is invalid: spec.selector: Invalid value: '
+                            f'{json.dumps(stored["spec"].get("selector"))}: field is immutable')
+    kube['objects'][k] = stored
+    lines.append(f'{noun}/{name} {"configured" if existing else "created"}')
+    if kind == 'Deployment':
+        old_template = (existing or {}).get('spec', {}).get('template')
+        cause = stored['annotations'].get('kubernetes.io/change-cause')
+        if old_template != stored['spec']['template'] or not existing:
+            rollouts.append(reconcile(world, stored, cause))
+        else:
+            rollouts.append(scale_to(world, stored, int(stored['spec'].get('replicas', 1))))
+    return rollouts
 
 
 def scale_to(world: dict, deployment: dict, replicas: int) -> dict:
@@ -631,8 +841,7 @@ def scale_to(world: dict, deployment: dict, replicas: int) -> dict:
 def find_object(world: dict, kind: str, name: str, namespace: str) -> dict:
     obj = kube_state(world)['objects'].get(key(kind, '' if kind == 'Namespace' else namespace, name))
     if obj is None:
-        noun = {'Deployment': 'deployments.apps', 'Service': 'services', 'ConfigMap': 'configmaps'}.get(kind, kind.lower() + 's')
-        raise KubeError(f'Error from server (NotFound): {noun} "{name}" not found')
+        raise KubeError(f'Error from server (NotFound): {PLURALS.get(kind, kind.lower() + "s")} "{name}" not found')
     return obj
 
 
@@ -648,8 +857,24 @@ def split_ref(ref: str, kind_hint: str | None = None) -> tuple[str, str]:
     return kind_hint, ref
 
 
-def get(world: dict, args: list[str], namespace: str, output: str | None, show_labels: bool = False) -> str:
+def get(world: dict, args: list[str], namespace: str, output: str | None, show_labels: bool = False,
+        all_namespaces: bool = False) -> str:
     kube = kube_state(world)
+    if all_namespaces:
+        spaces = ['default'] + sorted(o['name'] for o in kube['objects'].values() if o['kind'] == 'Namespace')
+        parts = []
+        for ns in spaces:
+            text = get(world, args, ns, output, show_labels)
+            if text.startswith('No resources found'):
+                continue
+            head, _, body = text.partition('\n')
+            parts.append((ns, head, body))
+        if not parts:
+            return 'No resources found\n'
+        lines = ['NAMESPACE'.ljust(12) + parts[0][1]]
+        for ns, head, body in parts:
+            lines += [ns.ljust(12) + row for row in body.splitlines() if row and not row.startswith('NAME ')]
+        return '\n'.join(lines) + '\n'
     if not args:
         raise KubeError('You must specify the type of resource to get. Use "kubectl api-resources" for a complete list.')
     kinds = args[0].split(',')
@@ -659,7 +884,7 @@ def get(world: dict, args: list[str], namespace: str, output: str | None, show_l
         kinds = [kind]
     else:
         if args[0] == 'all':
-            kinds = ['Pod', 'Service', 'Deployment', 'ReplicaSet']
+            kinds = ['Pod', 'Service', 'Deployment', 'ReplicaSet', 'HorizontalPodAutoscaler']
         else:
             resolved = []
             for noun in kinds:
@@ -738,6 +963,17 @@ def get(world: dict, args: list[str], namespace: str, output: str | None, show_l
                 if o['kind'] == 'ConfigMap' and o['namespace'] == namespace:
                     rows.append((o['name'], len(o.get('data') or {}), age(world, o['created_at'])))
             out.append(table(rows) if len(rows) > 1 else f'No resources found in {namespace} namespace.\n')
+        elif kind in ('Ingress', 'HorizontalPodAutoscaler', 'IngressClass'):
+            from . import autoscale, ingress
+            text = (ingress.get_rows(world, namespace, name) if kind == 'Ingress' else
+                    ingress.class_rows(world) if kind == 'IngressClass' else autoscale.get_rows(world, namespace, name))
+            if text is None:
+                if kind != 'IngressClass' and name:
+                    raise KubeError(f'Error from server (NotFound): {PLURALS[kind]} "{name}" not found')
+                if args[0] != 'all':
+                    out.append(f'No resources found in {namespace} namespace.\n')
+            else:
+                out.append(text)
         elif kind == 'Namespace':
             rows = [('NAME', 'STATUS', 'AGE'), ('default', 'Active', '30d')]
             rows += [(o['name'], 'Active', age(world, o['created_at'])) for o in kube['objects'].values() if o['kind'] == 'Namespace']
@@ -759,7 +995,7 @@ def describe(world: dict, args: list[str], namespace: str) -> str:
         raise KubeError('error: describe needs a kind and a name, such as: kubectl describe pod NAME')
     if kind == 'Pod':
         pod = kube['pods'].get(name)
-        if pod is None:
+        if pod is None or pod['namespace'] != namespace:
             raise KubeError(f'Error from server (NotFound): pods "{name}" not found')
         rs = kube['replicasets'].get(pod['replicaset'], {})
         container = ((rs.get('template') or {}).get('spec') or {}).get('containers', [{}])[0]
@@ -789,7 +1025,7 @@ def describe(world: dict, args: list[str], namespace: str) -> str:
         strategy = spec.get('strategy') or {}
         rolling = strategy.get('rollingUpdate') or {}
         container = spec['template']['spec']['containers'][0]
-        pods = [p for p in kube['pods'].values() if p['deployment'] == name]
+        pods = [p for p in kube['pods'].values() if p['deployment'] == name and p['namespace'] == namespace]
         lines = [f'Name:                   {name}', f'Namespace:              {namespace}',
                  f'Selector:               {", ".join(f"{k}={v}" for k, v in spec["selector"]["matchLabels"].items())}',
                  f'Replicas:               {spec.get("replicas", 1)} desired | {sum(p["ready"] for p in pods)} available | {len(pods)} total',
@@ -813,7 +1049,11 @@ def describe(world: dict, args: list[str], namespace: str) -> str:
             lines.append(f'TargetPort:        {p.get("targetPort", p["port"])}/TCP')
         lines.append(f'Endpoints:         {",".join(eps) or "<none>"}')
         return '\n'.join(lines) + '\n'
-    raise KubeError(f'describe {kind} is not simulated (pod, deployment, service)')
+    if kind in ('Ingress', 'HorizontalPodAutoscaler'):
+        from . import autoscale, ingress
+        obj = find_object(world, kind, name, namespace)
+        return ingress.describe(world, obj) if kind == 'Ingress' else autoscale.describe(world, obj)
+    raise KubeError(f'describe {kind} is not simulated (pod, deployment, service, ingress, hpa)')
 
 
 def rollout(world: dict, args: list[str], namespace: str, opts: dict) -> tuple[str, int, dict]:
@@ -893,14 +1133,35 @@ def kubectl(folder: Path, args: list[str], world: dict) -> tuple[str, int, dict]
     verb, rest = args[0], args[1:]
     opts, positional = options(rest)
     namespace = opts.get('--namespace', 'default')
+    if namespace != 'default' and verb not in ('create', 'version', 'cluster-info') and \
+            key('Namespace', '', namespace) not in kube['objects'] and not (verb == 'apply'):
+        if verb == 'get':
+            return f'No resources found in {namespace} namespace.\n', 0, {}
+        raise KubeError(f'Error from server (NotFound): namespaces "{namespace}" not found')
     if verb == 'apply':
         target = opts.get('--filename')
         if not target:
             raise KubeError('error: must specify one of -f and -k')
         text, summary = apply(folder, target, world, namespace)
-        return text, 0, summary
+        return text, 1 if summary.get('errors') else 0, summary
     if verb == 'get':
-        return get(world, positional, namespace, opts.get('--output'), '--show-labels' in opts), 0, {}
+        return get(world, positional, namespace, opts.get('--output'), '--show-labels' in opts,
+                   '--all-namespaces' in opts or '-A' in opts), 0, {}
+    if verb == 'create':
+        if positional[:1] in (['namespace'], ['ns']) and len(positional) == 2:
+            name = positional[1]
+            if key('Namespace', '', name) in kube['objects']:
+                raise KubeError(f'Error from server (AlreadyExists): namespaces "{name}" already exists')
+            if not DNS_LABEL.fullmatch(name) or len(name) > 63:
+                raise KubeError(f'The Namespace "{name}" is invalid: metadata.name: Invalid value: "{name}": a '
+                                'lowercase RFC 1123 label must consist of lower case alphanumeric characters or \'-\'')
+            kube['objects'][key('Namespace', '', name)] = {'kind': 'Namespace', 'name': name, 'namespace': '',
+                                                            'labels': {}, 'annotations': {}, 'spec': {}, 'data': None,
+                                                            'source': 'kubectl create', 'created_at': world['clock']}
+            worldlib.advance(world, 1)
+            return f'namespace/{name} created\n', 0, {}
+        raise KubeError('error: the lab simulates kubectl create namespace NAME; write other objects in a manifest '
+                        'and kubectl apply -f it')
     if verb == 'describe':
         return describe(world, positional, namespace), 0, {}
     if verb == 'rollout':
@@ -931,8 +1192,10 @@ def kubectl(folder: Path, args: list[str], world: dict) -> tuple[str, int, dict]
             raise KubeError('error: expected a pod name: kubectl logs POD')
         name = positional[0].split('/', 1)[-1]
         pod = kube['pods'].get(name)
+        if pod is not None and pod['namespace'] != namespace:
+            pod = None
         if pod is None:
-            deployment_pods = [p for p in kube['pods'].values() if p['deployment'] == name]
+            deployment_pods = [p for p in kube['pods'].values() if p['deployment'] == name and p['namespace'] == namespace]
             pod = deployment_pods[0] if deployment_pods else None
         if pod is None:
             raise KubeError(f'Error from server (NotFound): pods "{name}" not found')
@@ -955,39 +1218,54 @@ def kubectl(folder: Path, args: list[str], world: dict) -> tuple[str, int, dict]
                 if name not in kube['pods']:
                     raise KubeError(f'Error from server (NotFound): pods "{name}" not found')
                 pod = kube['pods'].pop(name)
+                if pod['namespace'] != namespace:
+                    kube['pods'][name] = pod
+                    raise KubeError(f'Error from server (NotFound): pods "{name}" not found')
                 deployment = kube['objects'].get(key('Deployment', pod['namespace'], pod['deployment']))
                 if deployment:
                     reconcile(world, deployment, None)
                 lines.append(f'pod "{name}" deleted')
                 continue
+            if kind is None or kind not in KINDS:
+                raise KubeError(f'error: the server doesn\'t have a resource type "{positional[0] if positional else kind}"')
             k = key(kind, '' if kind == 'Namespace' else namespace, name)
             if k not in kube['objects']:
-                raise KubeError(f'Error from server (NotFound): {kind.lower()}s "{name}" not found')
+                raise KubeError(f'Error from server (NotFound): {PLURALS.get(kind, kind.lower() + "s")} "{name}" not found')
             del kube['objects'][k]
-            if kind == 'Deployment':
-                for pod in [p for p in kube['pods'].values() if p['deployment'] == name]:
+            doomed = namespace if kind != 'Namespace' else name
+            if kind == 'Namespace':
+                for other in [o for o, v in kube['objects'].items() if v['namespace'] == name]:
+                    del kube['objects'][other]
+            if kind in ('Deployment', 'Namespace'):
+                for pod in [p for p in kube['pods'].values() if p['namespace'] == doomed
+                            and (kind == 'Namespace' or p['deployment'] == name)]:
                     del kube['pods'][pod['name']]
-                for rs in [r for r in kube['replicasets'].values() if r['deployment'] == name]:
+                for rs in [r for r in kube['replicasets'].values() if r['namespace'] == doomed
+                           and (kind == 'Namespace' or r['deployment'] == name)]:
                     del kube['replicasets'][rs['name']]
-            lines.append(f'{kind.lower()}{".apps" if kind == "Deployment" else ""} "{name}" deleted')
+            lines.append(f'{NOUNS[kind].split(".")[0]}{"." + NOUNS[kind].split(".", 1)[1] if "." in NOUNS[kind] else ""} "{name}" deleted')
         worldlib.advance(world, 3)
         return '\n'.join(lines) + '\n', 0, {}
     if verb in ('version', 'cluster-info'):
         return ('Client Version: v1.31.2 (simulated)\nServer Version: v1.31.2 (simulated cluster, Datapass)\n'
                 if verb == 'version' else 'Kubernetes control plane is running at https://127.0.0.1:6443 (simulated)\n'), 0, {}
     raise KubeError(f'error: unknown command "{verb}" for "kubectl" (the lab simulates apply, get, describe, logs, '
-                    'rollout, scale, set image, delete)')
+                    'rollout, scale, set image, create namespace, delete)')
 
 
 HELP = f"""kubectl controls the simulated cluster   {DIM}(simulated by Datapass: nothing is deployed){RESET}
 
-  apply -f FILE_OR_FOLDER            Create or update objects (Deployment, Service, ConfigMap, Namespace)
-  get pods|deploy|rs|svc|endpoints|nodes|events|all [NAME] [-o wide|json]
-  describe pod|deployment|service NAME
+  apply -f FILE_OR_FOLDER            Create or update objects (Deployment, Service, ConfigMap, Namespace, Ingress,
+                                     HorizontalPodAutoscaler)
+  get pods|deploy|rs|svc|endpoints|ingress|hpa|ingressclass|ns|nodes|events|all [NAME] [-o wide|json] [-A]
+  describe pod|deployment|service|ingress|hpa NAME
+  create namespace NAME
   logs POD
   rollout status|history|undo|restart deployment/NAME [--to-revision=N]
   scale deployment/NAME --replicas=N
   set image deployment/NAME CONTAINER=IMAGE
   delete -f FILE | delete pod|deployment|service NAME
-  Flags: -n NAMESPACE
+  Flags: -n NAMESPACE, -A (every namespace)
+  curl http://HOST/PATH              reaches the cluster through its ingress controller (lab shell)
+  lab load replay                    replays the recorded load; HorizontalPodAutoscalers react to it
 """

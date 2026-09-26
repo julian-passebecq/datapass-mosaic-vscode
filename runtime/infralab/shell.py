@@ -13,8 +13,9 @@ import re
 import shlex
 import threading
 from typing import Any
+from urllib.parse import urlsplit
 
-from . import docker, kube, monitor, terraform, world as worldlib
+from . import autoscale, docker, ingress, kube, monitor, terraform, world as worldlib
 
 BOLD, GREEN, YELLOW, RED, DIM, RESET = '\x1b[1m', '\x1b[32m', '\x1b[33m', '\x1b[31m', '\x1b[2m', '\x1b[0m'
 MAX_LINE = 2000
@@ -29,7 +30,7 @@ FOOTERS = {
 MUTATING = {
     'terraform': {'apply', 'destroy', 'import'},
     'docker': {'build', 'run', 'compose'},
-    'kubectl': {'apply', 'rollout', 'scale', 'set', 'delete'},
+    'kubectl': {'apply', 'rollout', 'scale', 'set', 'delete', 'create'},
     'az': {'monitor', 'vm'},
 }
 _locks: dict[str, threading.Lock] = {}
@@ -49,10 +50,11 @@ HELP = f"""{BOLD}Infra Lab shell{RESET} {DIM}(simulated: nothing is provisioned,
 
   terraform init | validate | plan | apply | destroy | import | state | output | show
   docker build | images | history | run | ps | logs | stop | rm | compose up/ps/logs/down
-  kubectl apply -f | get | describe | logs | rollout | scale | set image | delete
+  kubectl apply -f | get | describe | logs | rollout | scale | set image | create namespace | delete
   az vm … | az monitor metrics … | az monitor metrics alert …
   curl http://localhost:PORT/PATH   reach a simulated container through its published port
-  lab status | lab alerts replay     {DIM}(Datapass lab commands){RESET}
+  curl http://HOST/PATH             reach the cluster through its ingress controller (when the mission has one)
+  lab status | lab alerts replay | lab load replay   {DIM}(Datapass lab commands){RESET}
   ls | cat FILE | pwd | clear | help
 
 Each tool also answers --help. Edit your files in VS Code; this shell reads them when you run a command.
@@ -117,14 +119,21 @@ def dispatch(folder: Path, tool: str, args: list[str], answer: str | None) -> di
             urls = [a for a in args if not a.startswith('-')]
             if not urls:
                 return {'output': 'curl: try \'curl http://localhost:8080/health\'\n', 'exit_code': 2}
-            output, code = docker.curl(world, urls[0])
+            host = (urlsplit(urls[0] if '://' in urls[0] else 'http://' + urls[0]).hostname or '').lower()
+            if host in ('localhost', '127.0.0.1', '::1') or not kube.kube_state(world).get('ingress_classes'):
+                output, code = docker.curl(world, urls[0])
+            else:
+                output, code = ingress.curl(world, urls[0], '-v' in args or '-i' in args)
             summary = {'url': urls[0]}
             worldlib.save(folder, world)
             return {'output': output, 'exit_code': code, 'summary': summary}
         elif tool == 'lab':
             if args[:1] == ['status']:
                 return {'output': status_text(folder, world), 'exit_code': 0}
-            output, code, summary = monitor.lab(args, world)
+            if args[:1] == ['load']:
+                output, code, summary = autoscale.replay(world, args)
+            else:
+                output, code, summary = monitor.lab(args, world)
         elif tool in ('bash', 'sh', 'pwsh', 'powershell', 'cmd', 'python', 'python3', 'node', 'npm', 'pip', 'git',
                       'ssh', 'sudo', 'helm', 'minikube', 'kind', 'tofu', 'podman'):
             return {'output': (f'{YELLOW}{tool} is not part of the Infra Lab shell.{RESET} This terminal only '

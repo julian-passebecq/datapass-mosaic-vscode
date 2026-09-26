@@ -18,11 +18,12 @@ import shlex
 import tempfile
 from typing import Any, Callable
 
-from infralab import docker as dockerlib, kube as kubelib, monitor, shell, terraform, world as worldlib
+from infralab import (autoscale, docker as dockerlib, ingress as ingresslib, kube as kubelib, monitor, shell, terraform,
+                      world as worldlib)
 
 from .model import (AzureAlertCheck, AzureResourceCheck, DockerBuildCheck, DockerContainerCheck, DockerImageCheck,
-                    JournalCheck, K8sDeploymentCheck, K8sServiceCheck, Mission, TfConfigCheck, TfPlanCheck,
-                    TfStateCheck)
+                    JournalCheck, K8sDeploymentCheck, K8sHpaCheck, K8sIngressCheck, K8sServiceCheck, Mission,
+                    TfConfigCheck, TfPlanCheck, TfStateCheck)
 from .terminal import FixtureError, _force_remove, _move, _rename, _write
 
 TRUTH = ('Checked on the simulation: your files (read, never executed), the simulated terraform.tfstate, and the '
@@ -472,9 +473,66 @@ def _k8s_service(check: K8sServiceCheck, files, _ctx: dict) -> Outcome:
     return True, f'{check.name} has {len(eps)} endpoint(s).'
 
 
+def _k8s_ingress(check: K8sIngressCheck, files, _ctx: dict) -> Outcome:
+    world = _world(files)
+    obj = kubelib.kube_state(world)['objects'].get(kubelib.key('Ingress', check.namespace, check.name))
+    if obj is None:
+        return False, f'The cluster has no Ingress {check.name} in the {check.namespace} namespace.'
+    if check.ingress_class and obj['spec'].get('ingressClassName') != check.ingress_class:
+        return False, f'{check.name} has the ingress class {obj["spec"].get("ingressClassName") or "<none>"}.'
+    if ingresslib.served_by(world, obj) is None:
+        return False, f'No ingress controller serves {check.name}: its class is not one the cluster has.'
+    status, _body, note = ingresslib.request(world, f'http://{check.host}{check.path}')
+    routed, backend, _why = ingresslib.route(world, check.host, check.path)
+    if routed is None or routed['name'] != check.name or routed['namespace'] != check.namespace:
+        return False, f'GET http://{check.host}{check.path} is not routed by {check.name} ({note}).'
+    if check.backend and backend['service']['name'] != check.backend:
+        return False, f'GET http://{check.host}{check.path} goes to the service {backend["service"]["name"]}.'
+    if status != check.status:
+        return False, f'GET http://{check.host}{check.path} answers {status} ({note}).'
+    return True, f'GET http://{check.host}{check.path} answers {status} ({note}).'
+
+
+def _k8s_hpa(check: K8sHpaCheck, files, _ctx: dict) -> Outcome:
+    world = _world(files)
+    hpa = next((h for h in autoscale.hpas(world, check.namespace)
+                if h['spec']['scaleTargetRef']['name'] == check.deployment), None)
+    if hpa is None:
+        return False, f'No HorizontalPodAutoscaler targets the deployment {check.deployment}.'
+    low, high = autoscale.bounds(hpa)
+    for label, value, wanted in (('minReplicas', low, check.min_replicas), ('maxReplicas', high, check.max_replicas)):
+        if wanted and not wanted[0] <= value <= wanted[1]:
+            return False, f'hpa/{hpa["name"]} has {label} {value}.'
+    target = autoscale.cpu_target(hpa)
+    if check.cpu_utilization:
+        if target is None or target[0] != 'cpu':
+            return False, f'hpa/{hpa["name"]} does not scale on CPU utilization.'
+        if not check.cpu_utilization[0] <= target[1] <= check.cpu_utilization[1]:
+            return False, f'hpa/{hpa["name"]} targets {target[1]}% CPU.'
+    status = autoscale.status(world, hpa)
+    if check.active is not None and status['active'] != check.active:
+        return False, (f'hpa/{hpa["name"]} cannot compute a replica count: {status["reason"]}.' if check.active else
+                       f'hpa/{hpa["name"]} is active.')
+    if check.replay:
+        deployment = autoscale.target_of(world, hpa)
+        record = autoscale.last_replay(world, check.namespace, check.deployment)
+        if record is None or deployment is None or record['fingerprint'] != autoscale.fingerprint(world, hpa, deployment):
+            return False, 'The recorded load was not replayed (lab load replay) since the last change to the HPA or the deployment.'
+        overloaded = len(record['overloaded_minutes'])
+        if overloaded > check.replay.max_overloaded_minutes:
+            first = autoscale.clock_of(record, record['overloaded_minutes'][0])
+            return False, f'During the replay the pods were overloaded for {overloaded} minute(s), from {first} UTC.'
+        if check.replay.min_peak_replicas and record['peak_replicas'] < check.replay.min_peak_replicas:
+            return False, f'During the replay {check.deployment} never went above {record["peak_replicas"]} replicas.'
+        if check.replay.final_replicas is not None and record['final_replicas'] != check.replay.final_replicas:
+            return False, f'After the replay {check.deployment} runs {record["final_replicas"]} replicas.'
+    return True, f'hpa/{hpa["name"]}: {low}..{high} replicas.'
+
+
 CHECKS: dict[str, Callable[[Any, Any, dict], Outcome]] = {
     'tf_state': _tf_state, 'tf_plan': _tf_plan, 'tf_config': _tf_config, 'azure_resource': _azure_resource,
     'journal': _journal, 'docker_image': _docker_image, 'docker_build': _docker_build,
     'docker_container': _docker_container, 'azure_alert': _azure_alert, 'k8s_deployment': _k8s_deployment,
-    'k8s_service': _k8s_service,
+    'k8s_service': _k8s_service, 'k8s_ingress': _k8s_ingress, 'k8s_hpa': _k8s_hpa,
 }
+
