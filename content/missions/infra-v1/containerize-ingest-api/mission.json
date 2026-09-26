@@ -1,0 +1,96 @@
+{
+  "id": "containerize-ingest-api",
+  "version": "1",
+  "lab": "infra",
+  "title": "Make the ingest API image and its compose stack production-ready",
+  "level": "intermediate",
+  "estimate": "45-60 min",
+  "skills": ["Dockerfile layer order and cache", ".dockerignore", "non-root images", "HEALTHCHECK", "docker compose depends_on and service names"],
+  "ticket": {
+    "from": "Kenji Watanabe, backend lead",
+    "subject": "ingest-api: the image is 1 GB, rebuilds take forever, and compose never comes up",
+    "body": [
+      "The Dockerfile and `compose.yaml` of the ingest API were written in a hurry. Before we ship `ingest-api:1.0`:",
+      "",
+      "- **The image**: built as `ingest-api:1.0` from the Dockerfile as it is when you finish, on a pinned slim Python",
+      "  3.12 base (`python:3.12-slim`), running as a non-root user, with no password baked into it. It carries its own",
+      "  `HEALTHCHECK` on `/health` (careful: the slim image has no curl, and Python is right there).",
+      "- **Fast rebuilds**: a change to `app/main.py` must not reinstall the dependencies; the `pip install` layer",
+      "  comes from the cache.",
+      "- **A small build context**: `.venv/` and `data/` never go to the builder.",
+      "- **The stack**: `docker compose up -d` starts `db` and `api`; `api` only starts once Postgres is really ready",
+      "  (a health check on `db`, and `api` waiting for it), reaches it by its service name, reports healthy, and",
+      "  answers on http://localhost:8080/health.",
+      "",
+      "The app listens on port 8000 and needs `DATABASE_URL`. This is the lab's simulated Docker engine: nothing is",
+      "built, pulled or run, and your files are read, never executed."
+    ]
+  },
+  "acceptance": [
+    {
+      "id": "image",
+      "text": "ingest-api:1.0 is built from the current Dockerfile on python:3.12-slim, non-root, without a baked password, with a HEALTHCHECK.",
+      "checks": [
+        {"kind": "docker_image", "tag": "ingest-api:1.0", "current": true, "base": "python:3\\.12-slim", "not_root": true,
+         "healthcheck": true, "no_lint": ["DL3007", "DP003", "DL3002"], "fail": "The image is not the one the ticket asks for."}
+      ]
+    },
+    {
+      "id": "cache",
+      "text": "A change to app/main.py keeps the pip install layer cached.",
+      "checks": [
+        {"kind": "docker_build", "changed": ["app/main.py"], "cached": ["pip install"], "fail": "Rebuilds after a code change are not fast."}
+      ]
+    },
+    {
+      "id": "context",
+      "text": ".venv/ and data/ are not sent to the builder.",
+      "checks": [
+        {"kind": "docker_build", "context_excludes": [".venv", "data"], "fail": "The build context is too big."}
+      ]
+    },
+    {
+      "id": "stack",
+      "text": "docker compose up gives a healthy db, and an api that waits for it, is healthy and answers on localhost:8080/health.",
+      "checks": [
+        {"kind": "docker_container", "service": "db", "running": true, "health": "healthy", "fail": "The database service is not healthy."},
+        {"kind": "docker_container", "service": "api", "running": true, "health": "healthy", "reachable": [8080, "/health"],
+         "waits_healthy": ["db"], "fail": "The api service is not up as the ticket asks."}
+      ]
+    }
+  ],
+  "hints": [
+    "Read the lint findings at the end of `docker build -t ingest-api:1.0 .`: DL3007 (unpinned base), DP003 (a secret in ENV), DL3002 (root), DP001 (copy before install).",
+    "Copy `requirements.txt` alone, run `pip install`, then copy the code: each instruction's cache depends on its parent and on the files it copies. `docker history ingest-api:1.0` shows the layers.",
+    "Inside a container, `localhost` is the container itself: the api reaches Postgres at the service name, `db`. And an app bound to 127.0.0.1 cannot be reached through a published port.",
+    "`depends_on` with `condition: service_healthy` needs a healthcheck on the dependency: `pg_isready` answers when Postgres accepts connections.",
+    "`docker compose logs api` shows why a container exited; `docker compose ps` shows health. `docker compose up -d --build` rebuilds the image first."
+  ],
+  "infra": {
+    "files": {
+      ".venv/pyvenv.cfg": ["home = /usr/local/bin", "include-system-site-packages = false", "version = 3.12.6"],
+      ".venv/lib/python3.12/site-packages/README.txt": ["A local virtual environment: about 180 MB on a real machine. It never belongs in an image."]
+    },
+    "world": {
+      "clock": "2026-10-06T10:00:00Z",
+      "docker": {
+        "apps": {
+          "*": {
+            "requires_env": ["DATABASE_URL"],
+            "connects_env": "DATABASE_URL",
+            "health_path": "/health",
+            "routes": {"/": "{\"service\":\"ingest-api\"}"},
+            "missing_env_log": ["Traceback (most recent call last):", "  File \"/app/app/main.py\", line 7, in <module>", "KeyError: 'DATABASE_URL'"],
+            "start_log": ["INFO:     Started server process [1]", "INFO:     Waiting for application startup.", "INFO:     Application startup complete."]
+          }
+        }
+      }
+    }
+  },
+  "reference": [
+    {"infra": "docker build -t ingest-api:1.0 ."},
+    {"infra": "docker compose up -d"},
+    {"infra": "docker compose ps"},
+    {"infra": "curl http://localhost:8080/health"}
+  ]
+}

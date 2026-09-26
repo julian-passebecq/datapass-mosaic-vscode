@@ -1,0 +1,3 @@
+az monitor metrics alert create -n shir-no-available-node -g rg-integration-prod --scopes adf-sales-prod --condition "avg IntegrationRuntimeAvailableNodeNumber < 1" --window-size 5m --evaluation-frequency 1m --severity 1 --action ag-data-oncall --description "The self-hosted IR has no available node"
+az monitor metrics alert create -n shir-vm-cpu-sustained -g rg-integration-prod --scopes vm-shir-01 --condition "max Percentage CPU > 90" --window-size 15m --evaluation-frequency 5m --severity 2 --action ag-data-oncall --description "vm-shir-01 CPU above 90% for 15 minutes"
+lab alerts replay

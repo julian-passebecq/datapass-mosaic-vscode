@@ -17,7 +17,7 @@ from typing import Any, Callable
 
 import yaml
 
-from . import terminal
+from . import infra, terminal
 from .model import (AirflowCheck, BoardCheck, DctValidateCheck, FileCheck, FreshnessConfigCheck,
                     FreshnessResultCheck, Mission, NodeCheck, RenderCheck, RunCheck, SqlCheck, TestCheck, all_checks)
 
@@ -370,7 +370,7 @@ def _sql(check: SqlCheck, _files: Files, ctx: dict) -> Outcome:
 CHECKS: dict[str, Callable[[Any, Files, dict], Outcome]] = {
     'sql': _sql, 'node': _node, 'test': _test, 'run': _run, 'freshness_config': _freshness_config,
     'freshness_result': _freshness_result, 'dct_validate': _dct_validate, 'board': _board, 'render': _render,
-    'file': _file, 'airflow': _airflow, **terminal.CHECKS,
+    'file': _file, 'airflow': _airflow, **terminal.CHECKS, **infra.CHECKS,
 }
 
 
@@ -415,5 +415,5 @@ def evaluate(mission: Mission, folder: Path, sql_results: dict[str, dict], dct: 
     return {
         'mission_id': mission.id, 'version': mission.version, 'status': 'passed' if passed else 'not-yet',
         'requires': unmet, 'criteria': criteria, 'checked_at': datetime.now().astimezone().isoformat(timespec='seconds'),
-        'truth': terminal.TRUTH if mission.lab == 'terminal' else TRUTH,
+        'truth': {'terminal': terminal.TRUTH, 'infra': infra.TRUTH}.get(mission.lab, TRUTH),
     }

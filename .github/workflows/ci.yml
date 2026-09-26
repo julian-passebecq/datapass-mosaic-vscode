@@ -35,7 +35,7 @@ jobs:
           python-version: "3.12"
       - run: python -m pip install --upgrade pip
       - run: python -m pip install ./runtime
-      - run: python -m compileall -q runtime/datapass_runtime runtime/sparklab runtime/airflowlab runtime/factorylab runtime/sqlpoollab runtime/databrickslab runtime/bilab runtime/dbtlab runtime/sqldialects runtime/missionlab
+      - run: python -m compileall -q runtime/datapass_runtime runtime/sparklab runtime/airflowlab runtime/factorylab runtime/sqlpoollab runtime/databrickslab runtime/bilab runtime/dbtlab runtime/sqldialects runtime/missionlab runtime/infralab
       - run: python scripts/authoring/gen_pylance_stubs.py --check
         env:
           PYTHONPATH: runtime
@@ -52,6 +52,9 @@ jobs:
       # Terminal Lab missions: each reference script is played with real bash and PowerShell (pwsh is on the runner)
       # in a fixture built by the runtime, and must pass; the untouched fixtures and the mutants must fail.
       - run: DATAPASS_REQUIRE_POWERSHELL=1 python scripts/terminal_missions_smoke.py
+      # Infra Lab missions: each reference is typed in the simulated shell (no real terraform, docker, kubectl or az)
+      # and must pass; the untouched fixtures, the starters and the mutants must fail.
+      - run: python scripts/infra_missions_smoke.py
 
   extension-host:
     runs-on: ubuntu-latest

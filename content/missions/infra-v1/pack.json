@@ -1,0 +1,13 @@
+{
+  "id": "infra-v1",
+  "title": "Infra missions",
+  "lab": "infra",
+  "version": "1",
+  "description": "Tickets from the platform team, done with terraform, docker, kubectl and az typed in the Infra Lab's simulated shell. Everything is simulated: nothing is provisioned, built or deployed, and your files are read, never executed.",
+  "missions": [
+    "lake-landing-zone",
+    "containerize-ingest-api",
+    "page-on-shir-outage",
+    "zero-downtime-rollout"
+  ]
+}

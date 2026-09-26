@@ -1,0 +1,325 @@
+{
+  "id": "page-on-shir-outage",
+  "version": "1",
+  "lab": "infra",
+  "title": "Page the on-call when the self-hosted integration runtime goes down",
+  "level": "intermediate",
+  "estimate": "30-45 min",
+  "skills": [
+    "az monitor metrics",
+    "metric alert rules",
+    "aggregation, window and frequency",
+    "action groups",
+    "ADF self-hosted IR metrics"
+  ],
+  "ticket": {
+    "from": "Amara Okafor, data platform on-call lead",
+    "subject": "Nobody was paged last night",
+    "body": [
+      "Last night the self-hosted integration runtime on `vm-shir-01` stopped around 02:10 UTC, the orders pipeline",
+      "waited in its queue until morning, and we learned it from the sales team at 07:30. `INCIDENT.md` has the",
+      "timeline. I want two metric alerts in `rg-integration-prod`, both paging `ag-data-oncall`:",
+      "",
+      "- **The IR has no available node** (a metric of the data factory `adf-sales-prod`): page within ten minutes",
+      "  of the node dropping, severity 1 or more urgent. It must stay silent while the node is up.",
+      "- **vm-shir-01 is saturated**: CPU above 90% *sustained*, severity 2 or more urgent. Last night it must have",
+      "  fired by 02:30. It must not page for the nightly backup at 01:00, which pegs the CPU for about six minutes.",
+      "",
+      "Before you tell me it's done, replay last night against your rules (`lab alerts replay`) and read what would",
+      "have paged. This is the lab's simulated subscription: the metrics are a recorded scenario, and nothing is",
+      "sent to Azure."
+    ]
+  },
+  "acceptance": [
+    {
+      "id": "node-down",
+      "text": "An alert on IntegrationRuntimeAvailableNodeNumber pages ag-data-oncall (sev 0-1) within ten minutes of the outage, and never before.",
+      "checks": [
+        {
+          "kind": "azure_alert",
+          "scope": "adf-sales-prod",
+          "metric": "IntegrationRuntimeAvailableNodeNumber",
+          "max_severity": 1,
+          "action_group": "ag-data-oncall",
+          "fires": [
+            [
+              "2026-10-05T02:12:00Z",
+              "2026-10-05T02:22:00Z"
+            ]
+          ],
+          "quiet": [
+            [
+              "2026-10-04T09:00:00Z",
+              "2026-10-05T02:11:59Z"
+            ]
+          ],
+          "fail": "The node alert would not have paged as the ticket asks:"
+        }
+      ]
+    },
+    {
+      "id": "cpu-sustained",
+      "text": "A sustained-CPU alert on vm-shir-01 pages ag-data-oncall (sev 0-2) by 02:30, and stays silent for the 01:00 backup.",
+      "checks": [
+        {
+          "kind": "azure_alert",
+          "scope": "vm-shir-01",
+          "metric": "Percentage CPU",
+          "max_severity": 2,
+          "action_group": "ag-data-oncall",
+          "fires": [
+            [
+              "2026-10-05T02:05:00Z",
+              "2026-10-05T02:30:00Z"
+            ]
+          ],
+          "quiet": [
+            [
+              "2026-10-05T00:45:00Z",
+              "2026-10-05T01:45:00Z"
+            ]
+          ],
+          "fail": "The CPU alert would not have paged as the ticket asks:"
+        }
+      ]
+    },
+    {
+      "id": "replayed",
+      "text": "You replayed last night against your rules after their last change.",
+      "checks": [
+        {
+          "kind": "journal",
+          "includes": [
+            "^lab alerts replay"
+          ],
+          "before": [
+            [
+              "^az monitor metrics alert (create|update)",
+              "^lab alerts replay"
+            ]
+          ],
+          "fail": "The rules were not replayed after their last change."
+        }
+      ]
+    }
+  ],
+  "hints": [
+    "`az monitor metrics list-definitions --resource adf-sales-prod` lists the metrics of the data factory; the IR ones start with IntegrationRuntime.",
+    "Look at last night first: `az monitor metrics list --resource vm-shir-01 --metric \"Percentage CPU\" --interval 5m --start-time 2026-10-05T00:30:00Z --end-time 2026-10-05T03:30:00Z`.",
+    "A metric alert aggregates the metric over the window (`--window-size`) every `--evaluation-frequency`: `avg` over 15 minutes ignores a six-minute spike; `max` over any window does not.",
+    "The condition is one string: `--condition \"avg Percentage CPU > 90\"`. `--action ag-data-oncall` routes it; `--severity 0` is the most urgent.",
+    "Changed your mind? `az monitor metrics alert update -n NAME -g rg-integration-prod --window-size 15m`, or delete it and create it again. Then `lab alerts replay`."
+  ],
+  "infra": {
+    "world": {
+      "clock": "2026-10-05T09:00:00Z",
+      "azure": {
+        "subscription_name": "Contoso Data (lab)",
+        "resources": {
+          "/subscriptions/6d1f2c3a-0b4e-4c8d-9a7f-2e5b8c1d4f60/resourceGroups/rg-integration-prod": {
+            "type": "Microsoft.Resources/resourceGroups",
+            "tf_type": "azurerm_resource_group",
+            "id": "/subscriptions/6d1f2c3a-0b4e-4c8d-9a7f-2e5b8c1d4f60/resourceGroups/rg-integration-prod",
+            "managed_by": "portal",
+            "created_at": "2025-11-03T10:20:00Z",
+            "attributes": {
+              "id": "/subscriptions/6d1f2c3a-0b4e-4c8d-9a7f-2e5b8c1d4f60/resourceGroups/rg-integration-prod",
+              "name": "rg-integration-prod",
+              "location": "westeurope",
+              "managed_by": null,
+              "tags": {
+                "owner": "data-platform",
+                "env": "prod"
+              }
+            }
+          },
+          "/subscriptions/6d1f2c3a-0b4e-4c8d-9a7f-2e5b8c1d4f60/resourceGroups/rg-integration-prod/providers/Microsoft.Compute/virtualMachines/vm-shir-01": {
+            "type": "Microsoft.Compute/virtualMachines",
+            "tf_type": "azurerm_windows_virtual_machine",
+            "id": "/subscriptions/6d1f2c3a-0b4e-4c8d-9a7f-2e5b8c1d4f60/resourceGroups/rg-integration-prod/providers/Microsoft.Compute/virtualMachines/vm-shir-01",
+            "managed_by": "terraform",
+            "created_at": "2025-11-03T10:20:00Z",
+            "attributes": {
+              "id": "/subscriptions/6d1f2c3a-0b4e-4c8d-9a7f-2e5b8c1d4f60/resourceGroups/rg-integration-prod/providers/Microsoft.Compute/virtualMachines/vm-shir-01",
+              "name": "vm-shir-01",
+              "location": "westeurope",
+              "size": "Standard_D4s_v5",
+              "os_type": "Windows",
+              "power_state": "VM running",
+              "tags": {
+                "role": "self-hosted-integration-runtime"
+              }
+            },
+            "metrics": {
+              "end": "2026-10-05T09:00:00Z",
+              "minutes": 1440,
+              "series": {
+                "Percentage CPU": {
+                  "unit": "Percent",
+                  "description": "The percentage of allocated compute units in use by the VM",
+                  "base": 22,
+                  "noise": 7,
+                  "max": 100,
+                  "events": [
+                    {
+                      "from": "2026-10-05T01:00:00Z",
+                      "minutes": 6,
+                      "value": 97,
+                      "noise": 2
+                    },
+                    {
+                      "from": "2026-10-05T02:05:00Z",
+                      "minutes": 55,
+                      "value": 98,
+                      "ramp": 3,
+                      "noise": 1.5
+                    },
+                    {
+                      "from": "2026-10-05T07:45:00Z",
+                      "minutes": 20,
+                      "value": 64,
+                      "noise": 6
+                    }
+                  ]
+                },
+                "Available Memory Bytes": {
+                  "unit": "Bytes",
+                  "description": "Memory available to applications",
+                  "base": 7400000000.0,
+                  "noise": 200000000.0,
+                  "events": [
+                    {
+                      "from": "2026-10-05T02:05:00Z",
+                      "minutes": 100,
+                      "value": 1100000000.0,
+                      "ramp": 20,
+                      "noise": 50000000.0
+                    }
+                  ]
+                },
+                "OS Disk Queue Depth": {
+                  "unit": "Count",
+                  "description": "OS disk queue depth",
+                  "base": 0.4,
+                  "noise": 0.3,
+                  "events": [
+                    {
+                      "from": "2026-10-05T01:00:00Z",
+                      "minutes": 6,
+                      "value": 6,
+                      "noise": 1
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "/subscriptions/6d1f2c3a-0b4e-4c8d-9a7f-2e5b8c1d4f60/resourceGroups/rg-integration-prod/providers/Microsoft.DataFactory/factories/adf-sales-prod": {
+            "type": "Microsoft.DataFactory/factories",
+            "tf_type": "azurerm_data_factory",
+            "id": "/subscriptions/6d1f2c3a-0b4e-4c8d-9a7f-2e5b8c1d4f60/resourceGroups/rg-integration-prod/providers/Microsoft.DataFactory/factories/adf-sales-prod",
+            "managed_by": "terraform",
+            "created_at": "2025-11-03T10:20:00Z",
+            "attributes": {
+              "id": "/subscriptions/6d1f2c3a-0b4e-4c8d-9a7f-2e5b8c1d4f60/resourceGroups/rg-integration-prod/providers/Microsoft.DataFactory/factories/adf-sales-prod",
+              "name": "adf-sales-prod",
+              "location": "westeurope",
+              "tags": {
+                "env": "prod"
+              }
+            },
+            "metrics": {
+              "end": "2026-10-05T09:00:00Z",
+              "minutes": 1440,
+              "series": {
+                "IntegrationRuntimeAvailableNodeNumber": {
+                  "unit": "Count",
+                  "description": "Available self-hosted IR nodes (shir-onprem)",
+                  "base": 1,
+                  "noise": 0,
+                  "events": [
+                    {
+                      "from": "2026-10-05T02:12:00Z",
+                      "minutes": 333,
+                      "value": 0
+                    }
+                  ]
+                },
+                "IntegrationRuntimeQueueLength": {
+                  "unit": "Count",
+                  "description": "Activities waiting for the self-hosted IR",
+                  "base": 1,
+                  "noise": 1,
+                  "events": [
+                    {
+                      "from": "2026-10-05T02:12:00Z",
+                      "minutes": 333,
+                      "value": 38,
+                      "ramp": 30,
+                      "noise": 3
+                    },
+                    {
+                      "from": "2026-10-05T07:45:00Z",
+                      "minutes": 25,
+                      "value": 12,
+                      "noise": 3
+                    }
+                  ]
+                },
+                "IntegrationRuntimeCpuPercentage": {
+                  "unit": "Percent",
+                  "description": "CPU of the self-hosted IR node",
+                  "base": 15,
+                  "noise": 5,
+                  "max": 100,
+                  "events": [
+                    {
+                      "from": "2026-10-05T02:05:00Z",
+                      "minutes": 55,
+                      "value": 99,
+                      "ramp": 3
+                    }
+                  ]
+                },
+                "PipelineFailedRuns": {
+                  "unit": "Count",
+                  "description": "Failed pipeline runs",
+                  "base": 0,
+                  "noise": 0
+                }
+              }
+            }
+          },
+          "/subscriptions/6d1f2c3a-0b4e-4c8d-9a7f-2e5b8c1d4f60/resourceGroups/rg-integration-prod/providers/Microsoft.Insights/actionGroups/ag-data-oncall": {
+            "type": "Microsoft.Insights/actionGroups",
+            "tf_type": "azurerm_monitor_action_group",
+            "id": "/subscriptions/6d1f2c3a-0b4e-4c8d-9a7f-2e5b8c1d4f60/resourceGroups/rg-integration-prod/providers/Microsoft.Insights/actionGroups/ag-data-oncall",
+            "managed_by": "portal",
+            "created_at": "2025-11-03T10:20:00Z",
+            "attributes": {
+              "id": "/subscriptions/6d1f2c3a-0b4e-4c8d-9a7f-2e5b8c1d4f60/resourceGroups/rg-integration-prod/providers/Microsoft.Insights/actionGroups/ag-data-oncall",
+              "name": "ag-data-oncall",
+              "short_name": "dataoncall",
+              "receivers": [
+                "sms: on-call phone",
+                "email: data-oncall@contoso.example",
+                "webhook: #data-incidents"
+              ]
+            }
+          }
+        }
+      }
+    }
+  },
+  "reference": [
+    {
+      "infra": "az monitor metrics alert create -n shir-no-available-node -g rg-integration-prod --scopes adf-sales-prod --condition \"avg IntegrationRuntimeAvailableNodeNumber < 1\" --window-size 5m --evaluation-frequency 1m --severity 1 --action ag-data-oncall --description \"The self-hosted IR has no available node\""
+    },
+    {
+      "infra": "az monitor metrics alert create -n shir-vm-cpu-sustained -g rg-integration-prod --scopes vm-shir-01 --condition \"avg Percentage CPU > 90\" --window-size 15m --evaluation-frequency 5m --severity 2 --action ag-data-oncall --description \"vm-shir-01 CPU above 90% for 15 minutes\""
+    },
+    {
+      "infra": "lab alerts replay"
+    }
+  ]
+}
