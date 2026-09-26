@@ -4,6 +4,7 @@ import { DbtTerminalSession, DbtToolsManager } from "./dbtLab";
 import { MissionsService } from "./missions";
 import { LabTreeProvider } from "./labTree";
 import { TerminalLabSession } from "./terminalLab";
+import { InfraLabSession } from "./infraLab";
 import { MODULES } from "./modules";
 import { PythonTrustController } from "./pythonTrustController";
 import { registerReferenceSolutions } from "./referenceSolutions";
@@ -20,7 +21,8 @@ export function activate(context: vscode.ExtensionContext): void {
     tools: dbtTools,
     terminal: new DbtTerminalSession(runtimeManager, dbtTools),
     missions: new MissionsService(context.extensionUri, runtimeManager, dbtTools),
-    terminalLab: new TerminalLabSession(context.globalState)
+    terminalLab: new TerminalLabSession(context.globalState),
+    infraLab: new InfraLabSession(runtimeManager, context.workspaceState)
   };
 
   context.subscriptions.push(
@@ -28,6 +30,7 @@ export function activate(context: vscode.ExtensionContext): void {
     dbtLab.tools,
     dbtLab.terminal,
     dbtLab.terminalLab,
+    dbtLab.infraLab,
     vscode.window.registerTreeDataProvider("datapass.labs", new LabTreeProvider()),
     registerReferenceSolutions(context.extensionUri),
     registerQueryPlanDocuments(),

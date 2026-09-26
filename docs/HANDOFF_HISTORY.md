@@ -9,6 +9,44 @@ Add a tranche as a new `## YYYY-MM-DD · Title` section at the top, under this p
 sections, and refer to another section by its heading, not by a position. Keep the "Checked" and "Not checked"
 notes: they say what was really run.
 
+## 2026-09-26 · Infra Lab, first tranche: simulated Terraform, Docker, monitoring and Kubernetes
+
+Decided with the user before coding: pure simulation (no real terraform, docker, kubectl or az, even when installed;
+real-tool exercises may come once the app is finished, and a real `terraform fmt` was mentioned as a possible later
+option), a fake Azure that uses real azurerm type names with a documented subset of arguments, one simulated
+terminal tab for the four simulators, and a thin slice of all four (one mission each) rather than Terraform alone.
+
+- **Runtime** (PR #50, `runtime/infralab`): a whitelisted HCL reader and evaluator; a Terraform CLI simulator
+  (init, validate, plan, apply with the "Enter a value" prompt, destroy, import, state, output, show; count,
+  for_each, lifecycle, moved and import blocks, tfvars) on a simulated azurerm provider and subscription, with
+  azurerm's errors (already exists → import, globally unique names, a resource group still holding resources);
+  a Docker engine simulator (Dockerfile reader, BuildKit-style cache on the real context files, hadolint-style
+  lint, run, ports, health checks, compose); `az` + Azure Monitor alert replay on recorded metric scenarios; a
+  Kubernetes simulator (strict validation, scheduling, readiness, rolling updates recording the fewest pods really
+  serving, services and endpoints). A shell routes one line at a time and journals it. API:
+  `/api/local/infra/command`, `/api/local/infra/state`.
+- **Missions** (`lab: "infra"`, `runtime/missionlab/infra.py`, `content/missions/infra-v1`): fixture = files +
+  simulated world + setup commands; references are shell lines; 11 check kinds on the simulated world. Missions:
+  `lake-landing-zone` (import a portal-made resource group, ADLS Gen2, for_each containers, converged plan),
+  `containerize-ingest-api` (slim non-root image, cached dependencies, .dockerignore, healthy compose stack),
+  `page-on-shir-outage` (ADF self-hosted IR outage: two alerts that page in time and stay quiet for the backup
+  spike), `zero-downtime-rollout` (service selector, readiness probe, maxUnavailable 0, release 1.5.1).
+- **Workbench** (module `infra`, `datapass.openInfraLab`): `src/infraLab.ts` opens one VS Code Pseudoterminal per
+  mission folder (no process; `src/platform/infraShell.ts` edits the line); `InfraSurface.tsx` shows the simulated
+  world of the selected mission folder and the shared MissionsPanel. The Self-hosted IR VM is a Windows VM, as the
+  real SHIR requires (the roadmap said "Linux VM").
+
+Checked: `infra_missions_smoke.py` (4 references pass; 4 untouched fixtures, 3 starters played with the reference
+commands and 23 mutants fail; fixtures deterministic; Start over → attic); `runtime_smoke.py` (infra section:
+fixtures, untouched never pass, shell refusals, folder confinement, contract validation); compileall; Pylance stubs
+check; `npm run compile`; `npm test` (with `infra_lab_smoke.mjs`); `npm run test:host` with the new Infra Lab step
+(lines typed in a real Pseudoterminal reach the simulators and the mission passes); the packaged VSIX in a real VS
+Code window (`npm run test:ui`, step 5b: the SHIR mission typed in the simulated terminal and passed). A second valid
+route for the Terraform mission (`terraform import` command instead of an import block) was played by hand and
+passes.
+
+Not checked: the other three missions were not played through the webview (the smoke plays them through the API);
+Linux CI runs the UI pass's new step for the first time with this PR.
 ## 2026-09-26 · Practice arena: problems, spaced review, interview mode (roadmap V2-1)
 
 Three PRs, each merged on green CI.

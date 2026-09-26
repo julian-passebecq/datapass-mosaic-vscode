@@ -35,6 +35,7 @@ import type { MissionsService } from "./missions";
 import { missionFolder, type MissionView } from "./platform/missions";
 import { preferredShell, type ShellId } from "./platform/terminalShells";
 import type { TerminalLabSession } from "./terminalLab";
+import type { InfraLabSession } from "./infraLab";
 import {
   buildDbtCommand,
   buildDctCommand,
@@ -83,19 +84,23 @@ import type {
   ScratchKind,
   SqlPoolFlavor,
   TerminalViewState,
+  InfraViewState,
+  InfraWorldView,
   WebviewToHostMessage,
   WorkbenchFocus
 } from "./webview/contracts";
 
 /**
  * The labs' host services: the dbt Lab's managed dbt tools and the terminal that runs real dbt Core commands, the
- * missions (shared by the dbt Lab and the Terminal Lab), and the Terminal Lab's shells and terminals.
+ * missions (shared by the dbt Lab, the Terminal Lab and the Infra Lab), the Terminal Lab's shells and terminals, and
+ * the Infra Lab's simulated terminals.
  */
 export interface DbtLabServices {
   tools: DbtToolsManager;
   terminal: DbtTerminalSession;
   missions: MissionsService;
   terminalLab: TerminalLabSession;
+  infraLab: InfraLabSession;
 }
 
 const DBT_SELECTED_KEY = "datapass.dbt.selectedProject";
@@ -195,6 +200,9 @@ export class WorkbenchPanel {
       }),
       this.dbtLab.terminal.onDidEndCommand(() => {
         if (this.selectedModule === "dbt") void this.refresh();
+      }),
+      this.dbtLab.infraLab.onDidRunCommand(() => {
+        if (this.selectedModule === "infra") void this.refresh();
       }),
       this.panel.onDidDispose(() => this.dispose()),
       vscode.window.onDidChangeActiveTextEditor(editor => this.rememberEditor(editor)),
@@ -442,6 +450,16 @@ export class WorkbenchPanel {
         return;
       case "refreshTerminalLab":
         await this.dbtLab.terminalLab.detect(true);
+        await this.refresh();
+        return;
+      case "openInfraTerminal":
+        await this.openInfraTerminal(message.missionId);
+        return;
+      case "selectInfraFolder":
+        if (/^missions\/[a-z0-9][a-z0-9-]{0,47}$/.test(message.folder)) await this.dbtLab.infraLab.select(message.folder);
+        await this.refresh();
+        return;
+      case "refreshInfraLab":
         await this.refresh();
         return;
       case "startMission":
@@ -1566,9 +1584,12 @@ export class WorkbenchPanel {
     try {
       const mission = await missions.mission(missionId);
       const terminal = mission.lab === "terminal";
+      const infra = mission.lab === "infra";
       if (action === "restartMission") {
         const choice = await vscode.window.showWarningMessage(
-          terminal
+          infra
+            ? `Start the mission over? missions/${missionId} is moved to .datapass/missions/attic/ (nothing is deleted) and rebuilt as the ticket found it, with a fresh simulated world. Its simulated terminal is closed.`
+            : terminal
             ? `Start the mission over? missions/${missionId} is moved to .datapass/missions/attic/ (nothing is deleted) and rebuilt as the ticket found it. Its terminals are closed.`
             : "Start the mission over? Its data in the catalog is reloaded from the first batch and the tables dbt built for it are dropped. Your files in the mission folder stay as they are.",
           { modal: true }, "Start over");
@@ -1576,14 +1597,15 @@ export class WorkbenchPanel {
       }
       if (action === "startMission" || action === "restartMission") {
         const restore = terminal ? await this.dbtLab.terminalLab.release(missions.folderUri(missionId)) : undefined;
+        if (infra && this.dbtLab.infraLab.closeIn(missionFolder(missionId))) await new Promise(resolve => setTimeout(resolve, 300));
         try {
           await missions.start(missionId);
         } finally {
           await restore?.();
         }
-        await (terminal ? this.openTerminalMission(mission) : this.openMission(missionId));
+        await (infra ? this.openInfraMission(mission) : terminal ? this.openTerminalMission(mission) : this.openMission(missionId));
       } else if (action === "openMission") {
-        await (terminal ? this.openTerminalMission(mission) : this.openMission(missionId));
+        await (infra ? this.openInfraMission(mission) : terminal ? this.openTerminalMission(mission) : this.openMission(missionId));
       } else if (action === "loadMissionBatch") {
         const label = await missions.loadNextBatch(missionId);
         if (label) void vscode.window.showInformationMessage(`Loaded: ${label}. Run dbt again, as the nightly job would.`);
@@ -1596,6 +1618,32 @@ export class WorkbenchPanel {
     } catch (error) {
       void vscode.window.showErrorMessage(`Mission: ${error instanceof Error ? error.message : String(error)}`);
     }
+    await this.refresh();
+  }
+
+  /** Infra Lab: the ticket beside the Workbench and the simulated terminal of the mission folder. */
+  private async openInfraMission(mission: MissionView): Promise<void> {
+    const ticket = this.dbtLab.missions.ticketUri(mission);
+    if (await exists(ticket)) await this.openBeside(ticket);
+    await this.openInfraTerminal(mission.id);
+  }
+
+  /**
+   * The Infra Lab's simulated terminal in a mission folder (the selected one without an id). It is a Pseudoterminal:
+   * no process starts; each line goes to the runtime's simulated shell.
+   */
+  private async openInfraTerminal(missionId?: string): Promise<void> {
+    const folder = missionId ? missionFolder(missionId) : this.dbtLab.infraLab.folder;
+    if (!folder) {
+      void vscode.window.showWarningMessage("Start an Infra Lab mission first: its simulated terminal opens in the mission folder.");
+      return;
+    }
+    const root = vscode.workspace.workspaceFolders?.[0]?.uri;
+    if (!root || !(await exists(vscode.Uri.joinPath(root, ...folder.split("/"))))) {
+      void vscode.window.showWarningMessage(`${folder} does not exist yet: start the mission first.`);
+      return;
+    }
+    await this.dbtLab.infraLab.open(folder, folder.split("/").pop() ?? folder);
     await this.refresh();
   }
 
@@ -1903,7 +1951,8 @@ export class WorkbenchPanel {
         },
         practiceSolutions: Object.fromEntries(this.revealedSolutions),
         queryHistory: this.selectedModule === "mosaic" ? this.queryHistory() : undefined,
-        terminal: this.selectedModule === "terminal" ? await this.terminalState() : undefined
+        terminal: this.selectedModule === "terminal" ? await this.terminalState() : undefined,
+        infra: this.selectedModule === "infra" ? await this.infraState() : undefined
       }
     );
     if (seq !== this.refreshSeq) return;
@@ -1919,6 +1968,23 @@ export class WorkbenchPanel {
       git,
       missions: { missions: await this.dbtLab.missions.list("terminal"), progress: (await this.dbtLab.missions.progress()).missions }
     };
+  }
+
+  private async infraState(): Promise<InfraViewState> {
+    const missions = await this.dbtLab.missions.list("infra");
+    const progress = (await this.dbtLab.missions.progress()).missions;
+    const folders = missions.filter(mission => progress[mission.id]?.started).map(mission => missionFolder(mission.id));
+    const lab = this.dbtLab.infraLab;
+    const folder = lab.folder && folders.includes(lab.folder) ? lab.folder : folders[0];
+    const view: InfraViewState = { folder, folders, missions: { missions, progress } };
+    if (folder && this.runtimeManager.snapshot().status === "running") {
+      try {
+        view.world = await this.runtimeManager.infraState(folder) as InfraWorldView;
+      } catch (error) {
+        view.worldError = error instanceof Error ? error.message : String(error);
+      }
+    }
+    return view;
   }
 
   private html(webview: vscode.Webview): string {

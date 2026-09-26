@@ -220,6 +220,7 @@ def state_view(folder: Path) -> dict[str, Any]:
         'clock': world['clock'],
         'simulated': worldlib.SIMULATED,
         'terraform': {'initialized': bool(world['terraform'].get('initialized')), 'resources': tf_resources,
+                      'configured': any(folder.glob('*.tf')),
                       'outputs': {k: v for k, v in tf_outputs.items() if isinstance(v, (str, int, float, bool))}},
         'azure': {'resources': [{'name': r['attributes'].get('name'), 'type': r['type'],
                                  'group': monitor.resource_group_of(r['id']), 'managed_by': r.get('managed_by')}

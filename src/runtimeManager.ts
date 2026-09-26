@@ -56,6 +56,15 @@ const CATALOG_TIMEOUT_MS = 30_000;
 // bytecode compilation; antivirus scanning on Windows) can exceed ten seconds.
 const STARTUP_TIMEOUT_MS = 90_000;
 
+/** One line of the Infra Lab's simulated shell, as the runtime answers it. */
+export interface InfraCommandResult {
+  output: string;
+  exit_code: number;
+  /** A question to ask before the command goes on (terraform apply's "Enter a value"). */
+  prompt?: string | null;
+  tool?: string | null;
+}
+
 export interface PipelineCompileResponse {
   valid: boolean;
   source_hash: string;
@@ -684,13 +693,37 @@ export class RuntimeManager implements vscode.Disposable {
   }
 
   /**
-   * Terminal Lab missions: the runtime (re)builds `missions/<id>/` from the shipped pack (files and Git history). The
-   * catalog is not involved, so a lent catalog does not block it.
+   * Terminal Lab and Infra Lab missions: the runtime (re)builds `missions/<id>/` from the shipped pack (files and Git
+   * history, or files and a simulated world). The catalog is not involved, so a lent catalog does not block it.
    */
   async terminalMissionSetup(missionId: string): Promise<{ folder: string; previous?: string | null }> {
     const url = this.requireRunning("start a mission");
     try {
       return await this.postJson<{ folder: string; previous?: string | null }>(`${url}/api/local/missions/setup`, "POST", { mission_id: missionId }, 60000);
+    } catch (error) {
+      throw new Error(runtimeErrorDetail(error));
+    }
+  }
+
+  /**
+   * Infra Lab: one line of the simulated shell in `folder` (relative to the workspace). Everything is simulated by
+   * the runtime (runtime/infralab); `answer` replies to a prompt such as terraform apply's "Enter a value".
+   */
+  async infraCommand(folder: string, line: string, answer?: string): Promise<InfraCommandResult> {
+    const url = this.requireRunning("use the Infra Lab shell");
+    try {
+      return await this.postJson<InfraCommandResult>(`${url}/api/local/infra/command`, "POST",
+        answer === undefined ? { folder, line } : { folder, line, answer }, 120000);
+    } catch (error) {
+      throw new Error(runtimeErrorDetail(error));
+    }
+  }
+
+  /** Infra Lab: what the simulated world of `folder` holds (Terraform state, subscription, Docker, cluster). */
+  async infraState(folder: string): Promise<unknown> {
+    const url = this.requireRunning("read the Infra Lab's simulated world");
+    try {
+      return await this.postJson<unknown>(`${url}/api/local/infra/state`, "POST", { folder }, 30000);
     } catch (error) {
       throw new Error(runtimeErrorDetail(error));
     }

@@ -332,6 +332,24 @@ command in it; a hidden checker reads the folder and the Git repository the lear
 Git commits made in the Terminal Lab use your global Git identity; the lab shows a warning banner if
 `git config --global user.name`/`user.email` are not set, since `git commit` would otherwise refuse to run.
 
+### Infra Lab
+
+The Infra Lab is a simulated terminal: Terraform, Docker, `kubectl` and `az` all answer from Datapass's simulators.
+Nothing is provisioned, built or deployed, and no real `terraform`, `docker`, `kubectl` or `az` is needed or run,
+even if you have one installed.
+
+1. Open **Infra Lab**, start the runtime, and pick a mission.
+2. **Start mission** builds the mission folder under `missions/<id>/` (files, and the mission's simulated starting
+   world: a subscription, a Docker engine, a cluster), opens the ticket, and opens the simulated terminal.
+3. Type `terraform`, `docker`, `kubectl` or `az` commands in that terminal, exactly as you would in a real one; type
+   `help` for what the shell accepts. Your files (HCL, Dockerfiles, compose YAML, Kubernetes manifests) are edited in
+   VS Code as normal.
+4. **Check my work** reads the simulated world your commands built (Terraform state, the simulated subscription,
+   Docker images and containers, the cluster) and reports which acceptance criteria pass. **Show a hint** reveals the
+   mission's hints one at a time.
+5. **Start over** rebuilds the mission from scratch; the old folder is moved to `.datapass/missions/attic/`, never
+   deleted.
+
 ## 4. Runtime
 
 **Setup runtime** creates a private Python environment for the runtime and installs its engines, once per machine. It uses [uv](https://docs.astral.sh/uv/) when it is installed and pip otherwise; the setup card says which one it uses. On Windows, uv made the first setup about ten times faster (about 14 s instead of about 146 s).

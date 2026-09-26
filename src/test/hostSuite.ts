@@ -23,6 +23,7 @@ import { DbtTerminalSession, writeDbtProfiles } from "../dbtLab";
 import { findDbtProjects, loadDbtState } from "../dbtState";
 import { MissionsService } from "../missions";
 import { TerminalLabSession } from "../terminalLab";
+import { InfraLabSession } from "../infraLab";
 import { ticketPath } from "../platform/missions";
 import { buildDctCommand } from "../platform/dbtTools";
 import { loadExerciseCatalog } from "../exerciseCatalog";
@@ -737,6 +738,46 @@ export async function run(): Promise<void> {
           const script = vscode.Uri.joinPath(content, "server-inventory-report", "solution", "solve.ps1").fsPath;
           lab.closeIn(await playInTerminal("server-inventory-report", "powershell", `& '${script.replaceAll("'", "''")}'`));
         }
+      } finally {
+        lab.dispose();
+      }
+    }],
+    ["Infra Lab: the mission folder and its simulated world are built, lines typed in the simulated terminal reach the simulators, and the checker judges the simulated world", async () => {
+      const tools = { binDir: path.join(root.fsPath, "no-dbt"), venvRoot: root.fsPath, snapshot: () => ({ status: "missing" as const }) };
+      const missions = new MissionsService(extension.extensionUri, runtime!, tools);
+      const list = await missions.list("infra");
+      assert.deepEqual(list.map(mission => mission.id), ["lake-landing-zone", "containerize-ingest-api", "page-on-shir-outage", "zero-downtime-rollout"]);
+      const memory = new Map<string, unknown>();
+      const lab = new InfraLabSession(runtime!, { keys: () => [...memory.keys()], get: (key: string) => memory.get(key), update: async (key: string, value: unknown) => { memory.set(key, value); } } as vscode.Memento);
+      try {
+        const id = "page-on-shir-outage";
+        const folder = await missions.start(id);
+        const mission = await missions.mission(id);
+        const ticket = new TextDecoder().decode(await vscode.workspace.fs.readFile(vscode.Uri.joinPath(root, ...ticketPath(mission).split("/"))));
+        assert.match(ticket, /nothing is provisioned, built or\s+deployed/);
+        await vscode.workspace.fs.stat(vscode.Uri.joinPath(folder, ".infralab", "world.json"));
+        await missions.check(id);
+        assert.equal((await missions.progress()).missions[id].lastCheck?.status, "not-yet");
+        const relative = `missions/${id}`;
+        const terminal = await lab.open(relative, id);
+        assert.match(terminal.name, /Infra Lab \(simulated\)/);
+        assert.equal(lab.folder, relative);
+        const journal = async () => ((await runtime!.infraState(relative)) as { journal: unknown[] }).journal.length;
+        const lines = (await vscode.workspace.fs.readFile(vscode.Uri.joinPath(extension.extensionUri, "content", "missions", "infra-v1", id, "mission.json")))
+          .toString();
+        const reference = (JSON.parse(lines) as { reference: { infra: string }[] }).reference.map(step => step.infra);
+        let ran = 0;
+        for (const line of reference) {
+          // Typed in the Pseudoterminal as the learner would: no process runs, the line goes to the runtime.
+          terminal.sendText(line, true);
+          for (let attempt = 0; attempt < 40 && (await journal()) <= ran; attempt++) await new Promise(resolve => setTimeout(resolve, 250));
+          ran = await journal();
+        }
+        assert.equal(ran, reference.length, "every line reached the simulated shell");
+        await missions.check(id);
+        const last = (await missions.progress()).missions[id].lastCheck;
+        assert.equal(last?.status, "passed", JSON.stringify(last?.criteria));
+        assert.ok(lab.closeIn(relative));
       } finally {
         lab.dispose();
       }

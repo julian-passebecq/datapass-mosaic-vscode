@@ -4,7 +4,7 @@ Local-first VS Code data-engineering practice environment.
 
 ## Product split
 
-- **Datapass Workbench (this repository):** Mosaic, LeetCode-style practice, local Fabric-style notebooks/pipelines, SparkLab/ZilaCode, a real-life dbt Lab (real dbt Core and dbt Charts in a VS Code terminal, with missions), a Terminal Lab (real bash, PowerShell and Git, with missions), Airflow simulation and pipeline orchestration.
+- **Datapass Workbench (this repository):** Mosaic, LeetCode-style practice, local Fabric-style notebooks/pipelines, SparkLab/ZilaCode, a real-life dbt Lab (real dbt Core and dbt Charts in a VS Code terminal, with missions), a Terminal Lab (real bash, PowerShell and Git, with missions), an Infra Lab (simulated Terraform, Docker, VM monitoring and Kubernetes, with missions), Airflow simulation and pipeline orchestration.
 - **Datapass WorkNotebook (standalone web):** cheatsheets, references, lightweight playgrounds and public/free learning areas.
 - **Contoso Data Studio:** separate C# application and optional dataset/case-study source.
 
@@ -22,6 +22,7 @@ VS Code
 │  ├─ SparkLab / ZilaCode
 │  ├─ dbt Lab (real dbt Core + dbt Charts, missions)
 │  ├─ Terminal Lab (real bash, PowerShell, Git, missions)
+│  ├─ Infra Lab (simulated terraform/docker/kubectl/az, missions)
 │  ├─ Airflow Lab
 │  └─ Pipeline Lab
 └─ Datapass local runtime
@@ -29,7 +30,7 @@ VS Code
    ├─ DuckDB / DuckLake
    ├─ Polars
    ├─ catalog handoff to the learner's dbt Core / dct runs
-   ├─ missions checker (dbt Lab and Terminal Lab)
+   ├─ missions checker (dbt Lab, Terminal Lab and Infra Lab)
    ├─ SparkLab simulation
    └─ workflow/scheduler simulation
 ```
@@ -78,6 +79,26 @@ every command; Datapass runs none of them and checks only the resulting files an
 Requires Git, and one shell: Git Bash (installed with Git for Windows) on Windows, or PowerShell 7 (`pwsh`) or Windows
 PowerShell 5.1. The Git missions also need a Git identity (`git config --global user.name` / `user.email`); the lab
 warns when one is missing.
+
+## Infra Lab
+
+The Infra Lab teaches Terraform, Docker, VM monitoring and Kubernetes without a cloud account, a Docker daemon or a
+cluster. The learner types `terraform`, `docker`, `kubectl` and `az` in a simulated terminal (a VS Code
+Pseudoterminal that starts no process; each line is sent to the runtime's simulators, `runtime/infralab`). Nothing is
+provisioned, built, pulled or deployed, and no real `terraform`, `docker`, `kubectl` or `az` is started, even when
+one is installed. The learner's HCL, Dockerfiles, compose YAML and Kubernetes YAML are read by whitelisted readers
+and never executed.
+
+`infra-v1` has 4 missions:
+
+| Mission | Level | Skills |
+| --- | --- | --- |
+| Bring the sales lake under Terraform | intermediate | terraform init/plan/apply, import, for_each on a set, azurerm storage, locals and outputs |
+| Make the ingest API image and its compose stack production-ready | intermediate | Dockerfile layering, non-root images, HEALTHCHECK, Docker Compose dependencies |
+| Page the on-call when the self-hosted integration runtime goes down | intermediate | az monitor metric alerts, action groups, replaying an alert over a metric scenario |
+| Fix the orders service and release 1.5.1 without downtime | intermediate | Kubernetes Deployments, rolling updates, readiness probes, Services |
+
+Requires nothing beyond the extension: no Azure subscription, Docker daemon or Kubernetes cluster.
 
 ## Try the connected demo
 

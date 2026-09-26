@@ -1722,3 +1722,14 @@ h2 { margin-bottom: 8px; font-size: 28px; }
 .practice-language:disabled {
   cursor: default;
 }
+/* Infra Lab: the simulated world of the selected mission folder. */
+.infra-folder { display: inline-flex; align-items: center; gap: 6px; min-width: 0; }
+.infra-folder select { max-width: 260px; min-width: 0; }
+.infra-world { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 10px; margin: 0 0 14px; min-width: 0; }
+.infra-card { min-width: 0; padding: 8px 10px; border: 1px solid var(--vscode-panel-border); border-radius: 6px; overflow-wrap: anywhere; }
+.infra-card h3 { margin: 0 0 4px; font-size: 12px; }
+.infra-card ul, .infra-card ol { margin: 6px 0 0; padding-left: 18px; display: grid; gap: 2px; font-size: 12px; }
+.infra-card small { opacity: 0.8; }
+.infra-output { margin: 4px 0 0; font-size: 12px; }
+.infra-failed code { color: var(--vscode-errorForeground); }
+.infra-clock { grid-column: 1 / -1; }

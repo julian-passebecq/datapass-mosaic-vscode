@@ -1,4 +1,4 @@
-export type ModuleId = "projects" | "mosaic" | "practice" | "fabric" | "bi" | "sparklab" | "dbt" | "terminal" | "airflow" | "pipeline";
+export type ModuleId = "projects" | "mosaic" | "practice" | "fabric" | "bi" | "sparklab" | "dbt" | "terminal" | "infra" | "airflow" | "pipeline";
 export type ExecutionMode = "real" | "simulated" | "hybrid";
 
 export interface WorkbenchModule {
@@ -83,6 +83,15 @@ export const MODULES: readonly WorkbenchModule[] = [
     execution:"Your own commands; the result is checked",
     mode:"real",
     highlights:["Git Bash or bash, pwsh or Windows PowerShell: your choice","Datapass runs none of your commands","A hidden checker reads the folder and its Git repository"]
+  },
+  {
+    id:"infra",
+    label:"Infra Lab",
+    description:"Terraform on a simulated Azure, Docker and compose, VM monitoring and Kubernetes, typed in one simulated terminal: nothing is provisioned, built or deployed.",
+    command:"datapass.openInfraLab",
+    execution:"Simulated terraform, docker, kubectl and az",
+    mode:"simulated",
+    highlights:["Terraform plan/apply on a simulated azurerm subscription","Docker builds, compose and Kubernetes rollouts simulated","Your HCL, Dockerfiles and manifests are read, never executed"]
   },
   {
     id:"airflow",

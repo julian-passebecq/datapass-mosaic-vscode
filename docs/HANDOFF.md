@@ -24,7 +24,7 @@ Last updated: 2026-09-26.
 ## What exists
 
 One VS Code extension (webview Workbench + native editors, terminals, Explorer and Git) and one local FastAPI
-runtime on loopback. Ten Workbench modules, each with a `datapass.open…` command:
+runtime on loopback. Eleven Workbench modules, each with a `datapass.open…` command:
 
 | Module (id) | What it does | Execution truth | Code |
 | --- | --- | --- | --- |
@@ -36,6 +36,7 @@ runtime on loopback. Ten Workbench modules, each with a `datapass.open…` comma
 | SparkLab (`sparklab`) | bounded PySpark-style files, teaching plans, simulated stages/shuffle/cost | bounded semantics on DuckDB; distributed behaviour simulated | `runtime/sparklab` |
 | dbt Lab (`dbt`) | real dbt Core + dbt-duckdb + dbt Charts (`dct`) typed by the learner in a terminal; catalog handoff; artifacts view; missions | real; installed only by **Install dbt tools** | `src/dbtLab.ts`, `src/dbtState.ts`, `runtime/missionlab`, `content/missions/dbt-v1` |
 | Terminal Lab (`terminal`) | real bash, PowerShell and Git missions; Datapass checks the resulting folder and repository | real shells; Datapass runs none of the learner's commands | `src/terminalLab.ts`, `runtime/missionlab/terminal.py`, `content/missions/terminal-v1` |
+| Infra Lab (`infra`) | Terraform on a simulated azurerm subscription, Docker and compose, VM monitoring (az, Azure Monitor alerts), Kubernetes; typed in one simulated terminal (a Pseudoterminal, no process); missions | simulation only: HCL, Dockerfiles and manifests read, never executed; no real terraform, docker, kubectl or az | `src/infraLab.ts`, `runtime/infralab`, `runtime/missionlab/infra.py`, `content/missions/infra-v1` |
 | Airflow Lab (`airflow`) | Airflow 3 DAG files read by a whitelisted AST reader; scheduler, runs, retries simulated | simulation, never eval/exec | `runtime/airflowlab` |
 | Pipeline Lab (`pipeline`) | Python-like pipeline source compiled to a graph; supported activity bodies run | source never eval/exec'd; SQL, quality, Python, Polars bodies real; dbt activity declared only; schedule is metadata | `runtime/datapass_runtime/pipeline_compiler.py`, `native_pipeline.py` |
 
@@ -56,7 +57,7 @@ connection, not graded locally), `unified-retail-v1`, `pipeline-design-v1`, `spa
 Never blur real execution and simulation. Real: Mosaic SQL on DuckDB, trusted Python/Polars, Practice grading, dbt
 Lab commands, Terminal Lab shells, BI warehouse scripts and model checks, Projects checks. Translated: SQL dialects
 ("<dialect> dialect translated to DuckDB, not <engine>"). Emulated: the BI Lab dbt tab ("not dbt Core"). Simulated:
-Airflow scheduling, Cloud Lab orchestration, distributions and data movement, Databricks compute and DBU cost,
+Airflow scheduling, the whole Infra Lab (Terraform, Docker, monitoring, Kubernetes), Cloud Lab orchestration, distributions and data movement, Databricks compute and DBU cost,
 SparkLab distributed behaviour. Static: SQL lineage. No cloud connection anywhere. Details: CLAUDE.md.
 
 ## Where things live
@@ -66,7 +67,7 @@ SparkLab distributed behaviour. Static: SQL lineage. No cloud connection anywher
   `contracts.ts`); `src/test/hostSuite.ts` host E2E.
 - `runtime/datapass_runtime/` FastAPI app (`main.py`), kernels, catalog, grading; one package per lab:
   `sparklab`, `airflowlab`, `factorylab`, `sqlpoollab`, `databrickslab`, `bilab`, `dbtlab`, `sqldialects`,
-  `snowflakesql`, `missionlab` (each with a README where the contract is non-trivial).
+  `snowflakesql`, `missionlab`, `infralab` (each with a README where the contract is non-trivial).
 - `content/`: `exercise-packs/<pack>/` (manifest, exercises or scenarios, `grading.server.json`, and the test-only
   `quality.json` with mutants and gate flags), `projects/<id>/` (reference walkthroughs excluded from the VSIX),
   `missions/<pack>/<id>/` (solutions and mutants excluded from the VSIX), `pylance-stubs/`, `modules.json`.
@@ -88,6 +89,8 @@ The gates are listed in CLAUDE.md "Required quality gates"; run them all before 
   exercises or mutants changed; current counts are 584 reference solutions, 584 starters and 549 mutants rejected.
 - `npm run test:host` with `DATAPASS_E2E_PYTHON` (and `DATAPASS_DBT_PYTHON` for the dbt steps); `npm run test:ui`
   after `npm run package` for the packaged VSIX pass (docs/LOCAL_TEST.md).
+- `infra_missions_smoke.py` needs nothing but the runtime (every tool is simulated); `infra_lab_smoke.mjs` is part of
+  `npm test`.
 - `dbt_oracle_smoke.py` when changing `runtime/dbtlab`, `missions_smoke.py` for missions: both need a Python with
   the dbt tools. `terminal_missions_smoke.py` needs bash and pwsh.
 - Real VS Code checks: install the VSIX with `code --install-extension <file> --force` and drive it with Playwright
@@ -109,6 +112,10 @@ Labs:
 - dbt Lab: `dct serve` keeps the catalog lent while it runs; without shell integration (cmd.exe) the end of a command
   is not reported, so use **Reattach catalog**; `dbt deps` downloads packages when a project declares them; dbt
   Charts is pre-1.0 and pinned to 0.8.x (re-check its conventions before moving the pin).
+- Infra Lab (first tranche, 2026-09-26): a thin slice of four simulators with one mission each. Not simulated yet:
+  Terraform modules, remote backends and `fmt`; VM creation from Terraform; compose volumes and networks; Kubernetes
+  Ingress, HPA, StatefulSets and namespaces beyond apply. The simulated terminal has no cursor movement (history
+  only). Real tools stay out on purpose (user decision): real-tool exercises may come once the app is finished.
 - Terminal Lab: checks read the resulting state, so Datapass cannot tell whether the terminal or the editor produced
   it; scripts are read as text, never executed. A reported overlap in dbt Lab › Missions did not reproduce.
 - SQL dialects: T-SQL comparisons are case-sensitive (SQL Server's default collation is not); the translated SQL is
@@ -125,8 +132,8 @@ explicit choice; dbt and dct run as the learner's own terminal commands.
 
 ## Next
 
-The roadmap artifact is the source of truth for order and status. Named directions so far: Infra Lab (simulated
-Terraform, Docker, VM + monitoring, Kubernetes, on `missionlab`), BI-3 (KPIs, a DAX-like measure layer translated to
+The roadmap artifact is the source of truth for order and status. Named directions so far: Infra Lab depth (more
+missions per simulator, Terraform modules, Kubernetes Ingress/HPA), BI-3 (KPIs, a DAX-like measure layer translated to
 SQL, charts), the Cloud Lab dbt layer (Databricks `dbt_task`, Fabric dbt job).
 
 ## What not to do

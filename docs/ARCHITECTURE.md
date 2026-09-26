@@ -35,7 +35,7 @@ React / Fluent / React Flow views
        ├─ SparkLab
        ├─ workflow engine
        ├─ Airflow simulator
-       ├─ dbt emulation (BI Lab) and missions checker (dbt Lab, Terminal Lab)
+       ├─ dbt emulation (BI Lab) and missions checker (dbt Lab, Terminal Lab, Infra Lab)
        └─ catalog handoff to the learner's real dbt Core / dct
 ```
 
@@ -263,7 +263,7 @@ dbt in the runtime and never approximates it (the emulation lives in the BI Lab)
   Missions build with the dbt Lab's profile into `dbt_dev_<custom>` schemas, so they never collide with each other or
   with the catalog layers. Reference solutions and mutants (plausible wrong answers) are excluded from the VSIX and
   played by `scripts/missions_smoke.py` with real dbt Core and dct (CI installs them). The panel is lab-agnostic so
-  the Terminal Lab reuses it with its own check kinds (see below), and the future Infra Lab can do the same.
+  the Terminal Lab and the Infra Lab reuse it with their own check kinds (see below).
 - **Artifacts** (`src/platform/dbtArtifacts.ts`): `target/manifest.json` + `target/run_results.json` of the selected
   project → command (from `args`), counts, DAG, problems, node details; a manifest newer than the results (after
   `dbt parse` or `docs generate`) is flagged. Labelled "dbt Core (real)".
@@ -314,6 +314,56 @@ what the commands left behind. No kernel worker and no catalog are involved.
 - `scripts/terminal_missions_smoke.py` plays every reference with real shells (bash; pwsh, and Windows PowerShell
   5.1 on Windows) through the API: references pass, the untouched fixture and every mutant fail, the fixture's
   hashes are reproducible, and Start over keeps the previous folder in the attic.
+
+## Infra Lab
+
+The Infra Lab (module id `infra`, `datapass.openInfraLab`) teaches Terraform, Docker, VM monitoring and Kubernetes
+without a cloud account, a Docker daemon or a cluster. Everything is simulated: nothing is provisioned, built,
+pulled or deployed, and no real `terraform`, `docker`, `kubectl` or `az` is started, even when one is installed.
+
+- **Runtime** (`runtime/infralab`, README there): `terraform.py`/`hcl.py`/`tfexpr.py`/`azurerm.py` parse HCL into a
+  syntax tree and evaluate it over plain values with a function whitelist; plans and applies run against a simulated
+  azurerm provider (a documented subset, 4.x) and a simulated subscription, and `terraform.tfstate` is written next
+  to the files in Terraform's v4 layout, marked `datapass_simulated`. `docker.py` reads a Dockerfile line by line,
+  estimates `RUN` effects from what they name, hashes COPY's real context files (after `.dockerignore`) for a
+  BuildKit-like layer cache, and models images, containers, health checks, published ports and compose. `monitor.py`
+  is a subset of `az` on the simulated subscription: metrics come from a recorded scenario, and `lab alerts replay`
+  evaluates alert rules the way Azure Monitor evaluates static metric alerts. `kube.py` validates Deployment,
+  Service, ConfigMap and Namespace manifests strictly, then a deterministic controller schedules pods, pulls images
+  from the lab's registry and rolls deployments out in five-second steps (maxSurge, maxUnavailable, readiness
+  probes, progress deadline). `world.py` keeps the simulated world at `<folder>/.infralab/world.json` (plain JSON,
+  deterministic ids and clock) and a `journal.jsonl` of every command line, its exit code and a summary.
+- **The shell** (`runtime/infralab/shell.py`): one line at a time, split like POSIX, routed to `terraform`, `docker`,
+  `kubectl`, `az`, `curl` (reaches a simulated container through its published port), the lab's own `lab status` and
+  `lab alerts replay`, plus `ls`, `cat`, `pwd`, `help`. Pipes, redirections, `&&`, variables and command substitution
+  are refused; `bash`, `python`, `git` and other real programs are refused with a pointer to a normal terminal.
+  `terraform apply`/`destroy` without `-auto-approve` return a `prompt`, answered by the next line.
+- **Host** (`src/infraLab.ts`, `InfraLabSession`; line editing in `src/platform/infraShell.ts`, `LineEditor`): one
+  simulated terminal per mission folder, a VS Code `Pseudoterminal` the extension owns — it spawns no shell and no
+  process. Each submitted line is sent to `POST /api/local/infra/command` (`{folder, line, answer}`); the terminal
+  only echoes keystrokes and writes back the simulator's output or prompt. `GET`-style state comes from
+  `POST /api/local/infra/state`, read by the Workbench surface to show the simulated world. Both routes
+  (`runtime/datapass_runtime/main.py`) refuse a folder outside the workspace or under `.datapass`/`.git`.
+- **Webview** (`src/webview/InfraSurface.tsx`): a "World of" folder picker, **Open simulated terminal** (disabled
+  until the runtime runs and a folder is selected), **Refresh**, a "Simulated" badge, cards for Terraform, Azure,
+  Docker and Kubernetes state and the recent command journal, then the shared `MissionsPanel`.
+- **Missions** (`runtime/missionlab`, README there; `content/missions/infra-v1`; 4 missions: `lake-landing-zone`,
+  `containerize-ingest-api`, `page-on-shir-outage`, `zero-downtime-rollout`). A mission.json of this lab has an
+  `infra` block (`files`, `world`, `setup`) instead of `workspace`/`batches`/`fixture`, and `reference` steps are
+  shell lines (`{infra: "terraform apply -auto-approve"}`). `infra.py`'s `build_fixture` builds the mission folder
+  from the pack only: the `project/` overlay, inline `infra.files`, the simulated world `infra.world` (merged over
+  the lab's default subscription, Docker engine and cluster), then `infra.setup`'s own simulated commands (for
+  example `kubectl apply -f k8s/` to deploy yesterday's version). Start over moves the previous folder to the attic,
+  as in the Terminal Lab. Checks read the simulation (`terraform.tfstate`, `.infralab/world.json`, the shell's
+  journal, the files) or re-run one (a fresh `terraform plan`, the build after a pretend code change, an alert rule
+  replayed over the metric scenario); none runs a real tool. Check kinds that need the catalog, dbt or Git are
+  refused in this lab (`tf_state`, `tf_plan`, `tf_config`, `azure_resource`, `journal`, `docker_image`,
+  `docker_build`, `docker_container`, `azure_alert`, `k8s_deployment`, `k8s_service`, plus the generic `path`,
+  `text`, `listing`, `any_of`).
+- `scripts/infra_missions_smoke.py` plays every reference through the API: references pass; the untouched fixture,
+  the starter project played with the reference commands, and every mutant fail; two builds of a fixture give the
+  same world. `scripts/infra_lab_smoke.mjs` (Node, no runtime needed) covers the line editor and the pack's
+  mission.json contract.
 
 ## Airflow Lab
 
