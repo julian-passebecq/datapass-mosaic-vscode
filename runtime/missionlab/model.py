@@ -324,7 +324,7 @@ class AnyOfCheck(CheckBase):
 
 # ---- Infra Lab: the simulated world the learner's simulated commands left behind (runtime/infralab) ---------------
 
-TfAddress = Annotated[str, Field(pattern=r'^(data\.)?[a-z][a-z0-9_]*\.[A-Za-z_][A-Za-z0-9_-]*(\[("[^"]{1,80}"|\d{1,4})\])?$')]
+TfAddress = Annotated[str, Field(pattern=r'^(module\.[A-Za-z_][A-Za-z0-9_-]*\.){0,3}(data\.)?[a-z][a-z0-9_]*\.[A-Za-z_][A-Za-z0-9_-]*(\[("[^"]{1,80}"|\d{1,4})\])?$')]
 UtcTime = Annotated[str, Field(pattern=r'^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z$')]
 
 
@@ -336,6 +336,8 @@ class TfStateCheck(CheckBase):
     attributes: dict[TfAddress, dict[str, Any]] = Field(default_factory=dict, max_length=10)
     # Every instance of this resource (all its count / for_each keys), in order: e.g. the three containers.
     instance_keys: dict[TfAddress, list[str | int]] = Field(default_factory=dict, max_length=5)
+    # Root outputs recorded in the state, with their value.
+    outputs: dict[str, Any] = Field(default_factory=dict, max_length=10)
 
 
 class TfPlanCheck(CheckBase):
@@ -361,13 +363,25 @@ class TfVariableShape(Contract):
     default: bool | None = None
 
 
+class TfModuleShape(Contract):
+    # A module block of the root module: its name, its local source, the inputs it sets.
+    name: str = Field(pattern=r'^[A-Za-z_][A-Za-z0-9_-]{0,60}$')
+    source: str | None = Field(default=None, max_length=200)
+    inputs: list[str] = Field(default_factory=list, max_length=10)
+
+
 class TfConfigCheck(CheckBase):
-    """The .tf files themselves (read, never executed): resources and how they are declared, variables, outputs."""
+    """The .tf files themselves (read, never executed): resources and how they are declared, variables, outputs,
+    module calls, and whether every .tf file of the folder is laid out as terraform fmt would."""
     kind: Literal['tf_config']
     resources: list[TfResourceShape] = Field(default_factory=list, max_length=10)
     absent: list[TfAddress] = Field(default_factory=list, max_length=10)
     variables: list[TfVariableShape] = Field(default_factory=list, max_length=10)
     outputs: list[str] = Field(default_factory=list, max_length=10)
+    modules: list[TfModuleShape] = Field(default_factory=list, max_length=5)
+    # The root module declares no resource itself (everything goes through modules).
+    root_resources: bool | None = None
+    formatted: bool | None = None
 
 
 class AzureResourceCheck(CheckBase):

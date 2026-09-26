@@ -50,7 +50,7 @@ try {
   const packDir = "content/missions/infra-v1";
   const pack = JSON.parse(await readFile(`${packDir}/pack.json`, "utf8"));
   assert.equal(pack.lab, "infra");
-  assert.equal(pack.missions.length, 4);
+  assert.equal(pack.missions.length, 5);
   for (const id of pack.missions) {
     const mission = m.toMissionView(JSON.parse(await readFile(`${packDir}/${id}/mission.json`, "utf8")), pack.id);
     assert.ok(mission && mission.id === id && mission.lab === "infra" && mission.batches.length === 0, id);

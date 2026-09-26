@@ -130,9 +130,14 @@ def _tf_state(check: TfStateCheck, files, _ctx: dict) -> Outcome:
                 return False, f'{address}.{name} is {_show(inst.attributes.get(name))}.'
     for base, keys in check.instance_keys.items():
         found = sorted((i.index_key for i in state.instances.values()
-                        if f'{i.type}.{i.name}' == base), key=lambda k: json.dumps(k))
+                        if terraform.split_address(i.address)[0] == base), key=lambda k: json.dumps(k))
         if found != sorted(keys, key=lambda k: json.dumps(k)):
             return False, f'{base} has the instances {_show(found)}.'
+    for name, value in check.outputs.items():
+        if name not in state.outputs:
+            return False, f'The state has no output {name}.'
+        if value is not None and not _equal(state.outputs[name], value):
+            return False, f'The output {name} is {_show(state.outputs[name])}.'
     return True, f'terraform.tfstate holds {len(state.instances)} resource instance(s).'
 
 
@@ -187,9 +192,10 @@ def _tf_config(check: TfConfigCheck, files, _ctx: dict) -> Outcome:
         if shape.references:
             refs = {'.'.join(r) for r in terraform.tfexpr.body_references(resource.body)}
             local_refs = set()
+            module_locals = config.module_configs.get(resource.module, config).locals
             for ref in list(refs):
-                if ref.startswith('local.') and ref[6:] in config.locals:
-                    local_refs |= {'.'.join(r) for r in terraform.tfexpr.references(config.locals[ref[6:]].expr)}
+                if ref.startswith('local.') and ref[6:] in module_locals:
+                    local_refs |= {'.'.join(r) for r in terraform.tfexpr.references(module_locals[ref[6:]].expr)}
             missing = [r for r in shape.references if r not in refs | local_refs]
             if missing:
                 return False, f'{shape.address} does not refer to {", ".join(missing)}.'
@@ -209,6 +215,28 @@ def _tf_config(check: TfConfigCheck, files, _ctx: dict) -> Outcome:
     missing_outputs = [o for o in check.outputs if o not in config.outputs]
     if missing_outputs:
         return False, f'No output named {", ".join(missing_outputs)}.'
+    for shape in check.modules:
+        call = config.modules.get(shape.name)
+        if call is None:
+            return False, f'The root module has no module "{shape.name}".'
+        if shape.source is not None and call.source.rstrip('/') != shape.source.rstrip('/'):
+            return False, f'module "{shape.name}" has the source "{call.source}".'
+        missing = [name for name in shape.inputs if name not in call.inputs]
+        if missing:
+            return False, f'module "{shape.name}" does not set {", ".join(missing)}.'
+    if check.root_resources is not None:
+        own = [a for a, r in config.resources.items() if not r.module and r.mode == 'managed']
+        if bool(own) != check.root_resources:
+            return False, (f'The root module declares {", ".join(own[:3])} itself.' if own else
+                           'The root module declares no resource of its own.')
+    if check.formatted is not None:
+        changed, diags = terraform.unformatted(folder, terraform.fmt_files(folder, '.', recursive=True))
+        if diags:
+            return False, f'terraform fmt cannot read a file: {diags[0].summary}.'
+        names = [name for name, _, _ in changed]
+        if bool(names) == check.formatted:
+            return False, (f'terraform fmt -check -recursive lists {", ".join(names[:3])}.' if names else
+                           'Every file is already laid out as terraform fmt would.')
     return True, f'{len(config.resources)} resource block(s) as expected.'
 
 
