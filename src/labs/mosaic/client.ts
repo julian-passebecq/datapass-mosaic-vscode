@@ -114,7 +114,8 @@ export class MosaicClient {
     return plan;
   }
 
-  async runPython(code: string): Promise<void> {
+  /** Returns this request's result; callers need not read the mutable global lastRun. */
+  async runPython(code: string): Promise<LocalCellRunView> {
     const url = this.runtime.runningUrl();
     if (!url) throw new Error("Start the Datapass runtime before running Python.");
     if (!this.runtime.state().trustedPython) {
@@ -138,5 +139,6 @@ export class MosaicClient {
       csvImport: undefined
     });
     await this.runtime.refreshCatalog();
+    return lastRun;
   }
 }
