@@ -184,8 +184,10 @@ export class LearningWorkspace implements vscode.Disposable, vscode.TreeDataProv
   private async openExample(lesson: Lesson): Promise<void> {
     if (lesson.code.language === "none") { this.notice = "Use Exercise or Open lab for this guided topic. Nothing is executed automatically."; return; }
     const src = await this.source(lesson, true); this.editorUri = src.uri;
-    this.panel?.reveal(vscode.ViewColumn.Two, true);
+    // Keep a native editor in group One before moving the Learning tab. Moving the only tab first
+    // closes its empty group, renumbers group Two to One and would hide the course on the next open.
     await vscode.window.showTextDocument(src.document, { viewColumn: vscode.ViewColumn.One, preview: false, preserveFocus: false });
+    this.panel?.reveal(vscode.ViewColumn.Two, true);
   }
   private async openExercise(lesson: Lesson): Promise<void> {
     this.root();
@@ -202,8 +204,8 @@ export class LearningWorkspace implements vscode.Disposable, vscode.TreeDataProv
         && path.basename(path.dirname(path.dirname(file))) === slug(expected.id);
     });
     this.editorUri = editor?.document.uri;
-    this.panel?.reveal(vscode.ViewColumn.Two, true);
     if (editor) await vscode.window.showTextDocument(editor.document, { viewColumn: vscode.ViewColumn.One, preview: false });
+    this.panel?.reveal(vscode.ViewColumn.Two, true);
   }
   private async grade(lesson: Lesson, mode: "run" | "submit"): Promise<void> {
     this.root();
