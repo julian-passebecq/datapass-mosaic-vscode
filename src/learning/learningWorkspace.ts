@@ -220,19 +220,20 @@ export class LearningWorkspace implements vscode.Disposable, vscode.TreeDataProv
     this.root();
     if (this.busy) throw new Error("A Learning operation is already running.");
     if (this.runtime.snapshot().status !== "running") throw new Error("Start the Datapass runtime with its existing Setup/Start controls. Learning never installs or starts it silently.");
-    const src = await this.source(lesson);
-    let code = src.text;
-    if (action === "runSelection") {
-      const editor = vscode.window.activeTextEditor;
-      if (!editor || editor.document.uri.toString() !== src.uri.toString() || editor.selection.isEmpty) throw new Error("Select code in this lesson's own native example file first.");
-      code = src.document.getText(editor.selection);
-    }
-    if (!code.trim()) throw new Error("The example is empty.");
-    const scope = action === "runSelection" ? "selection" : action === "explain" ? "explain" : "file";
-    const run: LearningRun = { id: randomBytes(8).toString("hex"), lesson: lesson.id, language: lesson.code.language,
-      scope, sourceHash: digest(src.text), at: new Date().toISOString(), evidence: undefined };
     this.busy = true; this.notice = ""; await this.refresh();
     try {
+      const src = await this.source(lesson);
+      let code = src.text;
+      if (action === "runSelection") {
+        const editor = [vscode.window.activeTextEditor, ...(vscode.window.visibleTextEditors ?? [])]
+          .find(candidate => candidate?.document.uri.toString() === src.uri.toString());
+        if (!editor || editor.selection.isEmpty) throw new Error("Select code in this lesson's own native example file first.");
+        code = src.document.getText(editor.selection);
+      }
+      if (!code.trim()) throw new Error("The example is empty.");
+      const scope = action === "runSelection" ? "selection" : action === "explain" ? "explain" : "file";
+      const run: LearningRun = { id: randomBytes(8).toString("hex"), lesson: lesson.id, language: lesson.code.language,
+        scope, sourceHash: digest(src.text), at: new Date().toISOString(), evidence: undefined };
       if (action === "explain") {
         if (lesson.code.language !== "sql") throw new Error("Run SparkLab or Polars to get its plan. EXPLAIN ANALYZE here is for SQL only.");
         run.evidence = await this.runtime.labs.mosaic.explainQuery(code, "Learning example");
@@ -310,7 +311,7 @@ class LearningNode extends vscode.TreeItem {
     super(label, pathOnly ? vscode.TreeItemCollapsibleState.Expanded : vscode.TreeItemCollapsibleState.None);
     this.id = pathId ? `${pathId}/${id}` : id;
     this.contextValue = pathOnly ? "learningPath" : "learningLesson";
-    this.iconPath = new vscode.ThemeIcon(pathOnly ? "book" : status === "practiced" ? "pass" : status === "read" ? "book-sparkle" : "circle-outline");
+    this.iconPath = new vscode.ThemeIcon(pathOnly ? "book" : status === "practiced" ? "pass" : status === "read" ? "book" : "circle-outline");
     if (!pathOnly) { this.description = status === "practiced" ? "Practice passed" : status === "read" ? "Read (self-reported)" : "";
       this.command = { command: "datapass.learning.select", title: "Open lesson", arguments: [pathId, id] }; }
   }
