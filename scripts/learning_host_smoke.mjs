@@ -167,3 +167,15 @@ test('Python runs retain the existing trust gate and source selection is scoped 
     assert.equal(f.latest().run,undefined);
   }finally{await f.close();}
 });
+
+// Moving the only webview tab to column Two first makes VS Code collapse and renumber column One.
+test('Try opens the native editor before moving the Learning panel beside it', async () => {
+  const f=await fixture();try{
+    const events=[];
+    const show=f.api.window.showTextDocument;
+    f.api.window.showTextDocument=async(...args)=>{events.push('native editor');return show(...args);};
+    f.host.panel.reveal=()=>events.push('learning panel');
+    await f.host.handle({type:'openExample',lesson:catalog.lessons[0].id});
+    assert.deepEqual(events,['native editor','learning panel']);
+  }finally{await f.close();}
+});
