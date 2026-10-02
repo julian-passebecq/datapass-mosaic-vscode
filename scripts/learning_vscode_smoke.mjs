@@ -33,7 +33,7 @@ async function command(title) {
   const center=page.locator('.command-center-center').first();
   if(await center.isVisible().catch(()=>false))await center.click();else await page.keyboard.press('F1');
   const input=page.locator('.quick-input-widget input');
-  if(!(await input.isVisible().catch(()=>false)))await page.keyboard.press('F1');
+  // Wait for the command-center click to finish opening; a second F1 can close it.
   await input.waitFor({state:'visible'});await input.fill(`>${title}`);
   await page.locator('.quick-input-list .monaco-list-row',{hasText:title}).first().waitFor();await page.keyboard.press('Enter');
 }
@@ -54,6 +54,7 @@ try {
   writeFileSync(path.join(profile,'User','settings.json'),JSON.stringify({
     'workbench.startupEditor':'none','workbench.tips.enabled':false,'workbench.enableExperiments':false,
     'window.restoreWindows':'none','window.dialogStyle':'custom','window.titleBarStyle':'custom',
+    'workbench.secondarySideBar.defaultVisibility':'hidden',
     'update.mode':'none','extensions.autoUpdate':false,'extensions.ignoreRecommendations':true,
     'telemetry.telemetryLevel':'off','security.workspace.trust.enabled':false,'chat.disableAIFeatures':true,
     'git.openRepositoryInParentFolders':'never'
@@ -65,9 +66,11 @@ try {
   const launch=async()=>{
     app=await _electron.launch({executablePath:executable,args:[workspace,`--extensions-dir=${extensions}`,`--user-data-dir=${profile}`,'--disable-workspace-trust','--skip-welcome','--skip-release-notes','--disable-telemetry','--new-window',...(process.platform==='win32'?[]:['--no-sandbox','--disable-gpu','--disable-dev-shm-usage'])],timeout:180000});
     page=await app.firstWindow();page.setDefaultTimeout(30000);
+    await page.waitForSelector('.monaco-workbench',{timeout:180000});
+    await app.evaluate(({BrowserWindow})=>{const w=BrowserWindow.getAllWindows()[0];w.unmaximize();w.setSize(1400,1000);});
     page.on('console',m=>{if(m.type()==='error'&&/vscode-webview:/.test(m.location()?.url??''))report.errors.push(m.text());});
   };
-  await launch();await command('Datapass: Open Learning');let f=await learningFrame();
+  await launch();await command('View: Close Primary Side Bar');await command('Datapass: Open Learning');let f=await learningFrame();
   await f.getByRole('heading',{name:'Join rows, not circles',exact:true}).waitFor();pass('Learning command opens course without setup or execution');
   await page.screenshot({path:path.join(out,'01-read.png')});
   await f.getByRole('button',{name:'Hide path',exact:true}).click();await f.getByRole('button',{name:'Show path',exact:true}).waitFor();
@@ -115,10 +118,9 @@ try {
   await f.getByText('Practice passed',{exact:true}).first().waitFor();pass('Learning Submit is really graded by existing Practice and updates its progress');
   await mode('Try');f=await learningFrame();await f.getByRole('button',{name:'Run example',exact:true}).click();
   await f.getByRole('heading',{name:'Real local result rows',exact:true}).waitFor({timeout:60000});pass('native SQL example returns real local DuckDB rows in Learning');
-
   await mode('Read');f=await learningFrame();await f.getByRole('button',{name:'Learning map',exact:true}).click();
   await f.getByRole('searchbox',{name:'Search lessons'}).fill('broadcast');
-  await f.getByRole('button',{name:'Broadcast a small dimension',exact:true}).click();await f.getByRole('heading',{name:'Broadcast a small dimension',exact:true}).waitFor();
+  await f.locator('.map').getByRole('button',{name:'Broadcast a small dimension',exact:true}).click();await f.getByRole('heading',{name:'Broadcast a small dimension',exact:true}).waitFor();
   pass('curriculum search crosses lab boundaries');await mode('Watch');f=await learningFrame();
   await f.getByLabel('Operation',{exact:true}).selectOption('coalesce');await f.getByLabel('Requested partitions',{exact:true}).selectOption('8');
   assert.equal(await f.locator('.partitions').nth(1).locator('.partition').count(),4);pass('partition illustration respects coalesce limits');
@@ -129,7 +131,6 @@ try {
   await f.getByRole('heading',{name:'Real local result rows',exact:true}).waitFor();
   pass('SparkLab uses real local result rows with separately labelled simulated stages');
   await mode('Watch');f=await learningFrame();
-
   // Native window resize rather than injecting layout CSS into a production webview.
   await app.evaluate(({BrowserWindow})=>{const window=BrowserWindow.getAllWindows()[0];window.unmaximize();window.setSize(900,1000);});
   await f.waitForTimeout(300);
@@ -137,12 +138,22 @@ try {
   await close();await launch();await command('Datapass: Resume Learning');f=await learningFrame();
   await f.getByRole('heading',{name:'Broadcast a small dimension',exact:true}).waitFor();pass('topic and view resume across an actual VS Code restart');
   await f.getByRole('button',{name:'Learning map',exact:true}).click();await f.getByRole('searchbox',{name:'Search lessons'}).fill('Join rows');
-  await f.getByRole('button',{name:'Join rows, not circles',exact:true}).click();await f.getByText('Practice passed',{exact:true}).first().waitFor();
+  await f.locator('.map').getByRole('button',{name:'Join rows, not circles',exact:true}).click();await f.getByText('Practice passed',{exact:true}).first().waitFor();
   await f.locator('.notes summary').click();assert.equal(await f.getByRole('textbox',{name:'Lesson notes'}).inputValue(),'Learning UI persistence check');
   pass('reading acknowledgements and notes survive restart');
   assert.equal(report.errors.length,0,report.errors.join('\n'));pass('no Learning webview console errors');
   report.completed=true;
-}catch(error){fatal=error;report.failure=String(error);console.error(error);}
+}catch(error){
+  fatal=error;report.failure=String(error);console.error(error);
+  if(page&&!page.isClosed()) {
+    await page.screenshot({path:path.join(out,'failure.png')}).catch(()=>undefined);
+    writeFileSync(path.join(out,'failure-dom.txt'),await page.locator('body').innerText().catch(()=>''));
+    for(const [i,frame] of page.frames().entries()) {
+      const text=await frame.locator('body').innerText().catch(()=>undefined);
+      if(text)writeFileSync(path.join(out,`failure-frame-${i}.txt`),text);
+    }
+  }
+}
 finally{
   try{await close();}catch(error){fatal ||= error;report.failure=String(error);}
   writeFileSync(path.join(out,'report.json'),JSON.stringify(report,null,2));
