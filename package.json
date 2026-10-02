@@ -4,329 +4,99 @@
   "description": "Local-first data-engineering practice workbench for VS Code.",
   "version": "0.2.0",
   "publisher": "datapass",
-  "repository": {
-    "type": "git",
-    "url": "https://github.com/julian-passebecq/datapass-mosaic-vscode.git"
-  },
-  "engines": {
-    "vscode": "^1.95.0"
-  },
-  "categories": [
-    "Education",
-    "Data Science"
-  ],
+  "repository": { "type": "git", "url": "https://github.com/julian-passebecq/datapass-mosaic-vscode.git" },
+  "engines": { "vscode": "^1.95.0" },
+  "categories": ["Education", "Data Science"],
   "main": "./dist/extension.js",
-  "extensionPack": [
-    "ms-python.python",
-    "ms-toolsai.jupyter"
-  ],
-  "activationEvents": [
-    "onLanguage:sql",
-    "workspaceContains:.datapass/**"
-  ],
+  "extensionPack": ["ms-python.python", "ms-toolsai.jupyter"],
+  "activationEvents": ["onLanguage:sql", "workspaceContains:.datapass/**"],
   "contributes": {
     "commands": [
-      {
-        "command": "datapass.openHome",
-        "title": "Datapass: Open Today"
-      },
-      {
-        "command": "datapass.openProjects",
-        "title": "Datapass: Open Projects"
-      },
-      {
-        "command": "datapass.openMosaic",
-        "title": "Datapass: Open Mosaic"
-      },
-      {
-        "command": "datapass.openPractice",
-        "title": "Datapass: Open Practice"
-      },
-      {
-        "command": "datapass.openFabricLab",
-        "title": "Datapass: Open Cloud Lab"
-      },
-      {
-        "command": "datapass.openBiLab",
-        "title": "Datapass: Open BI Lab"
-      },
-      {
-        "command": "datapass.openSparkLab",
-        "title": "Datapass: Open SparkLab"
-      },
-      {
-        "command": "datapass.openDbtLab",
-        "title": "Datapass: Open dbt Lab"
-      },
-      {
-        "command": "datapass.openTerminalLab",
-        "title": "Datapass: Open Terminal Lab"
-      },
-      {
-        "command": "datapass.openInfraLab",
-        "title": "Datapass: Open Infra Lab"
-      },
-      {
-        "command": "datapass.openLakehouseLab",
-        "title": "Datapass: Open Lakehouse Lab"
-      },
-      {
-        "command": "datapass.openApiLab",
-        "title": "Datapass: Open API Lab"
-      },
-      {
-        "command": "datapass.openAirflowLab",
-        "title": "Datapass: Open Airflow Lab"
-      },
-      {
-        "command": "datapass.openPipelineLab",
-        "title": "Datapass: Open Pipeline Lab"
-      },
-      {
-        "command": "datapass.catalog.refresh",
-        "title": "Refresh Catalog",
-        "category": "Datapass",
-        "icon": "$(refresh)"
-      },
-      {
-        "command": "datapass.catalog.openScratch",
-        "title": "Open SQL Scratch",
-        "category": "Datapass",
-        "icon": "$(go-to-file)"
-      },
-      {
-        "command": "datapass.catalog.previewTable",
-        "title": "Preview Rows",
-        "category": "Datapass",
-        "icon": "$(play)"
-      },
-      {
-        "command": "datapass.catalog.copyName",
-        "title": "Copy Qualified Name",
-        "category": "Datapass"
-      },
-      {
-        "command": "datapass.catalog.reattach",
-        "title": "Reattach Catalog",
-        "category": "Datapass",
-        "icon": "$(plug)"
-      },
-      {
-        "command": "datapass.sql.pickDialect",
-        "title": "Choose SQL Dialect",
-        "category": "Datapass"
-      },
-      {
-        "command": "datapass.runtime.setup",
-        "title": "Datapass: Set Up Runtime"
-      },
-      {
-        "command": "datapass.runtime.start",
-        "title": "Datapass: Start Runtime"
-      },
-      {
-        "command": "datapass.runtime.action",
-        "title": "Datapass: Runtime Action"
-      },
-      {
-        "command": "datapass.practice.runVisible",
-        "title": "Datapass: Run Visible Tests"
-      },
-      {
-        "command": "datapass.practice.submit",
-        "title": "Datapass: Submit Solution"
-      },
-      {
-        "command": "datapass.missions.check",
-        "title": "Datapass: Check Mission"
-      },
-      {
-        "command": "datapass.apilab.run",
-        "title": "Datapass: Run API Lab Ingestion"
-      }
+      { "command": "datapass.learning.open", "title": "Datapass: Open Learning", "icon": "$(book)" },
+      { "command": "datapass.learning.resume", "title": "Datapass: Resume Learning" },
+      { "command": "datapass.learning.select", "title": "Datapass: Select Learning Topic" },
+      { "command": "datapass.openHome", "title": "Datapass: Open Today" },
+      { "command": "datapass.openProjects", "title": "Datapass: Open Projects" },
+      { "command": "datapass.openMosaic", "title": "Datapass: Open Mosaic" },
+      { "command": "datapass.openPractice", "title": "Datapass: Open Practice" },
+      { "command": "datapass.openFabricLab", "title": "Datapass: Open Cloud Lab" },
+      { "command": "datapass.openBiLab", "title": "Datapass: Open BI Lab" },
+      { "command": "datapass.openSparkLab", "title": "Datapass: Open SparkLab" },
+      { "command": "datapass.openDbtLab", "title": "Datapass: Open dbt Lab" },
+      { "command": "datapass.openTerminalLab", "title": "Datapass: Open Terminal Lab" },
+      { "command": "datapass.openInfraLab", "title": "Datapass: Open Infra Lab" },
+      { "command": "datapass.openLakehouseLab", "title": "Datapass: Open Lakehouse Lab" },
+      { "command": "datapass.openApiLab", "title": "Datapass: Open API Lab" },
+      { "command": "datapass.openAirflowLab", "title": "Datapass: Open Airflow Lab" },
+      { "command": "datapass.openPipelineLab", "title": "Datapass: Open Pipeline Lab" },
+      { "command": "datapass.catalog.refresh", "title": "Refresh Catalog", "category": "Datapass", "icon": "$(refresh)" },
+      { "command": "datapass.catalog.openScratch", "title": "Open SQL Scratch", "category": "Datapass", "icon": "$(go-to-file)" },
+      { "command": "datapass.catalog.previewTable", "title": "Preview Rows", "category": "Datapass", "icon": "$(play)" },
+      { "command": "datapass.catalog.copyName", "title": "Copy Qualified Name", "category": "Datapass" },
+      { "command": "datapass.catalog.reattach", "title": "Reattach Catalog", "category": "Datapass", "icon": "$(plug)" },
+      { "command": "datapass.sql.pickDialect", "title": "Choose SQL Dialect", "category": "Datapass" },
+      { "command": "datapass.runtime.setup", "title": "Datapass: Set Up Runtime" },
+      { "command": "datapass.runtime.start", "title": "Datapass: Start Runtime" },
+      { "command": "datapass.runtime.action", "title": "Datapass: Runtime Action" },
+      { "command": "datapass.practice.runVisible", "title": "Datapass: Run Visible Tests" },
+      { "command": "datapass.practice.submit", "title": "Datapass: Submit Solution" },
+      { "command": "datapass.missions.check", "title": "Datapass: Check Mission" },
+      { "command": "datapass.apilab.run", "title": "Datapass: Run API Lab Ingestion" }
     ],
-    "viewsContainers": {
-      "activitybar": [
-        {
-          "id": "datapass",
-          "title": "Datapass",
-          "icon": "media/datapass.svg"
-        }
-      ]
-    },
-    "views": {
-      "datapass": [
-        {
-          "id": "datapass.labs",
-          "name": "Labs"
-        },
-        {
-          "id": "datapass.catalog",
-          "name": "Catalog"
-        }
-      ]
-    },
+    "viewsContainers": { "activitybar": [{ "id": "datapass", "title": "Datapass", "icon": "media/datapass.svg" }] },
+    "views": { "datapass": [
+      { "id": "datapass.learning.path", "name": "Learning Path", "visibility": "collapsed" },
+      { "id": "datapass.labs", "name": "Labs" },
+      { "id": "datapass.catalog", "name": "Catalog" }
+    ] },
     "menus": {
       "view/title": [
-        {
-          "command": "datapass.catalog.refresh",
-          "when": "view == datapass.catalog",
-          "group": "navigation"
-        }
+        { "command": "datapass.learning.open", "when": "view == datapass.labs || view == datapass.learning.path", "group": "navigation@0" },
+        { "command": "datapass.catalog.refresh", "when": "view == datapass.catalog", "group": "navigation" }
       ],
       "view/item/context": [
-        {
-          "command": "datapass.catalog.previewTable",
-          "when": "view == datapass.catalog && viewItem == datapassCatalogTable",
-          "group": "inline"
-        },
-        {
-          "command": "datapass.catalog.openScratch",
-          "when": "view == datapass.catalog && viewItem == datapassCatalogTable",
-          "group": "1_open@1"
-        },
-        {
-          "command": "datapass.catalog.previewTable",
-          "when": "view == datapass.catalog && viewItem == datapassCatalogTable",
-          "group": "1_open@2"
-        },
-        {
-          "command": "datapass.catalog.copyName",
-          "when": "view == datapass.catalog && viewItem == datapassCatalogTable",
-          "group": "2_copy"
-        }
+        { "command": "datapass.catalog.previewTable", "when": "view == datapass.catalog && viewItem == datapassCatalogTable", "group": "inline" },
+        { "command": "datapass.catalog.openScratch", "when": "view == datapass.catalog && viewItem == datapassCatalogTable", "group": "1_open@1" },
+        { "command": "datapass.catalog.previewTable", "when": "view == datapass.catalog && viewItem == datapassCatalogTable", "group": "1_open@2" },
+        { "command": "datapass.catalog.copyName", "when": "view == datapass.catalog && viewItem == datapassCatalogTable", "group": "2_copy" }
       ],
       "commandPalette": [
-        {
-          "command": "datapass.catalog.openScratch",
-          "when": "false"
-        },
-        {
-          "command": "datapass.catalog.previewTable",
-          "when": "false"
-        },
-        {
-          "command": "datapass.catalog.copyName",
-          "when": "false"
-        },
-        {
-          "command": "datapass.runtime.action",
-          "when": "false"
-        },
-        {
-          "command": "datapass.practice.runVisible",
-          "when": "resourceFilename =~ /^solution\\./"
-        },
-        {
-          "command": "datapass.practice.submit",
-          "when": "resourceFilename =~ /^solution\\./"
-        },
-        {
-          "command": "datapass.missions.check",
-          "when": "resourcePath =~ /[\\/]missions[\\/][a-z0-9-]+[\\/]/"
-        },
-        {
-          "command": "datapass.apilab.run",
-          "when": "false"
-        }
+        { "command": "datapass.catalog.openScratch", "when": "false" },
+        { "command": "datapass.catalog.previewTable", "when": "false" },
+        { "command": "datapass.catalog.copyName", "when": "false" },
+        { "command": "datapass.runtime.action", "when": "false" },
+        { "command": "datapass.practice.runVisible", "when": "resourceFilename =~ /^solution\\./" },
+        { "command": "datapass.practice.submit", "when": "resourceFilename =~ /^solution\\./" },
+        { "command": "datapass.missions.check", "when": "resourcePath =~ /[\\/]missions[\\/][a-z0-9-]+[\\/]/" },
+        { "command": "datapass.apilab.run", "when": "false" },
+        { "command": "datapass.learning.select", "when": "false" }
       ]
     },
     "configuration": {
       "title": "Datapass",
       "properties": {
-        "datapass.dbtTools.python": {
-          "type": "string",
-          "default": "",
-          "markdownDescription": "Python 3.10–3.13 used to create the dbt Lab's managed dbt tools environment. Empty: Datapass looks for one (`py -3.13` … on Windows, `python3.13` … elsewhere)."
-        },
-        "datapass.terminalLab.bashPath": {
-          "type": "string",
-          "default": "",
-          "markdownDescription": "bash used by the Terminal Lab. Empty: Git Bash next to `git` or in the usual Git for Windows folders on Windows, `/bin/bash` elsewhere. Never `C:\\Windows\\System32\\bash.exe` (WSL)."
-        }
+        "datapass.dbtTools.python": { "type": "string", "default": "", "markdownDescription": "Python 3.10–3.13 used to create the dbt Lab's managed dbt tools environment. Empty: Datapass looks for one (`py -3.13` … on Windows, `python3.13` … elsewhere)." },
+        "datapass.terminalLab.bashPath": { "type": "string", "default": "", "markdownDescription": "bash used by the Terminal Lab. Empty: Git Bash next to `git` or in the usual Git for Windows folders on Windows, `/bin/bash` elsewhere. Never `C:\\Windows\\System32\\bash.exe` (WSL)." }
       }
     },
     "jsonValidation": [
-      {
-        "fileMatch": "**/.datapass/project.json",
-        "url": "./schemas/project.schema.json"
-      },
-      {
-        "fileMatch": [
-          "**/bi/model.json",
-          "**/samples/bi-lab/model.json"
-        ],
-        "url": "./schemas/bi-model.schema.json"
-      },
-      {
-        "fileMatch": [
-          "**/content/missions/*/*/mission.json",
-          "!**/content/missions/api-v1/*/mission.json"
-        ],
-        "url": "./schemas/mission.schema.json"
-      },
-      {
-        "fileMatch": "**/content/missions/api-v1/*/mission.json",
-        "url": "./schemas/api-mission.schema.json"
-      },
-      {
-        "fileMatch": "**/content/exercise-packs/*/manifest.json",
-        "url": "./schemas/exercise-pack.schema.json"
-      }
+      { "fileMatch": "**/.datapass/project.json", "url": "./schemas/project.schema.json" },
+      { "fileMatch": ["**/bi/model.json", "**/samples/bi-lab/model.json"], "url": "./schemas/bi-model.schema.json" },
+      { "fileMatch": ["**/content/missions/*/*/mission.json", "!**/content/missions/api-v1/*/mission.json"], "url": "./schemas/mission.schema.json" },
+      { "fileMatch": "**/content/missions/api-v1/*/mission.json", "url": "./schemas/api-mission.schema.json" },
+      { "fileMatch": "**/content/exercise-packs/*/manifest.json", "url": "./schemas/exercise-pack.schema.json" }
     ],
-    "walkthroughs": [
-      {
-        "id": "getStarted",
-        "title": "Get started with Datapass",
-        "description": "Set up the local runtime, open Today, solve a first Practice problem and do a first mission.",
-        "steps": [
-          {
-            "id": "setupRuntime",
-            "title": "Set up the local runtime",
-            "description": "Datapass runs SQL, grades exercises and checks missions in a local runtime on your machine. The first setup installs DuckDB, Polars and pandas in a managed environment.\n[Set up runtime](command:datapass.runtime.setup)",
-            "media": {
-              "markdown": "media/walkthrough/setup-runtime.md"
-            },
-            "completionEvents": [
-              "onCommand:datapass.runtime.setup"
-            ]
-          },
-          {
-            "id": "openToday",
-            "title": "Open Today",
-            "description": "Today shows your progress in Projects and Practice and the next step to take.\n[Open Today](command:datapass.openHome)",
-            "media": {
-              "markdown": "media/walkthrough/today.md"
-            },
-            "completionEvents": [
-              "onCommand:datapass.openHome"
-            ]
-          },
-          {
-            "id": "firstPractice",
-            "title": "Solve a first Practice problem",
-            "description": "Open a problem, write your solution in the solution file VS Code opens, then use Run visible tests or Submit above it.\n[Open Practice](command:datapass.openPractice)",
-            "media": {
-              "markdown": "media/walkthrough/practice.md"
-            },
-            "completionEvents": [
-              "onCommand:datapass.practice.submit"
-            ]
-          },
-          {
-            "id": "firstMission",
-            "title": "Do a first mission",
-            "description": "Missions are tickets done with real tools: start one in the Terminal Lab, work in its folder with your own commands, then Check mission.\n[Open the Terminal Lab](command:datapass.openTerminalLab)",
-            "media": {
-              "markdown": "media/walkthrough/mission.md"
-            },
-            "completionEvents": [
-              "onCommand:datapass.missions.check"
-            ]
-          }
-        ]
-      }
-    ]
+    "walkthroughs": [{
+      "id": "getStarted", "title": "Get started with Datapass",
+      "description": "Set up the local runtime, open Today, solve a first Practice problem and do a first mission.",
+      "steps": [
+        { "id": "learningPaths", "title": "Learn by following a path", "description": "Read a course, inspect a teaching diagram, open native code and move to the linked Practice exercise without losing the topic.\n[Open Learning](command:datapass.learning.open)", "media": { "markdown": "media/walkthrough/learning.md" }, "completionEvents": ["onCommand:datapass.learning.open"] },
+        { "id": "setupRuntime", "title": "Set up the local runtime", "description": "Datapass runs SQL, grades exercises and checks missions in a local runtime on your machine. The first setup installs DuckDB, Polars and pandas in a managed environment.\n[Set up runtime](command:datapass.runtime.setup)", "media": { "markdown": "media/walkthrough/setup-runtime.md" }, "completionEvents": ["onCommand:datapass.runtime.setup"] },
+        { "id": "openToday", "title": "Open Today", "description": "Today shows your progress in Projects and Practice and the next step to take.\n[Open Today](command:datapass.openHome)", "media": { "markdown": "media/walkthrough/today.md" }, "completionEvents": ["onCommand:datapass.openHome"] },
+        { "id": "firstPractice", "title": "Solve a first Practice problem", "description": "Open a problem, write your solution in the solution file VS Code opens, then use Run visible tests or Submit above it.\n[Open Practice](command:datapass.openPractice)", "media": { "markdown": "media/walkthrough/practice.md" }, "completionEvents": ["onCommand:datapass.practice.submit"] },
+        { "id": "firstMission", "title": "Do a first mission", "description": "Missions are tickets done with real tools: start one in the Terminal Lab, work in its folder with your own commands, then Check mission.\n[Open the Terminal Lab](command:datapass.openTerminalLab)", "media": { "markdown": "media/walkthrough/mission.md" }, "completionEvents": ["onCommand:datapass.missions.check"] }
+      ]
+    }]
   },
   "scripts": {
     "typecheck": "tsc -p tsconfig.json --noEmit",
@@ -336,27 +106,13 @@
     "vscode:prepublish": "npm run compile",
     "test:host": "npm run build && node scripts/extension_host_e2e.mjs",
     "package": "vsce package --skip-license",
-    "test:ui": "node scripts/vscode_ui_pass.mjs",
-    "test": "node scripts/scaffold_smoke.mjs && node scripts/runtime_endpoint_smoke.mjs && node scripts/runtime_auth_smoke.mjs && node scripts/package_smoke.mjs && node scripts/runtime_environment_smoke.mjs && node scripts/runtime_fingerprint_smoke.mjs && node scripts/trust_smoke.mjs && node scripts/mosaic_layout_smoke.mjs && node scripts/csv_import_smoke.mjs && node scripts/airflow_lab_smoke.mjs && node scripts/factory_lab_smoke.mjs && node scripts/sqlpool_lab_smoke.mjs && node scripts/databricks_lab_smoke.mjs && node scripts/bi_lab_smoke.mjs && node scripts/catalog_tree_smoke.mjs && node scripts/projects_ui_smoke.mjs && node scripts/exercise_workspace_smoke.mjs && node scripts/practice_progress_smoke.mjs && node scripts/practice_arena_smoke.mjs && node scripts/dbt_lab_smoke.mjs && node scripts/missions_ui_smoke.mjs && node scripts/practice_feedback_smoke.mjs && node scripts/mosaic_tools_smoke.mjs && node scripts/sql_dialect_smoke.mjs && node scripts/terminal_lab_smoke.mjs && node scripts/infra_lab_smoke.mjs && node scripts/message_table_smoke.mjs && node scripts/home_smoke.mjs && node scripts/native_smoke.mjs && node scripts/json_schemas_smoke.mjs"
+    "test:ui": "node scripts/vscode_ui_pass.mjs && node scripts/learning_vscode_smoke.mjs",
+    "test": "node scripts/scaffold_smoke.mjs && node scripts/runtime_endpoint_smoke.mjs && node scripts/runtime_auth_smoke.mjs && node scripts/package_smoke.mjs && node scripts/runtime_environment_smoke.mjs && node scripts/runtime_fingerprint_smoke.mjs && node scripts/trust_smoke.mjs && node scripts/mosaic_layout_smoke.mjs && node scripts/csv_import_smoke.mjs && node scripts/airflow_lab_smoke.mjs && node scripts/factory_lab_smoke.mjs && node scripts/sqlpool_lab_smoke.mjs && node scripts/databricks_lab_smoke.mjs && node scripts/bi_lab_smoke.mjs && node scripts/catalog_tree_smoke.mjs && node scripts/projects_ui_smoke.mjs && node scripts/exercise_workspace_smoke.mjs && node scripts/practice_progress_smoke.mjs && node scripts/practice_arena_smoke.mjs && node scripts/dbt_lab_smoke.mjs && node scripts/missions_ui_smoke.mjs && node scripts/practice_feedback_smoke.mjs && node scripts/mosaic_tools_smoke.mjs && node scripts/sql_dialect_smoke.mjs && node scripts/terminal_lab_smoke.mjs && node scripts/infra_lab_smoke.mjs && node scripts/message_table_smoke.mjs && node scripts/home_smoke.mjs && node scripts/native_smoke.mjs && node scripts/json_schemas_smoke.mjs && node --test scripts/learning_smoke.mjs scripts/learning_host_smoke.mjs"
   },
   "dependencies": {
-    "@fluentui/react-components": "^9.68.0",
-    "@xyflow/react": "12.8.5",
-    "react": "^19.1.1",
-    "react-dom": "^19.1.1",
-    "react-grid-layout": "2.2.3",
-    "react-resizable": "3.0.5"
+    "@fluentui/react-components": "^9.68.0", "@xyflow/react": "12.8.5", "react": "^19.1.1", "react-dom": "^19.1.1", "react-grid-layout": "2.2.3", "react-resizable": "3.0.5"
   },
   "devDependencies": {
-    "@types/node": "^22.10.0",
-    "@types/react": "^19.1.10",
-    "@types/react-dom": "^19.1.7",
-    "@types/vscode": "^1.95.0",
-    "@vscode/test-electron": "^3.1.0",
-    "@vscode/vsce": "^4.0.0",
-    "ajv": "^8.20.0",
-    "esbuild": "^0.25.9",
-    "playwright-core": "^1.63.0",
-    "typescript": "^5.7.2"
+    "@types/node": "^22.10.0", "@types/react": "^19.1.10", "@types/react-dom": "^19.1.7", "@types/vscode": "^1.95.0", "@vscode/test-electron": "^3.1.0", "@vscode/vsce": "^4.0.0", "ajv": "^8.20.0", "esbuild": "^0.25.9", "playwright-core": "^1.63.0", "typescript": "^5.7.2"
   }
 }
