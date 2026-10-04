@@ -9,6 +9,36 @@ Add a tranche as a new `## YYYY-MM-DD · Title` section at the top, under this p
 sections, and refer to another section by its heading, not by a position. Keep the "Checked" and "Not checked"
 notes: they say what was really run.
 
+## 2026-10-04 · Mosaic / Arena 0.3.0 release qualification
+
+Recovered the clean `60192bd59c50e6a04b513c5e72d8042ca47917fa` baseline on
+`release/mosaic-v03`. The existing Workbench and Arena remain the product; no
+module, donor shell or engine is added. `ARENA_DONOR_STATUS.md` records the
+bounded comparison with LeetCode v2.12.2. Updated the local-test setup and stale
+handoff counts. The UI harness handles Windows paths with spaces and explicitly
+selects BI Warehouse; `DATAPASS_UI_RELEASE=1` adds installed Arena acceptance.
+
+Checked before the version bump: compile, 30 Node smokes, package, generated
+stubs/schemas, all runtime/pack/project/Terminal/Infra/Lakehouse/API/dbt mission
+gates, 44 host E2E cases and 98/98 extended installed-VSIX UI steps. Current
+catalog: 315 cards / 639 variants / 21 packs; 638 local references pass, 638
+starters and 643 mutants fail; guided Spark requires a qualified remote.
+Terminal: 18 reference plays, 8 untouched fixtures and 35 mutants. dbt: 7
+references, 7 untouched projects and 13 mutants. Lakehouse: 34 plays, no skips.
+
+Baseline observations: the first runtime worker startup exceeded its 8-second
+smoke deadline during cold installs; unchanged retry passed. Baseline UI was
+67/68 because BI's dbt tab remained selected after layout testing; corrected
+navigation passed. Historical HTTP 500 and trusted-Python instability did not
+reproduce. No HTTPX squiggle was observed in the installed API mission; runtime
+execution passed. No pre-emptive interpreter change.
+
+Candidate hash, exact source commit, final Windows run, screenshots and CI/PR
+status are recorded outside the package in `D:\PROJ\MOSAIC-ARENA-V03-EVIDENCE`.
+Not checked here: every button of every lab, donor animation parity, remote
+guided Spark, Marketplace publication. Human review/merge and post-merge green
+main CI precede any `v0.3.0` tag; this pass does not tag or merge.
+
 ## 2026-09-26 · Governance: row and column security, masking and PII tags (V3-6)
 
 - **SQL pool** (`runtime/sqlpoollab/security.py`, hooks in `engine.py`, state in `sqlpool.json` under `security`):

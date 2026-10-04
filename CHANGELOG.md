@@ -6,6 +6,8 @@ Each version's section becomes the notes of its GitHub Release (see docs/RELEASE
 
 ## [Unreleased]
 
+## [0.3.0] - 2026-10-04
+
 ### Added
 
 - **Governance (V3-6)**: row-level security (security predicates and policies), column-level security (GRANT / DENY
@@ -14,6 +16,17 @@ Each version's section becomes the notes of its GitHub Release (see docs/RELEASE
   filters, column masks (SQL UDFs) and column tags in the Databricks Lab's `grants.sql`, enforced on SQL tasks. A
   Practice pack `governance-v1` (5 exercises) graded by real queries as each principal, including a PII check that
   every tagged column is masked for a group. dbt model contracts stay in the dbt Lab missions.
+
+### Changed
+
+- Requalified the existing Workbench and Practice Arena on Windows, including native language variants,
+  persisted progress, spaced Review, timed Interview, concept checks and real pytest grading.
+- Documented the bounded LeetCode donor reconciliation and the complete local CI setup.
+
+### Fixed
+
+- Windows UI qualification accepts VS Code installation paths containing spaces, including builds with a
+  versioned resources folder. The BI smoke explicitly opens Warehouse after testing its other tabs.
 
 ## [0.2.0] - 2026-09-26
 
@@ -79,5 +92,6 @@ The first version built on the full plan's V1: a Today home, and the Lakehouse, 
 
 - First VS Code extension: Mosaic, Practice and the local runtime, packaged as a VSIX from CI (#1, #2, #5).
 
-[Unreleased]: https://github.com/julian-passebecq/datapass-mosaic-vscode/compare/v0.2.0...HEAD
+[Unreleased]: https://github.com/julian-passebecq/datapass-mosaic-vscode/compare/v0.3.0...HEAD
+[0.3.0]: https://github.com/julian-passebecq/datapass-mosaic-vscode/compare/v0.2.0...v0.3.0
 [0.2.0]: https://github.com/julian-passebecq/datapass-mosaic-vscode/releases/tag/v0.2.0
