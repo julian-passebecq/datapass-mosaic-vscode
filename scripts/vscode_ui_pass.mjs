@@ -296,12 +296,13 @@ async function arenaReleaseJourney() {
   await shot("release-interview-summary");
   await web().getByRole("tab", { name: "All problems", exact: true }).click();
   await filter.fill("Filter active records");
-  for (const theme of ["Default Light Modern", "Default Dark Modern"]) {
+  for (const [theme, themeClass] of [["Light Modern", "vscode-light"], ["Dark Modern", "vscode-dark"]]) {
     await command("Preferences: Color Theme");
     const input = page.locator(".quick-input-widget input");
     await input.fill(theme);
-    await page.keyboard.press("Enter");
-    await page.waitForTimeout(500);
+    await page.locator(".quick-input-list .monaco-list-row", { hasText: theme }).first().click();
+    await web().locator(`body.${themeClass}`).waitFor({ timeout: 30000 });
+    step(`Arena applies ${theme}`, true);
     await checkLayout(`Arena ${theme}`);
   }
   await card.getByRole("radio").first().focus();
