@@ -7,7 +7,7 @@ Read this before a substantial change. It is kept short on purpose and updated i
   T-x, and the code-debt audit D-1…D-10).
 - **Rules** (product boundary, truth model, security, gates): CLAUDE.md, which wins over this file.
 
-Last updated: 2026-09-26.
+Last updated: 2026-10-04.
 
 ## Baseline and workflow
 
@@ -121,7 +121,8 @@ The gates are listed in CLAUDE.md "Required quality gates"; run them all before 
 - `pip install ./runtime` before the Python smokes: the kernel worker imports the installed runtime, not the
   source tree (a stale install fails with errors such as "Unqualified semantic language adapter").
 - `exercise_packs_smoke.py` takes several minutes (about 400 s locally) and must report the same counts unless
-  exercises or mutants changed; current counts are 584 reference solutions, 584 starters and 549 mutants rejected.
+  exercises or mutants changed; requalified baseline counts are 638 reference solutions, 638 starters and 643 mutants rejected
+  (315 semantic cards / 639 catalog variants; guided Spark is the one remote-only variant).
 - `npm run test:host` with `DATAPASS_E2E_PYTHON` (and `DATAPASS_DBT_PYTHON` for the dbt steps); `npm run test:ui`
   after `npm run package` for the packaged VSIX pass (docs/LOCAL_TEST.md).
 - `infra_missions_smoke.py` needs nothing but the runtime (every tool is simulated); `infra_lab_smoke.mjs` is part of

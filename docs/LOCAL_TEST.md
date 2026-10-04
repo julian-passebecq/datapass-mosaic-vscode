@@ -3,12 +3,36 @@
 ## One-time setup
 
 ```powershell
-npm install
-python -m pip install -e runtime
+npm ci --no-audit --no-fund
+uv venv --python 3.12 .venv
+uv pip install --python .venv/Scripts/python.exe ./runtime
+$env:DATAPASS_E2E_PYTHON = (Resolve-Path .venv/Scripts/python.exe).Path
+$env:PATH = (Resolve-Path .venv/Scripts).Path + ";" + $env:PATH
 ```
 
 The Python package is the local Datapass runtime. It installs FastAPI, Uvicorn,
 DuckDB, Polars and the runtime package from this repository.
+
+Use Python 3.12 and Node 22 to match CI. On Unix, use `.venv/bin/python`
+and `.venv/bin` instead. Without uv, create the environment with
+`python -m venv .venv` and install with its `python -m pip install ./runtime`.
+Reinstall `./runtime` after runtime changes: worker subprocesses import the
+installed package, so a stale installation can invalidate a smoke.
+
+The complete command contract is `.github/workflows/ci.yml`: also run both
+generated-file checks with `PYTHONPATH=runtime`, every runtime/exercise/project/
+mission smoke, and the host and packaged UI gates. Terminal missions require
+Git Bash and PowerShell (`DATAPASS_REQUIRE_POWERSHELL=1`); Lakehouse requires
+the official DuckLake/Delta extensions (`DATAPASS_REQUIRE_DUCKLAKE=1`). The
+dbt mission and host gates need a separate tools environment containing the
+CI-pinned dbt Core, dbt-duckdb, dbt Charts and the runtime's DuckDB version,
+selected by `DATAPASS_DBT_PYTHON`. Do not count skipped tools as qualification.
+
+For release acceptance, set `DATAPASS_UI_RELEASE=1` before `npm run test:ui`.
+This additionally checks Arena filters, failing/passing answers, native SQL/
+Python/Polars/PySpark variants, draft/progress isolation, reload, due Review,
+Interview summary/history, themes and keyboard focus in the installed VSIX.
+It ages one review schedule only in the disposable test profile.
 
 ## Run the extension
 

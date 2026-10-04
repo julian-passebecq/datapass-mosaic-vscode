@@ -97,8 +97,15 @@ writeFileSync(path.join(userDataDir, "User", "settings.json"), JSON.stringify({
 
 const executable = process.env.DATAPASS_UI_CODE || await downloadAndUnzipVSCode(process.env.VSCODE_TEST_VERSION || "stable");
 const [cli, ...cliArgs] = resolveCliArgsFromVSCodeExecutablePath(executable);
-const install = spawnSync(cli, [...cliArgs, `--extensions-dir=${extensionsDir}`, `--user-data-dir=${userDataDir}`,
-  "--install-extension", vsix, "--force"], { encoding: "utf8", shell: isWindows, timeout: 600000 });
+// Run Electron's CLI directly on Windows: cmd.exe splits unquoted paths such as "Microsoft VS Code".
+// Newer Windows builds put resources under a commit folder; use the path in their own code.cmd.
+const windowsCli = isWindows ? readFileSync(cli, "utf8").match(/"%~dp0([^"\r\n]*cli\.js)"/i)?.[1] : undefined;
+if (isWindows && !windowsCli) throw new Error(`Cannot find the VS Code CLI entry point in ${cli}`);
+const install = spawnSync(isWindows ? executable : cli, [
+  ...(isWindows ? [path.resolve(path.dirname(cli), windowsCli)] : cliArgs),
+  `--extensions-dir=${extensionsDir}`, `--user-data-dir=${userDataDir}`, "--install-extension", vsix, "--force"
+], { encoding: "utf8", timeout: 600000,
+  env: isWindows ? { ...process.env, ELECTRON_RUN_AS_NODE: "1" } : process.env });
 const installed = readdirSync(extensionsDir).some(name => name.startsWith("datapass.datapass-mosaic-vscode-"));
 step("VSIX installed in a fresh profile", install.status === 0 && installed,
   `${path.basename(vsix)}${install.status === 0 ? "" : `: ${(install.stderr || install.stdout || "").trim().slice(-400)}`}`);
@@ -189,6 +196,127 @@ async function waitForText(pattern, timeoutMs) {
 
 async function shot(name) {
   await page.screenshot({ path: path.join(out, `${name}.png`), scale: "css" }).catch(() => undefined);
+}
+
+// Extended release acceptance, on the installed VSIX and its real managed runtime.
+// Opt in locally with DATAPASS_UI_RELEASE=1; the ordinary CI journey stays bounded.
+async function arenaReleaseJourney() {
+  await command("Datapass: Open Today");
+  await web().locator(".home-surface").waitFor();
+  await shot("release-today");
+  await command("Datapass: Open Practice");
+  const filter = web().getByPlaceholder("Filter SQL, Spark, Airflow, dbt…");
+  await filter.fill("Filter active records");
+  const card = web().locator('[data-problem="engine-lab-v1/eng-filter-active"]');
+  await card.waitFor();
+  step("Arena semantic variants share one card", await card.count() === 1);
+  for (const label of ["Difficulty", "Topic", "Language", "Status"]) {
+    const select = web().getByLabel(label, { exact: true });
+    const value = await select.locator("option").nth(1).getAttribute("value");
+    await select.selectOption(value);
+    step(`Arena ${label} filter changes state`, await select.inputValue() === value);
+    await select.selectOption("");
+  }
+  await filter.fill("no-such-release-exercise");
+  step("Arena empty search state", await web().getByText("No exercises match this filter.").count() === 1);
+  await filter.fill("Filter active records");
+  const grading = JSON.parse(readFileSync(path.join(repo, "content/exercise-packs/engine-lab-v1/grading.server.json"), "utf8"));
+  const key = language => `engine-lab-v1/eng-filter-active/${language}`;
+  const progressFile = path.join(workspace, ".datapass/progress.json");
+  const progress = () => JSON.parse(readFileSync(progressFile, "utf8")).practice;
+  const solutionFile = language => path.join(workspace, `exercises/eng-filter-active-${language}`, language, language === "sql" ? "solution.sql" : "solution.py");
+  async function selectLanguage(language) {
+    const labels = { sql: "SQL", python: "Python", polars: "Polars", sparklab: "PySpark" };
+    await card.getByRole("radio", { name: new RegExp(`^${labels[language]}(?: |$)`) }).click();
+  }
+  async function submit(language, source) {
+    await selectLanguage(language);
+    const file = solutionFile(language);
+    mkdirSync(path.dirname(file), { recursive: true });
+    writeFileSync(file, source);
+    await page.waitForTimeout(500); // Let an already-open native document observe the saved file.
+    await card.getByRole("button", { name: "Open solution", exact: true }).click();
+    const attempts = progress().exercises[key(language)]?.attempts ?? 0;
+    await card.getByRole("button", { name: "Submit", exact: true }).click();
+    const deadline = Date.now() + 120000;
+    while ((progress().exercises[key(language)]?.attempts ?? 0) <= attempts && Date.now() < deadline) await page.waitForTimeout(200);
+    await card.locator(".practice-result").waitFor({ timeout: 120000 });
+    return card.locator(".practice-result").innerText();
+  }
+  await selectLanguage("sql");
+  step("Reference locked before attempts", await card.getByRole("button", { name: "Show the reference solution", exact: true }).isDisabled());
+  const failed = await submit("sql", "SELECT * FROM orders");
+  step("Incorrect SQL Submit gives a visible row diff", /failed/.test(failed) && await card.locator(".row-diff").count() > 0);
+  await card.getByRole("button", { name: /^Show a hint/ }).click();
+  await card.locator(".practice-hints li").first().waitFor();
+  step("Hint revealed without reference unlock", await card.getByRole("button", { name: "Show the reference solution", exact: true }).isDisabled());
+  await shot("release-submit-failed");
+  for (const language of ["sql", "python", "polars", "sparklab"]) {
+    const reference = grading["eng-filter-active"].solutions[language];
+    const result = await submit(language, reference);
+    step(`Arena ${language} Submit passes on native file`, /Submission[\s\S]*passed/.test(result) && Boolean(progress().exercises[key(language)]?.solved));
+    step(`Arena ${language} draft preserved`, readFileSync(solutionFile(language), "utf8") === reference);
+    step(`Arena ${language} editor tab has a readable name`, await page.locator(".tab", { hasText: `eng-filter-active-${language} · ${language}` }).count() > 0);
+  }
+  step("Hidden grading files absent from learner workspace", !readdirSync(workspace, { recursive: true }).some(name => /(?:grading\.server|quality)\.json$/.test(String(name))));
+  await selectLanguage("sql");
+  await card.getByRole("button", { name: "Run visible", exact: true }).click();
+  await waitForText(/Visible checks[\s\S]*passed/, 120000);
+  step("Run visible passes without replacing Submit progress", progress().exercises[key("sql")].last.mode === "run" && Boolean(progress().exercises[key("sql")].solved));
+  await card.getByRole("button", { name: "Show the reference solution and explanation", exact: true }).click();
+  await card.locator(".practice-solution pre").waitFor();
+  await shot("release-submit-passed-reference");
+  // Age the test profile's SQL schedule to reproduce a returning learner with a due review.
+  const saved = JSON.parse(readFileSync(progressFile, "utf8"));
+  saved.practice.exercises[key("sql")].review = { box: 1, due: "2020-01-01" };
+  writeFileSync(progressFile, JSON.stringify(saved, null, 2));
+  await command("Developer: Reload Window");
+  await page.waitForSelector(".monaco-workbench", { timeout: 180000 });
+  await openWorkbench("Datapass: Open Practice");
+  await button("Start runtime").click();
+  await button("Stop runtime").waitFor({ timeout: 180000 });
+  step("Per-language progress and drafts survive reload", ["sql", "python", "polars", "sparklab"].every(language => progress().exercises[key(language)]?.solved));
+  await web().getByRole("tab", { name: /^Review/ }).click();
+  await card.waitFor();
+  await shot("release-review");
+  await card.getByRole("button", { name: "Submit", exact: true }).click();
+  const reviewDeadline = Date.now() + 120000;
+  while (progress().exercises[key("sql")].review.box !== 2 && Date.now() < reviewDeadline) await page.waitForTimeout(200);
+  step("Due SQL Review advances Leitner box", progress().exercises[key("sql")].review.box === 2);
+  await web().getByRole("tab", { name: /^Interview/ }).click();
+  await web().getByLabel("Number of problems", { exact: true }).selectOption("1");
+  await button("Start interview").click();
+  await web().getByRole("timer").waitFor();
+  step("Timed Interview hides hints and reference", await web().locator(".interview .practice-hints, .interview .practice-solution-locked, .interview .practice-solution").count() === 0);
+  await button("Finish interview").click();
+  await web().locator(".interview-summary").waitFor();
+  const historyDeadline = Date.now() + 30000;
+  while (!(progress().interviews?.length > 0) && Date.now() < historyDeadline) await page.waitForTimeout(200);
+  step("Interview summary persisted", progress().interviews?.length > 0);
+  await shot("release-interview-summary");
+  await web().getByRole("tab", { name: "All problems", exact: true }).click();
+  await filter.fill("Filter active records");
+  for (const theme of ["Default Light Modern", "Default Dark Modern"]) {
+    await command("Preferences: Color Theme");
+    const input = page.locator(".quick-input-widget input");
+    await input.fill(theme);
+    await page.keyboard.press("Enter");
+    await page.waitForTimeout(500);
+    await checkLayout(`Arena ${theme}`);
+  }
+  await card.getByRole("radio").first().focus();
+  step("Arena language control accepts keyboard focus", await card.getByRole("radio").first().evaluate(element => element === document.activeElement));
+  await page.emulateMedia({ reducedMotion: "reduce" });
+  await checkLayout("Arena reduced motion");
+  await page.emulateMedia({ reducedMotion: "no-preference" });
+  await command("Welcome: Open Walkthrough...");
+  await page.locator(".quick-input-widget input").fill("Get started with Datapass");
+  await page.keyboard.press("Enter");
+  await page.getByText("Set up the local runtime", { exact: true }).first().waitFor();
+  step("Installed walkthrough displays all four steps", (await page.locator("body").innerText()).includes("Solve a first Practice problem") && (await page.locator("body").innerText()).includes("Do a first mission"));
+  await shot("release-walkthrough");
+  await command("View: Close Editor");
+  await command("Datapass: Open Practice");
 }
 
 function slug(text) {
@@ -495,6 +623,7 @@ try {
   step("Practice pytest exercise graded by real pytest (trusted Python)", pytestRun.status === "passed",
     pytestRun.status ? `status ${pytestRun.status}` : pytestRun.text.slice(0, 200) || "no result");
   await shot("practice-pytest");
+  if (process.env.DATAPASS_UI_RELEASE === "1") await arenaReleaseJourney();
   await command("Datapass: Open API Lab");
   // Back to the default: trusted Python off (the rest of the pass expects it).
   await button("Disable").click();
@@ -590,6 +719,7 @@ try {
     await button("Create lab files").click();
   }, [onDisk("factory")]);
   await labAction("BI Lab builds its warehouse", "Datapass: Open BI Lab", async () => {
+    await subtab("Warehouse");
     await button("Create lab files").first().click();
     await button("Build warehouse").click({ timeout: 60000 });
   }, [onDisk("bi", "model.json"), shows(/BI Lab: \d+ statement\(s\) ran on the local catalog/)], 180000);
