@@ -223,7 +223,16 @@ async function arenaReleaseJourney() {
   const grading = JSON.parse(readFileSync(path.join(repo, "content/exercise-packs/engine-lab-v1/grading.server.json"), "utf8"));
   const key = language => `engine-lab-v1/eng-filter-active/${language}`;
   const progressFile = path.join(workspace, ".datapass/progress.json");
-  const progress = () => JSON.parse(readFileSync(progressFile, "utf8")).practice;
+  let lastProgress = { exercises: {}, interviews: [] };
+  const progress = () => {
+    try { lastProgress = JSON.parse(readFileSync(progressFile, "utf8")).practice; }
+    catch (error) {
+      // The host writes progress asynchronously: a disk probe may see its truncate/write window.
+      // Keep the last complete snapshot; polling still requires the new attempt/box/history to appear.
+      if (!(error instanceof SyntaxError) && error.code !== "ENOENT") throw error;
+    }
+    return lastProgress;
+  };
   const solutionFile = language => path.join(workspace, `exercises/eng-filter-active-${language}`, language, language === "sql" ? "solution.sql" : "solution.py");
   async function selectLanguage(language) {
     const labels = { sql: "SQL", python: "Python", polars: "Polars", sparklab: "PySpark" };
