@@ -250,6 +250,7 @@ async function arenaReleaseJourney() {
     const deadline = Date.now() + 120000;
     while ((progress().exercises[key(language)]?.attempts ?? 0) <= attempts && Date.now() < deadline) await page.waitForTimeout(200);
     await card.locator(".practice-result").waitFor({ timeout: 120000 });
+    await card.locator(".practice-result-header").getByText(progress().exercises[key(language)].last.status, { exact: true }).waitFor();
     return card.locator(".practice-result").innerText();
   }
   await selectLanguage("sql");
@@ -306,10 +307,10 @@ async function arenaReleaseJourney() {
   await web().getByRole("tab", { name: "All problems", exact: true }).click();
   await filter.fill("Filter active records");
   for (const [theme, themeClass] of [["Light Modern", "vscode-light"], ["Dark Modern", "vscode-dark"]]) {
-    await command("Preferences: Color Theme");
-    const input = page.locator(".quick-input-widget input");
-    await input.fill(theme);
-    await page.locator(".quick-input-list .monaco-list-row", { hasText: theme }).first().click();
+    // Use the profile's real VS Code setting, avoiding Marketplace picker matches and theme previews.
+    const settingsFile = path.join(userDataDir, "User", "settings.json");
+    const settings = JSON.parse(readFileSync(settingsFile, "utf8"));
+    writeFileSync(settingsFile, JSON.stringify({ ...settings, "workbench.colorTheme": theme }, null, 2));
     await web().locator(`body.${themeClass}`).waitFor({ timeout: 30000 });
     step(`Arena applies ${theme}`, true);
     await checkLayout(`Arena ${theme}`);
@@ -319,14 +320,15 @@ async function arenaReleaseJourney() {
   await page.emulateMedia({ reducedMotion: "reduce" });
   await checkLayout("Arena reduced motion");
   await page.emulateMedia({ reducedMotion: "no-preference" });
+}
+
+async function inspectWalkthrough() {
   await command("Welcome: Open Walkthrough...");
   await page.locator(".quick-input-widget input").fill("Get started with Datapass");
   await page.keyboard.press("Enter");
   await page.getByText("Set up the local runtime", { exact: true }).first().waitFor();
   step("Installed walkthrough displays all four steps", (await page.locator("body").innerText()).includes("Solve a first Practice problem") && (await page.locator("body").innerText()).includes("Do a first mission"));
   await shot("release-walkthrough");
-  await command("View: Close Editor");
-  await command("Datapass: Open Practice");
 }
 
 function slug(text) {
@@ -794,6 +796,7 @@ try {
   step("Start runtime after the update", true);
   await button("Stop runtime").click();
   await button("Start runtime").waitFor({ timeout: 60000 });
+  if (process.env.DATAPASS_UI_RELEASE === "1") await inspectWalkthrough();
 } catch (error) {
   step("UI pass", false, String(error?.message ?? error).split("\n")[0].slice(0, 400));
   await shot("error");
