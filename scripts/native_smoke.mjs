@@ -59,7 +59,14 @@ try {
   }
   const [walkthrough] = pkg.contributes.walkthroughs;
   assert.equal(walkthrough.title, "Get started with Datapass");
-  assert.deepEqual(walkthrough.steps.map(step => step.id), ["setupRuntime", "openToday", "firstPractice", "firstMission"]);
+  // Retain every existing onboarding step and validate the new Learning entry as well.
+  assert.deepEqual(walkthrough.steps.map(step => step.id), ["learningPaths", "setupRuntime", "openToday", "firstPractice", "firstMission"]);
+  const learningSource = await readFile("src/learning/learningWorkspace.ts", "utf8");
+  for (const command of ["datapass.learning.open", "datapass.learning.resume", "datapass.learning.select"]) {
+    assert.ok(commands.has(command), `${command} contributed`);
+    assert.ok(learningSource.includes(`"${command}"`), `${command} registered`);
+  }
+  assert.ok(pkg.contributes.views.datapass.some(v => v.id === "datapass.learning.path"));
   for (const step of walkthrough.steps) {
     assert.ok(existsSync(step.media.markdown), step.media.markdown);
     for (const [, command] of step.description.matchAll(/\(command:([\w.]+)\)/g)) assert.ok(commands.has(command), `${step.id}: ${command}`);

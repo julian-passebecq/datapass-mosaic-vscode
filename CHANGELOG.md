@@ -10,6 +10,12 @@ Each version's section becomes the notes of its GitHub Release (see docs/RELEASE
 
 ### Added
 
+- **Learning workspace (#72)**: six paths and nineteen lessons connect Read, Watch, Try, Exercise, Explain and
+  Compare around one topic. Searchable curriculum, collapsible course rail, native Learning Path tree, saved
+  reading acknowledgements and notes. Native SQL/Python examples preserve edits and use the existing runtime;
+  linked Practice activities use the existing grader and progress. Interactive join, window and partition
+  illustrations are labelled separately from local result rows and simulated Spark plans. Pinned comparisons
+  retain source hashes and original lesson context. No new runtime, dependencies, implicit installation or telemetry.
 - **Governance (V3-6)**: row-level security (security predicates and policies), column-level security (GRANT / DENY
   on columns) and dynamic data masking (`default()`, `email()`, `partial()`, UNMASK) in the Cloud Lab SQL pool, with
   `EXECUTE AS USER` / `REVERT`, labelled "T-SQL security translated to DuckDB, not SQL Server"; Unity Catalog row
