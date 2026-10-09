@@ -1,0 +1,59 @@
+name: Learning V1 recovery and contracts
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - 'src/learning/**'
+      - 'media/learning/**'
+      - 'content/learning/**'
+      - 'runtime/datapass_runtime/browser*'
+      - 'docs/release-v1/**'
+      - '.github/workflows/learning-v1.yml'
+permissions:
+  contents: read
+concurrency:
+  group: learning-v1-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+jobs:
+  source:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Exact source archive
+        run: |
+          mkdir -p v1-recovery
+          git archive --format=tar.gz --output=v1-recovery/source.tar.gz HEAD
+          git rev-parse HEAD > v1-recovery/revision.txt
+          sha256sum package-lock.json > v1-recovery/lock-hashes.txt
+      - uses: actions/upload-artifact@v4
+        with:
+          name: learning-v1-source
+          path: v1-recovery
+          retention-days: 7
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22.16.0'
+          cache: npm
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+      - run: npm ci --no-audit --no-fund
+      - name: Offline qualification dependencies
+        run: |
+          mkdir -p v1-wheelhouse
+          python -m pip download --only-binary=:all: --dest v1-wheelhouse 'duckdb>=1.4' 'polars>=1.17' 'sqlglot>=30.19,<31'
+          tar -czf v1-recovery/dependencies.tar.gz node_modules v1-wheelhouse
+          node --version > v1-recovery/environment.txt
+          python --version >> v1-recovery/environment.txt
+          sha256sum v1-recovery/dependencies.tar.gz > v1-recovery/dependencies.sha256
+      - uses: actions/upload-artifact@v4
+        with:
+          name: learning-v1-offline-dependencies
+          path: |
+            v1-recovery/dependencies.tar.gz
+            v1-recovery/dependencies.sha256
+            v1-recovery/environment.txt
+          retention-days: 3
