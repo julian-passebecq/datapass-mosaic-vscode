@@ -1,0 +1,250 @@
+{
+  "format": "datapass.learning-path",
+  "version": 1,
+  "path": {
+    "id": "warehouse-modeling",
+    "title": "Warehouse and dbt",
+    "summary": "Grain, history and trustworthy model dependencies.",
+    "lessons": [
+      "warehouse-grain",
+      "warehouse-scd2",
+      "warehouse-dbt"
+    ]
+  },
+  "lessons": [
+    {
+      "id": "warehouse-grain",
+      "version": 1,
+      "title": "Declare the grain before joining",
+      "summary": "Prevent double counting when combining facts at different levels.",
+      "minutes": 18,
+      "concepts": [
+        "warehouse",
+        "grain",
+        "facts",
+        "dimensions",
+        "fan-out"
+      ],
+      "prerequisites": [
+        "sql-joins"
+      ],
+      "blocks": [
+        {
+          "kind": "text",
+          "title": "The mental model",
+          "body": "Use the input and output grain as a contract. MAX(shipping) works in this tiny example because shipping is constant for each order; it is not a universal fix for duplicate joins."
+        },
+        {
+          "kind": "callout",
+          "title": "Common mistake",
+          "body": "Joining two fact tables on a non-unique dimension key can multiply both measures."
+        },
+        {
+          "kind": "check",
+          "title": "Before you run",
+          "body": "Where should the shipping charge live, and how would you allocate it to products?"
+        }
+      ],
+      "code": {
+        "language": "sql",
+        "source": "WITH headers(order_id, shipping) AS (VALUES (1, 10), (2, 6)),\nlines(order_id, line_id, amount) AS (VALUES (1, 1, 30), (1, 2, 70), (2, 1, 50))\nSELECT h.order_id, COUNT(*) AS lines, SUM(h.shipping) AS duplicated_shipping,\n       MAX(h.shipping) AS order_shipping\nFROM headers h JOIN lines l ON h.order_id = l.order_id\nGROUP BY h.order_id ORDER BY h.order_id;\n"
+      },
+      "exercise": {
+        "id": "dwh-grain-allocation",
+        "language": "warehouse"
+      },
+      "lab": "bi",
+      "visual": {
+        "kind": "grain",
+        "title": "Declare the grain before joining - visual walkthrough",
+        "steps": [
+          {
+            "title": "Name one row",
+            "body": "A header is one order; a line is one item within an order."
+          },
+          {
+            "title": "Join",
+            "body": "The header shipping amount repeats once per order line."
+          },
+          {
+            "title": "Spot fan-out",
+            "body": "SUM(shipping) now counts the same order cost repeatedly."
+          },
+          {
+            "title": "Choose a policy",
+            "body": "Aggregate at order grain or allocate shipping using an explicit rule."
+          }
+        ]
+      },
+      "related": [
+        "sql-aggregation",
+        "warehouse-scd2"
+      ]
+    },
+    {
+      "id": "warehouse-scd2",
+      "version": 1,
+      "title": "History with SCD type 2",
+      "summary": "Match an event to the dimension version valid at event time.",
+      "minutes": 20,
+      "concepts": [
+        "warehouse",
+        "SCD2",
+        "history",
+        "time travel"
+      ],
+      "prerequisites": [
+        "warehouse-grain"
+      ],
+      "blocks": [
+        {
+          "kind": "text",
+          "title": "The mental model",
+          "body": "Business identity and version identity are different. A fact must link to the intended version, not merely the current city."
+        },
+        {
+          "kind": "callout",
+          "title": "Common mistake",
+          "body": "BETWEEN includes both endpoints. Adjacent inclusive intervals can match the boundary event twice."
+        },
+        {
+          "kind": "check",
+          "title": "Before you run",
+          "body": "Which city should receive the sale on exactly May 1?"
+        }
+      ],
+      "code": {
+        "language": "sql",
+        "source": "WITH dim(customer_id, city, valid_from, valid_to) AS (\n VALUES (42, 'Oslo', DATE '2026-01-01', DATE '2026-05-01'),\n        (42, 'Bergen', DATE '2026-05-01', DATE '2026-09-01'),\n        (42, 'Oslo', DATE '2026-09-01', DATE '9999-12-31')\n), sales(customer_id, sold_at, amount) AS (\n VALUES (42, DATE '2026-04-20', 40), (42, DATE '2026-05-01', 60)\n)\nSELECT s.sold_at, d.city, s.amount FROM sales s JOIN dim d\n ON s.customer_id = d.customer_id\n AND s.sold_at >= d.valid_from AND s.sold_at < d.valid_to\nORDER BY s.sold_at;\n"
+      },
+      "exercise": {
+        "id": "dwh-point-in-time",
+        "language": "warehouse"
+      },
+      "lab": "bi",
+      "visual": {
+        "kind": "timeline",
+        "title": "History with SCD type 2 - visual walkthrough",
+        "steps": [
+          {
+            "title": "First version",
+            "body": "Oslo is valid from January until May, excluding the May boundary."
+          },
+          {
+            "title": "Close and insert",
+            "body": "Close the previous version and insert Bergen."
+          },
+          {
+            "title": "Point-in-time join",
+            "body": "Match each sale against a half-open validity interval."
+          },
+          {
+            "title": "Validate",
+            "body": "There should be no overlapping intervals for the same business key."
+          }
+        ]
+      },
+      "related": [
+        "storage-snapshots"
+      ]
+    },
+    {
+      "id": "warehouse-dbt",
+      "version": 1,
+      "title": "From SQL models to a dbt DAG",
+      "summary": "Distinguish an authored dependency graph from a real dbt run.",
+      "minutes": 15,
+      "concepts": [
+        "dbt",
+        "models",
+        "DAG",
+        "tests",
+        "lineage"
+      ],
+      "prerequisites": [
+        "warehouse-grain"
+      ],
+      "blocks": [
+        {
+          "kind": "text",
+          "title": "The mental model",
+          "body": "A flow chart does not run dbt. The Practice exercise uses the documented dbt emulation; the dbt Lab uses real dbt Core and dbt Charts after explicit installation."
+        },
+        {
+          "kind": "callout",
+          "title": "Common mistake",
+          "body": "Treating a static lineage arrow as evidence that a model built successfully."
+        },
+        {
+          "kind": "check",
+          "title": "Before you run",
+          "body": "Which model would fail first if the staging table contained duplicate primary keys?"
+        }
+      ],
+      "code": {
+        "language": "none",
+        "source": "SELECT * FROM {{ ref('stg_orders') }}\n"
+      },
+      "exercise": {
+        "id": "dbt-ref-builds-the-dag",
+        "language": "dbt-sql"
+      },
+      "lab": "dbt",
+      "visual": {
+        "kind": "dag",
+        "title": "From SQL models to a dbt DAG - visual walkthrough",
+        "steps": [
+          {
+            "title": "Declare a dependency",
+            "body": "ref() relates models rather than hardcoding a table location."
+          },
+          {
+            "title": "Build in order",
+            "body": "Upstream models must be available before consumers."
+          },
+          {
+            "title": "Test contracts",
+            "body": "Uniqueness and relationship tests check assumptions about the rows."
+          },
+          {
+            "title": "Inspect real artifacts",
+            "body": "The separate dbt Lab reads real dbt Core target artifacts; this authored graph is a teaching view."
+          }
+        ],
+        "nodes": [
+          {
+            "id": "source",
+            "title": "Raw orders"
+          },
+          {
+            "id": "staging",
+            "title": "stg_orders"
+          },
+          {
+            "id": "fact",
+            "title": "fct_sales"
+          },
+          {
+            "id": "test",
+            "title": "Quality tests"
+          }
+        ],
+        "edges": [
+          [
+            "source",
+            "staging"
+          ],
+          [
+            "staging",
+            "fact"
+          ],
+          [
+            "fact",
+            "test"
+          ]
+        ]
+      },
+      "related": []
+    }
+  ]
+}

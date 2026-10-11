@@ -1,3 +1,4 @@
+import { loadCatalogDocument } from './learning_catalog.mjs';
 // Exercise the actual TypeScript host against a controlled VS Code adapter and real temporary files.
 // This does not replace the separate packaged-VSIX UI gate.
 import test from 'node:test';
@@ -13,7 +14,7 @@ import * as model from '../media/learning/model.mjs';
 const require = createRequire(import.meta.url);
 const ts = require(process.env.TYPESCRIPT_MODULE || 'typescript');
 const extensionRoot = fileURLToPath(new URL('..', import.meta.url));
-const catalog = model.validateCatalog(JSON.parse(readFileSync(path.join(extensionRoot, 'content/learning/catalog.json'), 'utf8')));
+const catalog = model.validateCatalog(loadCatalogDocument(extensionRoot));
 const hostSource = readFileSync(path.join(extensionRoot, 'src/learning/learningWorkspace.ts'), 'utf8');
 const compiled = ts.transpileModule(hostSource, { compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022, esModuleInterop: true }, reportDiagnostics: true });
 assert.equal(compiled.diagnostics?.length ?? 0, 0);

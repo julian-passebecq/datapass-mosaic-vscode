@@ -29,6 +29,26 @@ function dag(ids, edges, where) {
   if (seen !== ids.length) fail(`${where}: cycle`);
 }
 
+/** The shipped catalog is an index (content/learning/catalog.json: the path order) plus one file per path
+ * (content/learning/paths/<id>.json: the path and the lessons it defines). readPath(id) returns that file's JSON;
+ * the result is the single catalog document validateCatalog checks. */
+export function assembleCatalog(index, readPath) {
+  keys(index, ['format', 'version', 'paths'], 'index');
+  if (index.format !== 'datapass.learning' || index.version !== 1) fail('unsupported version');
+  list(index.paths, 24, 'paths');
+  const paths = [], lessons = [];
+  for (const id of index.paths) {
+    if (!safeId(id)) fail('invalid path id');
+    const file = readPath(id);
+    keys(file, ['format', 'version', 'path', 'lessons'], 'path file');
+    if (file.format !== 'datapass.learning-path' || file.version !== 1) fail(`unsupported path file ${id}`);
+    if (!object(file.path) || file.path.id !== id) fail(`path file ${id} names another path`);
+    list(file.lessons, 64, 'path lessons');
+    paths.push(file.path); lessons.push(...file.lessons);
+  }
+  return { format: index.format, version: index.version, paths, lessons };
+}
+
 /** Validate before any resource is opened. Destinations are catalog IDs, never commands, URLs or paths. */
 export function validateCatalog(raw) {
   keys(raw, ['format', 'version', 'paths', 'lessons'], 'root');

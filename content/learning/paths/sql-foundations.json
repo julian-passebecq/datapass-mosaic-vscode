@@ -1,0 +1,315 @@
+{
+  "format": "datapass.learning-path",
+  "version": 1,
+  "path": {
+    "id": "sql-foundations",
+    "title": "SQL and data semantics",
+    "summary": "Rows first: joins, filters, aggregation and window frames.",
+    "lessons": [
+      "sql-joins",
+      "sql-filter-placement",
+      "sql-aggregation",
+      "sql-windows"
+    ]
+  },
+  "lessons": [
+    {
+      "id": "sql-joins",
+      "version": 1,
+      "title": "Join rows, not circles",
+      "summary": "Match keys, preserve unmatched rows, and see why duplicates multiply.",
+      "minutes": 15,
+      "concepts": [
+        "SQL",
+        "joins",
+        "NULL",
+        "cardinality"
+      ],
+      "prerequisites": [],
+      "blocks": [
+        {
+          "kind": "text",
+          "title": "The mental model",
+          "body": "A table can contain duplicate keys. Every matching pair contributes a row. Choose INNER, LEFT, FULL, SEMI or ANTI in the visual. The fixture is fully visible; it is not your SQL execution."
+        },
+        {
+          "kind": "callout",
+          "title": "Common mistake",
+          "body": "A Venn diagram hides row multiplicity. Before summing a joined amount, verify the relationship cardinality."
+        },
+        {
+          "kind": "check",
+          "title": "Before you run",
+          "body": "Predict the LEFT JOIN row count. Then compare with INNER, FULL, SEMI and ANTI."
+        }
+      ],
+      "code": {
+        "language": "sql",
+        "source": "WITH customers(customer_id, name) AS (\n  VALUES (1, 'Ada'), (2, 'Ben'), (3, 'Chloe'), (NULL, 'Unknown')\n), orders(order_id, customer_id, status) AS (\n  VALUES (101, 1, 'DONE'), (102, 1, 'OPEN'), (103, 4, 'DONE'), (104, NULL, 'DONE')\n)\nSELECT c.customer_id, c.name, o.order_id, o.status\nFROM customers c\nLEFT JOIN orders o ON c.customer_id = o.customer_id\nORDER BY c.name, o.order_id;\n"
+      },
+      "exercise": {
+        "id": "sql-lab-left-preserve-customers",
+        "language": "sql"
+      },
+      "lab": "mosaic",
+      "visual": {
+        "kind": "join",
+        "title": "Join rows, not circles - visual walkthrough",
+        "steps": [
+          {
+            "title": "Match keys",
+            "body": "A join tests pairs of rows. Equal non-null keys match.",
+            "lines": [
+              8,
+              8
+            ]
+          },
+          {
+            "title": "Preserve rows",
+            "body": "LEFT keeps unmatched left rows with nulls for the right-hand columns.",
+            "lines": [
+              7,
+              8
+            ]
+          },
+          {
+            "title": "Count the result",
+            "body": "Two orders for Ada create two output rows. A join is not set intersection.",
+            "lines": [
+              6,
+              9
+            ]
+          },
+          {
+            "title": "Null keys",
+            "body": "With ordinary equality, a null key does not match another null key.",
+            "lines": [
+              1,
+              4
+            ]
+          }
+        ]
+      },
+      "related": [
+        "sql-filter-placement",
+        "warehouse-grain"
+      ]
+    },
+    {
+      "id": "sql-filter-placement",
+      "version": 1,
+      "title": "LEFT JOIN: ON versus WHERE",
+      "summary": "Keep the customer even when no order satisfies the filter.",
+      "minutes": 12,
+      "concepts": [
+        "SQL",
+        "joins",
+        "filters",
+        "NULL"
+      ],
+      "prerequisites": [
+        "sql-joins"
+      ],
+      "blocks": [
+        {
+          "kind": "text",
+          "title": "The mental model",
+          "body": "The same predicate has different consequences in ON and WHERE. Use the visual filter placement control, then edit the SQL file in Try. The Watch fixture does not silently rewrite your file."
+        },
+        {
+          "kind": "callout",
+          "title": "Common mistake",
+          "body": "WHERE o.status = DONE removes unmatched customers. This does not mean every WHERE predicate turns a LEFT JOIN into an INNER JOIN; the predicate must reject the null-extended rows."
+        },
+        {
+          "kind": "check",
+          "title": "Before you run",
+          "body": "Which customers disappear when the DONE predicate moves into WHERE?"
+        }
+      ],
+      "code": {
+        "language": "sql",
+        "source": "WITH customers(customer_id, name) AS (\n  VALUES (1, 'Ada'), (2, 'Ben'), (3, 'Chloe'), (NULL, 'Unknown')\n), orders(order_id, customer_id, status) AS (\n  VALUES (101, 1, 'DONE'), (102, 1, 'OPEN'), (103, 4, 'DONE'), (104, NULL, 'DONE')\n)\nSELECT c.customer_id, c.name, o.order_id, o.status\nFROM customers c\nLEFT JOIN orders o ON c.customer_id = o.customer_id AND o.status = 'DONE'\nORDER BY c.name, o.order_id;\n"
+      },
+      "exercise": {
+        "id": "sql-lab-left-filter-placement",
+        "language": "sql"
+      },
+      "lab": "mosaic",
+      "visual": {
+        "kind": "join",
+        "title": "LEFT JOIN: ON versus WHERE - visual walkthrough",
+        "steps": [
+          {
+            "title": "Filter candidate matches",
+            "body": "A right-side condition in ON restricts which rows can match."
+          },
+          {
+            "title": "Add unmatched rows",
+            "body": "The LEFT JOIN still preserves customers with no qualifying match."
+          },
+          {
+            "title": "Move it to WHERE",
+            "body": "WHERE is evaluated after the join. A null right-side status fails status = DONE."
+          },
+          {
+            "title": "Repair the query",
+            "body": "Move right-side eligibility conditions back into ON when left preservation is required."
+          }
+        ]
+      },
+      "related": [
+        "spark-broadcast"
+      ]
+    },
+    {
+      "id": "sql-aggregation",
+      "version": 1,
+      "title": "GROUP BY and HAVING",
+      "summary": "Change the grain deliberately and filter groups after aggregation.",
+      "minutes": 12,
+      "concepts": [
+        "SQL",
+        "aggregation",
+        "grain",
+        "HAVING"
+      ],
+      "prerequisites": [],
+      "blocks": [
+        {
+          "kind": "text",
+          "title": "The mental model",
+          "body": "Write down what one input row represents and what one output row represents. This query changes the grain from order to customer segment. The real example uses the existing local source.orders seed."
+        },
+        {
+          "kind": "callout",
+          "title": "Common mistake",
+          "body": "Filtering positive orders before SUM is not the same as filtering groups with a positive net total after SUM."
+        },
+        {
+          "kind": "check",
+          "title": "Before you run",
+          "body": "Should a negative order be dropped, or should it reduce the segment total?"
+        }
+      ],
+      "code": {
+        "language": "sql",
+        "source": "SELECT segment_id, COUNT(*) AS orders, SUM(net_amount) AS revenue\nFROM source.orders\nGROUP BY segment_id\nHAVING SUM(net_amount) > 100\nORDER BY segment_id;\n"
+      },
+      "exercise": {
+        "id": "sql-lab-groupby-having",
+        "language": "sql"
+      },
+      "lab": "mosaic",
+      "visual": {
+        "kind": "grain",
+        "title": "GROUP BY and HAVING - visual walkthrough",
+        "steps": [
+          {
+            "title": "Input grain",
+            "body": "source.orders contains one row per order."
+          },
+          {
+            "title": "Group",
+            "body": "Rows with the same segment_id form one group."
+          },
+          {
+            "title": "Aggregate",
+            "body": "SUM and COUNT reduce each group to one output row."
+          },
+          {
+            "title": "Filter groups",
+            "body": "HAVING applies to aggregate results; WHERE filters individual input rows."
+          }
+        ]
+      },
+      "related": [
+        "warehouse-grain",
+        "sql-windows"
+      ]
+    },
+    {
+      "id": "sql-windows",
+      "version": 1,
+      "title": "ROWS, RANGE and peer groups",
+      "summary": "Move a window frame and inspect exactly which rows contribute.",
+      "minutes": 18,
+      "concepts": [
+        "SQL",
+        "window functions",
+        "ROWS",
+        "RANGE"
+      ],
+      "prerequisites": [
+        "sql-aggregation"
+      ],
+      "blocks": [
+        {
+          "kind": "text",
+          "title": "The mental model",
+          "body": "The visual fixture has two transactions on day 2. ROWS uses the deterministic order (day, txn_id). RANGE uses ORDER BY day, so both peers share the day total. The ordering difference is intentional and displayed."
+        },
+        {
+          "kind": "callout",
+          "title": "Common mistake",
+          "body": "RANGE is not the same as counting a fixed number of rows. ROWS without a stable tie-breaker can make per-row results nondeterministic."
+        },
+        {
+          "kind": "check",
+          "title": "Before you run",
+          "body": "At the first day-2 row, why is ROWS 70 while RANGE is 120?"
+        }
+      ],
+      "code": {
+        "language": "sql",
+        "source": "WITH transactions(txn_id, day, amount) AS (\n  VALUES (1, 1, 100), (2, 2, -30), (3, 2, 50), (4, 4, 20)\n)\nSELECT *, SUM(amount) OVER (\n  ORDER BY day, txn_id\n  ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW\n) AS running_total\nFROM transactions\nORDER BY day, txn_id;\n"
+      },
+      "exercise": {
+        "id": "sql-lab-window-rows-vs-range",
+        "language": "sql"
+      },
+      "lab": "mosaic",
+      "visual": {
+        "kind": "window",
+        "title": "ROWS, RANGE and peer groups - visual walkthrough",
+        "steps": [
+          {
+            "title": "Keep the rows",
+            "body": "Unlike GROUP BY, a window adds a value without collapsing the result rows.",
+            "lines": [
+              4,
+              9
+            ]
+          },
+          {
+            "title": "Order deterministically",
+            "body": "ROWS uses positions. Include a stable tie-breaker when order matters.",
+            "lines": [
+              5,
+              6
+            ]
+          },
+          {
+            "title": "Inspect peers",
+            "body": "RANGE with ORDER BY day includes rows that share the current day.",
+            "lines": [
+              1,
+              2
+            ]
+          },
+          {
+            "title": "Check the frame",
+            "body": "The visual compares unbounded preceding to current row. It does not implement arbitrary SQL frames.",
+            "lines": [
+              5,
+              7
+            ]
+          }
+        ]
+      },
+      "related": [
+        "spark-windows"
+      ]
+    }
+  ]
+}

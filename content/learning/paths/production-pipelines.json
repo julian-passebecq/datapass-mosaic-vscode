@@ -1,0 +1,381 @@
+{
+  "format": "datapass.learning-path",
+  "version": 1,
+  "path": {
+    "id": "production-pipelines",
+    "title": "APIs and orchestration",
+    "summary": "Pagination, retries, DAGs and explicit failure handling.",
+    "lessons": [
+      "api-pagination",
+      "api-retries",
+      "airflow-dependencies",
+      "airflow-retries"
+    ]
+  },
+  "lessons": [
+    {
+      "id": "api-pagination",
+      "version": 1,
+      "title": "Pagination is part of correctness",
+      "summary": "Follow every page before declaring an ingestion complete.",
+      "minutes": 15,
+      "concepts": [
+        "REST",
+        "API",
+        "pagination",
+        "ingestion"
+      ],
+      "prerequisites": [],
+      "blocks": [
+        {
+          "kind": "text",
+          "title": "The mental model",
+          "body": "The API Lab provides a deterministic simulated API on its own local port. Your ingestion Python executes for real only after trusted-Python opt-in. Use the api-paged-customers mission for real request-log checks."
+        },
+        {
+          "kind": "callout",
+          "title": "Common mistake",
+          "body": "Testing the first page only and assuming the returned count is the total count."
+        },
+        {
+          "kind": "check",
+          "title": "Before you run",
+          "body": "What should your loop do when page two is empty but still carries a next cursor?"
+        }
+      ],
+      "code": {
+        "language": "none",
+        "source": "# Open API Lab: api-paged-customers\n# Follow the provided continuation token until it is absent.\n"
+      },
+      "exercise": {
+        "id": "py-batching",
+        "language": "python"
+      },
+      "lab": "apilab",
+      "visual": {
+        "kind": "dag",
+        "title": "Pagination is part of correctness - visual walkthrough",
+        "steps": [
+          {
+            "title": "Request page one",
+            "body": "The first response is often only part of the dataset."
+          },
+          {
+            "title": "Follow the cursor",
+            "body": "Use the server continuation marker instead of inventing offsets."
+          },
+          {
+            "title": "Persist the batch",
+            "body": "Track which rows were written successfully."
+          },
+          {
+            "title": "Stop deliberately",
+            "body": "An absent next cursor ends this traversal; an empty page need not always do so."
+          }
+        ],
+        "nodes": [
+          {
+            "id": "request",
+            "title": "Request page"
+          },
+          {
+            "id": "response",
+            "title": "Response"
+          },
+          {
+            "id": "write",
+            "title": "Write batch"
+          },
+          {
+            "id": "next",
+            "title": "Next cursor"
+          }
+        ],
+        "edges": [
+          [
+            "request",
+            "response"
+          ],
+          [
+            "response",
+            "write"
+          ],
+          [
+            "write",
+            "next"
+          ]
+        ]
+      },
+      "related": [
+        "api-retries"
+      ]
+    },
+    {
+      "id": "api-retries",
+      "version": 1,
+      "title": "Retry safely and deduplicate",
+      "summary": "A repeated request must not automatically mean repeated data.",
+      "minutes": 18,
+      "concepts": [
+        "REST",
+        "API",
+        "retry",
+        "429",
+        "idempotency"
+      ],
+      "prerequisites": [
+        "api-pagination"
+      ],
+      "blocks": [
+        {
+          "kind": "text",
+          "title": "The mental model",
+          "body": "The displayed timeline is an authored walkthrough. Real API request logs remain in the API Lab. No OpenTelemetry exporter or external telemetry is activated by Learning."
+        },
+        {
+          "kind": "callout",
+          "title": "Common mistake",
+          "body": "Retrying every HTTP status forever, or updating the watermark before the batch is committed."
+        },
+        {
+          "kind": "check",
+          "title": "Before you run",
+          "body": "What happens when the write succeeded but the acknowledgment was lost?"
+        }
+      ],
+      "code": {
+        "language": "none",
+        "source": ""
+      },
+      "exercise": {
+        "id": "py-retry-backoff",
+        "language": "pytest"
+      },
+      "lab": "apilab",
+      "visual": {
+        "kind": "timeline",
+        "title": "Retry safely and deduplicate - visual walkthrough",
+        "steps": [
+          {
+            "title": "Transient failure",
+            "body": "Distinguish a temporary failure from invalid input or an authorization error."
+          },
+          {
+            "title": "Respect backoff",
+            "body": "Retry only eligible errors and honor the relevant retry policy."
+          },
+          {
+            "title": "Receive duplicates",
+            "body": "At-least-once delivery can return rows already observed."
+          },
+          {
+            "title": "Commit safely",
+            "body": "Use a stable business/event key and advance the watermark only after persistence."
+          }
+        ]
+      },
+      "related": [
+        "python-tests"
+      ]
+    },
+    {
+      "id": "airflow-dependencies",
+      "version": 1,
+      "title": "Read a DAG as dependencies",
+      "summary": "Separate task definitions, scheduler decisions and task outcomes.",
+      "minutes": 15,
+      "concepts": [
+        "Airflow",
+        "DAG",
+        "dependencies",
+        "parallelism"
+      ],
+      "prerequisites": [],
+      "blocks": [
+        {
+          "kind": "text",
+          "title": "The mental model",
+          "body": "The diagram is authored for the lesson. Task states become simulation evidence only when the existing Airflow Lab returns a run. A ready task is not necessarily running: resources and scheduling matter."
+        },
+        {
+          "kind": "callout",
+          "title": "Common mistake",
+          "body": "Assuming every arrow means rows are transported between tasks, or equating dependency order with a guaranteed wall-clock timeline."
+        },
+        {
+          "kind": "check",
+          "title": "Before you run",
+          "body": "What blocks load when only transform_a has succeeded?"
+        }
+      ],
+      "code": {
+        "language": "none",
+        "source": "# extract >> [transform_a, transform_b] >> load\n"
+      },
+      "exercise": {
+        "id": "af-fan-in-fan-out",
+        "language": "airflow"
+      },
+      "lab": "airflow",
+      "visual": {
+        "kind": "dag",
+        "title": "Read a DAG as dependencies - visual walkthrough",
+        "steps": [
+          {
+            "title": "Read the dependencies",
+            "body": "Arrows express ordering or data dependencies, not physical data movement."
+          },
+          {
+            "title": "Release ready tasks",
+            "body": "After extract, both transforms can become ready."
+          },
+          {
+            "title": "Wait at the fan-in",
+            "body": "Load needs the upstream condition specified by its trigger rule."
+          },
+          {
+            "title": "Inspect the simulator",
+            "body": "Open Airflow Lab to simulate real authored DAG text safely; it is not an Airflow scheduler."
+          }
+        ],
+        "nodes": [
+          {
+            "id": "extract",
+            "title": "Extract"
+          },
+          {
+            "id": "transform-a",
+            "title": "Transform A"
+          },
+          {
+            "id": "transform-b",
+            "title": "Transform B"
+          },
+          {
+            "id": "load",
+            "title": "Load"
+          }
+        ],
+        "edges": [
+          [
+            "extract",
+            "transform-a"
+          ],
+          [
+            "extract",
+            "transform-b"
+          ],
+          [
+            "transform-a",
+            "load"
+          ],
+          [
+            "transform-b",
+            "load"
+          ]
+        ]
+      },
+      "related": [
+        "warehouse-dbt",
+        "airflow-retries"
+      ]
+    },
+    {
+      "id": "airflow-retries",
+      "version": 1,
+      "title": "Retries and trigger rules",
+      "summary": "Explain why a cleanup task runs while the pipeline still fails.",
+      "minutes": 18,
+      "concepts": [
+        "Airflow",
+        "retries",
+        "trigger rules",
+        "all_done"
+      ],
+      "prerequisites": [
+        "airflow-dependencies"
+      ],
+      "blocks": [
+        {
+          "kind": "text",
+          "title": "The mental model",
+          "body": "The diagram explains the dependency structure. Exercise delegates to the existing deterministic Airflow grading engine; learner DAG source is parsed, never executed as arbitrary Python."
+        },
+        {
+          "kind": "callout",
+          "title": "Common mistake",
+          "body": "Adding all_done to every task and accidentally hiding an upstream failure."
+        },
+        {
+          "kind": "check",
+          "title": "Before you run",
+          "body": "How would a watcher task keep the overall failure visible?"
+        }
+      ],
+      "code": {
+        "language": "none",
+        "source": ""
+      },
+      "exercise": {
+        "id": "af-cleanup-trigger-rule",
+        "language": "airflow"
+      },
+      "lab": "airflow",
+      "visual": {
+        "kind": "dag",
+        "title": "Retries and trigger rules - visual walkthrough",
+        "steps": [
+          {
+            "title": "A task fails",
+            "body": "A retriable failure may transition into a retry wait."
+          },
+          {
+            "title": "Retry budget",
+            "body": "Retry count and delay determine whether another attempt is allowed."
+          },
+          {
+            "title": "Cleanup",
+            "body": "all_done requires completion, not success, of upstream tasks."
+          },
+          {
+            "title": "Run outcome",
+            "body": "A successful cleanup is not proof that the business load succeeded. Inspect the DAG outcome rule."
+          }
+        ],
+        "nodes": [
+          {
+            "id": "extract",
+            "title": "Extract"
+          },
+          {
+            "id": "load",
+            "title": "Load"
+          },
+          {
+            "id": "cleanup",
+            "title": "Cleanup: all_done"
+          },
+          {
+            "id": "watcher",
+            "title": "Watcher"
+          }
+        ],
+        "edges": [
+          [
+            "extract",
+            "load"
+          ],
+          [
+            "load",
+            "cleanup"
+          ],
+          [
+            "load",
+            "watcher"
+          ]
+        ]
+      },
+      "related": []
+    }
+  ]
+}

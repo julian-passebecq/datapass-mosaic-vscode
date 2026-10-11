@@ -1,0 +1,245 @@
+{
+  "format": "datapass.learning-path",
+  "version": 1,
+  "path": {
+    "id": "python-foundations",
+    "title": "Python for data work",
+    "summary": "Records, validation and transformation tests.",
+    "lessons": [
+      "python-records",
+      "python-errors",
+      "python-tests"
+    ]
+  },
+  "lessons": [
+    {
+      "id": "python-records",
+      "version": 1,
+      "title": "Lists, dictionaries and records",
+      "summary": "Choose a data structure for lookup instead of repeated nested scans.",
+      "minutes": 12,
+      "concepts": [
+        "Python",
+        "lists",
+        "dictionaries",
+        "lookup"
+      ],
+      "prerequisites": [],
+      "blocks": [
+        {
+          "kind": "text",
+          "title": "The mental model",
+          "body": "A dictionary lookup is useful when the key is unique. For one-to-many relationships, build a dictionary of lists or use a table join. The Watch join is an analogy, not execution of this Python."
+        },
+        {
+          "kind": "callout",
+          "title": "Common mistake",
+          "body": "Replacing a join with a dictionary can silently discard duplicate-key rows."
+        },
+        {
+          "kind": "check",
+          "title": "Before you run",
+          "body": "What should happen if two customers share the same id?"
+        }
+      ],
+      "code": {
+        "language": "python",
+        "source": "import pandas as pd\ncustomers = [{\"id\": 1, \"name\": \"Ada\"}, {\"id\": 2, \"name\": \"Ben\"}]\norders = [{\"customer_id\": 1, \"amount\": 20}, {\"customer_id\": 3, \"amount\": 15}]\nby_id = {row[\"id\"]: row[\"name\"] for row in customers}\nresult = pd.DataFrame([{**o, \"name\": by_id.get(o[\"customer_id\"])} for o in orders])\nresult\n"
+      },
+      "exercise": {
+        "id": "py-hash-join",
+        "language": "python"
+      },
+      "lab": "mosaic",
+      "visual": {
+        "kind": "join",
+        "title": "Lists, dictionaries and records - visual walkthrough",
+        "steps": [
+          {
+            "title": "Inspect the keys",
+            "body": "Understand the record shape before selecting a container."
+          },
+          {
+            "title": "Build a lookup",
+            "body": "A dictionary can store one value per key."
+          },
+          {
+            "title": "Enrich the rows",
+            "body": "Use get for missing keys instead of raising KeyError."
+          },
+          {
+            "title": "Watch duplicates",
+            "body": "A plain dictionary overwrites duplicate keys; this is not a many-to-many SQL join."
+          }
+        ]
+      },
+      "related": [
+        "sql-joins"
+      ]
+    },
+    {
+      "id": "python-errors",
+      "version": 1,
+      "title": "Validate at the boundary",
+      "summary": "Treat malformed input as a deliberate outcome, not a silent zero.",
+      "minutes": 12,
+      "concepts": [
+        "Python",
+        "exceptions",
+        "validation",
+        "typing"
+      ],
+      "prerequisites": [
+        "python-records"
+      ],
+      "blocks": [
+        {
+          "kind": "text",
+          "title": "The mental model",
+          "body": "Read the example, then run it only after explicitly enabling trusted local Python. Exceptions should identify a known failure mode; broad exception swallowing hides unrelated bugs."
+        },
+        {
+          "kind": "callout",
+          "title": "Common mistake",
+          "body": "Returning zero for every parsing error contaminates downstream metrics."
+        },
+        {
+          "kind": "check",
+          "title": "Before you run",
+          "body": "How would you distinguish a true zero from a malformed amount?"
+        }
+      ],
+      "code": {
+        "language": "python",
+        "source": "import pandas as pd\nraw = [\"12\", \"\", \"bad\", \"0\"]\ndef parse_int(value):\n    try:\n        return int(value)\n    except (TypeError, ValueError):\n        return None\nresult = pd.DataFrame({\"raw\": raw, \"parsed\": [parse_int(v) for v in raw]})\nresult\n"
+      },
+      "exercise": {
+        "id": "py-safe-int",
+        "language": "python"
+      },
+      "lab": "mosaic",
+      "visual": {
+        "kind": "dag",
+        "title": "Validate at the boundary - visual walkthrough",
+        "steps": [
+          {
+            "title": "Receive input",
+            "body": "An external field can be missing or malformed."
+          },
+          {
+            "title": "Validate",
+            "body": "Accept a clear set of input values."
+          },
+          {
+            "title": "Record failures",
+            "body": "Keep enough context to investigate rejected rows."
+          },
+          {
+            "title": "Continue deliberately",
+            "body": "Do not confuse an invalid value with a genuine zero."
+          }
+        ],
+        "nodes": [
+          {
+            "id": "input",
+            "title": "Raw records"
+          },
+          {
+            "id": "validate",
+            "title": "Validate"
+          },
+          {
+            "id": "valid",
+            "title": "Accepted"
+          },
+          {
+            "id": "reject",
+            "title": "Rejected"
+          }
+        ],
+        "edges": [
+          [
+            "input",
+            "validate"
+          ],
+          [
+            "validate",
+            "valid"
+          ],
+          [
+            "validate",
+            "reject"
+          ]
+        ]
+      },
+      "related": []
+    },
+    {
+      "id": "python-tests",
+      "version": 1,
+      "title": "Tests for production transformations",
+      "summary": "Check boundaries, missing values and duplicate events.",
+      "minutes": 15,
+      "concepts": [
+        "Python",
+        "pytest",
+        "testing",
+        "idempotency"
+      ],
+      "prerequisites": [
+        "python-errors"
+      ],
+      "blocks": [
+        {
+          "kind": "text",
+          "title": "The mental model",
+          "body": "The example is a small transformation. Exercise opens the existing pytest activity: learner tests and hidden checks are executed by the current grader, not by this lesson UI."
+        },
+        {
+          "kind": "callout",
+          "title": "Common mistake",
+          "body": "Passing the visible example is not equivalent to passing the full submission. Reading the lesson never marks the exercise solved."
+        },
+        {
+          "kind": "check",
+          "title": "Before you run",
+          "body": "What tie policy do you need for two records with the same key and version?"
+        }
+      ],
+      "code": {
+        "language": "python",
+        "source": "import pandas as pd\nrows = [{\"id\": 1, \"version\": 1}, {\"id\": 1, \"version\": 2}, {\"id\": 2, \"version\": 1}]\nlatest = {}\nfor row in rows:\n    if row[\"id\"] not in latest or row[\"version\"] > latest[row[\"id\"]][\"version\"]:\n        latest[row[\"id\"]] = row\nassert latest[1][\"version\"] == 2\nresult = pd.DataFrame(latest.values())\nresult\n"
+      },
+      "exercise": {
+        "id": "py-latest-by-key",
+        "language": "pytest"
+      },
+      "lab": "mosaic",
+      "visual": {
+        "kind": "timeline",
+        "title": "Tests for production transformations - visual walkthrough",
+        "steps": [
+          {
+            "title": "Describe the rule",
+            "body": "A key identifies an entity and a version decides which event wins."
+          },
+          {
+            "title": "Test the easy case",
+            "body": "Start with ordered versions."
+          },
+          {
+            "title": "Reverse the input",
+            "body": "A latest-by-key transformation should not depend on input arrival order."
+          },
+          {
+            "title": "Test the boundary",
+            "body": "Equal versions, missing keys and an empty batch need explicit policies."
+          }
+        ]
+      },
+      "related": [
+        "api-retries"
+      ]
+    }
+  ]
+}

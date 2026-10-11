@@ -7,7 +7,7 @@ import type { OpenWorkbench } from "../nativeIntegration";
 import { readProgress } from "../projectState";
 import type { RuntimeManager } from "../runtimeManager";
 import type { ExerciseSummary, PracticeResultView } from "../webview/contracts";
-import { lessonStatus, MODES, parseMessage, restoreState, validateCatalog,
+import { assembleCatalog, lessonStatus, MODES, parseMessage, restoreState, validateCatalog,
   type LearningCatalog, type LearningMode, type LearningState, type Lesson } from "../../media/learning/model.mjs";
 
 const STORE = "datapass.learning.workspace.v1";
@@ -58,9 +58,18 @@ export class LearningWorkspace implements vscode.Disposable, vscode.TreeDataProv
   }
 
   private async initialize(): Promise<void> {
-    const raw = await vscode.workspace.fs.readFile(vscode.Uri.joinPath(this.context.extensionUri, "content", "learning", "catalog.json"));
-    if (raw.length > 512_000) throw new Error("Learning catalog is too large.");
-    this.catalog = validateCatalog(JSON.parse(new TextDecoder().decode(raw)));
+    const folder = vscode.Uri.joinPath(this.context.extensionUri, "content", "learning");
+    const readJson = async (uri: vscode.Uri): Promise<unknown> => {
+      const raw = await vscode.workspace.fs.readFile(uri);
+      if (raw.length > 512_000) throw new Error("Learning catalog file is too large.");
+      return JSON.parse(new TextDecoder().decode(raw));
+    };
+    const index = await readJson(vscode.Uri.joinPath(folder, "catalog.json"));
+    const files = new Map<string, unknown>();
+    for (const id of Array.isArray((index as { paths?: unknown }).paths) ? (index as { paths: unknown[] }).paths.slice(0, 24) : []) {
+      if (typeof id === "string" && /^[a-z][a-z0-9-]{0,99}$/.test(id)) files.set(id, await readJson(vscode.Uri.joinPath(folder, "paths", `${id}.json`)));
+    }
+    this.catalog = validateCatalog(assembleCatalog(index, id => files.get(id)));
     this.exercises = await loadExerciseCatalog(this.context.extensionUri);
     for (const lesson of this.catalog.lessons) if (!this.exercise(lesson)) throw new Error(`Learning exercise is not installed: ${lesson.exercise.id}`);
     this.state = restoreState(this.catalog, this.context.workspaceState.get(STORE));

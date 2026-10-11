@@ -1,0 +1,154 @@
+{
+  "format": "datapass.learning-path",
+  "version": 1,
+  "path": {
+    "id": "lakehouse-storage",
+    "title": "Lakehouse storage",
+    "summary": "Files, pruning and table snapshots without format confusion.",
+    "lessons": [
+      "storage-partitions",
+      "storage-snapshots"
+    ]
+  },
+  "lessons": [
+    {
+      "id": "storage-partitions",
+      "version": 1,
+      "title": "Files, partitions and pruning",
+      "summary": "Understand physical storage before adding a new table format.",
+      "minutes": 18,
+      "concepts": [
+        "Parquet",
+        "partitioning",
+        "pruning",
+        "lakehouse"
+      ],
+      "prerequisites": [],
+      "blocks": [
+        {
+          "kind": "text",
+          "title": "The mental model",
+          "body": "The diagram is a conceptual storage tree. The Try query groups the local seed only; it does not measure Parquet pruning. Actual pruning and file checks remain in Lakehouse Lab."
+        },
+        {
+          "kind": "callout",
+          "title": "Common mistake",
+          "body": "Calling a logical SQL GROUP BY a physical partitioning operation, or treating an illustrated grey file as measured pruning."
+        },
+        {
+          "kind": "check",
+          "title": "Before you run",
+          "body": "Where would you expect a predicate on year to eliminate work: table, file or row group?"
+        },
+        {
+          "kind": "text",
+          "title": "Changing a partition scheme",
+          "body": "The linked concept check compares partition evolution across table formats. It is a no-execution question; use Lakehouse Lab for the existing real-file partitioning and pruning missions. Changing metadata does not imply that every historical file was rewritten."
+        }
+      ],
+      "code": {
+        "language": "sql",
+        "source": "SELECT segment_id, COUNT(*) AS rows_in_segment\nFROM source.orders GROUP BY segment_id ORDER BY segment_id;\n"
+      },
+      "exercise": {
+        "id": "concept-formats-partition-evolution",
+        "language": "quiz"
+      },
+      "lab": "lakehouse",
+      "visual": {
+        "kind": "storage",
+        "title": "Files, partitions and pruning - visual walkthrough",
+        "steps": [
+          {
+            "title": "A table spans files",
+            "body": "Several Parquet files can make up one logical table."
+          },
+          {
+            "title": "Partition directories",
+            "body": "Directory values can eliminate entire partitions for compatible predicates."
+          },
+          {
+            "title": "Row groups",
+            "body": "Min/max statistics may let the reader skip row groups; this is not an index."
+          },
+          {
+            "title": "Verify on real files",
+            "body": "Open Lakehouse Lab and use the pruning mission. This visual does not inspect your files."
+          }
+        ]
+      },
+      "related": [
+        "spark-partitions",
+        "storage-snapshots"
+      ]
+    },
+    {
+      "id": "storage-snapshots",
+      "version": 1,
+      "title": "Snapshots: Delta, DuckLake and Iceberg",
+      "summary": "Keep file formats, table metadata and retention separate.",
+      "minutes": 18,
+      "concepts": [
+        "Delta",
+        "DuckLake",
+        "Iceberg",
+        "snapshots",
+        "Parquet"
+      ],
+      "prerequisites": [
+        "storage-partitions"
+      ],
+      "blocks": [
+        {
+          "kind": "text",
+          "title": "The mental model",
+          "body": "Mosaic already has real local DuckLake and bounded Delta missions. Iceberg is a concept here, not an implemented connector. The visual does not manufacture manifests or transaction logs."
+        },
+        {
+          "kind": "callout",
+          "title": "Common mistake",
+          "body": "Promising time travel after all historic files have been removed, or treating Delta and Iceberg as alternative Parquet encodings."
+        },
+        {
+          "kind": "check",
+          "title": "Before you run",
+          "body": "Why is keeping only the transaction log insufficient for time travel?"
+        }
+      ],
+      "code": {
+        "language": "none",
+        "source": ""
+      },
+      "exercise": {
+        "id": "concept-formats-delta-log",
+        "language": "quiz"
+      },
+      "lab": "lakehouse",
+      "visual": {
+        "kind": "storage",
+        "title": "Snapshots: Delta, DuckLake and Iceberg - visual walkthrough",
+        "steps": [
+          {
+            "title": "Parquet is data",
+            "body": "Parquet stores columnar data, not a complete transaction history."
+          },
+          {
+            "title": "Metadata selects files",
+            "body": "A table format describes which data files belong to a table version."
+          },
+          {
+            "title": "Time travel",
+            "body": "A historical query needs both the metadata and referenced data files."
+          },
+          {
+            "title": "Retention matters",
+            "body": "Deleting old files can make old versions unreadable."
+          }
+        ]
+      },
+      "related": [
+        "warehouse-scd2"
+      ]
+    }
+  ]
+}

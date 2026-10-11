@@ -28,6 +28,7 @@ export const MODES: readonly LearningMode[];
 export const MODE_LABELS: Readonly<Record<LearningMode, string>>;
 export const LABS: readonly string[];
 export const LANGUAGES: readonly LearningLanguage[];
+export function assembleCatalog(index: unknown, readPath: (id: string) => unknown): unknown;
 export function validateCatalog(raw: unknown): LearningCatalog;
 export function initialState(catalog: LearningCatalog): LearningState;
 export function restoreState(catalog: LearningCatalog, raw: unknown): LearningState;

@@ -1,9 +1,11 @@
+import { loadCatalogDocument } from './learning_catalog.mjs';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync, readdirSync, existsSync } from 'node:fs';
 import path from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { validateCatalog, initialState, restoreState, lessonStatus, searchLessons, parseMessage, joinDemo, windowDemo, partitionDemo, isCurrentRun, compareRuns } from '../media/learning/model.mjs';
-const catalog = JSON.parse(readFileSync(new URL('../content/learning/catalog.json', import.meta.url), 'utf8'));
+const catalog = loadCatalogDocument(fileURLToPath(new URL('..', import.meta.url)));
 const clone = () => structuredClone(catalog);
 
 test('shipped learning catalog is valid and all linked exercises exist', () => {
