@@ -1,0 +1,461 @@
+{
+  "format": "datapass.flashcards",
+  "version": 1,
+  "id": "orchestration-production",
+  "title": "Orchestration in production",
+  "path": "orchestration-production",
+  "cards": [
+    {
+      "id": "af-logical-date",
+      "front": "What is a run's logical date in Airflow?",
+      "back": "The date the run is \"for\". Tasks should derive the slice they process from it (or from the data interval), never from the wall clock.",
+      "lesson": "orch-schedules-intervals",
+      "tags": [
+        "airflow"
+      ]
+    },
+    {
+      "id": "af-data-interval",
+      "front": "With a data-interval timetable, when does the @daily run for 1 October start?",
+      "back": "At 2 October 00:00, once the interval 1 Oct 00:00 - 2 Oct 00:00 has ended, so the day's data is complete.",
+      "lesson": "orch-schedules-intervals",
+      "tags": [
+        "airflow"
+      ]
+    },
+    {
+      "id": "af3-cron-trigger",
+      "front": "What changed for cron schedules in Airflow 3?",
+      "back": "Cron strings use CronTriggerTimetable by default: the run happens at the cron time and its logical date is that time, with no separate data interval. A daily job loading yesterday computes it from the logical date.",
+      "lesson": "orch-schedules-intervals",
+      "tags": [
+        "airflow"
+      ]
+    },
+    {
+      "id": "af-catchup",
+      "front": "What does catchup=True do?",
+      "back": "Creates one run per interval missed since start_date (or since the last run). Airflow 3 defaults it to False; Airflow 2 defaulted to True.",
+      "lesson": "orch-schedules-intervals",
+      "tags": [
+        "airflow"
+      ]
+    },
+    {
+      "id": "af-backfill",
+      "front": "What is a backfill?",
+      "back": "An explicit rerun of past intervals, for example after fixing a bug. It is only safe when tasks are idempotent and derive their slice from the run.",
+      "lesson": "orch-schedules-intervals",
+      "tags": [
+        "airflow"
+      ]
+    },
+    {
+      "id": "af-start-date",
+      "front": "How should start_date be set?",
+      "back": "As a fixed, timezone-aware date (pendulum.datetime(2026, 9, 1, tz=\"UTC\")), never datetime.now(), which moves at every parse.",
+      "lesson": "orch-schedules-intervals",
+      "tags": [
+        "airflow"
+      ]
+    },
+    {
+      "id": "af-cron",
+      "front": "Cron for 06:30 UTC on weekdays?",
+      "back": "30 6 * * 1-5 (minute, hour, day of month, month, day of week).",
+      "lesson": "orch-schedules-intervals",
+      "tags": [
+        "airflow",
+        "cron"
+      ]
+    },
+    {
+      "id": "af-trigger-default",
+      "front": "Default trigger_rule?",
+      "back": "all_success: the task runs only when every upstream task succeeded.",
+      "lesson": "orch-alerting-timeouts",
+      "tags": [
+        "airflow"
+      ]
+    },
+    {
+      "id": "af-all-done",
+      "front": "What is all_done for?",
+      "back": "Cleanup tasks that must run whatever happened upstream (drop a staging table, release a lock).",
+      "lesson": "orch-alerting-timeouts",
+      "tags": [
+        "airflow"
+      ]
+    },
+    {
+      "id": "af-watcher",
+      "front": "Why add a watcher task to a DAG with a cleanup task?",
+      "back": "An all_done cleanup that succeeds as the leaf can hide upstream failures. A watcher with trigger_rule one_failed, downstream of every task, fails the run whenever something failed.",
+      "lesson": "orch-alerting-timeouts",
+      "tags": [
+        "airflow"
+      ]
+    },
+    {
+      "id": "af-xcom",
+      "front": "What belongs in an XCom?",
+      "back": "Small metadata: a path, a table name, a row count, a date. Not data frames, not secrets: XComs are stored in the metadata database.",
+      "lesson": "orch-sensors-pools",
+      "tags": [
+        "airflow"
+      ]
+    },
+    {
+      "id": "af-top-level",
+      "front": "Why no heavy code at a DAG file's top level?",
+      "back": "The DAG processor parses files continuously; top-level queries or API calls run at every parse and slow the whole scheduler.",
+      "lesson": "orch-sensors-pools",
+      "tags": [
+        "airflow"
+      ]
+    },
+    {
+      "id": "af-sensor-modes",
+      "front": "poke versus reschedule mode?",
+      "back": "poke keeps a worker slot for the whole wait. reschedule frees it between checks (state up_for_reschedule). Deferrable sensors wait in the triggerer instead.",
+      "lesson": "orch-sensors-pools",
+      "tags": [
+        "airflow"
+      ]
+    },
+    {
+      "id": "af-soft-fail",
+      "front": "What does soft_fail=True do on a sensor?",
+      "back": "A sensor that times out is marked skipped instead of failed, so the run does not fail because the file never came.",
+      "lesson": "orch-sensors-pools",
+      "tags": [
+        "airflow"
+      ]
+    },
+    {
+      "id": "af-pool",
+      "front": "What is an Airflow pool?",
+      "back": "A named set of slots shared by all DAGs. Tasks assigned to it wait for a free slot, capping concurrent access to a fragile resource.",
+      "lesson": "orch-sensors-pools",
+      "tags": [
+        "airflow"
+      ]
+    },
+    {
+      "id": "af-max-active-runs",
+      "front": "max_active_runs versus a pool?",
+      "back": "max_active_runs limits concurrent runs of one DAG. A pool limits concurrent tasks across every DAG that uses it.",
+      "lesson": "orch-sensors-pools",
+      "tags": [
+        "airflow"
+      ]
+    },
+    {
+      "id": "af-assets",
+      "front": "What are Airflow assets?",
+      "back": "Data-aware scheduling: a producer task lists an asset in its outlets; a DAG scheduled on that asset runs after it is updated. Called Datasets in Airflow 2.",
+      "lesson": "orch-sensors-pools",
+      "tags": [
+        "airflow"
+      ]
+    },
+    {
+      "id": "af-depends-on-past",
+      "front": "What does depends_on_past=True do?",
+      "back": "A task waits until the same task in the previous run succeeded. Useful for running balances that must not skip a failed day.",
+      "lesson": "orch-schedules-intervals",
+      "tags": [
+        "airflow"
+      ]
+    },
+    {
+      "id": "airflow-lab-truth",
+      "front": "What does the Airflow Lab do with your DAG file?",
+      "back": "Parses it with a whitelisted AST reader (never executes it) and simulates scheduler decisions and task outcomes with Airflow 3 semantics. It is not an Airflow scheduler.",
+      "lesson": "orch-schedules-intervals",
+      "tags": [
+        "datapass"
+      ]
+    },
+    {
+      "id": "idempotent",
+      "front": "What is an idempotent load?",
+      "back": "One that leaves the same target whether it runs once or several times for the same slice.",
+      "lesson": "orch-idempotent-loads",
+      "tags": [
+        "patterns"
+      ]
+    },
+    {
+      "id": "idempotent-replace",
+      "front": "Pattern 1 for idempotency?",
+      "back": "Replace the slice the run owns: delete the day then insert it inside one transaction, or overwrite the partition.",
+      "lesson": "orch-idempotent-loads",
+      "tags": [
+        "patterns"
+      ]
+    },
+    {
+      "id": "idempotent-merge",
+      "front": "Pattern 2 for idempotency?",
+      "back": "MERGE (upsert) on the business key: matching rows are updated, new ones inserted, so a repeated batch changes nothing.",
+      "lesson": "orch-idempotent-loads",
+      "tags": [
+        "patterns",
+        "sql"
+      ]
+    },
+    {
+      "id": "append-danger",
+      "front": "Why is INSERT INTO for the day dangerous?",
+      "back": "Every retry or rerun appends the day again, duplicating rows silently.",
+      "lesson": "orch-idempotent-loads",
+      "tags": [
+        "patterns"
+      ]
+    },
+    {
+      "id": "merge-duplicates",
+      "front": "Why can a MERGE fail on a batch with a key twice?",
+      "back": "Several source rows matching one target row is ambiguous; most engines raise an error. Deduplicate the batch first (latest per key, with a deterministic tie-breaker).",
+      "lesson": "orch-idempotent-loads",
+      "tags": [
+        "sql"
+      ]
+    },
+    {
+      "id": "watermark",
+      "front": "What is a watermark in incremental loading?",
+      "back": "The highest change marker (updated_at, id) already committed. The next run loads rows above it.",
+      "lesson": "orch-idempotent-loads",
+      "tags": [
+        "patterns"
+      ]
+    },
+    {
+      "id": "watermark-order",
+      "front": "When do you store the new watermark?",
+      "back": "After the batch is durably written. Advancing it first loses rows when the write fails.",
+      "lesson": "orch-api-ingestion",
+      "tags": [
+        "patterns"
+      ]
+    },
+    {
+      "id": "api-429",
+      "front": "What does HTTP 429 mean and how do you react?",
+      "back": "Too Many Requests: a rate limit. Wait (Retry-After if present, otherwise backoff) and retry.",
+      "lesson": "orch-api-ingestion",
+      "tags": [
+        "api"
+      ]
+    },
+    {
+      "id": "api-retryable",
+      "front": "Which HTTP statuses are worth retrying?",
+      "back": "429, 502, 503, 504 and network timeouts; sometimes 500 a few times. Not 400, 401, 403, 404: the request itself is wrong.",
+      "lesson": "orch-api-ingestion",
+      "tags": [
+        "api"
+      ]
+    },
+    {
+      "id": "api-backoff",
+      "front": "What is exponential backoff with jitter?",
+      "back": "Wait a random time up to min(cap, base * 2^attempt) before each retry. Doubling spaces attempts; jitter stops many clients retrying in step.",
+      "lesson": "orch-api-ingestion",
+      "tags": [
+        "api"
+      ]
+    },
+    {
+      "id": "api-retry-after",
+      "front": "What does the Retry-After header give?",
+      "back": "How long to wait before retrying: a number of seconds or an HTTP date. It overrides your own backoff.",
+      "lesson": "orch-api-ingestion",
+      "tags": [
+        "api"
+      ]
+    },
+    {
+      "id": "api-idempotent-methods",
+      "front": "Which HTTP methods are idempotent?",
+      "back": "GET, HEAD, PUT, DELETE, OPTIONS (RFC 9110). POST is not; APIs offer idempotency keys to make retried POSTs safe.",
+      "lesson": "orch-api-ingestion",
+      "tags": [
+        "api"
+      ]
+    },
+    {
+      "id": "api-cursor",
+      "front": "Why prefer cursor pagination?",
+      "back": "Offsets shift when rows are inserted or deleted, so pages skip or repeat rows. A cursor continues after the last key seen.",
+      "lesson": "orch-api-ingestion",
+      "tags": [
+        "api"
+      ]
+    },
+    {
+      "id": "api-end",
+      "front": "When is pagination finished?",
+      "back": "When the API says there is no next page (no next cursor or link), not necessarily at the first empty page.",
+      "lesson": "orch-api-ingestion",
+      "tags": [
+        "api"
+      ]
+    },
+    {
+      "id": "api-schema-drift",
+      "front": "What is schema drift?",
+      "back": "The payload gains, loses or retypes fields without notice. Decide explicitly: evolve the table (a new column) or reject and alert.",
+      "lesson": "orch-api-ingestion",
+      "tags": [
+        "api"
+      ]
+    },
+    {
+      "id": "api-lab-truth",
+      "front": "What is real in the API Lab?",
+      "back": "Your ingest.py runs for real as trusted local Python and writes real DuckDB bronze tables. The API is simulated, served on 127.0.0.1 with seeded data and faults.",
+      "lesson": "orch-api-ingestion",
+      "tags": [
+        "datapass"
+      ]
+    },
+    {
+      "id": "dq-row-rules",
+      "front": "What is a row rule?",
+      "back": "A condition each row must meet (non-null key, positive amount, known status). Failing rows go to quarantine with the reason.",
+      "lesson": "orch-quality-gates",
+      "tags": [
+        "quality"
+      ]
+    },
+    {
+      "id": "dq-batch-rules",
+      "front": "What is a batch rule?",
+      "back": "A condition on the whole batch: row count within range, unique keys, freshness, quarantined share under a threshold. It decides whether to publish.",
+      "lesson": "orch-quality-gates",
+      "tags": [
+        "quality"
+      ]
+    },
+    {
+      "id": "dq-quarantine",
+      "front": "What is a quarantine (dead-letter) table?",
+      "back": "Where rows that fail validation go, with the reason and source, so the load continues and nothing is lost silently.",
+      "lesson": "orch-quality-gates",
+      "tags": [
+        "quality"
+      ]
+    },
+    {
+      "id": "dq-gate",
+      "front": "What is a quality gate?",
+      "back": "A step that stops publication when the batch fails its rules, so consumers never see a half-checked day.",
+      "lesson": "orch-quality-gates",
+      "tags": [
+        "quality"
+      ]
+    },
+    {
+      "id": "dq-distinct-smell",
+      "front": "Why is adding DISTINCT to fix duplicates a smell?",
+      "back": "It hides the join or load that created them and can remove genuinely identical rows.",
+      "lesson": "orch-quality-gates",
+      "tags": [
+        "quality"
+      ]
+    },
+    {
+      "id": "pipeline-lab-truth",
+      "front": "How does the Pipeline Lab treat the pipeline source?",
+      "back": "It parses the Python-like source with a bounded AST compiler and never eval/execs it. Supported activity bodies may run locally; scheduling is simulation.",
+      "lesson": "orch-quality-gates",
+      "tags": [
+        "datapass"
+      ]
+    },
+    {
+      "id": "timeout",
+      "front": "Why does every task need a timeout?",
+      "back": "Retries start only when an attempt ends. A hung attempt without a timeout never ends, so the run blocks.",
+      "lesson": "orch-alerting-timeouts",
+      "tags": [
+        "reliability"
+      ]
+    },
+    {
+      "id": "retry-what",
+      "front": "What should be retried?",
+      "back": "Transient failures (network, throttling, a busy service). Not bad input, not missing permissions, and not slowness: a retry repeats the same slow work.",
+      "lesson": "orch-alerting-timeouts",
+      "tags": [
+        "reliability"
+      ]
+    },
+    {
+      "id": "alert-good",
+      "front": "What makes a good alert?",
+      "back": "It needs a human action, names the pipeline, run and slice, links to logs, and has a runbook line for the first check.",
+      "lesson": "orch-alerting-timeouts",
+      "tags": [
+        "reliability"
+      ]
+    },
+    {
+      "id": "alert-fatigue",
+      "front": "What is alert fatigue?",
+      "back": "So many alerts that people stop reading them, and the real incident is missed. Alert on symptoms that need action.",
+      "lesson": "orch-alerting-timeouts",
+      "tags": [
+        "reliability"
+      ]
+    },
+    {
+      "id": "sla-freshness",
+      "front": "What is a freshness check?",
+      "back": "An alert when a table has not been updated by the time consumers need it, independent of whether any task failed.",
+      "lesson": "orch-alerting-timeouts",
+      "tags": [
+        "reliability"
+      ]
+    },
+    {
+      "id": "dbx-retry-on-timeout",
+      "front": "What does retry_on_timeout control on a Databricks task?",
+      "back": "Whether an attempt that hit timeout_seconds is retried. Leave it false when slowness, not a transient error, is the likely cause.",
+      "lesson": "orch-alerting-timeouts",
+      "tags": [
+        "databricks"
+      ]
+    },
+    {
+      "id": "adf-retry",
+      "front": "Where are retries set in Data Factory?",
+      "back": "On each activity's policy: retry count, retry interval in seconds, and timeout.",
+      "lesson": "orch-alerting-timeouts",
+      "tags": [
+        "adf"
+      ]
+    },
+    {
+      "id": "wall-clock",
+      "front": "Why is datetime.now() in a task a bug?",
+      "back": "A retry, rerun or backfill then processes the wrong day. Use the run's logical date or data interval from the context.",
+      "lesson": "orch-schedules-intervals",
+      "tags": [
+        "patterns"
+      ]
+    },
+    {
+      "id": "event-vs-time",
+      "front": "Time-based or data-aware trigger?",
+      "back": "Time-based when the source lands at a known time. Data-aware (assets, storage events, sensors) when it does not; never rely on \"it usually finishes by 3\".",
+      "lesson": "orch-sensors-pools",
+      "tags": [
+        "patterns"
+      ]
+    }
+  ]
+}

@@ -1,0 +1,623 @@
+{
+  "format": "datapass.learning-path",
+  "version": 1,
+  "path": {
+    "id": "spark-platforms",
+    "title": "Spark and the data platforms",
+    "summary": "How Spark runs a query, then how Databricks, Fabric, Data Factory and Synapse package it: jobs, Delta tables, pipelines and SQL pools. Platform facts are concept checks; the labs simulate orchestration and run data locally.",
+    "lessons": [
+      "platform-spark-jobs",
+      "platform-spark-shuffle",
+      "platform-databricks-jobs",
+      "platform-delta-medallion",
+      "platform-fabric-adf-pipelines",
+      "platform-synapse-sql-pools"
+    ]
+  },
+  "lessons": [
+    {
+      "id": "platform-spark-jobs",
+      "version": 1,
+      "title": "Jobs, stages and tasks",
+      "summary": "Transformations build a plan; an action runs it as a job split into stages at every shuffle.",
+      "minutes": 15,
+      "concepts": [
+        "Spark",
+        "lazy evaluation",
+        "action",
+        "stage",
+        "task",
+        "shuffle"
+      ],
+      "prerequisites": [],
+      "blocks": [
+        {
+          "kind": "text",
+          "title": "The mental model",
+          "body": "A DataFrame is a recipe, not a result. filter, select, withColumn, join and groupBy only extend a logical plan. When an action asks for a result (count, collect, show, a write), the driver optimizes the whole plan and runs it as a job. The job is cut into stages at each shuffle: inside a stage, narrow transformations are pipelined and each partition is processed by one task on an executor core."
+        },
+        {
+          "kind": "text",
+          "title": "What this lab shows",
+          "body": "SparkLab compiles a bounded PySpark subset into local SQL: the result rows are computed for real on the local catalog, while stages, tasks and shuffle sizes are simulated teaching data, not Spark telemetry."
+        },
+        {
+          "kind": "callout",
+          "title": "Common mistake",
+          "body": "Timing a line that only defines a transformation and concluding it was fast. Nothing ran yet: the cost appears at the action, and an action repeated twice recomputes the plan twice unless the data is cached."
+        },
+        {
+          "kind": "check",
+          "title": "Before you run",
+          "body": "How many shuffles does the example need, and therefore how many stages?"
+        }
+      ],
+      "code": {
+        "language": "sparklab",
+        "source": "from pyspark.sql import functions as F\norders = spark.table(\"source.orders\")\nvalid = orders.filter(F.col(\"net_amount\") > 0)\nresult = valid.groupBy(\"customer_id\").agg(F.sum(\"net_amount\").alias(\"revenue\"), F.count(\"*\").alias(\"orders\"))\n"
+      },
+      "exercise": {
+        "id": "spark-one-pass-aggregation",
+        "language": "sparklab"
+      },
+      "lab": "sparklab",
+      "visual": {
+        "kind": "dag",
+        "title": "Jobs, stages and tasks - visual walkthrough",
+        "steps": [
+          {
+            "title": "Read",
+            "body": "The scan is planned, not executed: spark.table only registers the source.",
+            "lines": [
+              2,
+              2
+            ]
+          },
+          {
+            "title": "Narrow filter",
+            "body": "filter works partition by partition; it stays in the first stage with the scan.",
+            "lines": [
+              3,
+              3
+            ]
+          },
+          {
+            "title": "Shuffle boundary",
+            "body": "groupBy needs every row of a customer in one partition: an exchange ends stage one.",
+            "lines": [
+              4,
+              4
+            ]
+          },
+          {
+            "title": "Aggregate",
+            "body": "Stage two merges partial sums per customer. One groupBy computes both metrics in a single pass.",
+            "lines": [
+              4,
+              4
+            ]
+          }
+        ],
+        "nodes": [
+          {
+            "id": "scan",
+            "title": "Scan orders"
+          },
+          {
+            "id": "filter",
+            "title": "Filter"
+          },
+          {
+            "id": "exchange",
+            "title": "Exchange"
+          },
+          {
+            "id": "aggregate",
+            "title": "Aggregate"
+          }
+        ],
+        "edges": [
+          [
+            "scan",
+            "filter"
+          ],
+          [
+            "filter",
+            "exchange"
+          ],
+          [
+            "exchange",
+            "aggregate"
+          ]
+        ]
+      },
+      "related": [
+        "spark-partitions",
+        "platform-spark-shuffle"
+      ]
+    },
+    {
+      "id": "platform-spark-shuffle",
+      "version": 1,
+      "title": "Shuffles, skew and adaptive execution",
+      "summary": "Why one slow task holds a whole stage, and what Adaptive Query Execution changes at runtime.",
+      "minutes": 20,
+      "concepts": [
+        "Spark",
+        "shuffle partitions",
+        "skew",
+        "AQE",
+        "broadcast join"
+      ],
+      "prerequisites": [
+        "platform-spark-jobs"
+      ],
+      "blocks": [
+        {
+          "kind": "text",
+          "title": "The mental model",
+          "body": "A shuffle writes each row to the partition of its key, by default into spark.sql.shuffle.partitions = 200 partitions. A stage ends only when its last task ends, so one partition holding a hot key (often NULL or a default customer) makes one task run far longer than the rest and can run out of memory."
+        },
+        {
+          "kind": "text",
+          "title": "Adaptive Query Execution",
+          "body": "AQE (on by default since Spark 3.2) re-plans after each shuffle using real sizes: it coalesces small partitions, switches a sort-merge join to a broadcast join when one side turns out small, and splits skewed partitions of a sort-merge join. Joins against a side under spark.sql.autoBroadcastJoinThreshold (10 MB) are broadcast without any shuffle of the large side."
+        },
+        {
+          "kind": "callout",
+          "title": "Common mistake",
+          "body": "Adding repartition(n) everywhere \"for performance\". Each repartition is another full shuffle; use it only when a later step needs that distribution, and use coalesce to reduce the number of output files."
+        },
+        {
+          "kind": "check",
+          "title": "Before you run",
+          "body": "In the seed, CORPORATE_ACCOUNT_01 has three orders and every other customer one or two. Which task gets the most rows after the shuffle?"
+        }
+      ],
+      "code": {
+        "language": "sparklab",
+        "source": "from pyspark.sql import functions as F\norders = spark.table(\"source.orders\")\nsegments = spark.table(\"source.dim_customer_segment\")\njoined = orders.join(F.broadcast(segments), \"segment_id\", \"inner\")\nresult = joined.groupBy(\"customer_id\", \"segment_name\").agg(F.sum(\"net_amount\").alias(\"revenue\"))\n"
+      },
+      "exercise": {
+        "id": "lc-spark-aqe-skew",
+        "language": "quiz"
+      },
+      "lab": "sparklab",
+      "visual": {
+        "kind": "partitions",
+        "title": "Shuffles, skew and adaptive execution - visual walkthrough",
+        "steps": [
+          {
+            "title": "Input partitions",
+            "body": "Rows arrive in the partitions of the files that were read.",
+            "lines": [
+              2,
+              2
+            ]
+          },
+          {
+            "title": "Broadcast the small side",
+            "body": "The segment table is copied to every executor; the orders are not shuffled for the join.",
+            "lines": [
+              4,
+              4
+            ]
+          },
+          {
+            "title": "Shuffle by key",
+            "body": "groupBy sends each customer to one partition. A hot key makes one partition large.",
+            "lines": [
+              5,
+              5
+            ]
+          },
+          {
+            "title": "Re-plan",
+            "body": "With real shuffle sizes, AQE can merge small partitions or split a skewed one. In SparkLab these sizes are simulated."
+          }
+        ]
+      },
+      "related": [
+        "spark-broadcast",
+        "spark-partitions"
+      ]
+    },
+    {
+      "id": "platform-databricks-jobs",
+      "version": 1,
+      "title": "Databricks jobs and compute",
+      "summary": "A job is a DAG of tasks on compute you choose: job clusters for schedules, SQL warehouses for BI.",
+      "minutes": 18,
+      "concepts": [
+        "Databricks",
+        "jobs",
+        "tasks",
+        "job cluster",
+        "SQL warehouse",
+        "Photon"
+      ],
+      "prerequisites": [
+        "platform-spark-jobs"
+      ],
+      "blocks": [
+        {
+          "kind": "text",
+          "title": "The mental model",
+          "body": "A Databricks job (Lakeflow Jobs) is a set of tasks with depends_on edges: notebooks, Python scripts, SQL, dbt, or a for-each over inputs. Each task runs on compute: a job cluster created for the run and billed at the lower jobs DBU rate, an all-purpose cluster meant for interactive work, serverless jobs compute, or a SQL warehouse for SQL tasks. Photon, a vectorized C++ engine, can run the same Spark code faster."
+        },
+        {
+          "kind": "text",
+          "title": "What this lab shows",
+          "body": "The Cloud Lab Databricks tab reads Jobs API JSON and simulates the orchestration (run_if, conditions, retries, task values) and the compute with lab DBU figures. Notebook tasks run on SparkLab and SQL tasks on local DuckDB. Nothing connects to Databricks."
+        },
+        {
+          "kind": "callout",
+          "title": "Common mistake",
+          "body": "Scheduling a nightly job on an all-purpose cluster that stays up all day. A job cluster per run (shared by the tasks of that run) is usually cheaper and isolates the run."
+        },
+        {
+          "kind": "check",
+          "title": "Before you run",
+          "body": "Three tasks of one job each declare their own new_cluster. How many clusters start, and how could they share one?"
+        }
+      ],
+      "code": {
+        "language": "none",
+        "source": "{\n  \"name\": \"nightly_sales\",\n  \"job_clusters\": [{\"job_cluster_key\": \"etl\", \"new_cluster\": {\"spark_version\": \"15.4.x-scala2.12\", \"num_workers\": 2}}],\n  \"tasks\": [\n    {\"task_key\": \"ingest\", \"job_cluster_key\": \"etl\", \"notebook_task\": {\"notebook_path\": \"ingest\"}},\n    {\"task_key\": \"silver\", \"depends_on\": [{\"task_key\": \"ingest\"}], \"job_cluster_key\": \"etl\", \"notebook_task\": {\"notebook_path\": \"silver\"}},\n    {\"task_key\": \"gold\", \"depends_on\": [{\"task_key\": \"silver\"}], \"job_cluster_key\": \"etl\", \"notebook_task\": {\"notebook_path\": \"gold\"}}\n  ]\n}\n"
+      },
+      "exercise": {
+        "id": "dbx-shared-job-cluster",
+        "language": "databricks-job"
+      },
+      "lab": "fabric",
+      "visual": {
+        "kind": "dag",
+        "title": "Databricks jobs and compute - visual walkthrough",
+        "steps": [
+          {
+            "title": "Declare the compute",
+            "body": "job_clusters defines one cluster for the run, referenced by key.",
+            "lines": [
+              3,
+              3
+            ]
+          },
+          {
+            "title": "First task",
+            "body": "ingest has no dependency, so it starts as soon as the cluster is up.",
+            "lines": [
+              5,
+              5
+            ]
+          },
+          {
+            "title": "Dependencies",
+            "body": "silver waits for ingest, gold for silver: depends_on draws the DAG.",
+            "lines": [
+              6,
+              7
+            ]
+          },
+          {
+            "title": "One cluster, three tasks",
+            "body": "All tasks share the etl job cluster, which terminates when the run ends.",
+            "lines": [
+              5,
+              7
+            ]
+          }
+        ],
+        "nodes": [
+          {
+            "id": "ingest",
+            "title": "ingest"
+          },
+          {
+            "id": "silver",
+            "title": "silver"
+          },
+          {
+            "id": "gold",
+            "title": "gold"
+          }
+        ],
+        "edges": [
+          [
+            "ingest",
+            "silver"
+          ],
+          [
+            "silver",
+            "gold"
+          ]
+        ]
+      },
+      "related": [
+        "airflow-dependencies"
+      ]
+    },
+    {
+      "id": "platform-delta-medallion",
+      "version": 1,
+      "title": "Delta tables and the medallion layers",
+      "summary": "Bronze keeps what arrived, silver cleans it, gold serves it; Delta adds transactions and history to Parquet.",
+      "minutes": 18,
+      "concepts": [
+        "Delta Lake",
+        "medallion",
+        "bronze",
+        "silver",
+        "gold",
+        "Auto Loader",
+        "Unity Catalog"
+      ],
+      "prerequisites": [
+        "platform-databricks-jobs"
+      ],
+      "blocks": [
+        {
+          "kind": "text",
+          "title": "The mental model",
+          "body": "A Delta table is Parquet files plus a _delta_log of JSON commits. Each write is an atomic commit, so readers never see half a write, and older versions stay readable (time travel) until VACUUM removes unreferenced files. The medallion layers are a convention on top: bronze stores data as ingested (Auto Loader tracks which files were loaded), silver is cleaned, typed, deduplicated and conformed, gold holds the business models and aggregates people query."
+        },
+        {
+          "kind": "text",
+          "title": "Governance",
+          "body": "On Databricks, Unity Catalog names every table catalog.schema.table and grants access per level (USE CATALOG, USE SCHEMA, SELECT). Fabric Lakehouse tables are Delta tables in OneLake too, which is why the same files serve Spark, SQL and Power BI."
+        },
+        {
+          "kind": "callout",
+          "title": "Common mistake",
+          "body": "Cleaning data on the way into bronze. If the cleaning rule is wrong you cannot replay it: keep bronze raw and put rules in the silver step."
+        },
+        {
+          "kind": "check",
+          "title": "Before you run",
+          "body": "A source sends the same order twice. In which layer do you deduplicate it, and on which key?"
+        }
+      ],
+      "code": {
+        "language": "none",
+        "source": "orders/                      <- a Delta table\n  _delta_log/\n    00000000000000000000.json  <- version 0: add part-000.parquet\n    00000000000000000001.json  <- version 1: add part-001.parquet\n    00000000000000000002.json  <- version 2: remove part-000, add part-002 (a MERGE)\n  part-000.parquet             <- still on disk for time travel until VACUUM\n  part-001.parquet\n  part-002.parquet\n"
+      },
+      "exercise": {
+        "id": "lc-dbx-medallion-silver",
+        "language": "quiz"
+      },
+      "lab": "lakehouse",
+      "visual": {
+        "kind": "storage",
+        "title": "Delta tables and the medallion layers - visual walkthrough",
+        "steps": [
+          {
+            "title": "Bronze",
+            "body": "Files land as they arrived, with load metadata. Nothing is lost."
+          },
+          {
+            "title": "Commit log",
+            "body": "Every write is one numbered JSON commit that adds or removes files.",
+            "lines": [
+              2,
+              5
+            ]
+          },
+          {
+            "title": "Silver",
+            "body": "A MERGE replaces a file: the old one stays for time travel until VACUUM.",
+            "lines": [
+              5,
+              6
+            ]
+          },
+          {
+            "title": "Gold",
+            "body": "Aggregates for consumers are rebuilt from silver, never from raw files."
+          }
+        ]
+      },
+      "related": [
+        "storage-snapshots",
+        "storage-partitions"
+      ]
+    },
+    {
+      "id": "platform-fabric-adf-pipelines",
+      "version": 1,
+      "title": "Data Factory and Fabric pipelines",
+      "summary": "Activities, dependency conditions and the leaf rule that decides whether a run succeeded.",
+      "minutes": 20,
+      "concepts": [
+        "Azure Data Factory",
+        "Fabric",
+        "pipeline",
+        "activity",
+        "dependency condition",
+        "integration runtime"
+      ],
+      "prerequisites": [],
+      "blocks": [
+        {
+          "kind": "text",
+          "title": "The mental model",
+          "body": "An Azure Data Factory, Synapse or Fabric pipeline is a JSON list of activities (Copy, Lookup, Notebook, Stored procedure, ForEach, If Condition, Until...) joined by dependency conditions: Succeeded, Failed, Completed or Skipped. Connections are linked services (connections in Fabric); a self-hosted integration runtime (an on-premises data gateway in Fabric) reaches private networks."
+        },
+        {
+          "kind": "text",
+          "title": "How a run is judged",
+          "body": "A run fails when a leaf activity fails, and a handled failure counts as a success: Copy -> (Upon Failure) -> Log error ends Succeeded when Log error succeeds. Add a Fail activity on that path when the run must still fail after logging."
+        },
+        {
+          "kind": "text",
+          "title": "What this lab shows",
+          "body": "The Cloud Lab Pipelines tab reads real pipeline JSON and simulates the orchestration deterministically; Copy, Lookup, Script and notebooks run on the local catalog, other activities follow the scenario. There is no connection to Azure or Fabric."
+        },
+        {
+          "kind": "callout",
+          "title": "Common mistake",
+          "body": "Expecting a red Copy to make the whole run red after you added a failure branch. The leaf rule says otherwise."
+        },
+        {
+          "kind": "check",
+          "title": "Before you run",
+          "body": "Copy has two successors: Notify (Upon Failure) and Load (Upon Success). Copy fails, Notify succeeds, Load is skipped. What is the run status?"
+        }
+      ],
+      "code": {
+        "language": "none",
+        "source": "{\n  \"activities\": [\n    {\"name\": \"Copy orders\", \"type\": \"Copy\"},\n    {\"name\": \"Log error\", \"type\": \"Script\",\n     \"dependsOn\": [{\"activity\": \"Copy orders\", \"dependencyConditions\": [\"Failed\"]}]},\n    {\"name\": \"Load gold\", \"type\": \"Script\",\n     \"dependsOn\": [{\"activity\": \"Copy orders\", \"dependencyConditions\": [\"Succeeded\"]}]}\n  ]\n}\n"
+      },
+      "exercise": {
+        "id": "cp-try-catch-proceed",
+        "language": "factory"
+      },
+      "lab": "fabric",
+      "visual": {
+        "kind": "dag",
+        "title": "Data Factory and Fabric pipelines - visual walkthrough",
+        "steps": [
+          {
+            "title": "Copy",
+            "body": "The first activity has no dependency.",
+            "lines": [
+              3,
+              3
+            ]
+          },
+          {
+            "title": "Failure path",
+            "body": "Log error runs only when Copy fails.",
+            "lines": [
+              4,
+              5
+            ]
+          },
+          {
+            "title": "Success path",
+            "body": "Load gold runs only when Copy succeeds; otherwise it is skipped.",
+            "lines": [
+              6,
+              7
+            ]
+          },
+          {
+            "title": "Judge the leaves",
+            "body": "If Copy fails and Log error succeeds, the run succeeds; Load gold is skipped, not failed."
+          }
+        ],
+        "nodes": [
+          {
+            "id": "copy",
+            "title": "Copy orders"
+          },
+          {
+            "id": "log",
+            "title": "Log error"
+          },
+          {
+            "id": "load",
+            "title": "Load gold"
+          }
+        ],
+        "edges": [
+          [
+            "copy",
+            "log"
+          ],
+          [
+            "copy",
+            "load"
+          ]
+        ]
+      },
+      "related": [
+        "airflow-retries"
+      ]
+    },
+    {
+      "id": "platform-synapse-sql-pools",
+      "version": 1,
+      "title": "Synapse SQL pools and Fabric Warehouse",
+      "summary": "Dedicated pools spread tables over 60 distributions; the distribution choice decides data movement.",
+      "minutes": 20,
+      "concepts": [
+        "Synapse",
+        "dedicated SQL pool",
+        "serverless SQL",
+        "distribution",
+        "REPLICATE",
+        "Fabric Warehouse"
+      ],
+      "prerequisites": [
+        "platform-fabric-adf-pipelines"
+      ],
+      "blocks": [
+        {
+          "kind": "text",
+          "title": "The mental model",
+          "body": "A Synapse dedicated SQL pool stores every table in 60 distributions served by 1 to 60 compute nodes depending on the DWU level. HASH(column) puts each row by its key, so joins on that key need no data movement; ROUND_ROBIN spreads rows evenly with no locality (good for staging); REPLICATE keeps a full copy per node for small dimensions. Serverless SQL has no provisioned compute and bills per TB processed. Fabric Warehouse manages distribution itself."
+        },
+        {
+          "kind": "text",
+          "title": "What this lab shows",
+          "body": "The Cloud Lab SQL pool tab translates a documented T-SQL subset to DuckDB and runs the data statements for real on the local catalog. Distributions, rowgroups and data movement plans are modelled teaching data, not Synapse telemetry."
+        },
+        {
+          "kind": "callout",
+          "title": "Common mistake",
+          "body": "Hash-distributing on a column with few values or many NULLs. All rows with one value land in one distribution, so one node does most of the work."
+        },
+        {
+          "kind": "check",
+          "title": "Before you run",
+          "body": "A 40 MB product dimension joins a 2 billion row sales fact. Which distribution for each?"
+        }
+      ],
+      "code": {
+        "language": "none",
+        "source": "CREATE TABLE dbo.dim_product\nWITH (DISTRIBUTION = REPLICATE, CLUSTERED INDEX (product_key))\nAS SELECT * FROM stg.product;\n\nCREATE TABLE dbo.fact_sales\nWITH (DISTRIBUTION = HASH(customer_key), CLUSTERED COLUMNSTORE INDEX)\nAS SELECT * FROM stg.sales;\n"
+      },
+      "exercise": {
+        "id": "sp-replicate-dimension",
+        "language": "sqlpool"
+      },
+      "lab": "fabric",
+      "visual": {
+        "kind": "storage",
+        "title": "Synapse SQL pools and Fabric Warehouse - visual walkthrough",
+        "steps": [
+          {
+            "title": "Small dimension",
+            "body": "REPLICATE copies the table to each compute node: joins to it never move data.",
+            "lines": [
+              1,
+              3
+            ]
+          },
+          {
+            "title": "Large fact",
+            "body": "HASH on a high-cardinality, evenly spread key places each row in one of 60 distributions.",
+            "lines": [
+              5,
+              7
+            ]
+          },
+          {
+            "title": "Columnstore",
+            "body": "A clustered columnstore index compresses best with about 1 million rows per rowgroup and distribution.",
+            "lines": [
+              6,
+              6
+            ]
+          },
+          {
+            "title": "Fabric Warehouse",
+            "body": "Fabric manages distribution itself; these WITH options are Synapse dedicated pool syntax."
+          }
+        ]
+      },
+      "related": [
+        "warehouse-grain"
+      ]
+    }
+  ]
+}

@@ -1,0 +1,2926 @@
+{
+  "lc-spark-actions": {
+    "solution": "answer: c\n",
+    "fixtures": [
+      {
+        "id": "format",
+        "visibility": "visible",
+        "input_rows": [],
+        "expected": [],
+        "scenario": {
+          "check": "format",
+          "kind": "choice",
+          "choices": [
+            "a",
+            "b",
+            "c",
+            "d"
+          ]
+        }
+      },
+      {
+        "id": "answer",
+        "visibility": "hidden",
+        "input_rows": [],
+        "expected": [],
+        "scenario": {
+          "check": "answer",
+          "kind": "choice",
+          "choices": [
+            "a",
+            "b",
+            "c",
+            "d"
+          ],
+          "why": "Transformations (filter, withColumn, select, join, groupBy) only extend the logical plan. An action (count, collect, show, write) asks for a result, so Spark optimizes the plan and runs a job.",
+          "correct": [
+            "c"
+          ]
+        }
+      }
+    ]
+  },
+  "lc-spark-wide": {
+    "solution": "answer: c\n",
+    "fixtures": [
+      {
+        "id": "format",
+        "visibility": "visible",
+        "input_rows": [],
+        "expected": [],
+        "scenario": {
+          "check": "format",
+          "kind": "choice",
+          "choices": [
+            "a",
+            "b",
+            "c",
+            "d"
+          ]
+        }
+      },
+      {
+        "id": "answer",
+        "visibility": "hidden",
+        "input_rows": [],
+        "expected": [],
+        "scenario": {
+          "check": "answer",
+          "kind": "choice",
+          "choices": [
+            "a",
+            "b",
+            "c",
+            "d"
+          ],
+          "why": "filter, withColumn and select are narrow: each output partition depends on one input partition. A groupBy aggregation is wide: all rows of a key must meet in one partition, so Spark inserts an exchange.",
+          "correct": [
+            "c"
+          ]
+        }
+      }
+    ]
+  },
+  "lc-spark-stages": {
+    "solution": "answer: b\n",
+    "fixtures": [
+      {
+        "id": "format",
+        "visibility": "visible",
+        "input_rows": [],
+        "expected": [],
+        "scenario": {
+          "check": "format",
+          "kind": "choice",
+          "choices": [
+            "a",
+            "b",
+            "c",
+            "d"
+          ]
+        }
+      },
+      {
+        "id": "answer",
+        "visibility": "hidden",
+        "input_rows": [],
+        "expected": [],
+        "scenario": {
+          "check": "answer",
+          "kind": "choice",
+          "choices": [
+            "a",
+            "b",
+            "c",
+            "d"
+          ],
+          "why": "Spark pipelines narrow transformations inside one stage and cuts a stage boundary at each shuffle. Each stage runs one task per partition.",
+          "correct": [
+            "b"
+          ]
+        }
+      }
+    ]
+  },
+  "lc-spark-shuffle-partitions": {
+    "solution": "answer: 200\n",
+    "fixtures": [
+      {
+        "id": "format",
+        "visibility": "visible",
+        "input_rows": [],
+        "expected": [],
+        "scenario": {
+          "check": "format",
+          "kind": "text",
+          "choices": []
+        }
+      },
+      {
+        "id": "answer",
+        "visibility": "hidden",
+        "input_rows": [],
+        "expected": [],
+        "scenario": {
+          "check": "answer",
+          "kind": "text",
+          "choices": [],
+          "why": "Spark SQL shuffles into 200 partitions by default. Adaptive Query Execution can coalesce small shuffle partitions at runtime, but the starting point is still 200.",
+          "accepted": [
+            "200"
+          ]
+        }
+      }
+    ]
+  },
+  "lc-spark-broadcast-threshold": {
+    "solution": "answer: b\n",
+    "fixtures": [
+      {
+        "id": "format",
+        "visibility": "visible",
+        "input_rows": [],
+        "expected": [],
+        "scenario": {
+          "check": "format",
+          "kind": "choice",
+          "choices": [
+            "a",
+            "b",
+            "c",
+            "d"
+          ]
+        }
+      },
+      {
+        "id": "answer",
+        "visibility": "hidden",
+        "input_rows": [],
+        "expected": [],
+        "scenario": {
+          "check": "answer",
+          "kind": "choice",
+          "choices": [
+            "a",
+            "b",
+            "c",
+            "d"
+          ],
+          "why": "Spark broadcasts a join side automatically when its estimated size is under 10 MB (10485760 bytes). Above that, use a broadcast hint only if the table really fits in executor memory.",
+          "correct": [
+            "b"
+          ]
+        }
+      }
+    ]
+  },
+  "lc-spark-aqe-skew": {
+    "solution": "answer: b\n",
+    "fixtures": [
+      {
+        "id": "format",
+        "visibility": "visible",
+        "input_rows": [],
+        "expected": [],
+        "scenario": {
+          "check": "format",
+          "kind": "choice",
+          "choices": [
+            "a",
+            "b",
+            "c",
+            "d"
+          ]
+        }
+      },
+      {
+        "id": "answer",
+        "visibility": "hidden",
+        "input_rows": [],
+        "expected": [],
+        "scenario": {
+          "check": "answer",
+          "kind": "choice",
+          "choices": [
+            "a",
+            "b",
+            "c",
+            "d"
+          ],
+          "why": "With spark.sql.adaptive.skewJoin.enabled, AQE detects a partition much larger than the median and splits it, replicating the matching rows of the other side. Coalescing does the opposite: it merges small partitions.",
+          "correct": [
+            "b"
+          ]
+        }
+      }
+    ]
+  },
+  "lc-airflow-interval-run": {
+    "solution": "answer: b\n",
+    "fixtures": [
+      {
+        "id": "format",
+        "visibility": "visible",
+        "input_rows": [],
+        "expected": [],
+        "scenario": {
+          "check": "format",
+          "kind": "choice",
+          "choices": [
+            "a",
+            "b",
+            "c",
+            "d"
+          ]
+        }
+      },
+      {
+        "id": "answer",
+        "visibility": "hidden",
+        "input_rows": [],
+        "expected": [],
+        "scenario": {
+          "check": "answer",
+          "kind": "choice",
+          "choices": [
+            "a",
+            "b",
+            "c",
+            "d"
+          ],
+          "why": "A data-interval timetable runs a DAG after the interval it processes has ended, so the data is complete. Its logical date is the start of the interval (1 October) although it starts on 2 October.",
+          "correct": [
+            "b"
+          ]
+        }
+      }
+    ]
+  },
+  "lc-airflow-catchup-default": {
+    "solution": "answer: b\n",
+    "fixtures": [
+      {
+        "id": "format",
+        "visibility": "visible",
+        "input_rows": [],
+        "expected": [],
+        "scenario": {
+          "check": "format",
+          "kind": "choice",
+          "choices": [
+            "a",
+            "b",
+            "c",
+            "d"
+          ]
+        }
+      },
+      {
+        "id": "answer",
+        "visibility": "hidden",
+        "input_rows": [],
+        "expected": [],
+        "scenario": {
+          "check": "answer",
+          "kind": "choice",
+          "choices": [
+            "a",
+            "b",
+            "c",
+            "d"
+          ],
+          "why": "Airflow 3 changed [scheduler] catchup_by_default to False. Set catchup=True on the DAG when you want every missed interval, or run an explicit backfill.",
+          "correct": [
+            "b"
+          ]
+        }
+      }
+    ]
+  },
+  "lc-airflow-default-trigger-rule": {
+    "solution": "answer: all_success\n",
+    "fixtures": [
+      {
+        "id": "format",
+        "visibility": "visible",
+        "input_rows": [],
+        "expected": [],
+        "scenario": {
+          "check": "format",
+          "kind": "text",
+          "choices": []
+        }
+      },
+      {
+        "id": "answer",
+        "visibility": "hidden",
+        "input_rows": [],
+        "expected": [],
+        "scenario": {
+          "check": "answer",
+          "kind": "text",
+          "choices": [],
+          "why": "By default a task runs only when all its upstream tasks succeeded. all_done, one_failed, none_failed and others must be set explicitly.",
+          "accepted": [
+            "all_success"
+          ]
+        }
+      }
+    ]
+  },
+  "lc-airflow-xcom": {
+    "solution": "answer: b\n",
+    "fixtures": [
+      {
+        "id": "format",
+        "visibility": "visible",
+        "input_rows": [],
+        "expected": [],
+        "scenario": {
+          "check": "format",
+          "kind": "choice",
+          "choices": [
+            "a",
+            "b",
+            "c",
+            "d"
+          ]
+        }
+      },
+      {
+        "id": "answer",
+        "visibility": "hidden",
+        "input_rows": [],
+        "expected": [],
+        "scenario": {
+          "check": "answer",
+          "kind": "choice",
+          "choices": [
+            "a",
+            "b",
+            "c",
+            "d"
+          ],
+          "why": "XComs are stored in the metadata database: keep them small. Pass a reference to the data (a path or a table name), not the data, and never secrets.",
+          "correct": [
+            "b"
+          ]
+        }
+      }
+    ]
+  },
+  "lc-airflow-top-level": {
+    "solution": "answer: a\n",
+    "fixtures": [
+      {
+        "id": "format",
+        "visibility": "visible",
+        "input_rows": [],
+        "expected": [],
+        "scenario": {
+          "check": "format",
+          "kind": "choice",
+          "choices": [
+            "a",
+            "b",
+            "c",
+            "d"
+          ]
+        }
+      },
+      {
+        "id": "answer",
+        "visibility": "hidden",
+        "input_rows": [],
+        "expected": [],
+        "scenario": {
+          "check": "answer",
+          "kind": "choice",
+          "choices": [
+            "a",
+            "b",
+            "c",
+            "d"
+          ],
+          "why": "Airflow re-parses DAG files continuously to pick up changes. Top-level work slows parsing for every DAG and hammers the database or API. Do the work inside tasks.",
+          "correct": [
+            "a"
+          ]
+        }
+      }
+    ]
+  },
+  "lc-airflow-sensor-reschedule": {
+    "solution": "answer: b\n",
+    "fixtures": [
+      {
+        "id": "format",
+        "visibility": "visible",
+        "input_rows": [],
+        "expected": [],
+        "scenario": {
+          "check": "format",
+          "kind": "choice",
+          "choices": [
+            "a",
+            "b",
+            "c",
+            "d"
+          ]
+        }
+      },
+      {
+        "id": "answer",
+        "visibility": "hidden",
+        "input_rows": [],
+        "expected": [],
+        "scenario": {
+          "check": "answer",
+          "kind": "choice",
+          "choices": [
+            "a",
+            "b",
+            "c",
+            "d"
+          ],
+          "why": "In poke mode the sensor holds a worker slot for the whole wait. In reschedule mode it is put back to up_for_reschedule between checks. Deferrable sensors go further and wait in the triggerer.",
+          "correct": [
+            "b"
+          ]
+        }
+      }
+    ]
+  },
+  "lc-dbx-photon": {
+    "solution": "answer: a\n",
+    "fixtures": [
+      {
+        "id": "format",
+        "visibility": "visible",
+        "input_rows": [],
+        "expected": [],
+        "scenario": {
+          "check": "format",
+          "kind": "choice",
+          "choices": [
+            "a",
+            "b",
+            "c",
+            "d"
+          ]
+        }
+      },
+      {
+        "id": "answer",
+        "visibility": "hidden",
+        "input_rows": [],
+        "expected": [],
+        "scenario": {
+          "check": "answer",
+          "kind": "choice",
+          "choices": [
+            "a",
+            "b",
+            "c",
+            "d"
+          ],
+          "why": "Photon is Databricks' native vectorized engine. It runs the same Spark APIs; operations it does not support fall back to the regular Spark engine.",
+          "correct": [
+            "a"
+          ]
+        }
+      }
+    ]
+  },
+  "lc-dbx-liquid-clustering": {
+    "solution": "answer: a\n",
+    "fixtures": [
+      {
+        "id": "format",
+        "visibility": "visible",
+        "input_rows": [],
+        "expected": [],
+        "scenario": {
+          "check": "format",
+          "kind": "choice",
+          "choices": [
+            "a",
+            "b",
+            "c",
+            "d"
+          ]
+        }
+      },
+      {
+        "id": "answer",
+        "visibility": "hidden",
+        "input_rows": [],
+        "expected": [],
+        "scenario": {
+          "check": "answer",
+          "kind": "choice",
+          "choices": [
+            "a",
+            "b",
+            "c",
+            "d"
+          ],
+          "why": "Liquid clustering (CLUSTER BY) lays data out by clustering keys incrementally during OPTIMIZE. ALTER TABLE ... CLUSTER BY changes the keys; only new clustering work uses them.",
+          "correct": [
+            "a"
+          ]
+        }
+      }
+    ]
+  },
+  "lc-dbx-auto-loader": {
+    "solution": "answer: a\n",
+    "fixtures": [
+      {
+        "id": "format",
+        "visibility": "visible",
+        "input_rows": [],
+        "expected": [],
+        "scenario": {
+          "check": "format",
+          "kind": "choice",
+          "choices": [
+            "a",
+            "b",
+            "c",
+            "d"
+          ]
+        }
+      },
+      {
+        "id": "answer",
+        "visibility": "hidden",
+        "input_rows": [],
+        "expected": [],
+        "scenario": {
+          "check": "answer",
+          "kind": "choice",
+          "choices": [
+            "a",
+            "b",
+            "c",
+            "d"
+          ],
+          "why": "Auto Loader is a Structured Streaming source (format cloudFiles) that tracks processed files in its checkpoint and can infer and evolve the schema.",
+          "correct": [
+            "a"
+          ]
+        }
+      }
+    ]
+  },
+  "lc-dbx-expectation-drop": {
+    "solution": "answer: b\n",
+    "fixtures": [
+      {
+        "id": "format",
+        "visibility": "visible",
+        "input_rows": [],
+        "expected": [],
+        "scenario": {
+          "check": "format",
+          "kind": "choice",
+          "choices": [
+            "a",
+            "b",
+            "c",
+            "d"
+          ]
+        }
+      },
+      {
+        "id": "answer",
+        "visibility": "hidden",
+        "input_rows": [],
+        "expected": [],
+        "scenario": {
+          "check": "answer",
+          "kind": "choice",
+          "choices": [
+            "a",
+            "b",
+            "c",
+            "d"
+          ],
+          "why": "Without an action an expectation keeps invalid rows and only counts them; DROP ROW removes them; FAIL UPDATE stops the update. A quarantine table is something you build yourself with the inverse condition.",
+          "correct": [
+            "b"
+          ]
+        }
+      }
+    ]
+  },
+  "lc-dbx-medallion-silver": {
+    "solution": "answer: b\n",
+    "fixtures": [
+      {
+        "id": "format",
+        "visibility": "visible",
+        "input_rows": [],
+        "expected": [],
+        "scenario": {
+          "check": "format",
+          "kind": "choice",
+          "choices": [
+            "a",
+            "b",
+            "c",
+            "d"
+          ]
+        }
+      },
+      {
+        "id": "answer",
+        "visibility": "hidden",
+        "input_rows": [],
+        "expected": [],
+        "scenario": {
+          "check": "answer",
+          "kind": "choice",
+          "choices": [
+            "a",
+            "b",
+            "c",
+            "d"
+          ],
+          "why": "Bronze keeps raw data as ingested; silver is cleaned and conformed; gold holds business-level aggregates and models for consumers.",
+          "correct": [
+            "b"
+          ]
+        }
+      }
+    ]
+  },
+  "lc-fas-self-hosted-ir": {
+    "solution": "answer: b\n",
+    "fixtures": [
+      {
+        "id": "format",
+        "visibility": "visible",
+        "input_rows": [],
+        "expected": [],
+        "scenario": {
+          "check": "format",
+          "kind": "choice",
+          "choices": [
+            "a",
+            "b",
+            "c",
+            "d"
+          ]
+        }
+      },
+      {
+        "id": "answer",
+        "visibility": "hidden",
+        "input_rows": [],
+        "expected": [],
+        "scenario": {
+          "check": "answer",
+          "kind": "choice",
+          "choices": [
+            "a",
+            "b",
+            "c",
+            "d"
+          ],
+          "why": "A self-hosted integration runtime runs on a machine that can reach the private source and moves the data. A linked service only describes the connection; it does not provide network access. Fabric's equivalent is the on-premises data gateway.",
+          "correct": [
+            "b"
+          ]
+        }
+      }
+    ]
+  },
+  "lc-fas-onelake-delta": {
+    "solution": "answer: a\n",
+    "fixtures": [
+      {
+        "id": "format",
+        "visibility": "visible",
+        "input_rows": [],
+        "expected": [],
+        "scenario": {
+          "check": "format",
+          "kind": "choice",
+          "choices": [
+            "a",
+            "b",
+            "c",
+            "d"
+          ]
+        }
+      },
+      {
+        "id": "answer",
+        "visibility": "hidden",
+        "input_rows": [],
+        "expected": [],
+        "scenario": {
+          "check": "answer",
+          "kind": "choice",
+          "choices": [
+            "a",
+            "b",
+            "c",
+            "d"
+          ],
+          "why": "Fabric's engines read and write Delta Lake tables in OneLake; that shared format is what lets Spark, the SQL analytics endpoint and Power BI Direct Lake use the same files.",
+          "correct": [
+            "a"
+          ]
+        }
+      }
+    ]
+  },
+  "lc-fas-shortcut": {
+    "solution": "answer: a\n",
+    "fixtures": [
+      {
+        "id": "format",
+        "visibility": "visible",
+        "input_rows": [],
+        "expected": [],
+        "scenario": {
+          "check": "format",
+          "kind": "choice",
+          "choices": [
+            "a",
+            "b",
+            "c",
+            "d"
+          ]
+        }
+      },
+      {
+        "id": "answer",
+        "visibility": "hidden",
+        "input_rows": [],
+        "expected": [],
+        "scenario": {
+          "check": "answer",
+          "kind": "choice",
+          "choices": [
+            "a",
+            "b",
+            "c",
+            "d"
+          ],
+          "why": "A shortcut appears as a folder or table in a lakehouse but points to the original location; reads go to the source, so there is no copy to keep in sync.",
+          "correct": [
+            "a"
+          ]
+        }
+      }
+    ]
+  },
+  "lc-fas-completed-condition": {
+    "solution": "answer: c\n",
+    "fixtures": [
+      {
+        "id": "format",
+        "visibility": "visible",
+        "input_rows": [],
+        "expected": [],
+        "scenario": {
+          "check": "format",
+          "kind": "choice",
+          "choices": [
+            "a",
+            "b",
+            "c",
+            "d"
+          ]
+        }
+      },
+      {
+        "id": "answer",
+        "visibility": "hidden",
+        "input_rows": [],
+        "expected": [],
+        "scenario": {
+          "check": "answer",
+          "kind": "choice",
+          "choices": [
+            "a",
+            "b",
+            "c",
+            "d"
+          ],
+          "why": "Upon Completion fires after success or failure, which suits clean-up steps. Upon Skip fires only when the previous activity did not run.",
+          "correct": [
+            "c"
+          ]
+        }
+      }
+    ]
+  },
+  "lc-fas-try-catch-status": {
+    "solution": "answer: a\n",
+    "fixtures": [
+      {
+        "id": "format",
+        "visibility": "visible",
+        "input_rows": [],
+        "expected": [],
+        "scenario": {
+          "check": "format",
+          "kind": "choice",
+          "choices": [
+            "a",
+            "b",
+            "c",
+            "d"
+          ]
+        }
+      },
+      {
+        "id": "answer",
+        "visibility": "hidden",
+        "input_rows": [],
+        "expected": [],
+        "scenario": {
+          "check": "answer",
+          "kind": "choice",
+          "choices": [
+            "a",
+            "b",
+            "c",
+            "d"
+          ],
+          "why": "Data Factory judges a run by its leaf activities. Log error is the only leaf and it succeeded, so the run succeeds: the failure was handled. Add a Fail activity on that path if the run must still fail.",
+          "correct": [
+            "a"
+          ]
+        }
+      }
+    ]
+  },
+  "lc-fas-serverless-billing": {
+    "solution": "answer: b\n",
+    "fixtures": [
+      {
+        "id": "format",
+        "visibility": "visible",
+        "input_rows": [],
+        "expected": [],
+        "scenario": {
+          "check": "format",
+          "kind": "choice",
+          "choices": [
+            "a",
+            "b",
+            "c",
+            "d"
+          ]
+        }
+      },
+      {
+        "id": "answer",
+        "visibility": "hidden",
+        "input_rows": [],
+        "expected": [],
+        "scenario": {
+          "check": "answer",
+          "kind": "choice",
+          "choices": [
+            "a",
+            "b",
+            "c",
+            "d"
+          ],
+          "why": "Serverless SQL has no provisioned compute: you pay for the data each query processes. Parquet with column and partition pruning reads less and costs less than CSV.",
+          "correct": [
+            "b"
+          ]
+        }
+      }
+    ]
+  },
+  "lc-api-retry-after": {
+    "solution": "answer: b\n",
+    "fixtures": [
+      {
+        "id": "format",
+        "visibility": "visible",
+        "input_rows": [],
+        "expected": [],
+        "scenario": {
+          "check": "format",
+          "kind": "choice",
+          "choices": [
+            "a",
+            "b",
+            "c",
+            "d"
+          ]
+        }
+      },
+      {
+        "id": "answer",
+        "visibility": "hidden",
+        "input_rows": [],
+        "expected": [],
+        "scenario": {
+          "check": "answer",
+          "kind": "choice",
+          "choices": [
+            "a",
+            "b",
+            "c",
+            "d"
+          ],
+          "why": "429 is a rate limit, not an error in the request. Retry-After tells the client how long to wait (seconds or an HTTP date). Bypassing the limit with other keys usually breaks the API's terms.",
+          "correct": [
+            "b"
+          ]
+        }
+      }
+    ]
+  },
+  "lc-api-idempotent-methods": {
+    "solution": "answer: a, c, d\n",
+    "fixtures": [
+      {
+        "id": "format",
+        "visibility": "visible",
+        "input_rows": [],
+        "expected": [],
+        "scenario": {
+          "check": "format",
+          "kind": "choice",
+          "choices": [
+            "a",
+            "b",
+            "c",
+            "d"
+          ]
+        }
+      },
+      {
+        "id": "answer",
+        "visibility": "hidden",
+        "input_rows": [],
+        "expected": [],
+        "scenario": {
+          "check": "answer",
+          "kind": "choice",
+          "choices": [
+            "a",
+            "b",
+            "c",
+            "d"
+          ],
+          "why": "Sending GET, PUT or DELETE twice has the same intended effect as sending it once. POST is not idempotent: two POSTs may create two orders, which is why APIs offer idempotency keys.",
+          "correct": [
+            "a",
+            "c",
+            "d"
+          ]
+        }
+      }
+    ]
+  },
+  "lc-api-cursor-pagination": {
+    "solution": "answer: a\n",
+    "fixtures": [
+      {
+        "id": "format",
+        "visibility": "visible",
+        "input_rows": [],
+        "expected": [],
+        "scenario": {
+          "check": "format",
+          "kind": "choice",
+          "choices": [
+            "a",
+            "b",
+            "c",
+            "d"
+          ]
+        }
+      },
+      {
+        "id": "answer",
+        "visibility": "hidden",
+        "input_rows": [],
+        "expected": [],
+        "scenario": {
+          "check": "answer",
+          "kind": "choice",
+          "choices": [
+            "a",
+            "b",
+            "c",
+            "d"
+          ],
+          "why": "page=3&size=100 means rows 201 to 300 of the result as it is now; an insert before that point shifts every later page. A cursor continues after the last key seen.",
+          "correct": [
+            "a"
+          ]
+        }
+      }
+    ]
+  },
+  "lc-api-no-retry-400": {
+    "solution": "answer: c\n",
+    "fixtures": [
+      {
+        "id": "format",
+        "visibility": "visible",
+        "input_rows": [],
+        "expected": [],
+        "scenario": {
+          "check": "format",
+          "kind": "choice",
+          "choices": [
+            "a",
+            "b",
+            "c",
+            "d"
+          ]
+        }
+      },
+      {
+        "id": "answer",
+        "visibility": "hidden",
+        "input_rows": [],
+        "expected": [],
+        "scenario": {
+          "check": "answer",
+          "kind": "choice",
+          "choices": [
+            "a",
+            "b",
+            "c",
+            "d"
+          ],
+          "why": "400 says the request itself is wrong: sending it again gives the same answer. 429, 503 and 504 are transient and worth retrying with backoff.",
+          "correct": [
+            "c"
+          ]
+        }
+      }
+    ]
+  },
+  "lc-api-watermark-advance": {
+    "solution": "answer: c\n",
+    "fixtures": [
+      {
+        "id": "format",
+        "visibility": "visible",
+        "input_rows": [],
+        "expected": [],
+        "scenario": {
+          "check": "format",
+          "kind": "choice",
+          "choices": [
+            "a",
+            "b",
+            "c",
+            "d"
+          ]
+        }
+      },
+      {
+        "id": "answer",
+        "visibility": "hidden",
+        "input_rows": [],
+        "expected": [],
+        "scenario": {
+          "check": "answer",
+          "kind": "choice",
+          "choices": [
+            "a",
+            "b",
+            "c",
+            "d"
+          ],
+          "why": "Advance the watermark only once the data it covers is committed. Moving it earlier loses rows when the write fails; reprocessing a few rows after a crash is fine when the write is idempotent.",
+          "correct": [
+            "c"
+          ]
+        }
+      }
+    ]
+  },
+  "lc-orch-idempotent": {
+    "solution": "answer: a\n",
+    "fixtures": [
+      {
+        "id": "format",
+        "visibility": "visible",
+        "input_rows": [],
+        "expected": [],
+        "scenario": {
+          "check": "format",
+          "kind": "choice",
+          "choices": [
+            "a",
+            "b",
+            "c",
+            "d"
+          ]
+        }
+      },
+      {
+        "id": "answer",
+        "visibility": "hidden",
+        "input_rows": [],
+        "expected": [],
+        "scenario": {
+          "check": "answer",
+          "kind": "choice",
+          "choices": [
+            "a",
+            "b",
+            "c",
+            "d"
+          ],
+          "why": "Retries and backfills rerun tasks. An append-only load duplicates the day on every rerun; replacing the day's slice or a MERGE on the business key makes reruns safe.",
+          "correct": [
+            "a"
+          ]
+        }
+      }
+    ]
+  },
+  "lc-orch-timeout": {
+    "solution": "answer: b\n",
+    "fixtures": [
+      {
+        "id": "format",
+        "visibility": "visible",
+        "input_rows": [],
+        "expected": [],
+        "scenario": {
+          "check": "format",
+          "kind": "choice",
+          "choices": [
+            "a",
+            "b",
+            "c",
+            "d"
+          ]
+        }
+      },
+      {
+        "id": "answer",
+        "visibility": "hidden",
+        "input_rows": [],
+        "expected": [],
+        "scenario": {
+          "check": "answer",
+          "kind": "choice",
+          "choices": [
+            "a",
+            "b",
+            "c",
+            "d"
+          ],
+          "why": "A retry starts only when an attempt ends. Without a timeout a hung attempt never ends, so retries never start and the run blocks downstream work.",
+          "correct": [
+            "b"
+          ]
+        }
+      }
+    ]
+  },
+  "lc-orch-quarantine": {
+    "solution": "answer: b\n",
+    "fixtures": [
+      {
+        "id": "format",
+        "visibility": "visible",
+        "input_rows": [],
+        "expected": [],
+        "scenario": {
+          "check": "format",
+          "kind": "choice",
+          "choices": [
+            "a",
+            "b",
+            "c",
+            "d"
+          ]
+        }
+      },
+      {
+        "id": "answer",
+        "visibility": "hidden",
+        "input_rows": [],
+        "expected": [],
+        "scenario": {
+          "check": "answer",
+          "kind": "choice",
+          "choices": [
+            "a",
+            "b",
+            "c",
+            "d"
+          ],
+          "why": "Quarantining keeps bad rows out of the trusted tables while keeping them for inspection and replay. Alert when the quarantined share passes a threshold, because a spike usually means an upstream change.",
+          "correct": [
+            "b"
+          ]
+        }
+      }
+    ]
+  },
+  "lc-orch-assets": {
+    "solution": "answer: a\n",
+    "fixtures": [
+      {
+        "id": "format",
+        "visibility": "visible",
+        "input_rows": [],
+        "expected": [],
+        "scenario": {
+          "check": "format",
+          "kind": "choice",
+          "choices": [
+            "a",
+            "b",
+            "c",
+            "d"
+          ]
+        }
+      },
+      {
+        "id": "answer",
+        "visibility": "hidden",
+        "input_rows": [],
+        "expected": [],
+        "scenario": {
+          "check": "answer",
+          "kind": "choice",
+          "choices": [
+            "a",
+            "b",
+            "c",
+            "d"
+          ],
+          "why": "A producer task declares the asset in its outlets; a DAG scheduled on that asset is triggered after the asset is updated. Airflow 3 renamed Datasets to Assets.",
+          "correct": [
+            "a"
+          ]
+        }
+      }
+    ]
+  },
+  "lc-orch-pools": {
+    "solution": "answer: a\n",
+    "fixtures": [
+      {
+        "id": "format",
+        "visibility": "visible",
+        "input_rows": [],
+        "expected": [],
+        "scenario": {
+          "check": "format",
+          "kind": "choice",
+          "choices": [
+            "a",
+            "b",
+            "c",
+            "d"
+          ]
+        }
+      },
+      {
+        "id": "answer",
+        "visibility": "hidden",
+        "input_rows": [],
+        "expected": [],
+        "scenario": {
+          "check": "answer",
+          "kind": "choice",
+          "choices": [
+            "a",
+            "b",
+            "c",
+            "d"
+          ],
+          "why": "Tasks assigned to a pool take slots from it; when the slots are used, other tasks wait. max_active_runs limits only the runs of one DAG.",
+          "correct": [
+            "a"
+          ]
+        }
+      }
+    ]
+  },
+  "lc-docker-layer-cache": {
+    "solution": "answer: a\n",
+    "fixtures": [
+      {
+        "id": "format",
+        "visibility": "visible",
+        "input_rows": [],
+        "expected": [],
+        "scenario": {
+          "check": "format",
+          "kind": "choice",
+          "choices": [
+            "a",
+            "b",
+            "c",
+            "d"
+          ]
+        }
+      },
+      {
+        "id": "answer",
+        "visibility": "hidden",
+        "input_rows": [],
+        "expected": [],
+        "scenario": {
+          "check": "answer",
+          "kind": "choice",
+          "choices": [
+            "a",
+            "b",
+            "c",
+            "d"
+          ],
+          "why": "Each instruction is a layer, rebuilt when its inputs change and then everything after it is rebuilt too. Copying the code first would reinstall every dependency on each code change.",
+          "correct": [
+            "a"
+          ]
+        }
+      }
+    ]
+  },
+  "lc-docker-image-container": {
+    "solution": "answer: a\n",
+    "fixtures": [
+      {
+        "id": "format",
+        "visibility": "visible",
+        "input_rows": [],
+        "expected": [],
+        "scenario": {
+          "check": "format",
+          "kind": "choice",
+          "choices": [
+            "a",
+            "b",
+            "c",
+            "d"
+          ]
+        }
+      },
+      {
+        "id": "answer",
+        "visibility": "hidden",
+        "input_rows": [],
+        "expected": [],
+        "scenario": {
+          "check": "answer",
+          "kind": "choice",
+          "choices": [
+            "a",
+            "b",
+            "c",
+            "d"
+          ],
+          "why": "An image is a read-only template of layers. Each container adds a writable layer on top; several containers can run from the same image.",
+          "correct": [
+            "a"
+          ]
+        }
+      }
+    ]
+  },
+  "lc-docker-volume": {
+    "solution": "answer: b\n",
+    "fixtures": [
+      {
+        "id": "format",
+        "visibility": "visible",
+        "input_rows": [],
+        "expected": [],
+        "scenario": {
+          "check": "format",
+          "kind": "choice",
+          "choices": [
+            "a",
+            "b",
+            "c",
+            "d"
+          ]
+        }
+      },
+      {
+        "id": "answer",
+        "visibility": "hidden",
+        "input_rows": [],
+        "expected": [],
+        "scenario": {
+          "check": "answer",
+          "kind": "choice",
+          "choices": [
+            "a",
+            "b",
+            "c",
+            "d"
+          ],
+          "why": "The writable layer belongs to the container. Data that must survive goes to a named volume or a bind mount.",
+          "correct": [
+            "b"
+          ]
+        }
+      }
+    ]
+  },
+  "lc-docker-service-healthy": {
+    "solution": "answer: c\n",
+    "fixtures": [
+      {
+        "id": "format",
+        "visibility": "visible",
+        "input_rows": [],
+        "expected": [],
+        "scenario": {
+          "check": "format",
+          "kind": "choice",
+          "choices": [
+            "a",
+            "b",
+            "c",
+            "d"
+          ]
+        }
+      },
+      {
+        "id": "answer",
+        "visibility": "hidden",
+        "input_rows": [],
+        "expected": [],
+        "scenario": {
+          "check": "answer",
+          "kind": "choice",
+          "choices": [
+            "a",
+            "b",
+            "c",
+            "d"
+          ],
+          "why": "A plain depends_on only orders start-up. service_healthy waits until the dependency's healthcheck passes, which is what an API needs before it connects to its database.",
+          "correct": [
+            "c"
+          ]
+        }
+      }
+    ]
+  },
+  "lc-docker-entrypoint-cmd": {
+    "solution": "answer: a\n",
+    "fixtures": [
+      {
+        "id": "format",
+        "visibility": "visible",
+        "input_rows": [],
+        "expected": [],
+        "scenario": {
+          "check": "format",
+          "kind": "choice",
+          "choices": [
+            "a",
+            "b",
+            "c",
+            "d"
+          ]
+        }
+      },
+      {
+        "id": "answer",
+        "visibility": "hidden",
+        "input_rows": [],
+        "expected": [],
+        "scenario": {
+          "check": "answer",
+          "kind": "choice",
+          "choices": [
+            "a",
+            "b",
+            "c",
+            "d"
+          ],
+          "why": "Arguments after the image name replace CMD; an exec-form ENTRYPOINT stays and receives them. CMD only supplies default arguments.",
+          "correct": [
+            "a"
+          ]
+        }
+      }
+    ]
+  },
+  "lc-tf-plan": {
+    "solution": "answer: a\n",
+    "fixtures": [
+      {
+        "id": "format",
+        "visibility": "visible",
+        "input_rows": [],
+        "expected": [],
+        "scenario": {
+          "check": "format",
+          "kind": "choice",
+          "choices": [
+            "a",
+            "b",
+            "c",
+            "d"
+          ]
+        }
+      },
+      {
+        "id": "answer",
+        "visibility": "hidden",
+        "input_rows": [],
+        "expected": [],
+        "scenario": {
+          "check": "answer",
+          "kind": "choice",
+          "choices": [
+            "a",
+            "b",
+            "c",
+            "d"
+          ],
+          "why": "plan shows what apply would create, update or destroy. apply makes the changes, ideally from a saved plan file so what was reviewed is what runs.",
+          "correct": [
+            "a"
+          ]
+        }
+      }
+    ]
+  },
+  "lc-tf-remote-state": {
+    "solution": "answer: a\n",
+    "fixtures": [
+      {
+        "id": "format",
+        "visibility": "visible",
+        "input_rows": [],
+        "expected": [],
+        "scenario": {
+          "check": "format",
+          "kind": "choice",
+          "choices": [
+            "a",
+            "b",
+            "c",
+            "d"
+          ]
+        }
+      },
+      {
+        "id": "answer",
+        "visibility": "hidden",
+        "input_rows": [],
+        "expected": [],
+        "scenario": {
+          "check": "answer",
+          "kind": "choice",
+          "choices": [
+            "a",
+            "b",
+            "c",
+            "d"
+          ],
+          "why": "A local state file lives on one laptop. A remote backend shares it, and its lock stops two concurrent applies from corrupting it.",
+          "correct": [
+            "a"
+          ]
+        }
+      }
+    ]
+  },
+  "lc-tf-replace-symbol": {
+    "solution": "answer: b\n",
+    "fixtures": [
+      {
+        "id": "format",
+        "visibility": "visible",
+        "input_rows": [],
+        "expected": [],
+        "scenario": {
+          "check": "format",
+          "kind": "choice",
+          "choices": [
+            "a",
+            "b",
+            "c",
+            "d"
+          ]
+        }
+      },
+      {
+        "id": "answer",
+        "visibility": "hidden",
+        "input_rows": [],
+        "expected": [],
+        "scenario": {
+          "check": "answer",
+          "kind": "choice",
+          "choices": [
+            "a",
+            "b",
+            "c",
+            "d"
+          ],
+          "why": "~ is an in-place update; -/+ destroys then creates; +/- creates the replacement first (create_before_destroy). Replacing a storage account or a database loses its data unless it is migrated.",
+          "correct": [
+            "b"
+          ]
+        }
+      }
+    ]
+  },
+  "lc-tf-sensitive-state": {
+    "solution": "answer: b\n",
+    "fixtures": [
+      {
+        "id": "format",
+        "visibility": "visible",
+        "input_rows": [],
+        "expected": [],
+        "scenario": {
+          "check": "format",
+          "kind": "choice",
+          "choices": [
+            "a",
+            "b",
+            "c",
+            "d"
+          ]
+        }
+      },
+      {
+        "id": "answer",
+        "visibility": "hidden",
+        "input_rows": [],
+        "expected": [],
+        "scenario": {
+          "check": "answer",
+          "kind": "choice",
+          "choices": [
+            "a",
+            "b",
+            "c",
+            "d"
+          ],
+          "why": "sensitive only redacts output. Values used by resources are stored in the state, so protect the backend (access control, encryption at rest) and prefer secrets that Terraform never sees.",
+          "correct": [
+            "b"
+          ]
+        }
+      }
+    ]
+  },
+  "lc-tf-for-each": {
+    "solution": "answer: a\n",
+    "fixtures": [
+      {
+        "id": "format",
+        "visibility": "visible",
+        "input_rows": [],
+        "expected": [],
+        "scenario": {
+          "check": "format",
+          "kind": "choice",
+          "choices": [
+            "a",
+            "b",
+            "c",
+            "d"
+          ]
+        }
+      },
+      {
+        "id": "answer",
+        "visibility": "hidden",
+        "input_rows": [],
+        "expected": [],
+        "scenario": {
+          "check": "answer",
+          "kind": "choice",
+          "choices": [
+            "a",
+            "b",
+            "c",
+            "d"
+          ],
+          "why": "With count, instances are addressed [0], [1], [2]; deleting the first renumbers the rest. With for_each they are addressed [\"raw\"], [\"curated\"], so each stays put.",
+          "correct": [
+            "a"
+          ]
+        }
+      }
+    ]
+  },
+  "lc-k8s-replicaset": {
+    "solution": "answer: a\n",
+    "fixtures": [
+      {
+        "id": "format",
+        "visibility": "visible",
+        "input_rows": [],
+        "expected": [],
+        "scenario": {
+          "check": "format",
+          "kind": "choice",
+          "choices": [
+            "a",
+            "b",
+            "c",
+            "d"
+          ]
+        }
+      },
+      {
+        "id": "answer",
+        "visibility": "hidden",
+        "input_rows": [],
+        "expected": [],
+        "scenario": {
+          "check": "answer",
+          "kind": "choice",
+          "choices": [
+            "a",
+            "b",
+            "c",
+            "d"
+          ],
+          "why": "A Deployment manages ReplicaSets, one per pod template version; the ReplicaSet replaces pods that disappear. A rolling update scales a new ReplicaSet up and the old one down.",
+          "correct": [
+            "a"
+          ]
+        }
+      }
+    ]
+  },
+  "lc-k8s-readiness": {
+    "solution": "answer: b\n",
+    "fixtures": [
+      {
+        "id": "format",
+        "visibility": "visible",
+        "input_rows": [],
+        "expected": [],
+        "scenario": {
+          "check": "format",
+          "kind": "choice",
+          "choices": [
+            "a",
+            "b",
+            "c",
+            "d"
+          ]
+        }
+      },
+      {
+        "id": "answer",
+        "visibility": "hidden",
+        "input_rows": [],
+        "expected": [],
+        "scenario": {
+          "check": "answer",
+          "kind": "choice",
+          "choices": [
+            "a",
+            "b",
+            "c",
+            "d"
+          ],
+          "why": "Readiness decides whether a pod receives traffic. Liveness decides whether the kubelet restarts the container. A rollout waits for new pods to be ready.",
+          "correct": [
+            "b"
+          ]
+        }
+      }
+    ]
+  },
+  "lc-k8s-default-service": {
+    "solution": "answer: ClusterIP\n",
+    "fixtures": [
+      {
+        "id": "format",
+        "visibility": "visible",
+        "input_rows": [],
+        "expected": [],
+        "scenario": {
+          "check": "format",
+          "kind": "text",
+          "choices": []
+        }
+      },
+      {
+        "id": "answer",
+        "visibility": "hidden",
+        "input_rows": [],
+        "expected": [],
+        "scenario": {
+          "check": "answer",
+          "kind": "text",
+          "choices": [],
+          "why": "A ClusterIP Service gets a virtual IP reachable only inside the cluster. NodePort, LoadBalancer and ExternalName must be asked for.",
+          "accepted": [
+            "ClusterIP"
+          ]
+        }
+      }
+    ]
+  },
+  "lc-k8s-memory-limit": {
+    "solution": "answer: b\n",
+    "fixtures": [
+      {
+        "id": "format",
+        "visibility": "visible",
+        "input_rows": [],
+        "expected": [],
+        "scenario": {
+          "check": "format",
+          "kind": "choice",
+          "choices": [
+            "a",
+            "b",
+            "c",
+            "d"
+          ]
+        }
+      },
+      {
+        "id": "answer",
+        "visibility": "hidden",
+        "input_rows": [],
+        "expected": [],
+        "scenario": {
+          "check": "answer",
+          "kind": "choice",
+          "choices": [
+            "a",
+            "b",
+            "c",
+            "d"
+          ],
+          "why": "Memory cannot be throttled, so going over the limit kills the container. CPU over its limit is throttled instead. Requests are what the scheduler reserves.",
+          "correct": [
+            "b"
+          ]
+        }
+      }
+    ]
+  },
+  "lc-k8s-crashloop": {
+    "solution": "answer: b\n",
+    "fixtures": [
+      {
+        "id": "format",
+        "visibility": "visible",
+        "input_rows": [],
+        "expected": [],
+        "scenario": {
+          "check": "format",
+          "kind": "choice",
+          "choices": [
+            "a",
+            "b",
+            "c",
+            "d"
+          ]
+        }
+      },
+      {
+        "id": "answer",
+        "visibility": "hidden",
+        "input_rows": [],
+        "expected": [],
+        "scenario": {
+          "check": "answer",
+          "kind": "choice",
+          "choices": [
+            "a",
+            "b",
+            "c",
+            "d"
+          ],
+          "why": "Read the previous attempt's logs (kubectl logs --previous) and the exit code in kubectl describe. A pull failure shows ImagePullBackOff; an unschedulable pod stays Pending.",
+          "correct": [
+            "b"
+          ]
+        }
+      }
+    ]
+  },
+  "lc-linux-chmod-750": {
+    "solution": "answer: a\n",
+    "fixtures": [
+      {
+        "id": "format",
+        "visibility": "visible",
+        "input_rows": [],
+        "expected": [],
+        "scenario": {
+          "check": "format",
+          "kind": "choice",
+          "choices": [
+            "a",
+            "b",
+            "c",
+            "d"
+          ]
+        }
+      },
+      {
+        "id": "answer",
+        "visibility": "hidden",
+        "input_rows": [],
+        "expected": [],
+        "scenario": {
+          "check": "answer",
+          "kind": "choice",
+          "choices": [
+            "a",
+            "b",
+            "c",
+            "d"
+          ],
+          "why": "Each digit sums read (4), write (2) and execute (1) for owner, group and others: 7 = rwx, 5 = r-x, 0 = ---.",
+          "correct": [
+            "a"
+          ]
+        }
+      }
+    ]
+  },
+  "lc-linux-exit-status": {
+    "solution": "answer: a\n",
+    "fixtures": [
+      {
+        "id": "format",
+        "visibility": "visible",
+        "input_rows": [],
+        "expected": [],
+        "scenario": {
+          "check": "format",
+          "kind": "choice",
+          "choices": [
+            "a",
+            "b",
+            "c",
+            "d"
+          ]
+        }
+      },
+      {
+        "id": "answer",
+        "visibility": "hidden",
+        "input_rows": [],
+        "expected": [],
+        "scenario": {
+          "check": "answer",
+          "kind": "choice",
+          "choices": [
+            "a",
+            "b",
+            "c",
+            "d"
+          ],
+          "why": "Scripts and schedulers judge success by the exit status. set -e stops a script at the first failing command; set -o pipefail makes a pipeline fail when any part fails.",
+          "correct": [
+            "a"
+          ]
+        }
+      }
+    ]
+  },
+  "lc-linux-df": {
+    "solution": "answer: a\n",
+    "fixtures": [
+      {
+        "id": "format",
+        "visibility": "visible",
+        "input_rows": [],
+        "expected": [],
+        "scenario": {
+          "check": "format",
+          "kind": "choice",
+          "choices": [
+            "a",
+            "b",
+            "c",
+            "d"
+          ]
+        }
+      },
+      {
+        "id": "answer",
+        "visibility": "hidden",
+        "input_rows": [],
+        "expected": [],
+        "scenario": {
+          "check": "answer",
+          "kind": "choice",
+          "choices": [
+            "a",
+            "b",
+            "c",
+            "d"
+          ],
+          "why": "df reports filesystems; du sums the size of files and folders, useful once df has told you which disk is full; free reports memory.",
+          "correct": [
+            "a"
+          ]
+        }
+      }
+    ]
+  },
+  "lc-linux-load-average": {
+    "solution": "answer: b\n",
+    "fixtures": [
+      {
+        "id": "format",
+        "visibility": "visible",
+        "input_rows": [],
+        "expected": [],
+        "scenario": {
+          "check": "format",
+          "kind": "choice",
+          "choices": [
+            "a",
+            "b",
+            "c",
+            "d"
+          ]
+        }
+      },
+      {
+        "id": "answer",
+        "visibility": "hidden",
+        "input_rows": [],
+        "expected": [],
+        "scenario": {
+          "check": "answer",
+          "kind": "choice",
+          "choices": [
+            "a",
+            "b",
+            "c",
+            "d"
+          ],
+          "why": "Linux load counts runnable tasks plus tasks in uninterruptible I/O wait. Compare it with the number of CPUs, then look at CPU usage and I/O wait to tell which one it is.",
+          "correct": [
+            "b"
+          ]
+        }
+      }
+    ]
+  },
+  "lc-vm-alert-window": {
+    "solution": "answer: b\n",
+    "fixtures": [
+      {
+        "id": "format",
+        "visibility": "visible",
+        "input_rows": [],
+        "expected": [],
+        "scenario": {
+          "check": "format",
+          "kind": "choice",
+          "choices": [
+            "a",
+            "b",
+            "c",
+            "d"
+          ]
+        }
+      },
+      {
+        "id": "answer",
+        "visibility": "hidden",
+        "input_rows": [],
+        "expected": [],
+        "scenario": {
+          "check": "answer",
+          "kind": "choice",
+          "choices": [
+            "a",
+            "b",
+            "c",
+            "d"
+          ],
+          "why": "The rule aggregates over its window before comparing with the threshold: (30 s x 100% + 270 s x 20%) / 300 s = 28%. Choose the window and aggregation (average, maximum) for the symptom you care about.",
+          "correct": [
+            "b"
+          ]
+        }
+      }
+    ]
+  },
+  "lc-bi-star-dimensions": {
+    "solution": "answer: a\n",
+    "fixtures": [
+      {
+        "id": "format",
+        "visibility": "visible",
+        "input_rows": [],
+        "expected": [],
+        "scenario": {
+          "check": "format",
+          "kind": "choice",
+          "choices": [
+            "a",
+            "b",
+            "c",
+            "d"
+          ]
+        }
+      },
+      {
+        "id": "answer",
+        "visibility": "hidden",
+        "input_rows": [],
+        "expected": [],
+        "scenario": {
+          "check": "answer",
+          "kind": "choice",
+          "choices": [
+            "a",
+            "b",
+            "c",
+            "d"
+          ],
+          "why": "A star keeps each dimension in one wide table joined to the fact by its key. Splitting it into chains of tables is a snowflake, which adds joins for the same answer.",
+          "correct": [
+            "a"
+          ]
+        }
+      }
+    ]
+  },
+  "lc-bi-semi-additive": {
+    "solution": "answer: b\n",
+    "fixtures": [
+      {
+        "id": "format",
+        "visibility": "visible",
+        "input_rows": [],
+        "expected": [],
+        "scenario": {
+          "check": "format",
+          "kind": "choice",
+          "choices": [
+            "a",
+            "b",
+            "c",
+            "d"
+          ]
+        }
+      },
+      {
+        "id": "answer",
+        "visibility": "hidden",
+        "input_rows": [],
+        "expected": [],
+        "scenario": {
+          "check": "answer",
+          "kind": "choice",
+          "choices": [
+            "a",
+            "b",
+            "c",
+            "d"
+          ],
+          "why": "Balances and stock levels add up across accounts or stores, but summing a month of daily balances is meaningless: take the last (or average) value over time.",
+          "correct": [
+            "b"
+          ]
+        }
+      }
+    ]
+  },
+  "lc-bi-scd2-current": {
+    "solution": "answer: b\n",
+    "fixtures": [
+      {
+        "id": "format",
+        "visibility": "visible",
+        "input_rows": [],
+        "expected": [],
+        "scenario": {
+          "check": "format",
+          "kind": "choice",
+          "choices": [
+            "a",
+            "b",
+            "c",
+            "d"
+          ]
+        }
+      },
+      {
+        "id": "answer",
+        "visibility": "hidden",
+        "input_rows": [],
+        "expected": [],
+        "scenario": {
+          "check": "answer",
+          "kind": "choice",
+          "choices": [
+            "a",
+            "b",
+            "c",
+            "d"
+          ],
+          "why": "Type 2 keeps one row per version with validity dates; the open-ended version is current. Facts join to the version that was valid at the time of the event, through the surrogate key.",
+          "correct": [
+            "b"
+          ]
+        }
+      }
+    ]
+  },
+  "lc-bi-filter-direction": {
+    "solution": "answer: a\n",
+    "fixtures": [
+      {
+        "id": "format",
+        "visibility": "visible",
+        "input_rows": [],
+        "expected": [],
+        "scenario": {
+          "check": "format",
+          "kind": "choice",
+          "choices": [
+            "a",
+            "b",
+            "c",
+            "d"
+          ]
+        }
+      },
+      {
+        "id": "answer",
+        "visibility": "hidden",
+        "input_rows": [],
+        "expected": [],
+        "scenario": {
+          "check": "answer",
+          "kind": "choice",
+          "choices": [
+            "a",
+            "b",
+            "c",
+            "d"
+          ],
+          "why": "Single direction propagates filters from the one side to the many side. Bidirectional filtering can create ambiguous paths and slow models; use it deliberately, for example through a bridge table.",
+          "correct": [
+            "a"
+          ]
+        }
+      }
+    ]
+  },
+  "lc-bi-import-mode": {
+    "solution": "answer: a\n",
+    "fixtures": [
+      {
+        "id": "format",
+        "visibility": "visible",
+        "input_rows": [],
+        "expected": [],
+        "scenario": {
+          "check": "format",
+          "kind": "choice",
+          "choices": [
+            "a",
+            "b",
+            "c",
+            "d"
+          ]
+        }
+      },
+      {
+        "id": "answer",
+        "visibility": "hidden",
+        "input_rows": [],
+        "expected": [],
+        "scenario": {
+          "check": "answer",
+          "kind": "choice",
+          "choices": [
+            "a",
+            "b",
+            "c",
+            "d"
+          ],
+          "why": "Import loads the data into the model (refreshed on a schedule); DirectQuery sends queries to the source at report time. Direct Lake reads Delta tables in OneLake directly.",
+          "correct": [
+            "a"
+          ]
+        }
+      }
+    ]
+  },
+  "lc-gov-rls": {
+    "solution": "answer: a\n",
+    "fixtures": [
+      {
+        "id": "format",
+        "visibility": "visible",
+        "input_rows": [],
+        "expected": [],
+        "scenario": {
+          "check": "format",
+          "kind": "choice",
+          "choices": [
+            "a",
+            "b",
+            "c",
+            "d"
+          ]
+        }
+      },
+      {
+        "id": "answer",
+        "visibility": "hidden",
+        "input_rows": [],
+        "expected": [],
+        "scenario": {
+          "check": "answer",
+          "kind": "choice",
+          "choices": [
+            "a",
+            "b",
+            "c",
+            "d"
+          ],
+          "why": "Row-level security filters rows by the user (or role) running the query, for example a sales rep sees only their region. Column-level security and masking protect columns.",
+          "correct": [
+            "a"
+          ]
+        }
+      }
+    ]
+  },
+  "lc-gov-masking": {
+    "solution": "answer: b\n",
+    "fixtures": [
+      {
+        "id": "format",
+        "visibility": "visible",
+        "input_rows": [],
+        "expected": [],
+        "scenario": {
+          "check": "format",
+          "kind": "choice",
+          "choices": [
+            "a",
+            "b",
+            "c",
+            "d"
+          ]
+        }
+      },
+      {
+        "id": "answer",
+        "visibility": "hidden",
+        "input_rows": [],
+        "expected": [],
+        "scenario": {
+          "check": "answer",
+          "kind": "choice",
+          "choices": [
+            "a",
+            "b",
+            "c",
+            "d"
+          ],
+          "why": "Masking is a presentation rule. Users with UNMASK (and administrators) see real values, and inference through WHERE clauses remains possible, so combine it with permissions.",
+          "correct": [
+            "b"
+          ]
+        }
+      }
+    ]
+  },
+  "lc-gov-least-privilege": {
+    "solution": "answer: c\n",
+    "fixtures": [
+      {
+        "id": "format",
+        "visibility": "visible",
+        "input_rows": [],
+        "expected": [],
+        "scenario": {
+          "check": "format",
+          "kind": "choice",
+          "choices": [
+            "a",
+            "b",
+            "c",
+            "d"
+          ]
+        }
+      },
+      {
+        "id": "answer",
+        "visibility": "hidden",
+        "input_rows": [],
+        "expected": [],
+        "scenario": {
+          "check": "answer",
+          "kind": "choice",
+          "choices": [
+            "a",
+            "b",
+            "c",
+            "d"
+          ],
+          "why": "A dedicated identity can be audited and revoked without affecting people, and narrow grants limit the damage of a bug or a leaked credential.",
+          "correct": [
+            "c"
+          ]
+        }
+      }
+    ]
+  },
+  "lc-gov-lineage": {
+    "solution": "answer: a\n",
+    "fixtures": [
+      {
+        "id": "format",
+        "visibility": "visible",
+        "input_rows": [],
+        "expected": [],
+        "scenario": {
+          "check": "format",
+          "kind": "choice",
+          "choices": [
+            "a",
+            "b",
+            "c",
+            "d"
+          ]
+        }
+      },
+      {
+        "id": "answer",
+        "visibility": "hidden",
+        "input_rows": [],
+        "expected": [],
+        "scenario": {
+          "check": "answer",
+          "kind": "choice",
+          "choices": [
+            "a",
+            "b",
+            "c",
+            "d"
+          ],
+          "why": "Lineage records which columns each column is derived from. It drives impact analysis before a change and shows where personal data spreads.",
+          "correct": [
+            "a"
+          ]
+        }
+      }
+    ]
+  },
+  "lc-gov-pseudonymised": {
+    "solution": "answer: b\n",
+    "fixtures": [
+      {
+        "id": "format",
+        "visibility": "visible",
+        "input_rows": [],
+        "expected": [],
+        "scenario": {
+          "check": "format",
+          "kind": "choice",
+          "choices": [
+            "a",
+            "b",
+            "c",
+            "d"
+          ]
+        }
+      },
+      {
+        "id": "answer",
+        "visibility": "hidden",
+        "input_rows": [],
+        "expected": [],
+        "scenario": {
+          "check": "answer",
+          "kind": "choice",
+          "choices": [
+            "a",
+            "b",
+            "c",
+            "d"
+          ],
+          "why": "GDPR treats pseudonymised data as personal data (Recital 26). Only data that cannot reasonably be linked back to a person is anonymous. Pseudonymisation still reduces risk and is recommended.",
+          "correct": [
+            "b"
+          ]
+        }
+      }
+    ]
+  },
+  "lc-perf-small-files": {
+    "solution": "answer: a\n",
+    "fixtures": [
+      {
+        "id": "format",
+        "visibility": "visible",
+        "input_rows": [],
+        "expected": [],
+        "scenario": {
+          "check": "format",
+          "kind": "choice",
+          "choices": [
+            "a",
+            "b",
+            "c",
+            "d"
+          ]
+        }
+      },
+      {
+        "id": "answer",
+        "visibility": "hidden",
+        "input_rows": [],
+        "expected": [],
+        "scenario": {
+          "check": "answer",
+          "kind": "choice",
+          "choices": [
+            "a",
+            "b",
+            "c",
+            "d"
+          ],
+          "why": "Each file has fixed costs. Compacting into files of roughly 128 MB to 1 GB (OPTIMIZE, a rewrite, or fewer output partitions) cuts that overhead.",
+          "correct": [
+            "a"
+          ]
+        }
+      }
+    ]
+  },
+  "lc-perf-partition-pruning": {
+    "solution": "answer: a\n",
+    "fixtures": [
+      {
+        "id": "format",
+        "visibility": "visible",
+        "input_rows": [],
+        "expected": [],
+        "scenario": {
+          "check": "format",
+          "kind": "choice",
+          "choices": [
+            "a",
+            "b",
+            "c",
+            "d"
+          ]
+        }
+      },
+      {
+        "id": "answer",
+        "visibility": "hidden",
+        "input_rows": [],
+        "expected": [],
+        "scenario": {
+          "check": "answer",
+          "kind": "choice",
+          "choices": [
+            "a",
+            "b",
+            "c",
+            "d"
+          ],
+          "why": "Pruning needs a filter on the partition column itself. Filters on other columns can only use file statistics (min/max) inside the partitions that are read.",
+          "correct": [
+            "a"
+          ]
+        }
+      }
+    ]
+  },
+  "lc-perf-column-pruning": {
+    "solution": "answer: a\n",
+    "fixtures": [
+      {
+        "id": "format",
+        "visibility": "visible",
+        "input_rows": [],
+        "expected": [],
+        "scenario": {
+          "check": "format",
+          "kind": "choice",
+          "choices": [
+            "a",
+            "b",
+            "c",
+            "d"
+          ]
+        }
+      },
+      {
+        "id": "answer",
+        "visibility": "hidden",
+        "input_rows": [],
+        "expected": [],
+        "scenario": {
+          "check": "answer",
+          "kind": "choice",
+          "choices": [
+            "a",
+            "b",
+            "c",
+            "d"
+          ],
+          "why": "Each column is stored in its own chunks, so the reader fetches only the columns the query uses. SELECT * on a wide table reads everything.",
+          "correct": [
+            "a"
+          ]
+        }
+      }
+    ]
+  },
+  "lc-perf-partition-cardinality": {
+    "solution": "answer: b\n",
+    "fixtures": [
+      {
+        "id": "format",
+        "visibility": "visible",
+        "input_rows": [],
+        "expected": [],
+        "scenario": {
+          "check": "format",
+          "kind": "choice",
+          "choices": [
+            "a",
+            "b",
+            "c",
+            "d"
+          ]
+        }
+      },
+      {
+        "id": "answer",
+        "visibility": "hidden",
+        "input_rows": [],
+        "expected": [],
+        "scenario": {
+          "check": "answer",
+          "kind": "choice",
+          "choices": [
+            "a",
+            "b",
+            "c",
+            "d"
+          ],
+          "why": "Partition columns should have low cardinality and match common filters (a date, a region). For high-cardinality keys, use clustering (Z-order, liquid clustering) or sorting instead.",
+          "correct": [
+            "b"
+          ]
+        }
+      }
+    ]
+  },
+  "lc-perf-explain-analyze": {
+    "solution": "answer: a\n",
+    "fixtures": [
+      {
+        "id": "format",
+        "visibility": "visible",
+        "input_rows": [],
+        "expected": [],
+        "scenario": {
+          "check": "format",
+          "kind": "choice",
+          "choices": [
+            "a",
+            "b",
+            "c",
+            "d"
+          ]
+        }
+      },
+      {
+        "id": "answer",
+        "visibility": "hidden",
+        "input_rows": [],
+        "expected": [],
+        "scenario": {
+          "check": "answer",
+          "kind": "choice",
+          "choices": [
+            "a",
+            "b",
+            "c",
+            "d"
+          ],
+          "why": "EXPLAIN shows the planned operators with estimates. EXPLAIN ANALYZE executes the query, so you see real cardinalities and where the time went (and it costs a full run).",
+          "correct": [
+            "a"
+          ]
+        }
+      }
+    ]
+  },
+  "lc-ts-first-error": {
+    "solution": "answer: b\n",
+    "fixtures": [
+      {
+        "id": "format",
+        "visibility": "visible",
+        "input_rows": [],
+        "expected": [],
+        "scenario": {
+          "check": "format",
+          "kind": "choice",
+          "choices": [
+            "a",
+            "b",
+            "c",
+            "d"
+          ]
+        }
+      },
+      {
+        "id": "answer",
+        "visibility": "hidden",
+        "input_rows": [],
+        "expected": [],
+        "scenario": {
+          "check": "answer",
+          "kind": "choice",
+          "choices": [
+            "a",
+            "b",
+            "c",
+            "d"
+          ],
+          "why": "Later errors are often consequences of the first one (a task fails, so the stage fails, so the job fails). The innermost cause of the first failure names the real problem.",
+          "correct": [
+            "b"
+          ]
+        }
+      }
+    ]
+  },
+  "lc-ts-skew": {
+    "solution": "answer: a\n",
+    "fixtures": [
+      {
+        "id": "format",
+        "visibility": "visible",
+        "input_rows": [],
+        "expected": [],
+        "scenario": {
+          "check": "format",
+          "kind": "choice",
+          "choices": [
+            "a",
+            "b",
+            "c",
+            "d"
+          ]
+        }
+      },
+      {
+        "id": "answer",
+        "visibility": "hidden",
+        "input_rows": [],
+        "expected": [],
+        "scenario": {
+          "check": "answer",
+          "kind": "choice",
+          "choices": [
+            "a",
+            "b",
+            "c",
+            "d"
+          ],
+          "why": "With skew, one partition receives most rows of a hot key (often NULL or a default value). Check the key distribution; fix with skew handling (AQE), salting, or filtering the hot key.",
+          "correct": [
+            "a"
+          ]
+        }
+      }
+    ]
+  },
+  "lc-ts-row-count-jump": {
+    "solution": "answer: a\n",
+    "fixtures": [
+      {
+        "id": "format",
+        "visibility": "visible",
+        "input_rows": [],
+        "expected": [],
+        "scenario": {
+          "check": "format",
+          "kind": "choice",
+          "choices": [
+            "a",
+            "b",
+            "c",
+            "d"
+          ]
+        }
+      },
+      {
+        "id": "answer",
+        "visibility": "hidden",
+        "input_rows": [],
+        "expected": [],
+        "scenario": {
+          "check": "answer",
+          "kind": "choice",
+          "choices": [
+            "a",
+            "b",
+            "c",
+            "d"
+          ],
+          "why": "A join multiplies rows by the number of matches. Check that the join key is unique on the dimension side (one row per key, or one current row in a type 2 dimension) before joining.",
+          "correct": [
+            "a"
+          ]
+        }
+      }
+    ]
+  },
+  "lc-ts-module-not-found": {
+    "solution": "answer: a\n",
+    "fixtures": [
+      {
+        "id": "format",
+        "visibility": "visible",
+        "input_rows": [],
+        "expected": [],
+        "scenario": {
+          "check": "format",
+          "kind": "choice",
+          "choices": [
+            "a",
+            "b",
+            "c",
+            "d"
+          ]
+        }
+      },
+      {
+        "id": "answer",
+        "visibility": "hidden",
+        "input_rows": [],
+        "expected": [],
+        "scenario": {
+          "check": "answer",
+          "kind": "choice",
+          "choices": [
+            "a",
+            "b",
+            "c",
+            "d"
+          ],
+          "why": "The task runs in the worker's environment, not yours. Pin dependencies and ship them with the deployment (a requirements file or the worker image).",
+          "correct": [
+            "a"
+          ]
+        }
+      }
+    ]
+  }
+}
