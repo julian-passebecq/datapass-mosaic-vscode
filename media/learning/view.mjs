@@ -1,4 +1,4 @@
-import { MODES, MODE_LABELS, searchLessons, joinDemo, windowDemo, partitionDemo, compareRuns, isCurrentRun } from './model.mjs';
+import { MODES, MODE_LABELS, searchAll, joinDemo, windowDemo, partitionDemo, compareRuns, isCurrentRun } from './model.mjs';
 
 // The browser only presents bounded documents. Native files and runtime calls stay in the extension host.
 const vscode = acquireVsCodeApi();
@@ -7,6 +7,7 @@ let model;
 let query = '';
 let overview = false;
 let timer;
+let revealed;
 const visuals = new Map();
 const drafts = new Map();
 const cached = vscode.getState() ?? {};
@@ -27,12 +28,12 @@ function button(label, fn, options = {}) {
   return node;
 }
 function send(type, extra = {}) {
-  const global = ['ready', 'nativePath', 'export', 'rail', 'layout', 'select', 'openRuntime'].includes(type);
+  const global = ['ready', 'nativePath', 'export', 'rail', 'layout', 'select', 'openRuntime', 'review', 'rate', 'reviewClose', 'openCheatsheet'].includes(type);
   vscode.postMessage({ type, ...(global ? {} : { lesson: model.state.lesson }), ...extra });
 }
 function lessonById(id) { return model.catalog.lessons.find(item => item.id === id); }
-function destination(id) {
-  const path = model.catalog.paths.find(p => p.lessons.includes(id));
+function destination(id, pathId) {
+  const path = model.catalog.paths.find(p => p.id === pathId && p.lessons.includes(id)) ?? model.catalog.paths.find(p => p.lessons.includes(id));
   if (path) { overview = false; stop(); send('select', { path: path.id, lesson: id }); }
 }
 function localVisual(lesson) {
@@ -72,7 +73,14 @@ function dataTable(columns, rows, caption, decorate) {
   if (rows.length > 100) box.append(el('p', 'muted', `Showing 100 of ${rows.length} returned rows.`));
   return box;
 }
-function statusName(id) { return model.statuses[id] === 'practiced' ? 'Practice passed' : model.statuses[id] === 'read' ? 'Read (self-reported)' : 'Not started'; }
+/** The four progress levels as separate chips (read, checks, ran locally, verified); never one merged score. */
+function levels(id, tag = 'span') {
+  const badges = model.badges?.[id] ?? [];
+  const box = el(tag === 'small' ? 'small' : 'span', 'levels');
+  if (!badges.length) { box.append(el('span', 'level none', 'Not started')); return box; }
+  for (const b of badges) { const chip = el('span', `level level-${b.level}`, b.text); if (b.title) chip.title = b.title; box.append(chip); }
+  return box;
+}
 function stop() { clearInterval(timer); timer = undefined; }
 function play(lesson) {
   if (timer) { stop(); render(); return; }
@@ -87,12 +95,13 @@ function play(lesson) {
 function header(lesson, path) {
   const top = el('header', 'topbar');
   add(top, add(el('div', 'brand'), el('span', 'logo', 'M'), add(el('div'), el('strong', '', 'Mosaic Learning'), el('div', 'muted', 'Read. Experiment. Practice.'))));
-  add(top, add(el('div', 'toolbar'), button(overview ? 'Resume lesson' : 'Learning map', () => { overview = !overview; stop(); render(); }, { key: 'map' }),
+  add(top, add(el('div', 'toolbar'), button(overview ? 'Resume lesson' : 'Learning map', () => { overview = !overview; stop(); if (model.review?.active) send('reviewClose'); render(); }, { key: 'map' }),
+    button('Review flashcards', () => { overview = false; stop(); send('review'); }, { key: 'review', title: 'Self-rated flashcards, separate from Practice Review', disabled: !model.decks?.length }),
     button(model.state.railHidden ? 'Show path' : 'Hide path', () => send('rail', { hidden: !model.state.railHidden }), { key: 'rail' }),
     button('Runtime controls', () => send('openRuntime'), { title: 'Open existing runtime setup/start controls. Nothing starts automatically.' })));
   const heading = add(el('div', 'heading'), el('div', 'eyebrow', path.title), el('h1', '', overview ? 'Your data engineering learning map' : lesson.title));
-  add(heading, el('p', 'summary', overview ? 'Six paths connect course notes, native code and the labs already in Workbench.' : lesson.summary));
-  add(heading, add(el('div', 'metadata'), badge(`${lesson.minutes} min suggested`), badge(statusName(lesson.id)), badge(`Runtime: ${model.runtime.status}`, model.runtime.status === 'running' ? 'success' : ''), badge('Local-first')));
+  add(heading, el('p', 'summary', overview ? `${model.catalog.paths.length} paths connect course notes, native code, flashcards and the labs already in Workbench.` : lesson.summary));
+  add(heading, add(el('div', 'metadata'), badge(`${lesson.minutes} min suggested`), levels(lesson.id), badge(`Runtime: ${model.runtime.status}`, model.runtime.status === 'running' ? 'success' : ''), badge('Local-first')));
   const modes = el('nav', 'modes'); modes.setAttribute('aria-label', 'Lesson views');
   MODES.forEach(mode => modes.append(button(MODE_LABELS[mode], () => { overview = false; stop(); send('mode', { mode }); }, { pressed: mode === model.state.mode, key: `mode-${mode}` })));
   add(modes, select('Layout', [['balanced', 'Balanced'], ['focus', 'Focus'], ['compact', 'Compact']], model.state.layout, layout => send('layout', { layout })));
@@ -102,56 +111,125 @@ function pathRail(path, lesson) {
   const rail = el('aside', 'learning-rail'); rail.setAttribute('aria-label', 'Learning path');
   add(rail, add(el('div', 'rail-heading'), el('h2', '', 'Learning path'), button('Hide', () => send('rail', { hidden: true }), { key: 'hide-rail' })));
   rail.append(select('Path', model.catalog.paths.map(p => [p.id, p.title]), path.id, id => send('select', { path: id, lesson: model.catalog.paths.find(p => p.id === id).lessons[0] })));
-  const passed = path.lessons.filter(id => model.statuses[id] === 'practiced').length;
-  rail.append(el('p', 'muted', `${passed} / ${path.lessons.length} linked exercises passed`));
+  const verified = path.lessons.filter(id => model.levels?.[id]?.verified).length;
+  rail.append(el('p', 'muted', `${verified} / ${path.lessons.length} lessons verified by Practice`));
   const list = el('ol', 'path-list');
   path.lessons.forEach((id, i) => {
     const item = lessonById(id); const li = el('li', id === lesson.id ? 'current' : '');
     const title = button(`${i + 1}. ${item.title}`, () => destination(id), { key: `lesson-${id}` });
     if (id === lesson.id) title.setAttribute('aria-current', 'step');
-    add(li, title, el('small', '', statusName(id)));
+    add(li, title, levels(id, 'small'));
     if (id === lesson.id) {
       const sub = el('div', 'substeps'); ['read', 'watch', 'try', 'exercise'].forEach(mode => sub.append(button(MODE_LABELS[mode], () => { stop(); send('mode', { mode }); }, { pressed: model.state.mode === mode, key: `rail-${mode}` })));
       li.append(sub);
     }
     list.append(li);
   });
-  add(rail, list, el('hr'), el('p', 'muted', 'Reading is a self-report. Only the existing Practice grader can mark a linked exercise passed.'),
-    button('Open native path tree', () => send('nativePath')), button('Export notes and reading', () => send('export')));
+  add(rail, list, el('hr'), el('p', 'muted', 'Four separate levels: read is a self-report, checks are concept checks (no execution), "ran locally" is not graded, and only the existing Practice grader verifies an exercise.'));
+  const resume = model.resume;
+  if (resume) {
+    add(rail, el('h3', '', 'Next'), el('p', 'muted', resume.dueCards ? `${resume.dueCards} flashcards due (self-rated)` : 'No flashcard due today.'),
+      button('Review flashcards', () => send('review'), { key: 'rail-review', disabled: !model.decks?.length }));
+    if (resume.next) add(rail, el('p', 'muted', `To verify: ${resume.next.title} (${resume.next.lessonTitle})`),
+      button('Go to it', () => destination(resume.next.lesson, resume.next.path), { key: 'rail-next' }));
+  }
+  add(rail, el('hr'), button('Open native path tree', () => send('nativePath')), button('Export notes and reading', () => send('export')));
   if (lesson.related.length) add(rail, el('h3', '', 'Related topics'), lesson.related.map(id => button(lessonById(id).title, () => destination(id), { key: `related-${id}` })));
   return rail;
 }
+function resumeCard() {
+  const r = model.resume; if (!r) return undefined;
+  const lesson = lessonById(r.lesson);
+  const box = card('Resume', el('p', '', `Last lesson: ${lesson.title} (${MODE_LABELS[r.mode]})`),
+    add(el('div', 'toolbar'), button('Resume lesson', () => { overview = false; render(); }, { key: 'resume-lesson' }),
+      button(r.dueCards ? `Review ${r.dueCards} due flashcards` : 'Review flashcards', () => { overview = false; send('review'); }, { key: 'resume-review', disabled: !model.decks?.length })));
+  if (r.next) add(box, el('p', 'muted', `Next to verify: ${r.next.kind === 'check' ? 'concept check' : 'exercise'} "${r.next.title}" in ${r.next.lessonTitle}`),
+    button('Go to it', () => destination(r.next.lesson, r.next.path), { key: 'resume-next' }));
+  return box;
+}
 function learningMap() {
   const section = el('section', 'map');
-  const input = el('input'); input.type = 'search'; input.placeholder = 'Find a concept: joins, retries, grain...'; input.value = query;
+  const input = el('input'); input.type = 'search'; input.placeholder = 'Find a concept, a cheatsheet or a flashcard: joins, retries, grain...'; input.value = query;
   input.setAttribute('aria-label', 'Search lessons'); input.dataset.focus = 'search';
   input.addEventListener('input', () => { query = input.value.slice(0, 200); vscode.setState({ query }); render(); });
+  if (!query.trim()) { const r = resumeCard(); if (r) section.append(r); }
   section.append(input);
-  const matching = new Set(searchLessons(model.catalog, query).map(l => l.id));
+  const found = searchAll(model.catalog, query, { cheatsheets: model.cheatsheets ?? [], cards: model.cards ?? [] });
+  const matching = new Set(found.lessons.map(l => l.id));
   const cards = el('div', 'map-grid');
   for (const path of model.catalog.paths) {
     const ids = path.lessons.filter(id => matching.has(id)); if (!ids.length) continue;
     const c = card(path.title, prose(path.summary));
     const list = el('div', 'map-lessons');
-    ids.forEach(id => add(list, add(el('div'), button(lessonById(id).title, () => destination(id), { key: `map-${id}` }), el('small', '', statusName(id)))));
+    ids.forEach(id => add(list, add(el('div'), button(lessonById(id).title, () => destination(id, path.id), { key: `map-${id}` }), levels(id, 'small'))));
     add(c, list); cards.append(c);
   }
-  add(section, cards); if (!matching.size) section.append(el('p', 'empty', 'No matching lesson. Try a broader topic.'));
+  add(section, cards);
+  if (found.cheatsheets.length) add(section, card('Cheatsheets', add(el('div', 'map-lessons'), found.cheatsheets.map(s => button(s.title, () => send('openCheatsheet', { id: s.id }), { key: `sheet-${s.id}` })))));
+  if (found.cards.length) {
+    const deckTitle = id => model.decks.find(d => d.id === id)?.title ?? id;
+    add(section, card('Flashcards', add(el('div', 'map-lessons'), found.cards.map(c => add(el('div'), button(c.front, () => { overview = false; send('review', { deck: c.deck }); }, { key: `card-${c.deck}-${c.id}` }), el('small', '', `${deckTitle(c.deck)} - review this deck`))))));
+  }
+  if (!matching.size && !found.cheatsheets.length && !found.cards.length) section.append(el('p', 'empty', 'No matching lesson, cheatsheet or flashcard. Try a broader topic.'));
   return section;
+}
+function statusText(status) { return status === 'passed' ? 'Passed' : status === 'failed' ? 'Failed (submit again)' : 'Not answered'; }
+function linksCards() {
+  const links = model.links; if (!links) return [];
+  const out = [];
+  if (links.checks.length) out.push(card('Check your understanding', badge(model.labels?.quiz ?? 'Concept check, no execution', 'illustrative'),
+    links.checks.map((c, i) => add(el('div', `check ${c.status === 'passed' ? 'passed' : c.status === 'failed' ? 'failed' : ''}`), el('strong', '', c.title), el('small', 'muted', statusText(c.status)),
+      button('Answer in Practice', () => send('openCheck', { index: i }), { key: `check-${i}` }))),
+    el('p', 'muted', 'Your answer is submitted and recorded by Practice. A concept check runs nothing and never verifies the lesson.')));
+  if (links.practice.length) out.push(card('More practice', links.practice.map((p, i) => add(el('div', `check ${p.passed ? 'passed' : ''}`), el('strong', '', p.title),
+    el('small', 'muted', p.passed ? 'Practice passed' : 'Not passed yet'), button('Open in Practice', () => send('openPracticeItem', { index: i }), { key: `practice-${i}` })))));
+  if (links.missions.length) out.push(card('Missions', links.missions.map((m, i) => add(el('div', 'check'), el('strong', '', m.title), el('small', 'muted', `${m.pack} - checked in the ${m.lab} lab`),
+    button(`Open ${m.lab} lab`, () => send('openMission', { index: i }), { key: `mission-${i}` })))));
+  if (links.cheatsheet || links.deck) out.push(card('Reference', add(el('div', 'toolbar'),
+    links.cheatsheet ? button(`Cheatsheet: ${links.cheatsheet.title}`, () => send('cheatsheet'), { key: 'cheatsheet' }) : undefined,
+    links.deck ? button(`Flashcards: ${links.deck.title} (${links.deck.count})`, () => send('openDeck'), { key: 'deck' }) : undefined),
+    el('p', 'muted', 'The cheatsheet opens as a Markdown preview. Flashcards are self-rated and kept apart from Practice Review.')));
+  return out;
 }
 function course(lesson) {
   const content = el('div', 'course');
   lesson.blocks.forEach(block => { const c = card(block.title, prose(block.body)); c.classList.add(`block-${block.kind}`); content.append(c); });
-  if (lesson.code.source) {
+  if (lesson.code.source && lesson.code.language !== 'none') {
     const snippet = el('pre', 'source'); add(snippet, el('code', '', lesson.code.source));
     content.append(card('Native example', badge(lesson.code.language), snippet,
       el('p', 'muted', 'This is the shipped example, not your current edited file. Try opens a real VS Code file and preserves edits.'),
       button('Try this example', () => send('mode', { mode: 'try' }), { primary: true })));
+  } else if (lesson.code.source) {
+    const snippet = el('pre', 'source'); add(snippet, el('code', '', lesson.code.source));
+    content.append(card('Commands to try in the lab', snippet, el('p', 'muted', 'Shown for reading only. Datapass never runs them; type them yourself in the lab.'),
+      button('Open lab', () => send('openLab'))));
   }
-  content.append(card('Continue', add(el('div', 'toolbar'), button('Mark as read', () => send('read')), button('Open linked exercise', () => send('mode', { mode: 'exercise' }), { primary: true })),
+  add(content, linksCards());
+  content.append(card('Continue', add(el('div', 'toolbar'), button('Mark as read', () => send('read')),
+    model.exercise ? button('Open linked exercise', () => send('mode', { mode: 'exercise' }), { primary: true }) : button('Open lab', () => send('openLab'), { primary: true })),
     el('p', 'muted', 'Marking a lesson read does not pass an exercise or certify mastery.')));
   return content;
 }
+function reviewView() {
+  const r = model.review; const box = el('div', 'review');
+  const deckTitle = r.deck ? model.decks.find(d => d.id === r.deck)?.title : 'All decks';
+  add(box, card(`Flashcards: ${deckTitle}`, badge('Self-rated, not graded', 'illustrative'),
+    el('p', 'muted', 'Due cards first, then a few new ones. "Knew it" moves a card to a longer interval (1, 3, 7, 14, 30, 60 days); "Missed it" brings it back tomorrow. Kept apart from Practice Review.'),
+    add(el('div', 'toolbar'), select('Deck', [['', 'All decks'], ...model.decks.map(d => [d.id, `${d.title} (${d.count})`])], r.deck ?? '', value => send('review', value ? { deck: value } : {})),
+      button('Close review', () => send('reviewClose'), { key: 'review-close' }))));
+  if (!r.card) { box.append(card('Nothing due', el('p', 'empty', 'No card is due and no new card is left for this session. Come back tomorrow.'))); return box; }
+  const c = r.card; const face = card(r.card.deckTitle, el('p', 'muted', `${r.remaining} card${r.remaining === 1 ? '' : 's'} in this session${c.isNew ? ' - new card' : c.box ? ` - box ${c.box} of 6` : ''}`));
+  face.classList.add('flashcard');
+  add(face, el('h3', 'card-front', c.front));
+  if (revealed === `${c.deck}/${c.id}`) {
+    add(face, el('hr'), prose(c.back), c.tags?.length ? el('p', 'muted', c.tags.join(' · ')) : undefined,
+      add(el('div', 'toolbar'), button('Knew it', () => { revealed = undefined; send('rate', { deck: c.deck, card: c.id, rating: 'knew' }); }, { primary: true, key: 'knew' }),
+        button('Missed it', () => { revealed = undefined; send('rate', { deck: c.deck, card: c.id, rating: 'missed' }); }, { key: 'missed' })));
+    if (c.lesson && lessonById(c.lesson)) add(face, button(`Open lesson: ${lessonById(c.lesson).title}`, () => destination(c.lesson), { key: 'card-lesson' }));
+  } else face.append(button('Show answer', () => { revealed = `${c.deck}/${c.id}`; render(); }, { primary: true, key: 'reveal' }));
+  return add(box, face);
+}
+
 function joinVisual(lesson, state) {
   const data = joinDemo(state.join, state.filter);
   const box = el('div');
@@ -264,6 +342,11 @@ function tryView(lesson) {
 }
 function exerciseView() {
   const e = model.exercise; const box = el('div');
+  if (!e) {
+    add(box, card('Practise this lesson', prose('This lesson has no single linked exercise. It is practised with the items below: extra Practice exercises verify it when one passes a Submit; missions are checked in their own lab.'),
+      button('Open lab', () => send('openLab'))), linksCards());
+    return box;
+  }
   add(box, card(e.title, badge(e.language), badge(e.truth ?? 'See grading result'), prose(e.prompt),
     add(el('div', 'toolbar'), button('Open solution in Practice', () => send('openPractice')), button('Run visible tests', () => send('grade', { mode: 'run' }), { disabled: model.busy || Boolean(e.gradingNote) || model.runtime.status !== 'running' }),
       button('Submit solution', () => send('grade', { mode: 'submit' }), { primary: true, disabled: model.busy || Boolean(e.gradingNote) || model.runtime.status !== 'running' }))));
@@ -279,6 +362,7 @@ function exerciseView() {
     if (result.error) checks.append(prose(result.error.message)); box.append(checks);
   } else box.append(el('p', 'empty', 'No grading result for this exercise in the current session. Practice progress is still shown in the path.'));
   add(box, card('Feedback and reference', prose('The existing Practice view retains its hints, detailed expected/actual comparison, reference-solution unlock and spaced review. This page delegates to that same grader; it does not maintain a second score.'), button('Open full Practice feedback', () => send('openPractice'))));
+  add(box, linksCards());
   return box;
 }
 function compareView() {
@@ -305,6 +389,7 @@ function render() {
   root.className = `layout-${model.state.layout}`;
   const body = el('div', `workspace ${model.state.railHidden ? 'rail-hidden' : ''}`); const main = el('section', 'lesson-main');
   if (overview) main.append(learningMap());
+  else if (model.review?.active) main.append(reviewView());
   else {
     if (!model.hasWorkspace || !model.trusted) main.append(el('p', 'notice', 'Reading and teaching diagrams work without execution. Creating files and running code need a trusted local workspace.'));
     if (model.notice) add(main, el('p', 'notice', model.notice));

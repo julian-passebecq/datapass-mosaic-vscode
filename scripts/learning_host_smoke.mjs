@@ -18,6 +18,10 @@ const catalog = model.validateCatalog(loadCatalogDocument(extensionRoot));
 const hostSource = readFileSync(path.join(extensionRoot, 'src/learning/learningWorkspace.ts'), 'utf8');
 const compiled = ts.transpileModule(hostSource, { compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022, esModuleInterop: true }, reportDiagnostics: true });
 assert.equal(compiled.diagnostics?.length ?? 0, 0);
+// The host imports the Leitner schedule of Practice Review; load that real module too.
+const reviewCompiled = ts.transpileModule(readFileSync(path.join(extensionRoot, 'src/platform/practiceReview.ts'), 'utf8'), { compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022 } });
+const practiceReview = {};
+vm.runInNewContext(reviewCompiled.outputText, { exports: practiceReview, Date, Math, Number, String }, { filename: 'practiceReview.js' });
 
 async function fixture() {
   const folder = await fs.mkdtemp(path.join(tmpdir(), 'mosaic-learning-host-'));
@@ -38,13 +42,14 @@ async function fixture() {
   };
   const api = {
     Uri: { file: uri, joinPath: (base, ...parts) => uri(path.join(base.fsPath, ...parts)) },
-    EventEmitter, TreeItem: class { constructor(label) { this.label = label; } }, ThemeIcon: class {},
+    EventEmitter, FileType: { File: 1, Directory: 2 }, TreeItem: class { constructor(label) { this.label = label; } }, ThemeIcon: class {},
     ViewColumn: { Active: -1, One: 1, Two: 2 }, TreeItemCollapsibleState: { Expanded: 2, None: 0 },
     Range: class { constructor(a,b,c,d) { this.start={line:a,character:b};this.end={line:c,character:d}; } },
     Selection: class { constructor(a,b) { this.start=a;this.end=b; } }, RelativePattern: class {},
     commands: { executeCommand: async (...args) => calls.push(['command', ...args]) },
     workspace: { isTrusted: true, workspaceFolders: [{ uri: uri(folder) }], onDidChangeTextDocument: event,
-      fs: { readFile: u => fs.readFile(u.fsPath), writeFile: (u, bytes) => fs.writeFile(u.fsPath, bytes) },
+      fs: { readFile: u => fs.readFile(u.fsPath), writeFile: (u, bytes) => fs.writeFile(u.fsPath, bytes),
+        readDirectory: async u => (await fs.readdir(u.fsPath, { withFileTypes: true })).map(d => [d.name, d.isDirectory() ? 2 : 1]) },
       createFileSystemWatcher: () => ({ onDidChange:event, onDidCreate:event, onDidDelete:event, dispose() {} }),
       openTextDocument: async u => {
         if (!docs.has(u.fsPath)) {
@@ -65,6 +70,7 @@ async function fixture() {
     if (id === 'vscode') return api;
     if (id === '../exerciseCatalog') return { loadExerciseCatalog:async()=>exercises };
     if (id === '../projectState') return { readProgress:async()=>progress };
+    if (id === '../platform/practiceReview') return practiceReview;
     if (id.endsWith('/model.mjs')) return model;
     return require(id);
   }, TextDecoder, TextEncoder, structuredClone, console };
