@@ -1,0 +1,107 @@
+{
+  "id": "tf-first-apply",
+  "version": "1",
+  "lab": "infra",
+  "title": "Your first terraform apply: a resource group and a storage account",
+  "level": "intro",
+  "estimate": "20-30 min",
+  "skills": ["terraform init / plan / apply", "resource blocks and references", "variables, validation and terraform.tfvars", "locals for shared tags", "outputs"],
+  "ticket": {
+    "from": "Marco Bianchi, IoT team lead",
+    "subject": "Sensors platform: a dev resource group, in code from day one",
+    "body": [
+      "We start the sensors platform this sprint and I want it in Terraform from the first resource. `main.tf` only",
+      "has the provider for now. Please add:",
+      "",
+      "- **A resource group** `azurerm_resource_group.main`, named `rg-sensors-<env>`, in the region given by a",
+      "  variable `location` (a `string`, default `westeurope`).",
+      "- **A variable `env`** (a `string`) that only accepts `dev`, `test` or `prod` (a `validation` block), and is",
+      "  part of every name.",
+      "- **A storage account** `azurerm_storage_account.raw` for the raw sensor files, named `stsensorsraw<env>01`,",
+      "  Standard, LRS, TLS 1.2 at least, in the same resource group and region (refer to the resource group, do not",
+      "  repeat its name).",
+      "- Both tagged `env = <env>` and `owner = \"iot-team\"`.",
+      "- **An output `resource_group_id`**: the network team needs the id for a role assignment.",
+      "",
+      "Our dev environment lives in **North Europe** (`northeurope`): put the values for dev in `terraform.tfvars`,",
+      "not in the code. Run `terraform plan` and read it before you apply; afterwards a new plan must show nothing to",
+      "change.",
+      "",
+      "This is the lab's simulated subscription: nothing is created in Azure."
+    ]
+  },
+  "acceptance": [
+    {
+      "id": "resource-group",
+      "text": "rg-sensors-dev exists in northeurope, created by Terraform, with the two tags.",
+      "checks": [
+        {"kind": "tf_state", "includes": ["azurerm_resource_group.main"],
+         "attributes": {"azurerm_resource_group.main": {"name": "rg-sensors-dev", "location": "northeurope", "tags": {"env": "dev", "owner": "iot-team"}}},
+         "fail": "The resource group in the state is not the one the ticket describes."},
+        {"kind": "azure_resource", "type": "Microsoft.Resources/resourceGroups", "name": "rg-sensors-dev", "managed_by": "terraform",
+         "fail": "The subscription has no resource group rg-sensors-dev created by Terraform."}
+      ]
+    },
+    {
+      "id": "storage",
+      "text": "stsensorsrawdev01 is Standard LRS, TLS 1.2, tagged, in rg-sensors-dev, and refers to the resource group.",
+      "checks": [
+        {"kind": "azure_resource", "type": "Microsoft.Storage/storageAccounts", "name": "stsensorsrawdev01", "group": "rg-sensors-dev", "managed_by": "terraform",
+         "attributes": {"account_tier": "Standard", "account_replication_type": "LRS", "min_tls_version": "TLS1_2", "tags": {"env": "dev", "owner": "iot-team"}},
+         "fail": "The storage account is not the one the ticket asks for."},
+        {"kind": "tf_config", "resources": [{"address": "azurerm_storage_account.raw", "references": ["azurerm_resource_group.main"]}],
+         "fail": "The storage account repeats the resource group's name instead of referring to it."}
+      ]
+    },
+    {
+      "id": "variables",
+      "text": "location and env are string variables, env is validated, and the dev values come from terraform.tfvars.",
+      "checks": [
+        {"kind": "tf_config", "variables": [{"name": "location", "type": "string", "default": true}, {"name": "env", "type": "string", "validation": true}],
+         "resources": [{"address": "azurerm_resource_group.main", "references": ["var.location", "var.env"]}],
+         "fail": "The variables are not declared or used as the ticket asks."},
+        {"kind": "text", "path": "terraform.tfvars", "regex": ["(?m)^\\s*location\\s*=\\s*\"northeurope\"", "(?m)^\\s*env\\s*=\\s*\"dev\""],
+         "fail": "terraform.tfvars does not hold the dev values."}
+      ]
+    },
+    {
+      "id": "output",
+      "text": "An output resource_group_id is declared and recorded by the apply.",
+      "checks": [
+        {"kind": "tf_config", "outputs": ["resource_group_id"], "fail": "There is no output resource_group_id."},
+        {"kind": "tf_state", "outputs": {"resource_group_id": "/subscriptions/6d1f2c3a-0b4e-4c8d-9a7f-2e5b8c1d4f60/resourceGroups/rg-sensors-dev"},
+         "fail": "The applied state has no resource_group_id output with the group's id."}
+      ]
+    },
+    {
+      "id": "workflow",
+      "text": "You ran init, plan and apply, and a fresh plan shows no changes.",
+      "checks": [
+        {"kind": "journal", "includes": ["^terraform init", "^terraform plan", "^terraform apply"],
+         "fail": "terraform init, plan and apply were not all run (successfully)."},
+        {"kind": "tf_plan", "changes": false}
+      ]
+    }
+  ],
+  "hints": [
+    "`terraform init` once (it installs the provider), then `terraform plan`: read the \"+ create\" lines and the summary \"Plan: 2 to add\" before `terraform apply`.",
+    "A resource block is `resource \"<type>\" \"<name>\" { ... }`; other blocks refer to it as `<type>.<name>.<attribute>`, for example `azurerm_resource_group.main.name`. The reference also tells Terraform which one to create first.",
+    "Inside a string, `\"rg-sensors-${var.env}\"` inserts a variable. A `validation { condition = contains([\"dev\", \"test\", \"prod\"], var.env) error_message = \"...\" }` block refuses other values.",
+    "Terraform reads `terraform.tfvars` automatically: one `name = value` line per variable. A variable without a default and without a value makes `plan` fail.",
+    "A `locals { tags = { ... } }` block avoids repeating the tags: `tags = local.tags`.",
+    "`terraform output` prints the outputs after an apply; `terraform state list` shows what Terraform manages."
+  ],
+  "infra": {
+    "world": {
+      "clock": "2026-10-12T09:00:00Z"
+    }
+  },
+  "reference": [
+    {"infra": "terraform init"},
+    {"infra": "terraform validate"},
+    {"infra": "terraform plan"},
+    {"infra": "terraform apply -auto-approve"},
+    {"infra": "terraform output"},
+    {"infra": "terraform plan"}
+  ]
+}

@@ -1,0 +1,92 @@
+{
+  "id": "k8s-first-deployment",
+  "version": "1",
+  "lab": "infra",
+  "title": "Your first Deployment and Service on Kubernetes",
+  "level": "intro",
+  "estimate": "20-30 min",
+  "skills": ["Deployment: replicas, selector, pod template", "containerPort and named ports", "Service: selector, port, targetPort", "kubectl apply / get / describe", "endpoints"],
+  "ticket": {
+    "from": "Marco Bianchi, IoT team lead",
+    "subject": "sensor-api on the cluster, behind a Service",
+    "body": [
+      "The image `ghcr.io/contoso/sensor-api:0.1` is in our registry and the platform team gave us a namespace on",
+      "the cluster (we use `default` for now). The previous intern started `k8s/deployment.yaml`; please finish it:",
+      "",
+      "- **Two pods** of sensor-api, so one can be lost without an outage. The app listens on port **8000**:",
+      "  declare it on the container, named `http`.",
+      "- **A Service** `sensor-api` in `k8s/service.yaml`, on port 80, that sends traffic to the pods' `http` port.",
+      "  The dashboards will call `http://sensor-api/`.",
+      "- Apply the folder, then look at what the cluster made of it: the pods (`kubectl get pods`), one object in",
+      "  detail (`kubectl describe`), and the Service's endpoints, which must list both pods.",
+      "",
+      "This is the lab's simulated cluster: nothing is deployed, and your manifests are read, never executed."
+    ]
+  },
+  "acceptance": [
+    {
+      "id": "deployment",
+      "text": "The sensor-api Deployment runs ghcr.io/contoso/sensor-api:0.1 on two ready pods, none of them failing.",
+      "checks": [
+        {"kind": "k8s_deployment", "name": "sensor-api", "image": "ghcr.io/contoso/sensor-api:0.1", "ready": 2, "no_crashing_pods": true,
+         "fail": "The Deployment is not running as the ticket asks."}
+      ]
+    },
+    {
+      "id": "service",
+      "text": "The sensor-api Service has both pods as endpoints, and its traffic reaches the app.",
+      "checks": [
+        {"kind": "k8s_service", "name": "sensor-api", "min_endpoints": 2, "reachable": true, "fail": "The Service does not send traffic to both pods."}
+      ]
+    },
+    {
+      "id": "manifests",
+      "text": "The manifests are files in k8s/: the Deployment with two replicas and the port, the Service in service.yaml.",
+      "checks": [
+        {"kind": "text", "path": "k8s/deployment.yaml", "regex": ["(?m)^\\s*replicas:\\s*2\\s*$", "(?m)containerPort:\\s*8000"],
+         "fail": "k8s/deployment.yaml does not declare two replicas and port 8000."},
+        {"kind": "text", "path": "k8s/service.yaml", "regex": ["(?m)^kind:\\s*Service\\s*$"], "fail": "k8s/service.yaml does not hold the Service."}
+      ]
+    },
+    {
+      "id": "looked",
+      "text": "You applied the folder, listed the pods, described an object and read the endpoints.",
+      "checks": [
+        {"kind": "journal", "includes": ["^kubectl apply -f k8s", "^kubectl get (pods?|po)( |$)", "^kubectl describe ", "^kubectl get (endpoints|ep)( |$)"],
+         "fail": "kubectl apply, get pods, describe and get endpoints were not all run."}
+      ]
+    }
+  ],
+  "hints": [
+    "A Deployment keeps `replicas` copies of its pod `template` running; its `selector.matchLabels` must match the template's labels.",
+    "Declare the port on the container: `ports: [{name: http, containerPort: 8000}]` (as a YAML list). Naming it lets the Service say `targetPort: http`.",
+    "A Service finds its pods by labels: its `selector` must match the pod template's labels exactly (`app.kubernetes.io/name: sensor-api`). `port` is what callers use, `targetPort` is where the app listens.",
+    "`kubectl apply -f k8s/` applies every file of the folder; `kubectl rollout status deployment/sensor-api` waits for the pods; `kubectl get pods -o wide` shows them with their IPs.",
+    "`kubectl describe deployment sensor-api` or `kubectl describe pod NAME` explains a pod that is not ready (an image that cannot be pulled, for example).",
+    "`kubectl get endpoints sensor-api` lists the pod IP:port pairs the Service sends traffic to. Empty means its selector matches no ready pod."
+  ],
+  "infra": {
+    "world": {
+      "clock": "2026-10-12T11:00:00Z",
+      "kube": {
+        "nodes": [
+          {"name": "aks-system-12345678-vmss000000", "cpu": "2", "memory": "8Gi"},
+          {"name": "aks-system-12345678-vmss000001", "cpu": "2", "memory": "8Gi"}
+        ],
+        "images": {
+          "ghcr.io/contoso/sensor-api:0.1": {"listens": 8000, "health_path": "/health", "start_s": 4,
+            "logs": ["INFO:     Started server process [1]", "INFO:     Application startup complete.", "INFO:     Uvicorn running on http://0.0.0.0:8000"]}
+        }
+      }
+    }
+  },
+  "reference": [
+    {"infra": "ls k8s"},
+    {"infra": "kubectl apply -f k8s/"},
+    {"infra": "kubectl rollout status deployment/sensor-api"},
+    {"infra": "kubectl get pods -o wide"},
+    {"infra": "kubectl describe deployment sensor-api"},
+    {"infra": "kubectl get svc sensor-api"},
+    {"infra": "kubectl get endpoints sensor-api"}
+  ]
+}

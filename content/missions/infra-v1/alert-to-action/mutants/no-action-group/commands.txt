@@ -1,0 +1,4 @@
+az monitor metrics alert create -n adf-finance-failed-runs -g rg-finance-prod --scopes adf-finance-prod --condition "total PipelineFailedRuns > 0" --window-size 5m --evaluation-frequency 1m --severity 1 --description "A finance pipeline run failed"
+lab alerts replay
+az vm list -g rg-finance-prod -o table
+az vm start -g rg-finance-prod -n vm-shir-finance

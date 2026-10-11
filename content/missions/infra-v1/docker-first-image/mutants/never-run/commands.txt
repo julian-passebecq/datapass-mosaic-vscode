@@ -1,0 +1,2 @@
+docker build -t sensor-api:0.1 .
+docker images

@@ -1,0 +1,7 @@
+Reporting VMs: health check
+Fill in each line after the colon (one value per line), then run the check.
+
+vm:
+metric:
+since (UTC, HH:MM):
+action:

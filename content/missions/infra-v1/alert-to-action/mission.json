@@ -1,0 +1,154 @@
+{
+  "id": "alert-to-action",
+  "version": "1",
+  "lab": "infra",
+  "title": "From alert to action: page on failed pipeline runs, then fix the cause",
+  "level": "intro",
+  "estimate": "20-30 min",
+  "skills": ["metric alert: condition, window, frequency", "alert severity (0 critical ... 4 verbose)", "action groups", "lab alerts replay: reading when a rule fires and resolves", "acting on the cause, not the symptom"],
+  "ticket": {
+    "from": "Hannah Okoye, finance data owner",
+    "subject": "The finance loads failed all night and we found out at 07:30",
+    "body": [
+      "Our finance pipelines in the data factory `adf-finance-prod` (resource group `rg-finance-prod`) run every",
+      "15 minutes. Since sometime last night every run fails, and nobody was told. Two things, in this order:",
+      "",
+      "1. **An alert that pages.** A metric alert `adf-finance-failed-runs` on the factory's `PipelineFailedRuns`:",
+      "   the **total** over a **5-minute** window, evaluated **every minute**, above 0. Severity **1** (Error: the",
+      "   month-end close depends on these loads), notifying the action group `ag-finance-oncall`.",
+      "2. **Read what it would have done last night**: replay the night against it (`lab alerts replay`) and write",
+      "   in `incident.txt` the time (UTC) of the first page. Then find the cause (the factory runs its copies",
+      "   through a self-hosted integration runtime on a VM of the same resource group), fix it, and write the",
+      "   cause and your action in the note.",
+      "",
+      "This is the lab's simulated subscription: the metrics are a recorded scenario and nothing is sent to Azure."
+    ]
+  },
+  "acceptance": [
+    {
+      "id": "alert",
+      "text": "A rule on PipelineFailedRuns of adf-finance-prod pages ag-finance-oncall (sev 0-1) within two minutes of the first failure, and never before it.",
+      "checks": [
+        {"kind": "azure_alert", "scope": "adf-finance-prod", "metric": "PipelineFailedRuns", "max_severity": 1, "action_group": "ag-finance-oncall",
+         "fires": [["2026-10-12T03:15:00Z", "2026-10-12T03:17:00Z"]],
+         "quiet": [["2026-10-11T19:30:00Z", "2026-10-12T03:14:59Z"]],
+         "fail": "The alert would not have paged as the ticket asks:"}
+      ]
+    },
+    {
+      "id": "replayed",
+      "text": "You replayed the night after the last change to your rule, and the note gives the first page at 03:16 UTC.",
+      "checks": [
+        {"kind": "journal", "includes": ["^lab alerts replay"], "before": [["^az monitor metrics alert (create|update)", "^lab alerts replay"]],
+         "fail": "The rule was not replayed after its last change."},
+        {"kind": "text", "path": "incident.txt", "regex": ["(?im)^first page \\(UTC, HH:MM\\):\\s*03:16\\s*$"],
+         "fail": "incident.txt does not give the time of the first page the replay shows."}
+      ]
+    },
+    {
+      "id": "action",
+      "text": "The cause (vm-shir-finance, deallocated) is in the note, and the VM was started again.",
+      "checks": [
+        {"kind": "text", "path": "incident.txt", "regex": ["(?im)^cause:.*vm-shir-finance"], "fail": "incident.txt does not name the cause."},
+        {"kind": "azure_resource", "type": "Microsoft.Compute/virtualMachines", "name": "vm-shir-finance", "attributes": {"power_state": "VM running"},
+         "fail": "The integration runtime's VM is still not running."},
+        {"kind": "journal", "includes": ["^az vm (list|show)"], "fail": "The VMs were not looked at before acting."}
+      ]
+    }
+  ],
+  "hints": [
+    "`az monitor metrics list-definitions --resource adf-finance-prod` lists the factory's metrics; `az monitor action-group list -o table` the action groups.",
+    "The condition is one string: `--condition \"total PipelineFailedRuns > 0\"`; then `--window-size 5m --evaluation-frequency 1m --severity 1 --action ag-finance-oncall`.",
+    "Severity goes from 0 (Critical) to 4 (Verbose): a smaller number is more urgent. An alert without an action group fires, but nobody hears it.",
+    "`lab alerts replay` prints, for each rule, when it fired and when it resolved over the recorded night. A rule evaluated at 03:16 looks at the five minutes before: that is when the first failure is seen.",
+    "`az vm list -g rg-finance-prod -o table` shows each VM's power state. `az vm start -g rg-finance-prod -n NAME` starts a stopped or deallocated VM.",
+    "Made a mistake in the rule? `az monitor metrics alert delete -n adf-finance-failed-runs -g rg-finance-prod`, create it again, and replay again."
+  ],
+  "infra": {
+    "world": {
+      "clock": "2026-10-12T07:30:00Z",
+      "azure": {
+        "resources": {
+          "/subscriptions/6d1f2c3a-0b4e-4c8d-9a7f-2e5b8c1d4f60/resourceGroups/rg-finance-prod": {
+            "type": "Microsoft.Resources/resourceGroups", "tf_type": "azurerm_resource_group",
+            "id": "/subscriptions/6d1f2c3a-0b4e-4c8d-9a7f-2e5b8c1d4f60/resourceGroups/rg-finance-prod",
+            "managed_by": "terraform", "created_at": "2025-01-20T09:00:00Z",
+            "attributes": {"id": "/subscriptions/6d1f2c3a-0b4e-4c8d-9a7f-2e5b8c1d4f60/resourceGroups/rg-finance-prod",
+                           "name": "rg-finance-prod", "location": "westeurope", "managed_by": null,
+                           "tags": {"owner": "finance-data", "env": "prod"}}
+          },
+          "/subscriptions/6d1f2c3a-0b4e-4c8d-9a7f-2e5b8c1d4f60/resourceGroups/rg-finance-prod/providers/Microsoft.DataFactory/factories/adf-finance-prod": {
+            "type": "Microsoft.DataFactory/factories", "tf_type": "azurerm_data_factory",
+            "id": "/subscriptions/6d1f2c3a-0b4e-4c8d-9a7f-2e5b8c1d4f60/resourceGroups/rg-finance-prod/providers/Microsoft.DataFactory/factories/adf-finance-prod",
+            "managed_by": "terraform", "created_at": "2025-01-20T09:00:00Z",
+            "attributes": {"id": "/subscriptions/6d1f2c3a-0b4e-4c8d-9a7f-2e5b8c1d4f60/resourceGroups/rg-finance-prod/providers/Microsoft.DataFactory/factories/adf-finance-prod",
+                           "name": "adf-finance-prod", "location": "westeurope", "tags": {"owner": "finance-data"}},
+            "metrics": {
+              "end": "2026-10-12T07:30:00Z", "minutes": 720,
+              "series": {
+                "PipelineFailedRuns": {
+                  "unit": "Count", "description": "Failed pipeline runs, per minute", "base": 0, "noise": 0,
+                  "events": [
+                    {"from": "2026-10-12T03:15:00Z", "minutes": 1, "value": 1}, {"from": "2026-10-12T03:30:00Z", "minutes": 1, "value": 1},
+                    {"from": "2026-10-12T03:45:00Z", "minutes": 1, "value": 1}, {"from": "2026-10-12T04:00:00Z", "minutes": 1, "value": 1},
+                    {"from": "2026-10-12T04:15:00Z", "minutes": 1, "value": 1}, {"from": "2026-10-12T04:30:00Z", "minutes": 1, "value": 1},
+                    {"from": "2026-10-12T04:45:00Z", "minutes": 1, "value": 1}, {"from": "2026-10-12T05:00:00Z", "minutes": 1, "value": 1},
+                    {"from": "2026-10-12T05:15:00Z", "minutes": 1, "value": 1}, {"from": "2026-10-12T05:30:00Z", "minutes": 1, "value": 1},
+                    {"from": "2026-10-12T05:45:00Z", "minutes": 1, "value": 1}, {"from": "2026-10-12T06:00:00Z", "minutes": 1, "value": 1},
+                    {"from": "2026-10-12T06:15:00Z", "minutes": 1, "value": 1}, {"from": "2026-10-12T06:30:00Z", "minutes": 1, "value": 1},
+                    {"from": "2026-10-12T06:45:00Z", "minutes": 1, "value": 1}, {"from": "2026-10-12T07:00:00Z", "minutes": 1, "value": 1},
+                    {"from": "2026-10-12T07:15:00Z", "minutes": 1, "value": 1}
+                  ]
+                },
+                "IntegrationRuntimeAvailableNodeNumber": {
+                  "unit": "Count", "description": "Available nodes of the self-hosted integration runtime ir-finance", "base": 1, "noise": 0,
+                  "events": [{"from": "2026-10-12T03:08:00Z", "minutes": 262, "value": 0}]
+                }
+              }
+            }
+          },
+          "/subscriptions/6d1f2c3a-0b4e-4c8d-9a7f-2e5b8c1d4f60/resourceGroups/rg-finance-prod/providers/Microsoft.Compute/virtualMachines/vm-shir-finance": {
+            "type": "Microsoft.Compute/virtualMachines", "tf_type": "azurerm_windows_virtual_machine",
+            "id": "/subscriptions/6d1f2c3a-0b4e-4c8d-9a7f-2e5b8c1d4f60/resourceGroups/rg-finance-prod/providers/Microsoft.Compute/virtualMachines/vm-shir-finance",
+            "managed_by": "terraform", "created_at": "2025-01-20T09:00:00Z",
+            "attributes": {"id": "/subscriptions/6d1f2c3a-0b4e-4c8d-9a7f-2e5b8c1d4f60/resourceGroups/rg-finance-prod/providers/Microsoft.Compute/virtualMachines/vm-shir-finance",
+                           "name": "vm-shir-finance", "location": "westeurope", "size": "Standard_D4s_v5", "os_type": "Windows",
+                           "power_state": "VM deallocated", "tags": {"role": "self-hosted-integration-runtime"}},
+            "metrics": {
+              "end": "2026-10-12T07:30:00Z", "minutes": 720,
+              "series": {
+                "Percentage CPU": {
+                  "unit": "Percent", "description": "The percentage of allocated compute units in use by the VM",
+                  "base": 21, "noise": 6, "max": 100,
+                  "events": [{"from": "2026-10-12T03:08:00Z", "minutes": 262, "value": 0}]
+                },
+                "VmAvailabilityMetric": {
+                  "unit": "Count", "description": "1 while the VM is up, 0 while it is not available", "base": 1, "noise": 0,
+                  "events": [{"from": "2026-10-12T03:08:00Z", "minutes": 262, "value": 0}]
+                }
+              }
+            }
+          },
+          "/subscriptions/6d1f2c3a-0b4e-4c8d-9a7f-2e5b8c1d4f60/resourceGroups/rg-finance-prod/providers/Microsoft.Insights/actionGroups/ag-finance-oncall": {
+            "type": "Microsoft.Insights/actionGroups", "tf_type": "azurerm_monitor_action_group",
+            "id": "/subscriptions/6d1f2c3a-0b4e-4c8d-9a7f-2e5b8c1d4f60/resourceGroups/rg-finance-prod/providers/Microsoft.Insights/actionGroups/ag-finance-oncall",
+            "managed_by": "portal", "created_at": "2025-01-20T09:00:00Z",
+            "attributes": {"id": "/subscriptions/6d1f2c3a-0b4e-4c8d-9a7f-2e5b8c1d4f60/resourceGroups/rg-finance-prod/providers/Microsoft.Insights/actionGroups/ag-finance-oncall",
+                           "name": "ag-finance-oncall", "short_name": "finoncall",
+                           "receivers": ["sms: finance on-call phone", "email: finance-data@contoso.example"]}
+          }
+        }
+      }
+    }
+  },
+  "reference": [
+    {"infra": "az monitor metrics list-definitions --resource adf-finance-prod"},
+    {"infra": "az monitor action-group list -o table"},
+    {"infra": "az monitor metrics alert create -n adf-finance-failed-runs -g rg-finance-prod --scopes adf-finance-prod --condition \"total PipelineFailedRuns > 0\" --window-size 5m --evaluation-frequency 1m --severity 1 --action ag-finance-oncall --description \"A finance pipeline run failed\""},
+    {"infra": "lab alerts replay"},
+    {"infra": "az vm list -g rg-finance-prod -o table"},
+    {"infra": "az monitor metrics list --resource vm-shir-finance --metric VmAvailabilityMetric --interval 15m --start-time 2026-10-12T02:30:00Z --end-time 2026-10-12T04:00:00Z"},
+    {"infra": "az vm start -g rg-finance-prod -n vm-shir-finance"},
+    {"infra": "az vm list -g rg-finance-prod -o table"}
+  ]
+}

@@ -1,0 +1,6 @@
+Finance loads: incident note
+Fill in each line after the colon (one value per line), then run the check.
+
+first page (UTC, HH:MM): 03:08
+cause: vm-shir-finance was deallocated, so every run failed
+action: az vm start -g rg-finance-prod -n vm-shir-finance

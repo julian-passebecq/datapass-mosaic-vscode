@@ -1,0 +1,4 @@
+az vm list -g rg-reporting-prod -o table
+az monitor metrics list --resource vm-report-app-01 --metric "Percentage CPU" --interval 5m --start-time 2026-10-12T02:00:00Z --end-time 2026-10-12T03:30:00Z
+az vm restart -g rg-reporting-prod -n vm-report-app-01
+az vm restart -g rg-reporting-prod -n vm-report-db-01
