@@ -1,4 +1,5 @@
 from contextlib import asynccontextmanager
+from importlib import metadata as importlib_metadata
 import json
 import os
 import re
@@ -37,6 +38,8 @@ kernel_manager = KernelManager(
     trusted=os.getenv("DATAPASS_TRUSTED_PYTHON") == "1",
     timeout=20.0,
     max_workers=1,
+    # .datapass/project.json catalog.seed, passed by the extension at launch: "none" for a blank Build workspace.
+    seed=os.getenv("DATAPASS_CATALOG_SEED", "demo"),
 )
 
 
@@ -385,6 +388,13 @@ def health() -> dict[str, str]:
     return {"status": "ok", "runtime": "local", "version": "0.1.0"}
 
 
+def _package_version(name: str) -> str | None:
+    try:
+        return importlib_metadata.version(name)
+    except importlib_metadata.PackageNotFoundError:
+        return None
+
+
 @app.get("/api/capabilities")
 def capabilities() -> dict[str, object]:
     return {
@@ -403,6 +413,9 @@ def capabilities() -> dict[str, object]:
             "profile": "DuckDB SUMMARIZE of a catalog table",
             "explain": "DuckDB EXPLAIN ANALYZE of one read-only query (it runs once)",
             "sql_dialects": sql_dialect_list(),
+            # The installed native DuckDB (Mosaic exchange exports name it) and the workspace catalog's seed.
+            "duckdb_version": _package_version("duckdb"),
+            "catalog_seed": kernel_manager.seed,
         },
         "practice": {"mode": "local-tests", "editors": "vscode-native"},
         "fabric_lab": {"mode": "simulation", "notebook": "fabric-inspired", "lakehouse": "duckdb-ducklake", "kernel": "sparklab", "cloud_connection": False},

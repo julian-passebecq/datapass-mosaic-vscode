@@ -25,6 +25,20 @@ export interface DataPassProjectManifest {
      */
     trustedLocalPython?: boolean;
   };
+  /**
+   * The workspace catalog. `seed: "none"` (a blank Build workspace) starts the catalog without the demo tables;
+   * absent or "demo" keeps today's deterministic teaching tables. An already seeded catalog is never cleared.
+   */
+  catalog?: {
+    seed?: CatalogSeed;
+  };
+}
+
+export type CatalogSeed = "demo" | "none";
+
+/** The catalog seed a manifest asks for: "demo" unless it says "none". */
+export function catalogSeed(manifest: DataPassProjectManifest | undefined): CatalogSeed {
+  return manifest?.catalog?.seed === "none" ? "none" : "demo";
 }
 
 export function validateProjectManifest(raw: unknown): string[] {
@@ -65,8 +79,37 @@ export function validateProjectManifest(raw: unknown): string[] {
       issues.push("runtime.trustedLocalPython must be true or false.");
     }
   }
+  if (doc.catalog !== undefined && (!doc.catalog || typeof doc.catalog !== "object" || Array.isArray(doc.catalog))) {
+    issues.push("catalog must be an object.");
+  } else if (doc.catalog !== undefined) {
+    const catalog = doc.catalog as Record<string, unknown>;
+    if (catalog.seed !== undefined && catalog.seed !== "demo" && catalog.seed !== "none") {
+      issues.push('catalog.seed must be "demo" or "none".');
+    }
+  }
 
   return issues;
+}
+
+/** The manifest of a blank Build workspace: no demo tables, trusted Python off, only the folders Build creates. */
+export function createBlankProjectManifest(folderName = "data-project"): DataPassProjectManifest {
+  return {
+    schemaVersion: 1,
+    project: {
+      id: slug(folderName),
+      title: folderName
+    },
+    assets: {
+      datasets: "datasets",
+      notebooks: "notebooks"
+    },
+    runtime: {
+      storage: "duckdb",
+      pythonCommand: "python",
+      trustedLocalPython: false
+    },
+    catalog: { seed: "none" }
+  };
 }
 
 export function createDefaultProjectManifest(folderName = "data-project"): DataPassProjectManifest {

@@ -12,10 +12,11 @@ import {
 } from "../../platform/mosaicTools";
 import { runDialect, type TranslatedDialectId } from "../../platform/sqlDialect";
 import { safeRelativeParts } from "../../platform/workspacePaths";
-import { readProjectManifest } from "../../project/projectManifest";
+import { catalogSeed, readProjectManifest } from "../../project/projectManifest";
+import { folderHasNoFiles } from "../../build/buildModel";
 import { openQueryPlan, openTranslatedSql } from "../../queryPlanDocuments";
 import { scratchSpec } from "../../scaffold/starters";
-import type { MosaicMessage, ScratchKind } from "../../webview/contracts";
+import type { MosaicMessage, MosaicWorkspaceView, ScratchKind } from "../../webview/contracts";
 import { exists } from "../../workspaceFiles";
 import type { WorkbenchStateExtras } from "../../workbenchState";
 import { activeSavedDocument, type LabController, type MessageHandlers, type WorkbenchHost } from "../host";
@@ -51,11 +52,39 @@ export class MosaicController implements LabController<MosaicMessage> {
       // Persist only inside a Datapass project; never create .datapass/ just by dragging.
       if ((await readProjectManifest()).exists) await writeMosaicLayout(message.layout);
     },
-    openScratch: message => this.openScratch(message.kind)
+    openScratch: message => this.openScratch(message.kind),
+    buildNewFile: async () => {
+      await vscode.commands.executeCommand("datapass.build.newFile");
+    },
+    buildImportDataset: async () => {
+      await vscode.commands.executeCommand("datapass.build.importDataset");
+    },
+    openLearning: async () => {
+      await vscode.commands.executeCommand("datapass.learning.open");
+    }
   };
 
-  contribute(selected: ModuleId): Partial<WorkbenchStateExtras> {
-    return { queryHistory: selected === "mosaic" ? this.queryHistory() : undefined };
+  async contribute(selected: ModuleId): Promise<Partial<WorkbenchStateExtras>> {
+    if (selected !== "mosaic") return { queryHistory: undefined };
+    return { queryHistory: this.queryHistory(), mosaicWorkspace: await this.workspaceView() };
+  }
+
+  /** For the empty-state panel: does the notebooks folder hold a file yet, and is the catalog blank by design? */
+  private async workspaceView(): Promise<MosaicWorkspaceView | undefined> {
+    const root = vscode.workspace.workspaceFolders?.[0]?.uri;
+    if (!root) return undefined;
+    const manifest = await readProjectManifest();
+    const notebooks = vscode.Uri.joinPath(root, ...safeRelativeParts(manifest.manifest?.assets?.notebooks, "notebooks"));
+    let entries: { name: string; isFile: boolean }[] = [];
+    try {
+      entries = (await vscode.workspace.fs.readDirectory(notebooks)).map(([name, type]) => ({
+        name,
+        isFile: (type & vscode.FileType.File) !== 0 || (type & vscode.FileType.Directory) !== 0
+      }));
+    } catch {
+      // No notebooks folder yet: empty.
+    }
+    return { notebooksEmpty: folderHasNoFiles(entries), blankCatalog: catalogSeed(manifest.manifest) === "none" };
   }
 
   /** CSV, Parquet or JSON into a new bronze table. The file's CONTENT is sent, never its path. */

@@ -78,8 +78,8 @@ def compare_rows(actual: list[dict], expected: list[dict]) -> bool:
 
 
 class Engine:
-    def __init__(self, directory: Path, mode='auto', trusted_python=False):
-        self.catalog = Catalog(directory, mode)
+    def __init__(self, directory: Path, mode='auto', trusted_python=False, seed='demo'):
+        self.catalog = Catalog(directory, mode, seed)
         self.trusted_python = trusted_python
         self.generation = uuid.uuid4().hex
         self.sequence = 0

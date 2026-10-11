@@ -50,6 +50,8 @@ import { managedVenvPython } from "../platform/runtimeEnvironment";
 import { runtimeFingerprint, writeRuntimeMarker } from "../platform/runtimeFingerprint";
 import { retailOrdersCsv, retailSqlStarter } from "../scaffold/retailDemo";
 import { airflowStarter, pipelineStarter, scratchSpec } from "../scaffold/starters";
+import { createExclusive } from "../build/buildFiles";
+import { buildExport, notebookFromRecord, parseExchangeText, planImport } from "../platform/mosaicExchange";
 
 const EXTENSION_ID = "datapass.datapass-mosaic-vscode";
 
@@ -199,6 +201,26 @@ export async function run(): Promise<void> {
       assert.match(profiles, /^datapass_retail:$/m);
       assert.match(profiles, /path: '.*\/\.datapass\/data\/workspace\.duckdb'/);
       assert.doesNotMatch(profiles, /^\s*(password|token|secret|user)\s*:/im);
+    }],
+    ["Build and Mosaic exchange: commands registered; an import writes files once and runs nothing", async () => {
+      const commands = await vscode.commands.getCommands(true);
+      for (const command of ["datapass.build.newWorkspace", "datapass.build.newFile", "datapass.build.importDataset",
+        "datapass.interop.import", "datapass.interop.export"]) assert.ok(commands.includes(command), command);
+      const example = new TextDecoder().decode(await vscode.workspace.fs.readFile(
+        vscode.Uri.joinPath(extension.extensionUri, "content", "interop", "examples", "mosaic-studio-sensors.json")));
+      const parsed = parseExchangeText(example);
+      assert.ok(parsed.ok, parsed.ok ? "" : parsed.errors.join(" "));
+      const [plan] = planImport(parsed.exchange, "notebooks", new Date().toISOString());
+      for (const file of plan.files) assert.equal(await createExclusive(vscode.Uri.joinPath(root, ...file.path.split("/")), file.content), true);
+      for (const file of plan.files) assert.equal(await createExclusive(vscode.Uri.joinPath(root, ...file.path.split("/")), "x"), false, "never overwritten");
+      const sources = new Map<string, string>();
+      for (const file of plan.files) {
+        sources.set(file.path, new TextDecoder().decode(await vscode.workspace.fs.readFile(vscode.Uri.joinPath(root, ...file.path.split("/")))));
+      }
+      const exported = buildExport({ producerVersion: String(extension.packageJSON.version), exportedAt: new Date().toISOString(),
+        duckdbVersion: "unknown", source: "datapass-workbench:e2e", notebooks: [notebookFromRecord(plan.record.content, sources)], files: [] });
+      assert.deepEqual(exported.notebooks, parsed.exchange.notebooks, "the files hold the cells as received");
+      assert.ok(plan.readme.content.includes("ran in Mosaic Studio (DuckDB-WASM), not re-run here"));
     }]
   ];
 
@@ -1387,6 +1409,22 @@ export async function run(): Promise<void> {
       const reference = await grade(pytest, pytestGrading["py-chunked"].solution, "submit");
       assert.equal(reference.status, "passed", JSON.stringify(reference.checks));
       assert.equal(reference.runtime?.engine, "pytest");
+    }],
+    ["catalog.seed none reaches the runtime at launch and never clears an already seeded catalog", async () => {
+      const before = await readProjectManifest();
+      assert.ok(before.manifest);
+      try {
+        await writeProjectManifest({ ...before.manifest, catalog: { seed: "none" } });
+        await runtime!.stopAndWait();
+        await runtime!.start(python, "duckdb", false);
+        assert.equal(runtime!.snapshot().status, "running", runtime!.snapshot().detail);
+        const info = await runtime!.labs.mosaic.engineInfo();
+        assert.equal(info?.catalogSeed, "none");
+        assert.ok(info?.duckdbVersion, "the runtime reports its native DuckDB version");
+        assert.ok(runtime!.snapshot().catalog?.some(asset => asset.name === "source.orders"), "existing demo tables are kept");
+      } finally {
+        await writeProjectManifest(before.manifest);
+      }
     }]
   ];
 

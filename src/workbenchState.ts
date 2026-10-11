@@ -14,7 +14,7 @@ import type { RuntimeManager } from "./runtimeManager";
 import type { DctValidationView } from "./platform/dbtTools";
 import { loadProjectsState, readProgress } from "./projectState";
 import { emptyPracticeProgress } from "./platform/practiceProgress";
-import type { DbtToolsView, HomeViewState, DbtViewState, PracticeViewState, ProjectsHostState, SparkLabProfileView, TerminalViewState, InfraViewState, LakehouseViewState, ApiLabViewState, WorkbenchFocus, WorkbenchViewState } from "./webview/contracts";
+import type { DbtToolsView, HomeViewState, DbtViewState, PracticeViewState, ProjectsHostState, SparkLabProfileView, TerminalViewState, InfraViewState, LakehouseViewState, ApiLabViewState, MosaicWorkspaceView, WorkbenchFocus, WorkbenchViewState } from "./webview/contracts";
 
 /** What the host adds to the state it collects: the focus, and what the lab controllers keep (see src/labs). */
 export interface WorkbenchStateExtras {
@@ -30,6 +30,7 @@ export interface WorkbenchStateExtras {
   };
   practiceSolutions?: Record<string, string>;
   queryHistory?: readonly QueryHistoryEntry[];
+  mosaicWorkspace?: MosaicWorkspaceView;
   terminal?: TerminalViewState;
   infra?: InfraViewState;
   home?: HomeViewState;
@@ -107,7 +108,8 @@ export async function collectWorkbenchState(
     apilab: selectedModule === "apilab" ? extras.apilab : undefined,
     projects,
     focus: extras.focus,
-    queryHistory: extras.queryHistory
+    queryHistory: extras.queryHistory,
+    mosaicWorkspace: extras.mosaicWorkspace
   };
 }
 

@@ -26,6 +26,7 @@ import {
   writeRuntimeMarker
 } from "./platform/runtimeFingerprint";
 import { runtimeProcessEnv } from "./platform/pythonTrust";
+import { catalogSeed, readProjectManifest } from "./project/projectManifest";
 import { newRuntimeToken, requestGetJson, requestJson, runtimeErrorDetail } from "./platform/runtimeClient";
 
 const HOST = "127.0.0.1";
@@ -261,6 +262,8 @@ export class RuntimeManager implements vscode.Disposable {
       }
     }
     const resolvedPython = existsSync(managedPython) ? managedPython : pythonCommand;
+    // A blank Build workspace (manifest catalog.seed "none") starts its catalog without the demo tables.
+    const seed = catalogSeed((await readProjectManifest()).manifest);
     const port = await findFreePort(HOST);
     const url = `http://${HOST}:${port}`;
     const token = newRuntimeToken();
@@ -288,14 +291,17 @@ export class RuntimeManager implements vscode.Disposable {
         cwd: runtimeRoot,
         windowsHide: true,
         stdio: ["ignore", "pipe", "pipe"],
-        env: runtimeProcessEnv(process.env, {
-          contentRoot: path.join(this.extensionUri.fsPath, "content"),
-          storage,
-          trustedPython,
-          workspaceRoot: vscode.workspace.workspaceFolders?.[0]?.uri.fsPath,
-          runtimeToken: token,
-          runtimePort: port
-        })
+        env: {
+          ...runtimeProcessEnv(process.env, {
+            contentRoot: path.join(this.extensionUri.fsPath, "content"),
+            storage,
+            trustedPython,
+            workspaceRoot: vscode.workspace.workspaceFolders?.[0]?.uri.fsPath,
+            runtimeToken: token,
+            runtimePort: port
+          }),
+          DATAPASS_CATALOG_SEED: seed
+        }
       }
     );
 

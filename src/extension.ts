@@ -1,4 +1,5 @@
 import * as vscode from "vscode";
+import { registerBuildCommands } from "./build/buildCommands";
 import { registerCatalogTree } from "./catalogTree";
 import { DbtTerminalSession, DbtToolsManager } from "./dbtLab";
 import { MissionsService } from "./missions";
@@ -49,6 +50,7 @@ export function activate(context: vscode.ExtensionContext): void {
     (view, message) => WorkbenchPanel.dispatch(context, runtimeManager, pythonTrust, view, dbtLab, message)));
   context.subscriptions.push(...registerLearningWorkspace(context, runtimeManager,
     (view, message) => WorkbenchPanel.dispatch(context, runtimeManager, pythonTrust, view, dbtLab, message)));
+  context.subscriptions.push(...registerBuildCommands(context, runtimeManager, pythonTrust));
   for (const module of MODULES) {
     context.subscriptions.push(
       vscode.commands.registerCommand(module.command, () => {

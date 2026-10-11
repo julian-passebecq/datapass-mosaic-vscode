@@ -12,13 +12,14 @@ def main():
     parser.add_argument('--directory',required=True)
     parser.add_argument('--mode',default='auto')
     parser.add_argument('--trusted-python',action='store_true')
+    parser.add_argument('--seed',default='demo',choices=('demo','none'))
     args = parser.parse_args()
     engine = None
     for line in sys.stdin:
         try:
             request = json.loads(line)
             if engine is None:
-                engine = Engine(Path(args.directory), args.mode, args.trusted_python)
+                engine = Engine(Path(args.directory), args.mode, args.trusted_python, args.seed)
             payload = {'ok':True, 'result':engine.handle(request)}
         except Exception as error:
             # Subclasses (a SQL dialect's refusal) are rejected requests too, not an outage.

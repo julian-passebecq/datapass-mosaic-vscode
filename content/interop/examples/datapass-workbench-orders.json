@@ -1,0 +1,61 @@
+{
+  "format": "datapass.mosaic-exchange",
+  "version": 1,
+  "producer": { "app": "datapass-workbench", "version": "0.3.0" },
+  "exportedAt": "2026-10-12T07:45:00+02:00",
+  "runtime": { "engine": "duckdb-native", "version": "1.4.1" },
+  "notebooks": [
+    {
+      "id": "orders-quality",
+      "title": "Orders quality checks",
+      "cells": [
+        {
+          "id": "keys",
+          "kind": "sql",
+          "source": "-- A primary key is unique and never NULL.\nSELECT order_id, count(*) AS copies\nFROM bronze.orders\nGROUP BY order_id\nHAVING count(*) > 1 OR order_id IS NULL;\n",
+          "dependsOn": []
+        },
+        {
+          "id": "amounts",
+          "kind": "sql",
+          "source": "-- Negative amounts are refunds; zero amounts are suspicious.\nSELECT count(*) FILTER (WHERE CAST(amount AS DOUBLE) < 0) AS refunds,\n       count(*) FILTER (WHERE CAST(amount AS DOUBLE) = 0) AS zero_amounts\nFROM bronze.orders;\n",
+          "dependsOn": ["keys"]
+        }
+      ]
+    },
+    {
+      "id": "orders-polars",
+      "title": "Orders by customer in Polars",
+      "cells": [
+        {
+          "id": "by-customer",
+          "kind": "polars",
+          "source": "import polars as pl\n\norders = pl.DataFrame(query(\"SELECT customer_id, CAST(amount AS DOUBLE) AS amount FROM bronze.orders\")).lazy()\norders.group_by(\"customer_id\").agg(pl.col(\"amount\").sum().alias(\"revenue\")).sort(\"revenue\", descending=True)\n",
+          "dependsOn": []
+        },
+        {
+          "id": "summary",
+          "kind": "python",
+          "source": "rows = query(\"SELECT count(*) AS n FROM bronze.orders\")\nprint(f\"{rows[0]['n']} orders\")\n",
+          "dependsOn": ["by-customer"]
+        }
+      ]
+    }
+  ],
+  "artifacts": [
+    {
+      "id": "dataset-orders-csv",
+      "kind": "file",
+      "name": "datasets/orders.csv",
+      "sha256": "ec97d6a81e9637a13337506b3b10ffe043310bb09e52b8891d8272b4b0e88d6e"
+    }
+  ],
+  "provenance": {
+    "source": "datapass-workbench:orders-lab",
+    "runs": [
+      { "cell": "keys", "engine": "duckdb-native", "at": "2026-10-12T07:40:12+02:00", "status": "success" },
+      { "cell": "summary", "engine": "duckdb-native", "at": "2026-10-12T07:41:02+02:00", "status": "error" }
+    ]
+  },
+  "extensions": {}
+}

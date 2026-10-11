@@ -1737,4 +1737,40 @@ with TemporaryDirectory(prefix="datapass-trust-smoke-") as temp:
     finally:
         trusted.close()
 
+# Blank Build workspace (manifest catalog.seed "none", DATAPASS_CATALOG_SEED at launch): the workspace catalog starts
+# without the demo tables; a catalog that already has them keeps them; Catalog() without a seed (grading) is seeded.
+from datapass_runtime.catalog import Catalog
+
+assert capabilities()["mosaic"]["catalog_seed"] == "demo", "absent DATAPASS_CATALOG_SEED means demo"
+assert capabilities()["mosaic"]["duckdb_version"], "the native DuckDB version is reported for exchange exports"
+with TemporaryDirectory(prefix="datapass-seed-smoke-") as temp:
+    workspace = Path(temp)
+    blank = KernelManager(mode="duckdb", trusted=False, timeout=15.0, max_workers=1, seed="none")
+    try:
+        missing = execute(blank, "blank", workspace, "sql", "SELECT count(*) AS n FROM source.orders")
+        assert missing["status"] == "error", missing
+        own = execute(blank, "blank", workspace, "sql",
+                      "CREATE TABLE bronze.mine AS SELECT 1 AS id; SELECT count(*) AS n FROM bronze.mine")
+        assert own["status"] == "success" and own["result"]["rows"] == [{"n": 1}], own
+        listing = blank.call("blank", workspace / ".datapass" / "data", {"op": "catalog"}, cwd=workspace)
+        assert [item["name"] for item in listing] == ["bronze.mine"], listing
+    finally:
+        blank.close()
+
+    seeded_dir = workspace / "seeded"
+    first = Catalog(seeded_dir, "duckdb")
+    assert first.exists("source.orders"), "the default seed is demo"
+    first.close()
+    again = Catalog(seeded_dir, "duckdb", "none")
+    assert again.exists("source.orders"), "seed none never clears an already seeded catalog"
+    again.close()
+    empty = Catalog(workspace / "empty", "duckdb", "none")
+    assert not empty.exists("source.orders") and not empty.exists("source.turbine_readings")
+    empty.close()
+    try:
+        Catalog(workspace / "bad", "duckdb", "sample")
+        raise AssertionError("an unknown seed is refused")
+    except ValueError:
+        pass
+
 print("Datapass runtime smoke passed.")
