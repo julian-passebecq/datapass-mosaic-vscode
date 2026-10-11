@@ -28,6 +28,15 @@ MAX_STATEMENTS = 20
 TARGET = 'duckdb'
 Type = exp.DataType.Type
 
+def _qualify_accepts_infer_schema() -> bool:
+    import inspect
+    from sqlglot.optimizer.qualify import qualify
+    return 'infer_schema' in inspect.signature(qualify).parameters
+
+# sqlglot 30.20+ removed qualify(infer_schema=...) (it always infers); passing it raised a TypeError that
+# _annotate swallowed, so every column lost its type (T-SQL AVG and division then refused or mistyped).
+_INFER_SCHEMA = {'infer_schema': True} if _qualify_accepts_infer_schema() else {}
+
 # sqlglot logs unsupported T-SQL query options (OPTION (LABEL = ...)) as warnings; the translator reports its own notes.
 logging.getLogger('sqlglot').setLevel(logging.ERROR)
 
@@ -356,7 +365,7 @@ def _annotate(tree: exp.Expression, schema: Any, read: str, decimal_literals: bo
                 q for q in copy.find_all(exp.Query) if not isinstance(q.parent, (exp.Query, exp.Subquery, exp.CTE, exp.Union))]
             for query in queries:
                 qualified = qualify(query, schema=schema, dialect=read, db=db, validate_qualify_columns=False,
-                                    quote_identifiers=False, identify=False, infer_schema=True)
+                                    quote_identifiers=False, identify=False, **_INFER_SCHEMA)
                 if query is copy:
                     copy = qualified
                 elif qualified is not query:
