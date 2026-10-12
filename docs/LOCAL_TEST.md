@@ -192,3 +192,37 @@ Results and one screenshot per step land in `test-results/vscode-ui/` (`results.
 | `DATAPASS_UI_KEEP=1` | keep the profile, so a rerun skips **Setup runtime**; when the new VSIX's runtime differs from the one the kept venv holds, the pass clicks **Update runtime** instead |
 
 The VSIX declares an extension pack, so the install also fetches the Python and Jupyter extensions from the Marketplace. On Linux, give the virtual display a real screen: `xvfb-run -a --server-args="-screen 0 1600x1000x24" npm run test:ui`.
+
+### V1 acceptance journey
+
+```bash
+npm ci --prefer-offline --no-audit --no-fund && npm run package
+node scripts/ui-suite/v1_acceptance.mjs      # also run by npm run test:ui (scripts/ui_suite.mjs)
+```
+
+`scripts/ui-suite/v1_acceptance.mjs` installs the packaged VSIX into a fresh profile under a short `%TEMP%\dpa-*`
+folder (or `DATAPASS_UI_ROOT`), opens an empty workspace folder and plays the V1 learner journey in one VS Code
+window. File dialogs use VS Code's simple dialog (`files.simpleDialog.enable`), so the script types paths:
+
+1. **Datapass Build: New Blank Workspace**: `catalog.seed` is `"none"`, trusted Python off, no sample file.
+2. **New File** SQL and Python (quick pick + input box); a second New File with the same name leaves the file unchanged.
+3. **Import Dataset**: a synthetic CSV copied into `datasets/`; the same name again is renamed (`-2`), never overwritten.
+4. **Setup runtime** / **Start runtime**; no `source.*` demo table; **Run active SQL** shows the DuckDB row; **Run active
+   Python** is disabled while trusted Python is off, then **Enable trusted local Python…** (its dialog) and a real run.
+5. Learning: a concept check submitted (checks level, not verified), **Mark as read**, **Run example** (ran locally,
+   not graded), a linked Practice **Submit** (verified), one flashcard rated.
+6. Cloud Lab › Pipelines: lab files, an unknown property planted in the Fabric JSON, Wait added from the palette,
+   connected, Undo, Redo, Save; the planted property is still on disk; **Dry run** shows Wait1's simulated status.
+7. Infra Lab: *tf-first-apply* started, the learner's files saved, the reference lines typed in the simulated terminal,
+   **Check my work** passes.
+8. **Import Mosaic Exchange** of `content/interop/examples/mosaic-studio-sensors.json` (files under
+   `notebooks/imported/<id>/`, nothing run, no table created), then **Export Mosaic Exchange**, validated with
+   `schemas/mosaic-exchange.schema.json`.
+9. VS Code closed and relaunched: Learning resumes, the levels and the flashcard rating persist, Build files and datasets
+   are unchanged, the Mosaic query history re-runs, the pipeline edit is still there.
+10. No uncaught webview console error.
+
+Each step prints PASS/FAIL (a "NOT AUTOMATED" line says why a check could not be driven); the script exits non-zero
+when a step fails. The report is `test-results/vscode-ui/v1-acceptance/report.json`, with a screenshot and the text of
+every webview frame for each failed step. `DATAPASS_UI_PYTHON`, `DATAPASS_UI_VSIX` and `DATAPASS_UI_CODE` work as in
+the table above. A first run takes several minutes (Setup runtime installs the managed venv).
