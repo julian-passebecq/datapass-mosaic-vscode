@@ -1,0 +1,234 @@
+{
+  "format": "datapass.learning-path",
+  "version": 1,
+  "path": {
+    "id": "de-foundations",
+    "title": "Data engineering foundations",
+    "summary": "Loads that survive retries: idempotent writes and incremental extraction with a watermark.",
+    "lessons": [
+      "de-idempotency",
+      "de-incremental"
+    ]
+  },
+  "lessons": [
+    {
+      "id": "de-idempotency",
+      "version": 1,
+      "title": "Idempotent loads: safe to run twice",
+      "summary": "Design a load so that running it again gives the same table: upsert on a key, replace a partition, and never append blindly.",
+      "minutes": 15,
+      "concepts": [
+        "idempotency",
+        "upsert",
+        "MERGE",
+        "business key",
+        "reruns",
+        "deduplication"
+      ],
+      "prerequisites": [],
+      "blocks": [
+        {
+          "kind": "text",
+          "title": "Why reruns happen",
+          "body": "Schedulers retry failed tasks, operators rerun a day by hand and a source can deliver the same file twice. A load is idempotent when running it once or several times with the same input leaves the target in the same state. Then a retry is always safe."
+        },
+        {
+          "kind": "text",
+          "title": "Three idempotent patterns",
+          "body": "Upsert on a business key: update the rows whose key exists, insert the others (MERGE INTO in SQL, a unique_key incremental model in dbt). Replace a whole partition (one day, one file) with a delete-then-insert or an overwrite in one transaction. Insert only the keys that are not there yet (an anti join). A plain INSERT of the batch is not idempotent: the second run doubles the rows. The example computes an upsert result with SELECT, so it changes nothing."
+        },
+        {
+          "kind": "callout",
+          "title": "The key decides",
+          "body": "Idempotency needs a key that identifies a row of the source: an order id, or (order_id, line_no). Deduplicate the batch on that key first (keep the latest version), or the upsert finds two candidates for one target row."
+        },
+        {
+          "kind": "check",
+          "title": "Before you run",
+          "body": "Predict the rows after applying the batch once. Then imagine replacing target with the result and applying the same batch again: which rows change?"
+        }
+      ],
+      "code": {
+        "language": "sql",
+        "source": "WITH target(id, name, city) AS (\n  VALUES (1, 'Ada', 'Oslo'), (2, 'Ben', 'Lyon'), (3, 'Chloe', 'Porto')\n), batch(id, name, city) AS (\n  VALUES (2, 'Ben', 'Paris'), (4, 'Dina', 'Rome')\n), upserted AS (\n  SELECT id, name, city FROM batch\n  UNION ALL\n  SELECT t.id, t.name, t.city FROM target t\n  WHERE NOT EXISTS (SELECT 1 FROM batch b WHERE b.id = t.id)\n)\nSELECT * FROM upserted ORDER BY id;\n"
+      },
+      "exercise": {
+        "id": "de-upsert-result",
+        "language": "sql"
+      },
+      "lab": "mosaic",
+      "visual": {
+        "kind": "timeline",
+        "title": "Idempotent upsert - visual walkthrough",
+        "steps": [
+          {
+            "title": "Target and batch",
+            "body": "The target has ids 1 to 3; the batch updates id 2 and adds id 4.",
+            "lines": [
+              1,
+              4
+            ]
+          },
+          {
+            "title": "The batch wins for its keys",
+            "body": "Every batch row goes to the result: Ben now lives in Paris and Dina is new.",
+            "lines": [
+              6,
+              6
+            ]
+          },
+          {
+            "title": "Untouched rows stay",
+            "body": "Target rows whose id is not in the batch are kept as they were.",
+            "lines": [
+              8,
+              9
+            ]
+          },
+          {
+            "title": "Run it twice",
+            "body": "Apply the same batch to the result: the output is identical. Appending the batch instead would give two rows for id 2 on every run.",
+            "lines": [
+              11,
+              11
+            ]
+          }
+        ]
+      },
+      "related": [
+        "de-incremental",
+        "warehouse-scd2-history"
+      ],
+      "practice": [
+        {
+          "id": "cp-upsert-idempotent",
+          "language": "factory"
+        },
+        {
+          "id": "dbt-incremental-unique-key",
+          "language": "dbt-sql"
+        }
+      ],
+      "cheatsheet": "learning-dbt",
+      "deck": "de-foundations"
+    },
+    {
+      "id": "de-incremental",
+      "version": 1,
+      "title": "Incremental loads with a watermark",
+      "summary": "Load only what changed since the last run with a high watermark, reread a lookback window for late rows, and keep the write idempotent.",
+      "minutes": 20,
+      "concepts": [
+        "incremental load",
+        "watermark",
+        "change data capture",
+        "late-arriving data",
+        "backfill",
+        "lookback"
+      ],
+      "prerequisites": [
+        "de-idempotency"
+      ],
+      "blocks": [
+        {
+          "kind": "text",
+          "title": "Full versus incremental",
+          "body": "A full load rereads the whole source on every run: simple and always correct, but its cost grows with the table. An incremental load reads only the rows changed since the last successful run, found with a watermark: the highest updated_at (or sequence number) already loaded, stored by the pipeline."
+        },
+        {
+          "kind": "text",
+          "title": "The watermark rule",
+          "body": "Select updated_at > the stored watermark; on the first run, when no watermark exists yet, select everything. Store the new watermark (the highest updated_at actually loaded) only after the load has committed, so a failed run is retried from the old value."
+        },
+        {
+          "kind": "callout",
+          "title": "Late and equal timestamps",
+          "body": "A row can be committed in the source after a later timestamp was already read, and several rows can share the watermark value. Reread a small lookback window (updated_at > watermark - interval) and write with an upsert on the key, so rows read twice change nothing."
+        },
+        {
+          "kind": "text",
+          "title": "Deletes and backfills",
+          "body": "A watermark on updated_at never sees a hard delete: use soft deletes, a change data capture feed or a periodic full comparison. A backfill reruns the load for a past range with explicit bounds instead of the stored watermark."
+        },
+        {
+          "kind": "check",
+          "title": "Before you run",
+          "body": "Predict the rows selected with the stored watermark. Then remove the watermark row and predict the first-run result."
+        }
+      ],
+      "code": {
+        "language": "sql",
+        "source": "WITH source_rows(id, updated_at) AS (\n  VALUES (1, TIMESTAMP '2026-10-01 08:00'), (2, TIMESTAMP '2026-10-02 09:30'),\n         (3, TIMESTAMP '2026-10-02 23:59'), (4, TIMESTAMP '2026-10-03 07:15')\n), watermark(table_name, loaded_until) AS (\n  VALUES ('source_rows', TIMESTAMP '2026-10-02 09:30')\n)\nSELECT s.id, s.updated_at\nFROM source_rows s\nWHERE NOT EXISTS (SELECT 1 FROM watermark w WHERE w.table_name = 'source_rows')\n   OR s.updated_at > (SELECT w.loaded_until FROM watermark w WHERE w.table_name = 'source_rows')\nORDER BY s.updated_at;\n"
+      },
+      "exercise": {
+        "id": "de-incremental-watermark",
+        "language": "sql"
+      },
+      "lab": "mosaic",
+      "visual": {
+        "kind": "timeline",
+        "title": "Watermark - visual walkthrough",
+        "steps": [
+          {
+            "title": "The stored watermark",
+            "body": "The last run loaded everything up to 2026-10-02 09:30.",
+            "lines": [
+              4,
+              6
+            ]
+          },
+          {
+            "title": "First run",
+            "body": "Without a watermark row, NOT EXISTS is true and every row is selected.",
+            "lines": [
+              9,
+              9
+            ]
+          },
+          {
+            "title": "Only newer rows",
+            "body": "With the watermark, rows 3 and 4 are selected. Row 2 equals the watermark and was already loaded.",
+            "lines": [
+              10,
+              10
+            ]
+          },
+          {
+            "title": "Advance after commit",
+            "body": "After the write commits, store 2026-10-03 07:15 as the new watermark. A failed run keeps the old one and is retried safely."
+          }
+        ]
+      },
+      "related": [
+        "de-idempotency",
+        "api-pagination"
+      ],
+      "practice": [
+        {
+          "id": "cp-incremental-watermark",
+          "language": "factory"
+        },
+        {
+          "id": "dbt-incremental-append",
+          "language": "dbt-sql"
+        }
+      ],
+      "missions": [
+        {
+          "pack": "dbt-v1",
+          "id": "incremental-order-lines"
+        },
+        {
+          "pack": "dbt-v1",
+          "id": "backfill-daily-sales"
+        },
+        {
+          "pack": "api-v1",
+          "id": "api-incremental-orders"
+        }
+      ],
+      "cheatsheet": "learning-dbt",
+      "deck": "de-foundations"
+    }
+  ]
+}

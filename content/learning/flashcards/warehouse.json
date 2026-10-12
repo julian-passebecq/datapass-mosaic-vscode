@@ -1,0 +1,288 @@
+{
+  "format": "datapass.flashcards",
+  "version": 1,
+  "id": "warehouse",
+  "title": "Warehouse modeling and dbt",
+  "path": "warehouse-modeling",
+  "cards": [
+    {
+      "id": "fact-vs-dimension",
+      "front": "What is the difference between a fact table and a dimension table?",
+      "back": "A fact table records events or measurements (one row per sale) with numeric measures and foreign keys; a dimension describes the context (customer, product, date).",
+      "lesson": "warehouse-grain",
+      "tags": [
+        "modeling"
+      ]
+    },
+    {
+      "id": "declare-grain",
+      "front": "Why declare the grain of a fact table first?",
+      "back": "It fixes what one row means, which decides the dimensions that can attach and the measures that can be summed without double counting.",
+      "lesson": "warehouse-grain",
+      "tags": [
+        "grain"
+      ]
+    },
+    {
+      "id": "star-schema",
+      "front": "What is a star schema?",
+      "back": "A fact table in the center joined to denormalized dimension tables, one join per dimension.",
+      "lesson": "warehouse-grain",
+      "tags": [
+        "modeling"
+      ]
+    },
+    {
+      "id": "snowflake-schema",
+      "front": "What is a snowflaked dimension, and why flatten it?",
+      "back": "A dimension split into normalized sub-tables (product, category, department). Flattening it into one table gives simpler, faster star joins.",
+      "lesson": "warehouse-grain",
+      "tags": [
+        "modeling"
+      ]
+    },
+    {
+      "id": "additive",
+      "front": "What are additive, semi-additive and non-additive measures?",
+      "back": "Additive: summable across every dimension (sales amount). Semi-additive: not across time (a stock balance). Non-additive: never summed (a ratio or unit price).",
+      "lesson": "warehouse-grain",
+      "tags": [
+        "measures"
+      ]
+    },
+    {
+      "id": "allocation",
+      "front": "How do you bring an order-level shipping fee down to the order-line grain?",
+      "back": "Allocate it, for example in proportion to each line's amount, so that the lines sum back to the order fee exactly.",
+      "lesson": "warehouse-grain",
+      "tags": [
+        "grain"
+      ]
+    },
+    {
+      "id": "surrogate-key",
+      "front": "Why do dimensions use surrogate keys?",
+      "back": "They are stable, compact and independent of the source, and SCD2 needs one key per version of the same business key.",
+      "lesson": "warehouse-scd2",
+      "tags": [
+        "keys"
+      ]
+    },
+    {
+      "id": "unknown-member",
+      "front": "What is the unknown member of a dimension?",
+      "back": "A row with a fixed key (often -1 or 0) that facts point to when their dimension value is missing, so joins never lose fact rows.",
+      "lesson": "warehouse-scd2",
+      "tags": [
+        "keys"
+      ]
+    },
+    {
+      "id": "scd1",
+      "front": "What does SCD type 1 do on a change?",
+      "back": "Overwrites the attribute in place; history is lost.",
+      "lesson": "warehouse-scd2",
+      "tags": [
+        "scd"
+      ]
+    },
+    {
+      "id": "scd2",
+      "front": "What does SCD type 2 do on a change?",
+      "back": "Closes the current row (valid_to, is_current = false) and inserts a new version with a new surrogate key.",
+      "lesson": "warehouse-scd2-history",
+      "tags": [
+        "scd"
+      ]
+    },
+    {
+      "id": "scd3",
+      "front": "What does SCD type 3 keep?",
+      "back": "The current value and the previous value in two columns on the same row: limited history.",
+      "lesson": "warehouse-scd2",
+      "tags": [
+        "scd"
+      ]
+    },
+    {
+      "id": "valid-to-exclusive",
+      "front": "Why make valid_to exclusive?",
+      "back": "Consecutive versions then share a boundary date without overlap or gap: a date d belongs to the version where valid_from <= d < valid_to.",
+      "lesson": "warehouse-scd2-history",
+      "tags": [
+        "scd"
+      ]
+    },
+    {
+      "id": "point-in-time",
+      "front": "How do you join a fact to the SCD2 version valid at the event date?",
+      "back": "Join on the business key and valid_from <= event_date AND event_date < valid_to (or store the version's surrogate key in the fact at load time).",
+      "lesson": "warehouse-scd2",
+      "tags": [
+        "scd",
+        "joins"
+      ]
+    },
+    {
+      "id": "is-distinct-from",
+      "front": "Why compare tracked attributes with IS DISTINCT FROM in SCD2 change detection?",
+      "back": "Because <> returns NULL when one side is NULL, so changes to or from NULL would be missed.",
+      "lesson": "warehouse-scd2-history",
+      "tags": [
+        "scd",
+        "null"
+      ]
+    },
+    {
+      "id": "late-arriving-dim",
+      "front": "What is an inferred member?",
+      "back": "A placeholder dimension row created when a fact arrives before its dimension record; it is filled in when the real record arrives.",
+      "lesson": "warehouse-scd2",
+      "tags": [
+        "keys"
+      ]
+    },
+    {
+      "id": "periodic-snapshot",
+      "front": "What is a periodic snapshot fact table?",
+      "back": "One row per entity per period (stock per product per month end), recording the state at that moment.",
+      "lesson": "warehouse-grain",
+      "tags": [
+        "facts"
+      ]
+    },
+    {
+      "id": "accumulating-snapshot",
+      "front": "What is an accumulating snapshot fact table?",
+      "back": "One row per process instance (an order) updated as it reaches milestones, with one date column per milestone.",
+      "lesson": "warehouse-grain",
+      "tags": [
+        "facts"
+      ]
+    },
+    {
+      "id": "factless",
+      "front": "What is a factless fact table?",
+      "back": "A table of events or coverage with only keys and no measures, such as which products were on promotion each day.",
+      "lesson": "warehouse-grain",
+      "tags": [
+        "facts"
+      ]
+    },
+    {
+      "id": "ref",
+      "front": "What does {{ ref('stg_orders') }} do in a dbt model?",
+      "back": "It resolves to the relation built by the stg_orders model and records the dependency, so dbt builds the models in DAG order.",
+      "lesson": "warehouse-dbt",
+      "tags": [
+        "dbt"
+      ]
+    },
+    {
+      "id": "source",
+      "front": "What is {{ source('shop', 'orders') }} for?",
+      "back": "It points at a raw table declared in a sources YAML file, adds it to the lineage and enables freshness checks on it.",
+      "lesson": "warehouse-dbt",
+      "tags": [
+        "dbt"
+      ]
+    },
+    {
+      "id": "materializations",
+      "front": "Name the four built-in dbt materializations.",
+      "back": "view, table, incremental and ephemeral (inlined as a CTE into the models that use it).",
+      "lesson": "warehouse-dbt",
+      "tags": [
+        "dbt"
+      ]
+    },
+    {
+      "id": "staging-layer",
+      "front": "What belongs in a dbt staging model?",
+      "back": "One model per source table: renaming, casting and light cleaning, with no joins or business logic.",
+      "lesson": "warehouse-dbt",
+      "tags": [
+        "dbt"
+      ]
+    },
+    {
+      "id": "dbt-test-pass",
+      "front": "When does a dbt data test pass?",
+      "back": "When its compiled query returns zero rows: the rows it returns are the failures.",
+      "lesson": "warehouse-dbt-tests",
+      "tags": [
+        "dbt",
+        "tests"
+      ]
+    },
+    {
+      "id": "generic-tests",
+      "front": "What are the four built-in generic tests in dbt?",
+      "back": "unique, not_null, accepted_values and relationships.",
+      "lesson": "warehouse-dbt-tests",
+      "tags": [
+        "dbt",
+        "tests"
+      ]
+    },
+    {
+      "id": "relationships-null",
+      "front": "Does the relationships test fail on a NULL foreign key?",
+      "back": "No. It checks only non-null child values; add not_null to forbid NULLs.",
+      "lesson": "warehouse-dbt-tests",
+      "tags": [
+        "dbt",
+        "tests"
+      ]
+    },
+    {
+      "id": "singular-test",
+      "front": "What is a singular test in dbt?",
+      "back": "A SQL file in the tests/ folder that selects the rows violating a rule; dbt runs it like any other test.",
+      "lesson": "warehouse-dbt-tests",
+      "tags": [
+        "dbt",
+        "tests"
+      ]
+    },
+    {
+      "id": "severity",
+      "front": "How do you make a dbt test report without failing the run?",
+      "back": "Set config: severity: warn, or use warn_if and error_if thresholds.",
+      "lesson": "warehouse-dbt-tests",
+      "tags": [
+        "dbt",
+        "tests"
+      ]
+    },
+    {
+      "id": "dbt-build",
+      "front": "What does dbt build do that dbt run does not?",
+      "back": "It runs models, tests, snapshots and seeds in DAG order, testing each model right after it is built and skipping its children when a test fails.",
+      "lesson": "warehouse-dbt-tests",
+      "tags": [
+        "dbt"
+      ]
+    },
+    {
+      "id": "is-incremental",
+      "front": "What does is_incremental() return in a dbt model?",
+      "back": "True when the model is incremental, already exists and is not run with --full-refresh, so the model can filter on new rows only.",
+      "lesson": "de-incremental",
+      "tags": [
+        "dbt",
+        "incremental"
+      ]
+    },
+    {
+      "id": "snapshot-strategies",
+      "front": "What are the two dbt snapshot strategies?",
+      "back": "timestamp (uses an updated_at column) and check (compares listed columns to detect changes).",
+      "lesson": "warehouse-scd2-history",
+      "tags": [
+        "dbt",
+        "scd"
+      ]
+    }
+  ]
+}

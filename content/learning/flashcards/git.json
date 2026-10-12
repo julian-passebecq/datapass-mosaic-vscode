@@ -1,0 +1,302 @@
+{
+  "format": "datapass.flashcards",
+  "version": 1,
+  "id": "git",
+  "title": "Git and the shell",
+  "path": "git-shell",
+  "cards": [
+    {
+      "id": "pipe",
+      "front": "What does a pipe (|) do in a shell?",
+      "back": "It connects the standard output of the command on its left to the standard input of the command on its right.",
+      "lesson": "shell-bash-basics",
+      "tags": [
+        "bash",
+        "pipes"
+      ]
+    },
+    {
+      "id": "redirect",
+      "front": "What is the difference between > and >> ?",
+      "back": "> writes a command's output to a file, replacing its content; >> appends to the file.",
+      "lesson": "shell-bash-basics",
+      "tags": [
+        "bash",
+        "redirection"
+      ]
+    },
+    {
+      "id": "stderr",
+      "front": "How do you send a message to standard error in bash?",
+      "back": "echo \"message\" >&2. Errors on stderr stay visible when stdout is redirected or piped.",
+      "lesson": "shell-bash-basics",
+      "tags": [
+        "bash"
+      ]
+    },
+    {
+      "id": "glob",
+      "front": "Who expands *.csv in \"mv *.csv archive/\": mv or the shell?",
+      "back": "The shell. mv receives the list of matching names; with no match, bash passes the literal *.csv unless nullglob is set.",
+      "lesson": "shell-bash-basics",
+      "tags": [
+        "bash",
+        "globs"
+      ]
+    },
+    {
+      "id": "quote-variables",
+      "front": "Why write \"$file\" with quotes?",
+      "back": "Without quotes, a value with spaces or glob characters is split into several words or expanded. Quotes keep it as one argument.",
+      "lesson": "shell-bash-basics",
+      "tags": [
+        "bash",
+        "quoting"
+      ]
+    },
+    {
+      "id": "set-e",
+      "front": "What does set -euo pipefail do?",
+      "back": "-e exits on the first failing command, -u treats unset variables as errors, pipefail makes a pipeline fail if any command in it fails.",
+      "lesson": "shell-bash-basics",
+      "tags": [
+        "bash",
+        "exit codes"
+      ]
+    },
+    {
+      "id": "exit-code",
+      "front": "How do you read the exit code of the last command, and what does 0 mean?",
+      "back": "$? holds it; 0 means success, anything else a failure.",
+      "lesson": "shell-bash-basics",
+      "tags": [
+        "bash",
+        "exit codes"
+      ]
+    },
+    {
+      "id": "test-s",
+      "front": "What does [ -s \"$file\" ] test?",
+      "back": "That the file exists and has a size greater than zero.",
+      "lesson": "shell-bash-basics",
+      "tags": [
+        "bash",
+        "tests"
+      ]
+    },
+    {
+      "id": "grep-flags",
+      "front": "What do grep -c, -i, -v and -r do?",
+      "back": "-c counts matching lines, -i ignores case, -v keeps the lines that do not match, -r searches folders recursively.",
+      "lesson": "shell-bash-basics",
+      "tags": [
+        "grep"
+      ]
+    },
+    {
+      "id": "sort-uniq",
+      "front": "Why is uniq -c usually preceded by sort?",
+      "back": "uniq only merges adjacent equal lines; sort puts equal lines next to each other first.",
+      "lesson": "shell-bash-basics",
+      "tags": [
+        "pipes"
+      ]
+    },
+    {
+      "id": "mkdir-p",
+      "front": "What does mkdir -p a/b/c do?",
+      "back": "Creates a, a/b and a/b/c as needed, and does not fail if they already exist.",
+      "lesson": "shell-bash-basics",
+      "tags": [
+        "bash",
+        "files"
+      ]
+    },
+    {
+      "id": "powershell-pipe",
+      "front": "How does a PowerShell pipeline differ from a bash pipeline?",
+      "back": "PowerShell passes objects between commands (Get-ChildItem | Where-Object Length -gt 0), bash passes text.",
+      "lesson": "shell-bash-basics",
+      "tags": [
+        "powershell"
+      ]
+    },
+    {
+      "id": "three-areas",
+      "front": "What are the working tree, the index and the repository in Git?",
+      "back": "The working tree holds your files; the index (staging area) holds what the next commit will contain; the repository holds the commits.",
+      "lesson": "git-commit-branch",
+      "tags": [
+        "git",
+        "staging"
+      ]
+    },
+    {
+      "id": "git-add",
+      "front": "What does git add do?",
+      "back": "It copies the current content of a file into the index, to be included in the next commit.",
+      "lesson": "git-commit-branch",
+      "tags": [
+        "git",
+        "staging"
+      ]
+    },
+    {
+      "id": "diff-staged",
+      "front": "What is the difference between git diff and git diff --staged?",
+      "back": "git diff shows changes not yet staged; git diff --staged shows staged changes that the next commit will record.",
+      "lesson": "git-commit-branch",
+      "tags": [
+        "git"
+      ]
+    },
+    {
+      "id": "commit-content",
+      "front": "What does a Git commit contain?",
+      "back": "A snapshot of the staged tree, its parent commit(s), an author, a committer, a date and a message, all identified by a hash.",
+      "lesson": "git-commit-branch",
+      "tags": [
+        "git",
+        "commits"
+      ]
+    },
+    {
+      "id": "branch-pointer",
+      "front": "What is a Git branch?",
+      "back": "A movable name that points to one commit. Committing on it moves it forward to the new commit.",
+      "lesson": "git-commit-branch",
+      "tags": [
+        "git",
+        "branches"
+      ]
+    },
+    {
+      "id": "head",
+      "front": "What is HEAD?",
+      "back": "The pointer to what you have checked out: usually the current branch, or a commit directly in detached HEAD state.",
+      "lesson": "git-commit-branch",
+      "tags": [
+        "git"
+      ]
+    },
+    {
+      "id": "gitignore",
+      "front": "Does adding a file to .gitignore remove it from the repository?",
+      "back": "No. .gitignore only stops untracked files from being added. A tracked file must be removed with git rm --cached, and it stays in older commits.",
+      "lesson": "git-commit-branch",
+      "tags": [
+        "git",
+        "gitignore"
+      ]
+    },
+    {
+      "id": "annotated-tag",
+      "front": "What is the difference between a lightweight and an annotated tag?",
+      "back": "A lightweight tag is just a name for a commit; an annotated tag (git tag -a) is an object with its own author, date and message.",
+      "lesson": "git-commit-branch",
+      "tags": [
+        "git",
+        "tags"
+      ]
+    },
+    {
+      "id": "conventional-commits",
+      "front": "What does a Conventional Commits message look like?",
+      "back": "type(scope): summary, for example \"fix(loader): skip empty files\". Common types are feat, fix, docs, refactor, test and chore.",
+      "lesson": "git-commit-branch",
+      "tags": [
+        "git",
+        "commits"
+      ]
+    },
+    {
+      "id": "fast-forward",
+      "front": "What is a fast-forward merge?",
+      "back": "When the target branch has no commits of its own since the branches split, Git moves its pointer forward without creating a merge commit.",
+      "lesson": "git-merge-rebase",
+      "tags": [
+        "git",
+        "merge"
+      ]
+    },
+    {
+      "id": "merge-commit",
+      "front": "What is special about a merge commit?",
+      "back": "It has two (or more) parents, joining the histories of the merged branches without rewriting them.",
+      "lesson": "git-merge-rebase",
+      "tags": [
+        "git",
+        "merge"
+      ]
+    },
+    {
+      "id": "rebase",
+      "front": "What does git rebase main do on a feature branch?",
+      "back": "It replays the feature commits on top of main, creating new commits with new hashes, for a linear history.",
+      "lesson": "git-merge-rebase",
+      "tags": [
+        "git",
+        "rebase"
+      ]
+    },
+    {
+      "id": "rebase-shared",
+      "front": "Why not rebase commits that others have already pulled?",
+      "back": "Rebase replaces them with new commits; collaborators who built on the old ones end up with duplicated or conflicting history.",
+      "lesson": "git-merge-rebase",
+      "tags": [
+        "git",
+        "rebase"
+      ]
+    },
+    {
+      "id": "conflict-markers",
+      "front": "What do <<<<<<<, ======= and >>>>>>> mean in a file?",
+      "back": "Conflict markers: the part between <<<<<<< and ======= is one side, between ======= and >>>>>>> the other. Edit to the final content, remove them, then git add.",
+      "lesson": "git-merge-rebase",
+      "tags": [
+        "git",
+        "conflicts"
+      ]
+    },
+    {
+      "id": "abort",
+      "front": "How do you give up on a merge or rebase in progress?",
+      "back": "git merge --abort or git rebase --abort return to the state before it started.",
+      "lesson": "git-merge-rebase",
+      "tags": [
+        "git",
+        "conflicts"
+      ]
+    },
+    {
+      "id": "cherry-pick",
+      "front": "What does git cherry-pick <hash> do?",
+      "back": "Applies the changes of that one commit on top of the current branch as a new commit.",
+      "lesson": "git-merge-rebase",
+      "tags": [
+        "git"
+      ]
+    },
+    {
+      "id": "reflog",
+      "front": "How do you find a commit after a git reset --hard or a deleted branch?",
+      "back": "git reflog lists where HEAD has been; create a branch at the lost commit with git branch rescued <hash>.",
+      "lesson": "git-merge-rebase",
+      "tags": [
+        "git",
+        "recovery"
+      ]
+    },
+    {
+      "id": "stash",
+      "front": "What does git stash do?",
+      "back": "Saves uncommitted changes as a stash entry and cleans the working tree; git stash apply or pop brings them back.",
+      "lesson": "git-merge-rebase",
+      "tags": [
+        "git",
+        "recovery"
+      ]
+    }
+  ]
+}

@@ -7,7 +7,8 @@
     "summary": "Files, pruning and table snapshots without format confusion.",
     "lessons": [
       "storage-partitions",
-      "storage-snapshots"
+      "storage-snapshots",
+      "storage-time-travel"
     ]
   },
   "lessons": [
@@ -80,7 +81,15 @@
       "related": [
         "spark-partitions",
         "storage-snapshots"
-      ]
+      ],
+      "checks": [
+        {
+          "id": "concept-formats-iceberg-metadata",
+          "language": "quiz"
+        }
+      ],
+      "cheatsheet": "learning-lakehouse",
+      "deck": "lakehouse"
     },
     {
       "id": "storage-snapshots",
@@ -148,7 +157,106 @@
       },
       "related": [
         "warehouse-scd2"
-      ]
+      ],
+      "checks": [
+        {
+          "id": "concept-formats-vacuum",
+          "language": "quiz"
+        },
+        {
+          "id": "concept-formats-uniform",
+          "language": "quiz"
+        }
+      ],
+      "cheatsheet": "table-formats",
+      "deck": "lakehouse"
+    },
+    {
+      "id": "storage-time-travel",
+      "version": 1,
+      "title": "DuckLake snapshots and time travel",
+      "summary": "Every DuckLake commit is a snapshot recorded in a SQL catalog: read an older version, list what changed, and know what expiring snapshots removes.",
+      "minutes": 15,
+      "concepts": [
+        "DuckLake",
+        "snapshots",
+        "time travel",
+        "catalog database",
+        "schema evolution",
+        "Parquet"
+      ],
+      "prerequisites": [
+        "storage-snapshots"
+      ],
+      "blocks": [
+        {
+          "kind": "text",
+          "title": "Metadata in a database",
+          "body": "DuckLake stores table data as Parquet files and all metadata (schemas, file lists, statistics, snapshots) in an ordinary SQL database: DuckDB, SQLite, PostgreSQL or MySQL. A commit is one database transaction, so several tables can change atomically, and finding a table's files is a query rather than a folder listing."
+        },
+        {
+          "kind": "text",
+          "title": "Snapshots and time travel",
+          "body": "Every committed change creates a snapshot with an id and a time. SELECT * FROM lake.orders AT (VERSION => 2) reads the table as of snapshot 2, and AT (TIMESTAMP => ...) as of a moment. lake.snapshots() lists the snapshots, and lake.table_changes('orders', 2, 3) returns the rows inserted, deleted or updated between two of them."
+        },
+        {
+          "kind": "callout",
+          "title": "Expiring snapshots",
+          "body": "Old snapshots keep their Parquet files alive. Expiring them (ducklake_expire_snapshots) and then cleaning up old files frees the space, and time travel to an expired snapshot stops working. A schema change such as ALTER TABLE ... ADD COLUMN is a snapshot too: older versions keep their old schema."
+        },
+        {
+          "kind": "check",
+          "title": "In the lab",
+          "body": "Open the Lakehouse Lab: its DuckLake missions use the official ducklake extension on a local lake in the mission folder, and the checker reads snapshots and time travel with DuckDB. Then answer the concept checks below; they run nothing."
+        }
+      ],
+      "code": {
+        "language": "none",
+        "source": "-- Read only. Outside the lab, DuckDB attaches a lake with:\n--   ATTACH 'ducklake:metadata.ducklake' AS lake (DATA_PATH 'data/');\n-- The Lakehouse Lab attaches each mission's lake itself (ATTACH is refused there).\nCREATE TABLE lake.orders AS SELECT 1 AS id, 40 AS amount;\nINSERT INTO lake.orders VALUES (2, 15);\nUPDATE lake.orders SET amount = 45 WHERE id = 1;\nSELECT * FROM lake.snapshots();\nSELECT * FROM lake.orders AT (VERSION => 2);\nSELECT * FROM lake.table_changes('orders', 2, 3);\n"
+      },
+      "lab": "lakehouse",
+      "visual": {
+        "kind": "storage",
+        "title": "DuckLake snapshots - visual walkthrough",
+        "steps": [
+          {
+            "title": "A commit is a snapshot",
+            "body": "CREATE, INSERT and UPDATE each commit one transaction in the catalog database and add a snapshot."
+          },
+          {
+            "title": "Read an older version",
+            "body": "AT (VERSION => n) reads the file list recorded for snapshot n: the Parquet files are still there. Take the ids from snapshots(); they depend on the lake's history."
+          },
+          {
+            "title": "See what changed",
+            "body": "table_changes lists the rows inserted, deleted or updated between two snapshots: useful for incremental readers."
+          },
+          {
+            "title": "Expire to free space",
+            "body": "Expiring old snapshots and cleaning up their files frees storage; those versions can no longer be read."
+          }
+        ]
+      },
+      "related": [
+        "storage-snapshots",
+        "de-incremental"
+      ],
+      "checks": [
+        {
+          "id": "concept-formats-ducklake",
+          "language": "quiz"
+        },
+        {
+          "id": "concept-formats-vacuum",
+          "language": "quiz"
+        },
+        {
+          "id": "concept-formats-delta-log",
+          "language": "quiz"
+        }
+      ],
+      "cheatsheet": "learning-lakehouse",
+      "deck": "lakehouse"
     }
   ]
 }

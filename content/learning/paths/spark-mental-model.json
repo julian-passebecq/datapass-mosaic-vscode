@@ -93,6 +93,12 @@
       "related": [
         "sql-joins",
         "spark-partitions"
+      ],
+      "practice": [
+        {
+          "id": "spark-join-fanout-before-sum",
+          "language": "sparklab"
+        }
       ]
     },
     {
@@ -161,6 +167,12 @@
       },
       "related": [
         "storage-partitions"
+      ],
+      "practice": [
+        {
+          "id": "spark-remove-random-repartition",
+          "language": "sparklab"
+        }
       ]
     },
     {
@@ -228,7 +240,13 @@
           }
         ]
       },
-      "related": []
+      "related": [],
+      "practice": [
+        {
+          "id": "spark-window-instead-of-self-join",
+          "language": "sparklab"
+        }
+      ]
     }
   ]
 }

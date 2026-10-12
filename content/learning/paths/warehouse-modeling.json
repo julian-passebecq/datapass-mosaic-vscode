@@ -8,7 +8,9 @@
     "lessons": [
       "warehouse-grain",
       "warehouse-scd2",
-      "warehouse-dbt"
+      "warehouse-scd2-history",
+      "warehouse-dbt",
+      "warehouse-dbt-tests"
     ]
   },
   "lessons": [
@@ -79,7 +81,19 @@
       "related": [
         "sql-aggregation",
         "warehouse-scd2"
-      ]
+      ],
+      "practice": [
+        {
+          "id": "dwh-drill-across",
+          "language": "warehouse"
+        },
+        {
+          "id": "dwh-bridge-allocation",
+          "language": "warehouse"
+        }
+      ],
+      "cheatsheet": "learning-dimensional-modeling",
+      "deck": "warehouse"
     },
     {
       "id": "warehouse-scd2",
@@ -146,7 +160,19 @@
       },
       "related": [
         "storage-snapshots"
-      ]
+      ],
+      "practice": [
+        {
+          "id": "dwh-scd2-type1-attribute",
+          "language": "warehouse"
+        },
+        {
+          "id": "dwh-late-arriving-dimension",
+          "language": "warehouse"
+        }
+      ],
+      "cheatsheet": "learning-dimensional-modeling",
+      "deck": "warehouse"
     },
     {
       "id": "warehouse-dbt",
@@ -244,7 +270,257 @@
           ]
         ]
       },
-      "related": []
+      "related": [],
+      "practice": [
+        {
+          "id": "dbt-staging-model",
+          "language": "dbt-sql"
+        },
+        {
+          "id": "dbt-conditional-ref",
+          "language": "dbt-sql"
+        }
+      ],
+      "missions": [
+        {
+          "pack": "dbt-v1",
+          "id": "sales-board"
+        }
+      ],
+      "cheatsheet": "learning-dbt",
+      "deck": "warehouse"
+    },
+    {
+      "id": "warehouse-scd2-history",
+      "version": 1,
+      "title": "Build SCD type 2 history",
+      "summary": "Turn a change log into versions with valid_from and valid_to, open a version only on a real change, and keep one current row per key.",
+      "minutes": 20,
+      "concepts": [
+        "SCD2",
+        "slowly changing dimension",
+        "valid_from",
+        "valid_to",
+        "surrogate key",
+        "LEAD",
+        "IS DISTINCT FROM"
+      ],
+      "prerequisites": [
+        "warehouse-scd2"
+      ],
+      "blocks": [
+        {
+          "kind": "text",
+          "title": "One row per version",
+          "body": "A type 2 dimension keeps history: a change of a tracked attribute closes the current row and opens a new one. Each version has a surrogate key, the business key, the attributes, valid_from, valid_to (exclusive, often 9999-12-31 while current) and is_current. Facts store the surrogate key of the version valid when the event happened."
+        },
+        {
+          "kind": "text",
+          "title": "From a change log",
+          "body": "When the source lists every change with its date, the versions come from a window function: valid_to = LEAD(changed_at) OVER (PARTITION BY key ORDER BY changed_at), and the last version gets the open-ended date. First drop the rows whose tracked attributes did not change, or you create versions that differ only by date."
+        },
+        {
+          "kind": "callout",
+          "title": "Change detection and NULL",
+          "body": "city <> previous_city is NULL, not true, when one side is NULL, so a change to or from NULL is missed. Compare with IS DISTINCT FROM. In dbt, a snapshot keeps this history for you (dbt_valid_from, dbt_valid_to) with the timestamp or the check strategy."
+        },
+        {
+          "kind": "check",
+          "title": "Before you run",
+          "body": "Predict how many versions customer 42 gets, and why the change log row of 2026-03-10 does not open one."
+        }
+      ],
+      "code": {
+        "language": "sql",
+        "source": "WITH changes(customer_id, changed_at, city) AS (\n  VALUES (42, DATE '2026-01-01', 'Oslo'), (42, DATE '2026-03-10', 'Oslo'),\n         (42, DATE '2026-05-01', 'Bergen'), (7, DATE '2026-02-01', NULL),\n         (7, DATE '2026-04-01', 'Lyon')\n), real_changes AS (\n  SELECT *, LAG(city) OVER (PARTITION BY customer_id ORDER BY changed_at) AS previous_city,\n         ROW_NUMBER() OVER (PARTITION BY customer_id ORDER BY changed_at) AS n\n  FROM changes\n)\nSELECT customer_id, city, changed_at AS valid_from,\n       COALESCE(LEAD(changed_at) OVER (PARTITION BY customer_id ORDER BY changed_at), DATE '9999-12-31') AS valid_to,\n       LEAD(changed_at) OVER (PARTITION BY customer_id ORDER BY changed_at) IS NULL AS is_current\nFROM real_changes\nWHERE n = 1 OR city IS DISTINCT FROM previous_city\nORDER BY customer_id, valid_from;\n"
+      },
+      "exercise": {
+        "id": "dwh-scd2-apply",
+        "language": "warehouse"
+      },
+      "lab": "bi",
+      "visual": {
+        "kind": "timeline",
+        "title": "SCD2 history - visual walkthrough",
+        "steps": [
+          {
+            "title": "The change log",
+            "body": "Customer 42 appears three times, customer 7 twice; one of 42's rows repeats the same city.",
+            "lines": [
+              1,
+              4
+            ]
+          },
+          {
+            "title": "Compare with the previous row",
+            "body": "LAG brings the previous city onto each row; ROW_NUMBER marks the first row of each customer.",
+            "lines": [
+              5,
+              9
+            ]
+          },
+          {
+            "title": "Keep real changes only",
+            "body": "WHERE runs before the window functions of the SELECT: the repeated Oslo row is gone, and NULL to Lyon counts as a change.",
+            "lines": [
+              14,
+              14
+            ]
+          },
+          {
+            "title": "Close each version",
+            "body": "LEAD gives the next valid_from as this version's valid_to; the last version is open-ended and current.",
+            "lines": [
+              10,
+              12
+            ]
+          }
+        ]
+      },
+      "related": [
+        "warehouse-scd2",
+        "de-idempotency"
+      ],
+      "practice": [
+        {
+          "id": "de-scd2-validity",
+          "language": "sql"
+        },
+        {
+          "id": "dbt-snapshot-timestamp",
+          "language": "dbt-sql"
+        },
+        {
+          "id": "dbt-dim-from-snapshot",
+          "language": "dbt-sql"
+        }
+      ],
+      "missions": [
+        {
+          "pack": "dbt-v1",
+          "id": "product-price-history"
+        }
+      ],
+      "cheatsheet": "learning-dimensional-modeling",
+      "deck": "warehouse"
+    },
+    {
+      "id": "warehouse-dbt-tests",
+      "version": 1,
+      "title": "dbt tests: make assumptions fail loudly",
+      "summary": "Declare unique, not_null, relationships and accepted_values tests, write singular tests as queries that return bad rows, and choose warn or error.",
+      "minutes": 20,
+      "concepts": [
+        "dbt",
+        "data tests",
+        "unique",
+        "not_null",
+        "relationships",
+        "accepted_values",
+        "severity"
+      ],
+      "prerequisites": [
+        "warehouse-dbt"
+      ],
+      "blocks": [
+        {
+          "kind": "text",
+          "title": "A test is a query for bad rows",
+          "body": "Every dbt data test compiles to a SELECT that returns the rows breaking an assumption; it passes when that query returns no row. Generic tests are declared in YAML under a column: unique, not_null, accepted_values (with values: [...]) and relationships (to: ref('dim_customers'), field: customer_id). dbt test runs them; dbt build runs each model's tests right after the model and skips its children when a test fails."
+        },
+        {
+          "kind": "text",
+          "title": "Singular tests",
+          "body": "A .sql file in tests/ is a singular test: write the query that returns the violations, for example the orders whose total differs from the sum of their lines. Use one for rules that span tables or need arithmetic."
+        },
+        {
+          "kind": "callout",
+          "title": "Severity and scope",
+          "body": "config: severity: warn reports a failure without failing the run; error_if and warn_if set thresholds such as \">10\". where: limits a test to the rows that matter (status <> 'cancelled'). Warn on known, tolerated issues; keep keys and relationships at error."
+        },
+        {
+          "kind": "check",
+          "title": "Before you run",
+          "body": "The example is, in plain SQL, what the four generic tests check on a small fct_orders. Predict which test returns which row."
+        }
+      ],
+      "code": {
+        "language": "sql",
+        "source": "WITH fct_orders(order_id, customer_id, status) AS (\n  VALUES (1, 10, 'placed'), (2, 11, 'shipped'), (2, 11, 'shipped'), (3, NULL, 'returned'), (4, 12, 'lost')\n), dim_customers(customer_id) AS (VALUES (10), (11))\nSELECT 'unique order_id' AS test, CAST(order_id AS VARCHAR) AS failing_value\nFROM fct_orders GROUP BY order_id HAVING COUNT(*) > 1\nUNION ALL\nSELECT 'not_null customer_id', CAST(order_id AS VARCHAR) FROM fct_orders WHERE customer_id IS NULL\nUNION ALL\nSELECT 'accepted_values status', status FROM fct_orders WHERE status NOT IN ('placed', 'shipped', 'returned')\nUNION ALL\nSELECT 'relationships customer_id', CAST(f.customer_id AS VARCHAR)\nFROM fct_orders f LEFT JOIN dim_customers d ON f.customer_id = d.customer_id\nWHERE f.customer_id IS NOT NULL AND d.customer_id IS NULL;\n"
+      },
+      "exercise": {
+        "id": "dbt-generic-tests",
+        "language": "dbt-yml"
+      },
+      "lab": "dbt",
+      "visual": {
+        "kind": "grain",
+        "title": "Data tests - visual walkthrough",
+        "steps": [
+          {
+            "title": "unique",
+            "body": "Group by the key and keep the groups with more than one row: order 2 appears twice.",
+            "lines": [
+              4,
+              5
+            ]
+          },
+          {
+            "title": "not_null",
+            "body": "Rows whose column is NULL: order 3 has no customer.",
+            "lines": [
+              7,
+              7
+            ]
+          },
+          {
+            "title": "accepted_values",
+            "body": "Values outside the list: \"lost\" is not an accepted status.",
+            "lines": [
+              9,
+              9
+            ]
+          },
+          {
+            "title": "relationships",
+            "body": "Child keys with no parent: customer 12 is not in dim_customers. NULL keys are left to not_null.",
+            "lines": [
+              11,
+              13
+            ]
+          }
+        ]
+      },
+      "related": [
+        "warehouse-dbt",
+        "warehouse-grain"
+      ],
+      "practice": [
+        {
+          "id": "dbt-singular-test",
+          "language": "dbt-sql"
+        },
+        {
+          "id": "dbt-test-severity-where",
+          "language": "dbt-yml"
+        }
+      ],
+      "missions": [
+        {
+          "pack": "dbt-v1",
+          "id": "prod-unique-failure"
+        },
+        {
+          "pack": "dbt-v1",
+          "id": "order-lines-contract"
+        },
+        {
+          "pack": "dbt-v1",
+          "id": "source-freshness"
+        }
+      ],
+      "cheatsheet": "learning-dbt",
+      "deck": "warehouse"
     }
   ]
 }

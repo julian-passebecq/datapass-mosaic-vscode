@@ -1,0 +1,283 @@
+{
+  "format": "datapass.flashcards",
+  "version": 1,
+  "id": "python",
+  "title": "Python for data work",
+  "path": "python-foundations",
+  "cards": [
+    {
+      "id": "dict-get",
+      "front": "How do you read a dict key that may be missing without an exception?",
+      "back": "d.get(key, default) returns default (None if omitted) when the key is missing; d[key] raises KeyError.",
+      "lesson": "python-records",
+      "tags": [
+        "dict"
+      ]
+    },
+    {
+      "id": "counter",
+      "front": "What is the quickest way to count occurrences in Python?",
+      "back": "collections.Counter(iterable) returns a dict of counts; Counter.most_common(n) gives the top n.",
+      "lesson": "python-records",
+      "tags": [
+        "dict",
+        "counting"
+      ]
+    },
+    {
+      "id": "hash-join",
+      "front": "How do you enrich a list of rows from another list without a nested loop?",
+      "back": "Build a dict keyed by the join key once (lookup = {r[\"id\"]: r for r in right}), then read lookup.get(row[\"id\"]) for each row: O(n + m) instead of O(n x m).",
+      "lesson": "python-records",
+      "tags": [
+        "dict",
+        "joins"
+      ]
+    },
+    {
+      "id": "set-membership",
+      "front": "Why test membership with a set rather than a list?",
+      "back": "x in a_set is a hash lookup, about constant time; x in a_list scans the list.",
+      "lesson": "python-records",
+      "tags": [
+        "set"
+      ]
+    },
+    {
+      "id": "dedupe-order",
+      "front": "How do you remove duplicates while keeping the first-seen order?",
+      "back": "list(dict.fromkeys(items)), or loop with a seen set and append items not yet seen.",
+      "lesson": "python-records",
+      "tags": [
+        "deduplication"
+      ]
+    },
+    {
+      "id": "sort-key",
+      "front": "How do you sort records by a field, highest first?",
+      "back": "sorted(rows, key=lambda r: r[\"amount\"], reverse=True). Sorting is stable, so earlier sorts survive as tie-breakers.",
+      "lesson": "python-records",
+      "tags": [
+        "sorting"
+      ]
+    },
+    {
+      "id": "comprehension",
+      "front": "What does [r[\"id\"] for r in rows if r[\"ok\"]] build?",
+      "back": "A new list with the id of each row whose ok field is truthy.",
+      "lesson": "python-records",
+      "tags": [
+        "comprehensions"
+      ]
+    },
+    {
+      "id": "generator",
+      "front": "What is the difference between [x for x in it] and (x for x in it)?",
+      "back": "The first builds the whole list in memory; the second is a lazy generator that yields one item at a time and can be consumed only once.",
+      "lesson": "python-records",
+      "tags": [
+        "generators"
+      ]
+    },
+    {
+      "id": "try-except-narrow",
+      "front": "Why catch a specific exception such as ValueError rather than a bare except?",
+      "back": "A bare except also catches bugs, KeyboardInterrupt and SystemExit, hiding problems. Catch only the failure you know how to handle.",
+      "lesson": "python-errors",
+      "tags": [
+        "exceptions"
+      ]
+    },
+    {
+      "id": "raise-from",
+      "front": "What does raise NewError(...) from exc do?",
+      "back": "It raises NewError with exc as its __cause__, so the traceback shows both the original error and the added context.",
+      "lesson": "python-errors",
+      "tags": [
+        "exceptions"
+      ]
+    },
+    {
+      "id": "finally",
+      "front": "When does a finally block run?",
+      "back": "Always: after the try block finishes, after an exception is handled, and even when an exception propagates or the function returns.",
+      "lesson": "python-errors",
+      "tags": [
+        "exceptions"
+      ]
+    },
+    {
+      "id": "custom-exception",
+      "front": "Why define class ConfigError(ValueError)?",
+      "back": "Callers can catch configuration problems specifically, while code that catches ValueError still handles them.",
+      "lesson": "python-errors",
+      "tags": [
+        "exceptions"
+      ]
+    },
+    {
+      "id": "int-parse",
+      "front": "What does int(\" 42 \") return, and int(\"4.2\")?",
+      "back": "int(\" 42 \") is 42 (surrounding whitespace is allowed); int(\"4.2\") raises ValueError.",
+      "lesson": "python-errors",
+      "tags": [
+        "parsing"
+      ]
+    },
+    {
+      "id": "datetime-parse",
+      "front": "How do you parse \"2026-10-12T08:30:00\" into a datetime?",
+      "back": "datetime.fromisoformat(\"2026-10-12T08:30:00\"), or datetime.strptime(text, \"%Y-%m-%dT%H:%M:%S\") for other formats.",
+      "lesson": "python-errors",
+      "tags": [
+        "datetime"
+      ]
+    },
+    {
+      "id": "with-statement",
+      "front": "Why open files with a with block?",
+      "back": "The file is closed when the block ends, even if an exception is raised inside it.",
+      "lesson": "python-files",
+      "tags": [
+        "files"
+      ]
+    },
+    {
+      "id": "encoding",
+      "front": "Why pass encoding=\"utf-8\" to open()?",
+      "back": "Without it Python uses the platform default encoding, which differs between machines, so the same file can be read differently.",
+      "lesson": "python-files",
+      "tags": [
+        "files",
+        "encoding"
+      ]
+    },
+    {
+      "id": "csv-newline",
+      "front": "Why open a CSV file with newline=\"\"?",
+      "back": "The csv module handles line endings itself; newline=\"\" keeps quoted fields with embedded line breaks intact and avoids extra blank rows on Windows when writing.",
+      "lesson": "python-files",
+      "tags": [
+        "files",
+        "csv"
+      ]
+    },
+    {
+      "id": "csv-split",
+      "front": "Why not parse CSV with line.split(\",\")?",
+      "back": "Quoted fields can contain commas and quotes (\"Smith, Jo\"). csv.reader and csv.DictReader handle quoting correctly.",
+      "lesson": "python-files",
+      "tags": [
+        "csv"
+      ]
+    },
+    {
+      "id": "dictreader",
+      "front": "What does csv.DictReader give you for each row?",
+      "back": "A dict mapping header names to string values. Blank lines are skipped, and reader.line_num gives the current line number.",
+      "lesson": "python-files",
+      "tags": [
+        "csv"
+      ]
+    },
+    {
+      "id": "pathlib",
+      "front": "How do you build a path portably and read a small text file in one call?",
+      "back": "pathlib.Path(\"data\") / \"orders.csv\" joins paths; Path.read_text(encoding=\"utf-8\") reads the whole file.",
+      "lesson": "python-files",
+      "tags": [
+        "files"
+      ]
+    },
+    {
+      "id": "atomic-write",
+      "front": "How do you write a report file so a crash never leaves a half-written file?",
+      "back": "Write to a temporary file in the same folder, then os.replace(temp, final): the rename is atomic on the same file system.",
+      "lesson": "python-files",
+      "tags": [
+        "files"
+      ]
+    },
+    {
+      "id": "type-hints-runtime",
+      "front": "Does Python check type hints when the code runs?",
+      "back": "No. Hints are read by type checkers such as mypy or pyright and by people; at runtime they are only annotations.",
+      "lesson": "python-typing",
+      "tags": [
+        "typing"
+      ]
+    },
+    {
+      "id": "optional-hint",
+      "front": "How do you hint a value that can be missing?",
+      "back": "str | None (or Optional[str]). The function must then handle None.",
+      "lesson": "python-typing",
+      "tags": [
+        "typing"
+      ]
+    },
+    {
+      "id": "float-money",
+      "front": "Why is 0.1 + 0.2 == 0.3 False in Python?",
+      "back": "Binary floating point cannot represent 0.1 and 0.2 exactly. Use decimal.Decimal or integer cents for money.",
+      "lesson": "python-typing",
+      "tags": [
+        "decimal"
+      ]
+    },
+    {
+      "id": "pytest-raises",
+      "front": "How do you assert that a function raises ValueError in pytest?",
+      "back": "with pytest.raises(ValueError): call(); add match=\"text\" to check the message.",
+      "lesson": "python-typing",
+      "tags": [
+        "pytest"
+      ]
+    },
+    {
+      "id": "parametrize",
+      "front": "What does @pytest.mark.parametrize do?",
+      "back": "It runs one test function once per row of a table of arguments, and reports each case separately.",
+      "lesson": "python-typing",
+      "tags": [
+        "pytest"
+      ]
+    },
+    {
+      "id": "tmp-path",
+      "front": "How does a pytest test get its own temporary folder?",
+      "back": "Ask for the tmp_path fixture as an argument: a fresh pathlib.Path per test.",
+      "lesson": "python-tests",
+      "tags": [
+        "pytest",
+        "files"
+      ]
+    },
+    {
+      "id": "test-shape",
+      "front": "Which three cases should a small function's tests cover at least?",
+      "back": "The normal case, an edge case (empty input, a boundary, a negative) and the error case.",
+      "lesson": "python-tests",
+      "tags": [
+        "pytest"
+      ]
+    },
+    {
+      "id": "retry-backoff",
+      "front": "What is exponential backoff?",
+      "back": "Waiting longer after each failed attempt (for example 1, 2, 4, 8 seconds, often with random jitter) before retrying, up to a maximum number of attempts.",
+      "lesson": "api-retries",
+      "tags": [
+        "retries"
+      ]
+    },
+    {
+      "id": "mutable-default",
+      "front": "Why is def f(items=[]) a bug?",
+      "back": "The default list is created once and shared by every call, so items appended in one call appear in the next. Use items=None and create the list inside.",
+      "tags": [
+        "functions"
+      ]
+    }
+  ]
+}

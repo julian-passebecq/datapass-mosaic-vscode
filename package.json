@@ -15,6 +15,7 @@
       { "command": "datapass.learning.open", "title": "Datapass: Open Learning", "icon": "$(book)" },
       { "command": "datapass.learning.resume", "title": "Datapass: Resume Learning" },
       { "command": "datapass.learning.select", "title": "Datapass: Select Learning Topic" },
+      { "command": "datapass.learning.review", "title": "Datapass: Review Learning Flashcards" },
       { "command": "datapass.openHome", "title": "Datapass: Open Today" },
       { "command": "datapass.build.newWorkspace", "title": "New Blank Workspace", "category": "Datapass Build" },
       { "command": "datapass.build.newFile", "title": "New File (SQL, Python, Polars, Markdown)", "category": "Datapass Build" },

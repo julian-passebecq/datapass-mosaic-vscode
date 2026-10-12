@@ -1,0 +1,286 @@
+{
+  "format": "datapass.flashcards",
+  "version": 1,
+  "id": "lakehouse",
+  "title": "Lakehouse storage",
+  "path": "lakehouse-storage",
+  "cards": [
+    {
+      "id": "parquet-columnar",
+      "front": "Why is Parquet good for analytics?",
+      "back": "It stores data by column, compressed and with types, so a query reads only the columns it needs and compresses well.",
+      "lesson": "storage-partitions",
+      "tags": [
+        "parquet"
+      ]
+    },
+    {
+      "id": "row-groups",
+      "front": "What are Parquet row groups?",
+      "back": "Horizontal chunks of a file, each with column chunks and min/max statistics that let readers skip groups that cannot match a filter.",
+      "lesson": "storage-partitions",
+      "tags": [
+        "parquet"
+      ]
+    },
+    {
+      "id": "hive-partitioning",
+      "front": "What is Hive-style partitioning?",
+      "back": "Data files stored in folders named column=value (date=2026-10-12/), so a filter on that column reads only matching folders.",
+      "lesson": "storage-partitions",
+      "tags": [
+        "partitions"
+      ]
+    },
+    {
+      "id": "partition-pruning",
+      "front": "What is partition pruning?",
+      "back": "Skipping whole partitions whose values cannot satisfy the query's filter, before reading any file in them.",
+      "lesson": "storage-partitions",
+      "tags": [
+        "partitions"
+      ]
+    },
+    {
+      "id": "over-partitioning",
+      "front": "What goes wrong when you partition by a high-cardinality column?",
+      "back": "Thousands of tiny files and folders: listing and opening them costs more than the pruning saves.",
+      "lesson": "storage-partitions",
+      "tags": [
+        "partitions"
+      ]
+    },
+    {
+      "id": "small-files",
+      "front": "Why are many small files a problem?",
+      "back": "Each file has open, metadata and scheduling overhead, and small files compress worse. Compact them into fewer, larger files.",
+      "lesson": "storage-partitions",
+      "tags": [
+        "compaction"
+      ]
+    },
+    {
+      "id": "compaction",
+      "front": "What does compaction do?",
+      "back": "Rewrites many small files into fewer larger ones with the same rows; with a table format, readers switch atomically to the new files.",
+      "lesson": "storage-partitions",
+      "tags": [
+        "compaction"
+      ]
+    },
+    {
+      "id": "table-format",
+      "front": "What does a table format such as Delta, Iceberg or DuckLake add to Parquet files?",
+      "back": "A metadata layer that lists the files of each version: ACID commits, snapshots, time travel and schema evolution.",
+      "lesson": "storage-snapshots",
+      "tags": [
+        "table formats"
+      ]
+    },
+    {
+      "id": "delta-log",
+      "front": "Where does Delta Lake keep its history?",
+      "back": "In the _delta_log/ folder: one JSON file per commit, with periodic Parquet checkpoints.",
+      "lesson": "storage-snapshots",
+      "tags": [
+        "delta"
+      ]
+    },
+    {
+      "id": "iceberg-metadata",
+      "front": "How does Iceberg find a table's data files?",
+      "back": "Through a tree: metadata.json, then a manifest list for the snapshot, then manifests listing the data files.",
+      "lesson": "storage-partitions",
+      "tags": [
+        "iceberg"
+      ]
+    },
+    {
+      "id": "ducklake-metadata",
+      "front": "Where does DuckLake keep its metadata?",
+      "back": "In a SQL database (DuckDB, SQLite, PostgreSQL or MySQL), while the data stays in Parquet files.",
+      "lesson": "storage-time-travel",
+      "tags": [
+        "ducklake"
+      ]
+    },
+    {
+      "id": "ducklake-transactions",
+      "front": "Why can DuckLake commit several tables at once?",
+      "back": "A commit is one transaction in its catalog database, so changes to several tables become visible together.",
+      "lesson": "storage-time-travel",
+      "tags": [
+        "ducklake"
+      ]
+    },
+    {
+      "id": "snapshot",
+      "front": "What is a snapshot in a table format?",
+      "back": "A committed version of the table: the list of data files (and deletes) that make up the table at that moment.",
+      "lesson": "storage-time-travel",
+      "tags": [
+        "snapshots"
+      ]
+    },
+    {
+      "id": "time-travel-ducklake",
+      "front": "How do you read a DuckLake table as of an earlier snapshot?",
+      "back": "SELECT * FROM lake.orders AT (VERSION => 3), or AT (TIMESTAMP => ...) for a point in time.",
+      "lesson": "storage-time-travel",
+      "tags": [
+        "ducklake",
+        "time travel"
+      ]
+    },
+    {
+      "id": "time-travel-delta",
+      "front": "How do you read an older Delta version?",
+      "back": "SELECT * FROM orders VERSION AS OF 3, or TIMESTAMP AS OF '2026-10-01', in Spark SQL and Databricks. DESCRIBE HISTORY lists the versions.",
+      "lesson": "storage-snapshots",
+      "tags": [
+        "delta",
+        "time travel"
+      ]
+    },
+    {
+      "id": "table-changes",
+      "front": "How do you list the rows that changed between two DuckLake snapshots?",
+      "back": "lake.table_changes('orders', from_snapshot, to_snapshot) returns inserted, deleted and updated rows with their change type.",
+      "lesson": "storage-time-travel",
+      "tags": [
+        "ducklake"
+      ]
+    },
+    {
+      "id": "expire-snapshots",
+      "front": "What does expiring old snapshots allow, and what does it cost?",
+      "back": "Their files can then be cleaned up to free storage; time travel to those snapshots no longer works.",
+      "lesson": "storage-time-travel",
+      "tags": [
+        "snapshots"
+      ]
+    },
+    {
+      "id": "vacuum",
+      "front": "What does Delta's VACUUM remove?",
+      "back": "Data files that no current version references and that are older than the retention period (7 days by default).",
+      "lesson": "storage-snapshots",
+      "tags": [
+        "delta",
+        "maintenance"
+      ]
+    },
+    {
+      "id": "optimize",
+      "front": "What does Delta's OPTIMIZE do?",
+      "back": "Compacts small files into larger ones; with Z-order or liquid clustering it also groups related rows together.",
+      "lesson": "storage-snapshots",
+      "tags": [
+        "delta",
+        "maintenance"
+      ]
+    },
+    {
+      "id": "deletion-vectors",
+      "front": "What are deletion vectors?",
+      "back": "Markers of deleted rows stored beside a data file, so a delete or update does not rewrite the whole file immediately.",
+      "lesson": "storage-snapshots",
+      "tags": [
+        "delta"
+      ]
+    },
+    {
+      "id": "schema-evolution",
+      "front": "What is schema evolution in a table format?",
+      "back": "Changing the schema (adding a column, widening a type) as a new version, without rewriting old files; old versions keep their schema.",
+      "lesson": "storage-time-travel",
+      "tags": [
+        "schema"
+      ]
+    },
+    {
+      "id": "partition-evolution",
+      "front": "What is Iceberg partition evolution?",
+      "back": "Changing a table's partitioning for new data without rewriting existing files; queries plan over both layouts.",
+      "lesson": "storage-partitions",
+      "tags": [
+        "iceberg",
+        "partitions"
+      ]
+    },
+    {
+      "id": "hidden-partitioning",
+      "front": "What is Iceberg hidden partitioning?",
+      "back": "Partitions are derived from column transforms such as day(ts), so queries filter on ts directly and do not need a separate date column.",
+      "lesson": "storage-partitions",
+      "tags": [
+        "iceberg",
+        "partitions"
+      ]
+    },
+    {
+      "id": "uniform",
+      "front": "What does Delta UniForm do?",
+      "back": "Writes Iceberg metadata for a Delta table from the same Parquet files, so Iceberg readers can read it without copying data.",
+      "lesson": "storage-snapshots",
+      "tags": [
+        "delta",
+        "iceberg"
+      ]
+    },
+    {
+      "id": "acid",
+      "front": "Why do table formats give ACID writes on object storage?",
+      "back": "Writers add new files and then publish them with one atomic metadata commit; readers see either the old or the new version, never half of a write.",
+      "lesson": "storage-snapshots",
+      "tags": [
+        "table formats"
+      ]
+    },
+    {
+      "id": "optimistic-concurrency",
+      "front": "How do table formats handle two writers at once?",
+      "back": "Optimistic concurrency: each writer commits against the version it read; if another commit got there first and conflicts, the commit fails and is retried.",
+      "lesson": "storage-snapshots",
+      "tags": [
+        "table formats"
+      ]
+    },
+    {
+      "id": "merge-files",
+      "front": "Why does a MERGE on a lake table rewrite files?",
+      "back": "Parquet files are immutable: changed rows require new files (or deletion vectors), and the commit swaps the old files for the new ones.",
+      "lesson": "storage-snapshots",
+      "tags": [
+        "merge"
+      ]
+    },
+    {
+      "id": "explain-analyze-pruning",
+      "front": "How do you check that DuckDB pruned partitions?",
+      "back": "Run EXPLAIN ANALYZE and compare the files or rows scanned with the total; a filtered Hive partition column should reduce the files read.",
+      "lesson": "storage-partitions",
+      "tags": [
+        "partitions",
+        "duckdb"
+      ]
+    },
+    {
+      "id": "object-storage-rename",
+      "front": "Why is a folder rename a poor commit mechanism on object storage?",
+      "back": "Object stores have no atomic folder rename; a \"rename\" copies and deletes objects one by one. Table formats commit through metadata instead.",
+      "lesson": "storage-snapshots",
+      "tags": [
+        "table formats"
+      ]
+    },
+    {
+      "id": "medallion-storage",
+      "front": "Where do bronze, silver and gold tables usually live in a lakehouse?",
+      "back": "As table-format tables (Delta, Iceberg or DuckLake) over Parquet files in object storage or a local folder.",
+      "tags": [
+        "architecture"
+      ]
+    }
+  ]
+}

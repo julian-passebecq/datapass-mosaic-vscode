@@ -77,6 +77,9 @@ try {
   assert.equal(await f.getByRole('complementary',{name:'Learning path'}).count(),0);pass('right course rail hides');
   await f.getByRole('button',{name:'Show path',exact:true}).click();await f.getByRole('complementary',{name:'Learning path'}).waitFor();
   await f.getByRole('button',{name:'Mark as read',exact:true}).click();await f.getByText('Read (self-reported)',{exact:true}).first().waitFor();pass('reading persists as self-report');
+  await f.getByRole('button',{name:'Review flashcards',exact:true}).first().click();await f.getByText('Self-rated, not graded',{exact:true}).first().waitFor();
+  await f.getByRole('button',{name:'Show answer',exact:true}).click();await f.getByRole('button',{name:'Knew it',exact:true}).click();
+  await f.getByRole('button',{name:'Close review',exact:true}).click();await f.getByRole('heading',{name:'Join rows, not circles',exact:true}).waitFor();pass('flashcard review is self-rated and returns to the lesson');
   await f.locator('.notes summary').click();await f.getByRole('textbox',{name:'Lesson notes'}).fill('Learning UI persistence check');await f.getByRole('button',{name:'Save notes',exact:true}).click();
   await f.getByText('Notes saved in workspace storage.',{exact:true}).waitFor();
   await mode('Try');f=await learningFrame();await f.getByRole('heading',{name:'Work in the native editor',exact:true}).waitFor();
