@@ -6,9 +6,11 @@ Each version's section becomes the notes of its GitHub Release (see docs/RELEASE
 
 ## [Unreleased]
 
-### Unreleased (V1)
+## [0.4.0] - 2026-10-13
 
-#### Added
+Mosaic V1: Learning workspace, blank Build workspace, pipeline authoring, Infra ladder, Mosaic Studio exchange.
+
+### Added
 
 - **Learning curriculum (P2)**: four new paths (Spark and the data platforms, Orchestration in production,
   Infrastructure and DevOps for data, BI, governance and performance; 24 lessons), Practice pack `learning-checks-v1`
@@ -31,9 +33,10 @@ Each version's section becomes the notes of its GitHub Release (see docs/RELEASE
   undo/redo). The file is edited in place with unknown fields kept. Saving refuses to overwrite a file changed on disk
   without asking. New pipeline, import and export JSON.
 
-#### Fixed
+### Fixed
 
-- SQL dialect typing under sqlglot 30.20+: `qualify` no longer takes `infer_schema`.
+- SQL dialect typing under sqlglot 30.20+: `qualify` no longer takes `infer_schema`; the swallowed error had left columns untyped (T-SQL AVG and division refused).
+- New Blank Workspace opens Mosaic and its empty state immediately instead of after the notification is dismissed.
 
 ## [0.3.0] - 2026-10-04
 
