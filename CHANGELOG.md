@@ -6,6 +6,35 @@ Each version's section becomes the notes of its GitHub Release (see docs/RELEASE
 
 ## [Unreleased]
 
+### Unreleased (V1)
+
+#### Added
+
+- **Learning curriculum (P2)**: four new paths (Spark and the data platforms, Orchestration in production,
+  Infrastructure and DevOps for data, BI, governance and performance; 24 lessons), Practice pack `learning-checks-v1`
+  (72 concept checks, no execution), 14 one-page cheatsheets in `content/reference/learning-*.md` and four flashcard
+  decks (200 cards).
+- **Build and exchange (P3)**: blank workspace (manifest `catalog.seed` "none": no demo tables, trusted Python off),
+  New file (SQL / Python / Polars / Markdown) and Import dataset that never overwrite, Mosaic empty-state panel;
+  Mosaic exchange `datapass.mosaic-exchange` v1 with Mosaic Studio (schema, import as native files that are never run,
+  export of names and hashes only, docs/MOSAIC_EXCHANGE.md).
+- **Infra Lab ladder (P5)**: five intro missions (tf-first-apply, docker-first-image, vm-health-check,
+  k8s-first-deployment, alert-to-action) and a ladder order in `infra-v1` (Terraform, Docker/Compose, VMs and
+  monitoring, Kubernetes, observability); new Practice pack `infra-concepts-v1` (17 observability, PromQL, Grafana and
+  SLO concept checks, no execution) with the reference sheet `observability.md`.
+- **Learning engine (P1)**: lessons link concept checks, extra practice, missions, a cheatsheet and a flashcard deck.
+  Four separate progress levels (read, concept checks, ran locally, Practice passed). Self-rated flashcard review
+  (Datapass: Review Learning Flashcards). Resume and search now cover cards and cheatsheets. New content: 16 lessons,
+  Polars, DE foundations and Git and shell paths, 7 decks (220 cards), 7 cheatsheets.
+- **Pipeline authoring (P4)**: Cloud Lab › Pipelines edits Fabric, Azure Data Factory and Synapse pipelines on the
+  canvas (palette per product, dependencies with conditions, container levels, properties panel, validation,
+  undo/redo). The file is edited in place with unknown fields kept. Saving refuses to overwrite a file changed on disk
+  without asking. New pipeline, import and export JSON.
+
+#### Fixed
+
+- SQL dialect typing under sqlglot 30.20+: `qualify` no longer takes `infer_schema`.
+
 ## [0.3.0] - 2026-10-04
 
 ### Added

@@ -1,0 +1,47 @@
+id,area,feature,module,truth,status,evidence_id,owner_pkg
+MOD-today,Navigation,Today home: progress and next step and runtime Setup/Start,home,static,shipped-0.3.0,E-CI-EXTENSION,A
+MOD-projects,Real work,3 end-to-end projects with steps verified on the workspace,projects,real,shipped-0.3.0,E-CI-RUNTIME,pre-V1
+MOD-mosaic,Learn,Mosaic grid: DuckDB SQL and profile and import and EXPLAIN and history,mosaic,real,shipped-0.3.0,E-CI-RUNTIME,pre-V1
+MOD-mosaic-dialects,Learn,SQL dialects (T-SQL and Snowflake and BigQuery and Spark SQL and PostgreSQL) translated to DuckDB,mosaic,translated,shipped-0.3.0,E-RUNTIME-SQLGLOT,pre-V1
+MOD-mosaic-python,Learn,Mosaic Python and Polars cells (trusted Python only),mosaic,real,shipped-0.3.0,E-CI-HOST,pre-V1
+MOD-practice,Learn,Practice arena: native files and local grading and Review and Interview,practice,real,shipped-0.3.0,E-SMOKE-PACKS,pre-V1
+MOD-practice-quiz,Learn,Practice concept checks (answer compared by the runtime),practice,no-execution,shipped-0.3.0,E-SMOKE-PACKS,H
+MOD-practice-pytest,Learn,Practice production Python graded by pytest (trusted Python only),practice,real,shipped-0.3.0,E-SMOKE-PACKS,H
+MOD-sparklab,Learn,SparkLab bounded PySpark-style files and teaching plans,sparklab,simulated,shipped-0.3.0,E-CI-RUNTIME,pre-V1
+MOD-sparklab-polars,Learn,SparkLab Polars engine (real Polars and its own plan),sparklab,real,shipped-0.3.0,E-CI-HOST,pre-V1
+MOD-airflow,Learn,Airflow Lab: DAG files read by AST and scheduler simulated,airflow,simulated,shipped-0.3.0,E-CI-RUNTIME,pre-V1
+MOD-pipeline,Learn,Pipeline Lab: Python-like source compiled by bounded compiler,pipeline,real,shipped-0.3.0,E-CI-RUNTIME,pre-V1
+MOD-bi,Learn,BI Lab warehouse scripts and star model checks,bi,real,shipped-0.3.0,E-CI-RUNTIME,pre-V1
+MOD-bi-lineage,Learn,BI Lab SQL lineage and impact (sqlglot text analysis),bi,static,shipped-0.3.0,E-CI-RUNTIME,pre-V1
+MOD-bi-dbt,Learn,BI Lab dbt tab (Datapass dbt emulation: not dbt Core),bi,emulated,shipped-0.3.0,E-CI-RUNTIME,pre-V1
+MOD-fabric-pipelines,Learn,Cloud Lab Pipelines: Fabric and ADF and Synapse JSON orchestration,fabric,simulated,shipped-0.3.0,E-CI-RUNTIME,pre-V1
+MOD-fabric-sqlpool,Learn,Cloud Lab SQL pool and governance (RLS and masking) translated to DuckDB,fabric,translated,shipped-0.3.0,E-CI-RUNTIME,G
+MOD-fabric-databricks,Learn,Cloud Lab Databricks jobs and compute and Unity Catalog,fabric,simulated,shipped-0.3.0,E-CI-RUNTIME,G
+MOD-dbt,Real work,dbt Lab: real dbt Core and dbt Charts typed in a terminal,dbt,real,shipped-0.3.0,E-CI-HOST,pre-V1
+MOD-terminal,Real work,Terminal Lab: real bash and PowerShell and Git missions,terminal,real,shipped-0.3.0,E-CI-RUNTIME,pre-V1
+MOD-infra,Real work,Infra Lab: simulated Terraform and Docker and monitoring and Kubernetes,infra,simulated,shipped-0.3.0,E-CI-RUNTIME,D
+MOD-lakehouse,Real work,Lakehouse Lab: Parquet and DuckLake and Delta on local files,lakehouse,real,shipped-0.3.0,E-CI-RUNTIME,B
+MOD-apilab-api,Real work,API Lab simulated REST API on loopback,apilab,simulated,shipped-0.3.0,E-CI-RUNTIME,C
+MOD-apilab-ingest,Real work,API Lab learner ingest.py (trusted Python only),apilab,real,shipped-0.3.0,E-CI-RUNTIME,C
+MOD-learning-v0,Learning,Learning workspace: 6 paths and 19 lessons with native examples,learning,real,shipped-0.3.0,E-CI-UI,PR72
+MOD-native,VS Code,Status bar and CodeLens and JSON schemas and walkthrough,workbench,static,shipped-0.3.0,E-CI-UI,I
+V1F-FIX-1,Runtime,SQL dialect typing under sqlglot 30.20+ (qualify without infer_schema),mosaic,translated,merged-local,E-RUNTIME-SQLGLOT,FIX
+V1F-P1-1,Learning,Lessons link concept checks and extra practice and missions and cheatsheet and deck,learning,no-execution,merged-local,E-PKG-VERIFY-P1,P1
+V1F-P1-2,Learning,Four separate progress levels: read and concept checks and ran locally and Practice passed,learning,static,merged-local,E-PKG-VERIFY-P1,P1
+V1F-P1-3,Learning,Self-rated flashcard review (Leitner intervals; not in progress.json),learning,no-execution,merged-local,E-UI-LEARNING,P1
+V1F-P1-4,Learning,Resume and search cover flashcards and cheatsheets,learning,static,merged-local,E-UI-LEARNING,P1
+V1F-P1-5,Learning,New paths Polars and DE foundations and Git and shell (16 lessons and 7 decks and 7 cheatsheets),learning,real,merged-local,E-CONTENT-RUN-P1,P1
+V1F-P2-1,Learning,4 new paths: Spark platforms and Orchestration and Infra/DevOps and BI/governance (24 lessons),learning,no-execution,merged-local,E-FACTS-P2,P2
+V1F-P2-2,Practice,Pack learning-checks-v1 (72 concept checks),practice,no-execution,merged-local,E-SMOKE-PACKS,P2
+V1F-P2-3,Learning,14 cheatsheets and 4 flashcard decks (200 cards),learning,no-execution,merged-local,E-FACTS-P2,P2
+V1F-P3-1,Build,Blank workspace (catalog.seed none; no demo tables; trusted Python off),mosaic,real,merged-local,E-HOST-BUILD,P3
+V1F-P3-2,Build,New file (SQL and Python and Polars and Markdown) and Import dataset (never overwrite),mosaic,real,merged-local,E-HOST-BUILD,P3
+V1F-P3-3,Build,Mosaic empty-state panel on a blank workspace,mosaic,static,merged-local,E-UI-BUILD,P3
+V1F-P3-4,Exchange,Mosaic exchange datapass.mosaic-exchange v1 import (cells written as native files; never run),mosaic,static,merged-local,E-EXCHANGE-STUDIO,P3
+V1F-P3-5,Exchange,Mosaic exchange export (names and hashes only; engine duckdb-native),mosaic,static,merged-local,E-EXCHANGE-STUDIO,P3
+V1F-P4-1,Cloud Lab,Pipeline canvas editor for Fabric and ADF and Synapse (palette and properties and validation and undo/redo),fabric,simulated,merged-local,E-UI-PIPELINE,P4
+V1F-P4-2,Cloud Lab,In-place pipeline file edit with unknown fields kept and save conflict check,fabric,static,merged-local,E-UI-PIPELINE,P4
+V1F-P4-3,Cloud Lab,New pipeline and import and export JSON,fabric,static,merged-local,E-UI-PIPELINE,P4
+V1F-P5-1,Infra Lab,Five intro missions and ladder order in infra-v1 (13 missions in total),infra,simulated,merged-local,E-UI-INFRA,P5
+V1F-P5-2,Practice,Pack infra-concepts-v1 (17 observability and PromQL and Grafana and SLO concept checks),practice,no-execution,merged-local,E-SMOKE-PACKS,P5
+V1F-P5-3,Reference,Reference sheet observability.md,practice,no-execution,merged-local,E-UI-INFRA,P5

@@ -9,6 +9,48 @@ Add a tranche as a new `## YYYY-MM-DD · Title` section at the top, under this p
 sections, and refer to another section by its heading, not by a position. Keep the "Checked" and "Not checked"
 notes: they say what was really run.
 
+## 2026-10-13 · Mosaic VSIX V1 finish
+
+Branch `codex/mosaic-vsix-v1-finish-20261011` (tip `57ab2d8`): the sqlglot typing fix (`ad8d7b7`), PR #72 Learning and
+five packages, each built in its own worktree and merged locally: P1 learning engine (`43a6ceb`), P2 curriculum
+(`e820e0e`), P3 Build and exchange (`32ac85d`), P4 pipeline authoring (`fcd403b`), P5 infra ladder (`3b703f0`).
+Nothing pushed, no PR. Per-capability status: handoff/features.csv; results: handoff/EVIDENCE.md.
+
+Checked:
+- `npm run compile` and `npm test` at `57ab2d8`; `runtime_smoke.py` on sqlglot 30.19 and 30.22.
+- P1: every exercise, check, practice, mission, cheatsheet and deck ref resolves; old lessons still validate; a quiz or
+  Run visible never verifies a lesson; flashcard ratings persist and never touch `.datapass/progress.json`; new SQL,
+  Python and Polars examples ran in a temp venv; the packaged VSIX journey passes in real VS Code, flashcard review
+  and restart included.
+- P2: all 4 paths pass `validateCatalog`; each quiz reference passes and each starter and mutant fails through the real
+  worker; 5 SQL examples ran on DuckDB; the 4 decks pass the shape test.
+- P3: default manifest unchanged (missing seed = demo); seed none never clears an existing catalog; imports never
+  overwrite (node test and real extension host); both exchange examples round-trip; the 5 commands are registered once.
+- P4: byte-identical round trip on the 3 flavor samples (CRLF included); edit plus undo restores the exact text;
+  unknown fields kept; cycle, self-dependency and unknown-condition refusals; an infinite render loop in the editable
+  canvas was found and fixed in the webview harness.
+- P5: all 13 infra missions played through the real runtime API; each reference passes and each mutant fails for its
+  reason; fixture worlds identical across two builds; the concept pack loads (17) and its answers stay in
+  `grading.server.json`; `gen_json_schemas --check` clean.
+
+Not checked:
+- P2: platform facts (Spark defaults, Airflow 3, Data Factory, Synapse, Terraform state, Kubernetes, GDPR) were not
+  re-checked against live vendor documentation (no web access). The generated pack's provenance line says "checked
+  against the vendors' and projects' documentation on 2026-10-12", which overstates this: check or reword before
+  release. SparkLab and Python lesson examples were not run in SparkLab or the trusted worker; the new visuals and the
+  "learning-checks" Practice tree grouping were not looked at in the UI.
+- P5: facts in the concept cards and observability sheet (Prometheus, Grafana, Google SRE) were not re-fetched; the
+  new missions were not opened in a real VS Code window.
+- P3: the Build/import/export dialogs and the empty-state panel were not clicked in VS Code; the Projects surface
+  still lists the 3 demo projects with Start on a blank workspace; compatibility with the real Mosaic Studio is open
+  (its producer must follow docs/MOSAIC_EXCHANGE.md; the three contract choices are not yet accepted by that team).
+- P4: extension host flows (save conflict modal, save while dirty in a text editor, import, export, new-pipeline
+  prompt) and real pointer drag/connect were not tested; unsaved edits are lost if the webview is disposed; rename does
+  not rewrite `activity('X')` expressions (flagged as warnings).
+- P1: tree level descriptions, cheatsheet preview and opening a mission's lab only through the mocked host; narrow
+  layout of the new cards; git/bash content only read, not run; Polars snippets only on Polars 2.0.0.
+- Hosted CI, `test:host`, `test:ui` and the Python pack smokes were not run for the merged branch.
+
 ## 2026-10-04 · Mosaic / Arena 0.3.0 release qualification
 
 Recovered the clean `60192bd59c50e6a04b513c5e72d8042ca47917fa` baseline on
