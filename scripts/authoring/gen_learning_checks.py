@@ -506,7 +506,7 @@ def main():
             "explanation": "The explanation comes with a correct submission, from the runtime.",
             "follow_ups": [], "canonical_placement": {"domain": "learning-checks", "topic": topic},
             "related_associations": ["practice/learning-checks"], "validator_version": "quiz-v1",
-            "runtime_requirements": [], "provenance": {"source": "Authored for Datapass Workbench; checked against the vendors' and projects' documentation on 2026-10-12"},
+            "runtime_requirements": [], "provenance": {"source": "Authored for Datapass Workbench; written from documented behaviour; not re-checked against live vendor documentation"},
             "constraints": {"truth": "Concept check: no execution; the answer is compared by the runtime."},
             "context_refs": [ref_path], "truth": "concept-check",
         })

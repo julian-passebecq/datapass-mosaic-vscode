@@ -134,7 +134,23 @@
       "related": [
         "spark-partitions",
         "platform-spark-shuffle"
-      ]
+      ],
+      "checks": [
+        {
+          "id": "lc-spark-actions",
+          "language": "quiz"
+        },
+        {
+          "id": "lc-spark-wide",
+          "language": "quiz"
+        },
+        {
+          "id": "lc-spark-stages",
+          "language": "quiz"
+        }
+      ],
+      "cheatsheet": "learning-spark",
+      "deck": "spark-platforms"
     },
     {
       "id": "platform-spark-shuffle",
@@ -220,7 +236,19 @@
       "related": [
         "spark-broadcast",
         "spark-partitions"
-      ]
+      ],
+      "checks": [
+        {
+          "id": "lc-spark-shuffle-partitions",
+          "language": "quiz"
+        },
+        {
+          "id": "lc-spark-broadcast-threshold",
+          "language": "quiz"
+        }
+      ],
+      "cheatsheet": "learning-spark",
+      "deck": "spark-platforms"
     },
     {
       "id": "platform-databricks-jobs",
@@ -334,7 +362,19 @@
       },
       "related": [
         "airflow-dependencies"
-      ]
+      ],
+      "checks": [
+        {
+          "id": "lc-dbx-photon",
+          "language": "quiz"
+        },
+        {
+          "id": "lc-dbx-liquid-clustering",
+          "language": "quiz"
+        }
+      ],
+      "cheatsheet": "learning-databricks",
+      "deck": "spark-platforms"
     },
     {
       "id": "platform-delta-medallion",
@@ -418,7 +458,19 @@
       "related": [
         "storage-snapshots",
         "storage-partitions"
-      ]
+      ],
+      "checks": [
+        {
+          "id": "lc-dbx-auto-loader",
+          "language": "quiz"
+        },
+        {
+          "id": "lc-dbx-expectation-drop",
+          "language": "quiz"
+        }
+      ],
+      "cheatsheet": "learning-databricks",
+      "deck": "spark-platforms"
     },
     {
       "id": "platform-fabric-adf-pipelines",
@@ -531,7 +583,31 @@
       },
       "related": [
         "airflow-retries"
-      ]
+      ],
+      "checks": [
+        {
+          "id": "lc-fas-self-hosted-ir",
+          "language": "quiz"
+        },
+        {
+          "id": "lc-fas-onelake-delta",
+          "language": "quiz"
+        },
+        {
+          "id": "lc-fas-shortcut",
+          "language": "quiz"
+        },
+        {
+          "id": "lc-fas-completed-condition",
+          "language": "quiz"
+        },
+        {
+          "id": "lc-fas-try-catch-status",
+          "language": "quiz"
+        }
+      ],
+      "cheatsheet": "learning-fabric-adf-synapse",
+      "deck": "spark-platforms"
     },
     {
       "id": "platform-synapse-sql-pools",
@@ -617,7 +693,15 @@
       },
       "related": [
         "warehouse-grain"
-      ]
+      ],
+      "checks": [
+        {
+          "id": "lc-fas-serverless-billing",
+          "language": "quiz"
+        }
+      ],
+      "cheatsheet": "learning-fabric-adf-synapse",
+      "deck": "spark-platforms"
     }
   ]
 }

@@ -104,7 +104,19 @@
       "related": [
         "warehouse-scd2",
         "bi-semantic-model"
-      ]
+      ],
+      "checks": [
+        {
+          "id": "lc-bi-star-dimensions",
+          "language": "quiz"
+        },
+        {
+          "id": "lc-bi-semi-additive",
+          "language": "quiz"
+        }
+      ],
+      "cheatsheet": "learning-dimensional-modeling",
+      "deck": "bi-governance"
     },
     {
       "id": "bi-history-scd",
@@ -190,7 +202,15 @@
       },
       "related": [
         "warehouse-scd2"
-      ]
+      ],
+      "checks": [
+        {
+          "id": "lc-bi-scd2-current",
+          "language": "quiz"
+        }
+      ],
+      "cheatsheet": "learning-dimensional-modeling",
+      "deck": "bi-governance"
     },
     {
       "id": "bi-semantic-model",
@@ -301,7 +321,19 @@
       },
       "related": [
         "bi-star-schema"
-      ]
+      ],
+      "checks": [
+        {
+          "id": "lc-bi-filter-direction",
+          "language": "quiz"
+        },
+        {
+          "id": "lc-bi-import-mode",
+          "language": "quiz"
+        }
+      ],
+      "cheatsheet": "learning-bi",
+      "deck": "bi-governance"
     },
     {
       "id": "gov-access-control",
@@ -418,7 +450,23 @@
       },
       "related": [
         "gov-lineage"
-      ]
+      ],
+      "checks": [
+        {
+          "id": "lc-gov-rls",
+          "language": "quiz"
+        },
+        {
+          "id": "lc-gov-masking",
+          "language": "quiz"
+        },
+        {
+          "id": "lc-gov-least-privilege",
+          "language": "quiz"
+        }
+      ],
+      "cheatsheet": "learning-governance",
+      "deck": "bi-governance"
     },
     {
       "id": "gov-lineage",
@@ -536,7 +584,19 @@
       },
       "related": [
         "gov-access-control"
-      ]
+      ],
+      "checks": [
+        {
+          "id": "lc-gov-lineage",
+          "language": "quiz"
+        },
+        {
+          "id": "lc-gov-pseudonymised",
+          "language": "quiz"
+        }
+      ],
+      "cheatsheet": "learning-governance",
+      "deck": "bi-governance"
     },
     {
       "id": "perf-troubleshooting",
@@ -627,7 +687,39 @@
       "related": [
         "sql-joins",
         "spark-partitions"
-      ]
+      ],
+      "checks": [
+        {
+          "id": "lc-perf-small-files",
+          "language": "quiz"
+        },
+        {
+          "id": "lc-perf-partition-pruning",
+          "language": "quiz"
+        },
+        {
+          "id": "lc-perf-column-pruning",
+          "language": "quiz"
+        },
+        {
+          "id": "lc-perf-partition-cardinality",
+          "language": "quiz"
+        },
+        {
+          "id": "lc-perf-explain-analyze",
+          "language": "quiz"
+        },
+        {
+          "id": "lc-ts-first-error",
+          "language": "quiz"
+        },
+        {
+          "id": "lc-ts-skew",
+          "language": "quiz"
+        }
+      ],
+      "cheatsheet": "learning-performance",
+      "deck": "bi-governance"
     }
   ]
 }
