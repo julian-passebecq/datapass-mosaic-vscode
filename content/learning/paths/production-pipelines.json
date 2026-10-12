@@ -108,7 +108,18 @@
       },
       "related": [
         "api-retries"
-      ]
+      ],
+      "missions": [
+        {
+          "pack": "api-v1",
+          "id": "api-paged-customers"
+        },
+        {
+          "pack": "api-v1",
+          "id": "api-cursor-retries"
+        }
+      ],
+      "deck": "de-foundations"
     },
     {
       "id": "api-retries",
@@ -176,7 +187,14 @@
       },
       "related": [
         "python-tests"
-      ]
+      ],
+      "missions": [
+        {
+          "pack": "api-v1",
+          "id": "api-rate-limited-events"
+        }
+      ],
+      "deck": "de-foundations"
     },
     {
       "id": "airflow-dependencies",
@@ -278,6 +296,12 @@
       "related": [
         "warehouse-dbt",
         "airflow-retries"
+      ],
+      "practice": [
+        {
+          "id": "af-data-interval-timetable",
+          "language": "airflow"
+        }
       ]
     },
     {

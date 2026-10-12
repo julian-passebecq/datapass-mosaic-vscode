@@ -9,6 +9,9 @@
       "sql-joins",
       "sql-filter-placement",
       "sql-aggregation",
+      "sql-grain",
+      "sql-cte-subquery",
+      "sql-set-operations",
       "sql-windows"
     ]
   },
@@ -93,7 +96,19 @@
       "related": [
         "sql-filter-placement",
         "warehouse-grain"
-      ]
+      ],
+      "practice": [
+        {
+          "id": "sql-lab-inner-customer-orders",
+          "language": "sql"
+        },
+        {
+          "id": "sql-lab-left-find-missing-universe",
+          "language": "sql"
+        }
+      ],
+      "cheatsheet": "learning-sql",
+      "deck": "sql"
     },
     {
       "id": "sql-filter-placement",
@@ -160,7 +175,15 @@
       },
       "related": [
         "spark-broadcast"
-      ]
+      ],
+      "practice": [
+        {
+          "id": "sql-lab-left-product-enrichment",
+          "language": "sql"
+        }
+      ],
+      "cheatsheet": "learning-sql",
+      "deck": "sql"
     },
     {
       "id": "sql-aggregation",
@@ -226,7 +249,19 @@
       "related": [
         "warehouse-grain",
         "sql-windows"
-      ]
+      ],
+      "practice": [
+        {
+          "id": "sql-lab-groupby-city",
+          "language": "sql"
+        },
+        {
+          "id": "sql-lab-case-inside-sum",
+          "language": "sql"
+        }
+      ],
+      "cheatsheet": "learning-sql",
+      "deck": "sql"
     },
     {
       "id": "sql-windows",
@@ -309,7 +344,372 @@
       },
       "related": [
         "spark-windows"
-      ]
+      ],
+      "practice": [
+        {
+          "id": "sql-lab-window-running-total",
+          "language": "sql"
+        },
+        {
+          "id": "sql-lab-window-dense-rank",
+          "language": "sql"
+        },
+        {
+          "id": "sql-lab-window-lag",
+          "language": "sql"
+        }
+      ],
+      "cheatsheet": "learning-sql",
+      "deck": "sql"
+    },
+    {
+      "id": "sql-grain",
+      "version": 1,
+      "title": "Know the grain of every row",
+      "summary": "Say what one output row means, aggregate before joining to avoid fan-out, and spot subtotal rows that live at another grain.",
+      "minutes": 15,
+      "concepts": [
+        "SQL",
+        "grain",
+        "aggregation",
+        "fan-out",
+        "ROLLUP",
+        "GROUPING"
+      ],
+      "prerequisites": [
+        "sql-aggregation"
+      ],
+      "blocks": [
+        {
+          "kind": "text",
+          "title": "One row means one what?",
+          "body": "The grain is the end of the sentence \"one row per ...\". orders has one row per order; order lines have one row per order and product. Every GROUP BY declares the grain of its result: the GROUP BY columns become the key of the output. Write the sentence down before you write the query."
+        },
+        {
+          "kind": "callout",
+          "title": "Fan-out",
+          "body": "Joining orders (one row per order) to lines (several per order) repeats each order once per line. SUM(orders.shipping) after that join counts the shipping fee once per line. Aggregate the many side to the grain of the one side first, then join; or only sum columns that belong to the grain of the joined result."
+        },
+        {
+          "kind": "text",
+          "title": "Rows at several grains",
+          "body": "GROUP BY ROLLUP(a, b) returns the detail rows (a, b), one subtotal per a with b set to NULL, and a grand total with both NULL. Those subtotal rows live at another grain: never add them up again with the detail rows. GROUPING(b) = 1 marks a row where b was rolled up, which tells a subtotal from a real NULL value."
+        },
+        {
+          "kind": "check",
+          "title": "Before you run",
+          "body": "Predict the shipping total computed after the join to the lines, and after aggregating the lines first. Then add GROUP BY ROLLUP(status) to a query over orders and predict how many rows it returns."
+        }
+      ],
+      "code": {
+        "language": "sql",
+        "source": "WITH orders(order_id, status, shipping) AS (\n  VALUES (1, 'DONE', 10), (2, 'DONE', 6), (3, 'OPEN', 4)\n), lines(order_id, product, amount) AS (\n  VALUES (1, 'pen', 30), (1, 'ink', 70), (2, 'pad', 20), (3, 'pen', 15), (3, 'pad', 5)\n), line_totals AS (\n  SELECT order_id, SUM(amount) AS items, COUNT(*) AS line_count\n  FROM lines\n  GROUP BY order_id\n)\nSELECT\n  (SELECT SUM(o.shipping) FROM orders o JOIN lines l USING (order_id)) AS shipping_fanned_out,\n  SUM(o.shipping) AS shipping_correct,\n  SUM(t.items) AS items_total\nFROM orders o\nJOIN line_totals t USING (order_id);\n"
+      },
+      "exercise": {
+        "id": "sql-lab-grouping-rollup",
+        "language": "sql"
+      },
+      "lab": "mosaic",
+      "visual": {
+        "kind": "grain",
+        "title": "Grain - visual walkthrough",
+        "steps": [
+          {
+            "title": "Declare the grain",
+            "body": "orders: one row per order. lines: one row per order and product. line_totals: one row per order, because it groups by order_id.",
+            "lines": [
+              5,
+              9
+            ]
+          },
+          {
+            "title": "Watch the fan-out",
+            "body": "Joining orders to lines repeats an order once per line: shipping adds up to 34 instead of 20.",
+            "lines": [
+              11,
+              11
+            ]
+          },
+          {
+            "title": "Aggregate, then join",
+            "body": "line_totals is already at the order grain, so the join keeps one row per order and shipping adds up to 20.",
+            "lines": [
+              12,
+              15
+            ]
+          },
+          {
+            "title": "Subtotals are another grain",
+            "body": "ROLLUP adds subtotal and total rows to the result. Filter them with GROUPING() before you reuse the detail rows."
+          }
+        ]
+      },
+      "related": [
+        "warehouse-grain",
+        "sql-joins"
+      ],
+      "practice": [
+        {
+          "id": "sql-lab-grouping-label-subtotals",
+          "language": "sql"
+        },
+        {
+          "id": "sql-lab-grouping-two-sets",
+          "language": "sql"
+        },
+        {
+          "id": "sql-lab-groupby-basket",
+          "language": "sql"
+        }
+      ],
+      "cheatsheet": "learning-sql",
+      "deck": "sql"
+    },
+    {
+      "id": "sql-cte-subquery",
+      "version": 1,
+      "title": "CTEs and subqueries: name each step",
+      "summary": "Break a query into named steps with WITH, and know when a scalar, IN, EXISTS or correlated subquery is the clearer tool.",
+      "minutes": 15,
+      "concepts": [
+        "SQL",
+        "CTE",
+        "WITH",
+        "subquery",
+        "correlated subquery",
+        "NOT EXISTS"
+      ],
+      "prerequisites": [
+        "sql-aggregation"
+      ],
+      "blocks": [
+        {
+          "kind": "text",
+          "title": "A CTE is a named query",
+          "body": "WITH name AS (SELECT ...) defines a result you can read like a table in the rest of the statement. Each step gets a name and a grain, and you can build and check the steps one at a time. DuckDB usually inlines a CTE into the plan, so naming a step costs nothing; AS MATERIALIZED asks for it to be computed once."
+        },
+        {
+          "kind": "text",
+          "title": "Three kinds of subquery",
+          "body": "A scalar subquery returns one value: (SELECT AVG(amount) FROM orders). IN (SELECT ...) and EXISTS (SELECT ...) test membership. A correlated subquery refers to the outer row (WHERE o.customer_id = c.customer_id): its meaning is \"evaluated for each outer row\", even when the optimizer turns it into a join."
+        },
+        {
+          "kind": "callout",
+          "title": "NOT IN and NULL",
+          "body": "x NOT IN (SELECT y FROM t) returns no row at all as soon as y contains a NULL, because x <> NULL is unknown rather than true. Use NOT EXISTS, or filter the NULLs out of the subquery."
+        },
+        {
+          "kind": "check",
+          "title": "Before you run",
+          "body": "Predict which customers are above the global average order amount. Then set one amount to NULL and check that AVG ignores it."
+        }
+      ],
+      "code": {
+        "language": "sql",
+        "source": "WITH orders(order_id, customer_id, amount) AS (\n  VALUES (1, 'A', 40), (2, 'A', 60), (3, 'B', 20), (4, 'C', 90), (5, NULL, 10)\n), global_avg AS (\n  SELECT AVG(amount) AS avg_amount FROM orders\n), per_customer AS (\n  SELECT customer_id, AVG(amount) AS customer_avg\n  FROM orders\n  WHERE customer_id IS NOT NULL\n  GROUP BY customer_id\n)\nSELECT p.customer_id, p.customer_avg, g.avg_amount\nFROM per_customer p, global_avg g\nWHERE p.customer_avg > g.avg_amount\nORDER BY p.customer_id;\n"
+      },
+      "exercise": {
+        "id": "sql-lab-groupby-above-global-cte",
+        "language": "sql"
+      },
+      "lab": "mosaic",
+      "visual": {
+        "kind": "dag",
+        "title": "Named steps - visual walkthrough",
+        "steps": [
+          {
+            "title": "Name the input",
+            "body": "orders is a CTE built from VALUES: a small table you can read in every later step.",
+            "lines": [
+              1,
+              2
+            ]
+          },
+          {
+            "title": "One value for everyone",
+            "body": "global_avg has exactly one row: the average of all non-NULL amounts (44).",
+            "lines": [
+              3,
+              4
+            ]
+          },
+          {
+            "title": "One row per customer",
+            "body": "per_customer groups by customer_id: its grain is one row per customer.",
+            "lines": [
+              5,
+              10
+            ]
+          },
+          {
+            "title": "Compare",
+            "body": "Joining a one-row CTE to every customer row adds the global average as a column; WHERE keeps A (50) and C (90).",
+            "lines": [
+              11,
+              14
+            ]
+          }
+        ],
+        "nodes": [
+          {
+            "id": "orders",
+            "title": "orders"
+          },
+          {
+            "id": "global-avg",
+            "title": "global_avg"
+          },
+          {
+            "id": "per-customer",
+            "title": "per_customer"
+          },
+          {
+            "id": "result",
+            "title": "Result"
+          }
+        ],
+        "edges": [
+          [
+            "orders",
+            "global-avg"
+          ],
+          [
+            "orders",
+            "per-customer"
+          ],
+          [
+            "global-avg",
+            "result"
+          ],
+          [
+            "per-customer",
+            "result"
+          ]
+        ]
+      },
+      "related": [
+        "sql-set-operations",
+        "sql-grain"
+      ],
+      "practice": [
+        {
+          "id": "sql-lab-groupby-above-global",
+          "language": "sql"
+        },
+        {
+          "id": "sql-lab-case-discount-cte",
+          "language": "sql"
+        },
+        {
+          "id": "de-not-in-null-trap",
+          "language": "sql"
+        }
+      ],
+      "cheatsheet": "learning-sql",
+      "deck": "sql"
+    },
+    {
+      "id": "sql-set-operations",
+      "version": 1,
+      "title": "UNION, INTERSECT and EXCEPT",
+      "summary": "Stack and compare result sets by position: keep duplicates with UNION ALL, compare key lists with EXCEPT, and reconcile two systems.",
+      "minutes": 12,
+      "concepts": [
+        "SQL",
+        "UNION ALL",
+        "UNION",
+        "INTERSECT",
+        "EXCEPT",
+        "reconciliation"
+      ],
+      "prerequisites": [
+        "sql-joins"
+      ],
+      "blocks": [
+        {
+          "kind": "text",
+          "title": "Columns match by position",
+          "body": "A set operation combines two SELECTs with the same number of columns. Columns are matched by position, not by name, and the result takes its names from the first SELECT. Cast both sides to the same type when they differ. DuckDB also offers UNION BY NAME, which matches columns by name."
+        },
+        {
+          "kind": "callout",
+          "title": "UNION removes duplicates",
+          "body": "UNION is UNION ALL followed by DISTINCT over whole rows: two genuine total rows with the same label and amount collapse into one. Use UNION ALL unless removing duplicates is the point, and then say so in a comment."
+        },
+        {
+          "kind": "text",
+          "title": "Comparing two lists",
+          "body": "a EXCEPT b returns the distinct rows of a that are not in b; INTERSECT returns the distinct rows found in both. Unlike NOT IN, both treat two NULLs as the same value. To label every key of a reconciliation (matched, source only, target only) in one pass, use a FULL OUTER JOIN on the key."
+        },
+        {
+          "kind": "check",
+          "title": "Before you run",
+          "body": "Predict the row count of UNION ALL and of UNION, then which ids EXCEPT returns in each direction."
+        }
+      ],
+      "code": {
+        "language": "sql",
+        "source": "WITH source(id) AS (VALUES (1), (2), (2), (3), (NULL)),\ntarget(id) AS (VALUES (2), (3), (4), (NULL))\nSELECT 'union all' AS operation, COUNT(*) AS row_count FROM (SELECT id FROM source UNION ALL SELECT id FROM target)\nUNION ALL\nSELECT 'union', COUNT(*) FROM (SELECT id FROM source UNION SELECT id FROM target)\nUNION ALL\nSELECT 'source except target', COUNT(*) FROM (SELECT id FROM source EXCEPT SELECT id FROM target)\nUNION ALL\nSELECT 'target except source', COUNT(*) FROM (SELECT id FROM target EXCEPT SELECT id FROM source)\nUNION ALL\nSELECT 'intersect', COUNT(*) FROM (SELECT id FROM source INTERSECT SELECT id FROM target);\n"
+      },
+      "exercise": {
+        "id": "sql-lab-grouping-union",
+        "language": "sql"
+      },
+      "lab": "mosaic",
+      "visual": {
+        "kind": "grain",
+        "title": "Set operations - visual walkthrough",
+        "steps": [
+          {
+            "title": "Stack with UNION ALL",
+            "body": "All 9 rows survive, duplicates and NULLs included.",
+            "lines": [
+              3,
+              3
+            ]
+          },
+          {
+            "title": "Remove duplicates with UNION",
+            "body": "Distinct rows only: 1, 2, 3, 4 and one NULL, so 5 rows.",
+            "lines": [
+              5,
+              5
+            ]
+          },
+          {
+            "title": "Compare with EXCEPT",
+            "body": "source EXCEPT target keeps 1; target EXCEPT source keeps 4. The two NULLs count as equal.",
+            "lines": [
+              7,
+              9
+            ]
+          },
+          {
+            "title": "Keep the common rows",
+            "body": "INTERSECT keeps 2, 3 and NULL: 3 distinct rows.",
+            "lines": [
+              11,
+              11
+            ]
+          }
+        ]
+      },
+      "related": [
+        "sql-cte-subquery",
+        "sql-joins"
+      ],
+      "practice": [
+        {
+          "id": "sql-lab-full-reconcile",
+          "language": "sql"
+        },
+        {
+          "id": "sql-lab-full-products",
+          "language": "sql"
+        }
+      ],
+      "cheatsheet": "learning-sql",
+      "deck": "sql"
     }
   ]
 }

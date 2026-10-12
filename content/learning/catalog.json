@@ -7,6 +7,9 @@
     "spark-mental-model",
     "warehouse-modeling",
     "lakehouse-storage",
-    "production-pipelines"
+    "production-pipelines",
+    "polars",
+    "de-foundations",
+    "git-shell"
   ]
 }

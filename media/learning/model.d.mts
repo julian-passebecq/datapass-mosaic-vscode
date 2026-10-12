@@ -41,7 +41,7 @@ export interface LearningState {
 }
 export interface LessonProgress {
   read: boolean;
-  checks: { id: string; language: string; status: 'passed' | 'failed' | 'unanswered' }[];
+  checks: { id: string; language: string; status: 'passed' | 'failed' | 'unanswered'; source: 'exercise' | 'checks'; index: number }[];
   executed: ExecutedRecord | undefined;
   verified: boolean;
   exercise: boolean | undefined;
@@ -66,6 +66,7 @@ export const LABS: readonly string[];
 export const LANGUAGES: readonly LearningLanguage[];
 export const LESSON_FIELDS: readonly string[];
 export const LIMITS: Readonly<{ checks: number; practice: number; missions: number; cards: number; front: number; back: number; tags: number }>;
+export const QUIZ_LANGUAGES: readonly string[];
 export const LEVEL_LABELS: Readonly<{ read: string; quiz: string; executed: string; verified: string }>;
 export function refKey(ref: ExerciseRef): string;
 export function cardKey(deck: string, card: string): string;

@@ -1,0 +1,387 @@
+{
+  "format": "datapass.flashcards",
+  "version": 1,
+  "id": "sql",
+  "title": "SQL semantics",
+  "path": "sql-foundations",
+  "cards": [
+    {
+      "id": "inner-join-rows",
+      "front": "How many rows does an INNER JOIN return when a key appears 2 times on the left and 3 times on the right?",
+      "back": "6 for that key: every matching pair produces one row. Joins multiply duplicate keys; they are not set intersections.",
+      "lesson": "sql-joins",
+      "tags": [
+        "joins",
+        "cardinality"
+      ]
+    },
+    {
+      "id": "left-join-unmatched",
+      "front": "What happens to a left row with no match in a LEFT JOIN?",
+      "back": "It is kept once, with NULL in every column coming from the right table.",
+      "lesson": "sql-joins",
+      "tags": [
+        "joins",
+        "null"
+      ]
+    },
+    {
+      "id": "null-key-match",
+      "front": "Does a NULL key match another NULL key in an equality join?",
+      "back": "No. NULL = NULL is unknown, not true, so rows with NULL keys never match with =. Use IS NOT DISTINCT FROM when NULL must match NULL.",
+      "lesson": "sql-joins",
+      "tags": [
+        "joins",
+        "null"
+      ]
+    },
+    {
+      "id": "full-outer-join",
+      "front": "What does a FULL OUTER JOIN return?",
+      "back": "All matching pairs, plus unmatched rows from both sides, each padded with NULLs for the other side.",
+      "lesson": "sql-joins",
+      "tags": [
+        "joins"
+      ]
+    },
+    {
+      "id": "semi-join",
+      "front": "What is a semi join, and how do you write one in standard SQL?",
+      "back": "It keeps each left row that has at least one match, once, without adding right columns. Write it with WHERE EXISTS (SELECT 1 FROM right r WHERE r.key = l.key) or WHERE key IN (SELECT ...).",
+      "lesson": "sql-joins",
+      "tags": [
+        "joins",
+        "exists"
+      ]
+    },
+    {
+      "id": "anti-join",
+      "front": "How do you find left rows that have no match on the right?",
+      "back": "An anti join: WHERE NOT EXISTS (SELECT 1 FROM right r WHERE r.key = l.key), or a LEFT JOIN followed by WHERE r.key IS NULL.",
+      "lesson": "sql-joins",
+      "tags": [
+        "joins",
+        "exists"
+      ]
+    },
+    {
+      "id": "on-vs-where",
+      "front": "In a LEFT JOIN, what is the difference between putting a right-table condition in ON and in WHERE?",
+      "back": "In ON it decides which right rows match, and unmatched left rows survive with NULLs. In WHERE it runs after the join, removes those NULL rows and turns the LEFT JOIN into an INNER JOIN.",
+      "lesson": "sql-filter-placement",
+      "tags": [
+        "joins",
+        "filters"
+      ]
+    },
+    {
+      "id": "where-null-filter",
+      "front": "Why does WHERE status = 'DONE' drop rows after a LEFT JOIN?",
+      "back": "Unmatched rows have status NULL, and NULL = 'DONE' is unknown, which WHERE treats as false.",
+      "lesson": "sql-filter-placement",
+      "tags": [
+        "filters",
+        "null"
+      ]
+    },
+    {
+      "id": "logical-order",
+      "front": "In what logical order does SQL evaluate FROM, WHERE, GROUP BY, HAVING, SELECT and ORDER BY?",
+      "back": "FROM and joins, WHERE, GROUP BY, HAVING, window functions with SELECT, DISTINCT, ORDER BY, then LIMIT.",
+      "lesson": "sql-aggregation",
+      "tags": [
+        "order of evaluation"
+      ]
+    },
+    {
+      "id": "where-vs-having",
+      "front": "When do you filter with WHERE and when with HAVING?",
+      "back": "WHERE filters rows before grouping; HAVING filters groups after aggregation, so it can use aggregates such as COUNT(*) > 2.",
+      "lesson": "sql-aggregation",
+      "tags": [
+        "aggregation",
+        "filters"
+      ]
+    },
+    {
+      "id": "count-star-column",
+      "front": "What is the difference between COUNT(*) and COUNT(column)?",
+      "back": "COUNT(*) counts rows; COUNT(column) counts rows where that column is not NULL.",
+      "lesson": "sql-aggregation",
+      "tags": [
+        "aggregation",
+        "null"
+      ]
+    },
+    {
+      "id": "avg-null",
+      "front": "How does AVG treat NULL values?",
+      "back": "It ignores them: the average of the non-NULL values. Use COALESCE(x, 0) inside AVG only if a missing value really means zero.",
+      "lesson": "sql-aggregation",
+      "tags": [
+        "aggregation",
+        "null"
+      ]
+    },
+    {
+      "id": "sum-empty",
+      "front": "What does SUM return over zero rows, and what does COUNT return?",
+      "back": "SUM returns NULL; COUNT returns 0. Wrap SUM in COALESCE(SUM(x), 0) when an empty group must show 0.",
+      "lesson": "sql-aggregation",
+      "tags": [
+        "aggregation",
+        "null"
+      ]
+    },
+    {
+      "id": "select-non-grouped",
+      "front": "Why can a SELECT with GROUP BY not list a column that is neither grouped nor aggregated?",
+      "back": "Each output row stands for a whole group, so a column with several values in the group has no single value. Group by it or aggregate it (MAX, ANY_VALUE, ...).",
+      "lesson": "sql-aggregation",
+      "tags": [
+        "aggregation"
+      ]
+    },
+    {
+      "id": "case-inside-sum",
+      "front": "How do you count or sum conditionally in one pass?",
+      "back": "Put the condition inside the aggregate: SUM(CASE WHEN status = 'DONE' THEN amount END), or COUNT(*) FILTER (WHERE status = 'DONE').",
+      "lesson": "sql-aggregation",
+      "tags": [
+        "aggregation",
+        "case"
+      ]
+    },
+    {
+      "id": "grain-definition",
+      "front": "What is the grain of a table or query result?",
+      "back": "What one row represents, the end of the sentence \"one row per ...\". The GROUP BY columns are the key of an aggregated result.",
+      "lesson": "sql-grain",
+      "tags": [
+        "grain"
+      ]
+    },
+    {
+      "id": "fan-out",
+      "front": "What is fan-out, and how do you avoid it before a SUM?",
+      "back": "A join to a table with several rows per key repeats the other side's rows, so its amounts are summed several times. Aggregate the many side to the key first, then join.",
+      "lesson": "sql-grain",
+      "tags": [
+        "grain",
+        "joins"
+      ]
+    },
+    {
+      "id": "rollup-rows",
+      "front": "What rows does GROUP BY ROLLUP(a, b) return?",
+      "back": "Detail rows for each (a, b), a subtotal for each a with b NULL, and one grand total with a and b NULL.",
+      "lesson": "sql-grain",
+      "tags": [
+        "rollup",
+        "grain"
+      ]
+    },
+    {
+      "id": "grouping-function",
+      "front": "How do you tell a ROLLUP subtotal row from a row whose value is really NULL?",
+      "back": "GROUPING(col) returns 1 when col was rolled up in that row and 0 when the NULL is a real value.",
+      "lesson": "sql-grain",
+      "tags": [
+        "rollup"
+      ]
+    },
+    {
+      "id": "grouping-sets",
+      "front": "What does GROUP BY GROUPING SETS ((a), (b)) produce?",
+      "back": "The union of GROUP BY a and GROUP BY b in one query: totals per a and totals per b, with NULL in the column that is not grouped.",
+      "lesson": "sql-grain",
+      "tags": [
+        "rollup"
+      ]
+    },
+    {
+      "id": "cube",
+      "front": "What does GROUP BY CUBE(a, b) add compared with ROLLUP(a, b)?",
+      "back": "Every combination of subtotals: per a, per b, per (a, b) and the grand total. ROLLUP only follows the hierarchy a then b.",
+      "lesson": "sql-grain",
+      "tags": [
+        "rollup"
+      ]
+    },
+    {
+      "id": "cte-purpose",
+      "front": "What is a CTE?",
+      "back": "A named query defined with WITH name AS (...) that later parts of the same statement read like a table. It names steps; it is not stored anywhere.",
+      "lesson": "sql-cte-subquery",
+      "tags": [
+        "cte"
+      ]
+    },
+    {
+      "id": "scalar-subquery",
+      "front": "What happens if a scalar subquery returns two rows?",
+      "back": "The query fails with an error: a scalar subquery must return at most one row (zero rows gives NULL).",
+      "lesson": "sql-cte-subquery",
+      "tags": [
+        "subquery"
+      ]
+    },
+    {
+      "id": "correlated-subquery",
+      "front": "What is a correlated subquery?",
+      "back": "A subquery that refers to a column of the outer query, so its result depends on the current outer row, for example WHERE o.customer_id = c.customer_id.",
+      "lesson": "sql-cte-subquery",
+      "tags": [
+        "subquery"
+      ]
+    },
+    {
+      "id": "not-in-null",
+      "front": "Why can x NOT IN (SELECT y FROM t) return no rows at all?",
+      "back": "If y contains a NULL, x <> NULL is unknown for every x, so no row passes. Use NOT EXISTS or exclude NULLs from the subquery.",
+      "lesson": "sql-cte-subquery",
+      "tags": [
+        "subquery",
+        "null"
+      ]
+    },
+    {
+      "id": "exists-vs-in",
+      "front": "When is NOT EXISTS safer than NOT IN?",
+      "back": "Always when the subquery column can be NULL: NOT EXISTS checks for a matching row and is not affected by NULLs in other rows.",
+      "lesson": "sql-cte-subquery",
+      "tags": [
+        "subquery",
+        "null"
+      ]
+    },
+    {
+      "id": "union-vs-union-all",
+      "front": "What is the difference between UNION and UNION ALL?",
+      "back": "UNION ALL keeps every row; UNION removes duplicate rows across the whole result, which costs a sort or hash and can drop genuine repeated rows.",
+      "lesson": "sql-set-operations",
+      "tags": [
+        "set operations"
+      ]
+    },
+    {
+      "id": "set-op-columns",
+      "front": "How are columns matched in UNION, INTERSECT and EXCEPT?",
+      "back": "By position. Both SELECTs need the same number of columns with compatible types, and names come from the first SELECT. DuckDB also has UNION BY NAME.",
+      "lesson": "sql-set-operations",
+      "tags": [
+        "set operations"
+      ]
+    },
+    {
+      "id": "except",
+      "front": "What does a EXCEPT b return?",
+      "back": "The distinct rows of a that do not appear in b. NULLs compare as equal here. EXCEPT ALL keeps duplicates with their counts.",
+      "lesson": "sql-set-operations",
+      "tags": [
+        "set operations"
+      ]
+    },
+    {
+      "id": "intersect",
+      "front": "What does a INTERSECT b return?",
+      "back": "The distinct rows that appear in both a and b.",
+      "lesson": "sql-set-operations",
+      "tags": [
+        "set operations"
+      ]
+    },
+    {
+      "id": "window-vs-group",
+      "front": "How does a window function differ from GROUP BY?",
+      "back": "It computes over a set of rows related to the current row but keeps every row: SUM(x) OVER (PARTITION BY k) puts the group total on each row.",
+      "lesson": "sql-windows",
+      "tags": [
+        "windows"
+      ]
+    },
+    {
+      "id": "rows-vs-range",
+      "front": "What is the difference between ROWS and RANGE frames when ORDER BY values tie?",
+      "back": "ROWS counts physical rows, so tied rows get different running totals. RANGE includes all peers with the same ORDER BY value, so tied rows get the same total.",
+      "lesson": "sql-windows",
+      "tags": [
+        "windows",
+        "frames"
+      ]
+    },
+    {
+      "id": "default-frame",
+      "front": "What frame does SUM(x) OVER (ORDER BY d) use by default?",
+      "back": "RANGE BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW, so rows with the same d share one running total.",
+      "lesson": "sql-windows",
+      "tags": [
+        "windows",
+        "frames"
+      ]
+    },
+    {
+      "id": "rank-functions",
+      "front": "ROW_NUMBER, RANK and DENSE_RANK on values 10, 10, 8: what does each give?",
+      "back": "ROW_NUMBER 1, 2, 3; RANK 1, 1, 3; DENSE_RANK 1, 1, 2.",
+      "lesson": "sql-windows",
+      "tags": [
+        "windows",
+        "ranking"
+      ]
+    },
+    {
+      "id": "lag-lead",
+      "front": "What do LAG and LEAD return?",
+      "back": "The value from the previous (LAG) or next (LEAD) row of the window partition in its order, or NULL (or a given default) when there is none.",
+      "lesson": "sql-windows",
+      "tags": [
+        "windows"
+      ]
+    },
+    {
+      "id": "qualify",
+      "front": "How do you keep only the latest row per key with a window function?",
+      "back": "Number the rows with ROW_NUMBER() OVER (PARTITION BY key ORDER BY updated_at DESC) and keep row number 1, with QUALIFY in DuckDB or an outer WHERE.",
+      "lesson": "sql-windows",
+      "tags": [
+        "windows",
+        "deduplication"
+      ]
+    },
+    {
+      "id": "window-filter",
+      "front": "Why can a window function not be used in WHERE?",
+      "back": "WHERE runs before window functions are computed. Filter in an outer query, a CTE, or with QUALIFY.",
+      "lesson": "sql-windows",
+      "tags": [
+        "windows",
+        "order of evaluation"
+      ]
+    },
+    {
+      "id": "null-comparison",
+      "front": "What is the result of NULL = NULL, and of NULL IS NOT DISTINCT FROM NULL?",
+      "back": "NULL = NULL is NULL (unknown); NULL IS NOT DISTINCT FROM NULL is true.",
+      "tags": [
+        "null"
+      ]
+    },
+    {
+      "id": "coalesce",
+      "front": "What does COALESCE(a, b, c) return?",
+      "back": "The first of its arguments that is not NULL, or NULL if all are.",
+      "tags": [
+        "null"
+      ]
+    },
+    {
+      "id": "order-by-guarantee",
+      "front": "Is the row order of a query result guaranteed without ORDER BY?",
+      "back": "No. Without ORDER BY the engine may return rows in any order, and that order can change between runs.",
+      "tags": [
+        "ordering"
+      ]
+    }
+  ]
+}

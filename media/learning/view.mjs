@@ -179,7 +179,7 @@ function linksCards() {
   const out = [];
   if (links.checks.length) out.push(card('Check your understanding', badge(model.labels?.quiz ?? 'Concept check, no execution', 'illustrative'),
     links.checks.map((c, i) => add(el('div', `check ${c.status === 'passed' ? 'passed' : c.status === 'failed' ? 'failed' : ''}`), el('strong', '', c.title), el('small', 'muted', statusText(c.status)),
-      button('Answer in Practice', () => send('openCheck', { index: i }), { key: `check-${i}` }))),
+      button('Answer in Practice', () => c.source === 'exercise' ? send('openPractice') : send('openCheck', { index: c.index }), { key: `check-${i}` }))),
     el('p', 'muted', 'Your answer is submitted and recorded by Practice. A concept check runs nothing and never verifies the lesson.')));
   if (links.practice.length) out.push(card('More practice', links.practice.map((p, i) => add(el('div', `check ${p.passed ? 'passed' : ''}`), el('strong', '', p.title),
     el('small', 'muted', p.passed ? 'Practice passed' : 'Not passed yet'), button('Open in Practice', () => send('openPracticeItem', { index: i }), { key: `practice-${i}` })))));

@@ -22,6 +22,8 @@ export const LEVEL_LABELS = Object.freeze({
   verified: 'Practice passed'
 });
 export const refKey = ref => `${ref.id}/${ref.language}`;
+/** Practice languages that are concept checks: answered and recorded by Practice, but nothing runs. */
+export const QUIZ_LANGUAGES = Object.freeze(['quiz']);
 function exerciseRef(ref, where) {
   keys(ref, ['id', 'language'], where);
   if (!safeId(ref.id)) fail(`${where}: invalid exercise id`);
@@ -98,13 +100,14 @@ export function validateCatalog(raw) {
     if (lesson.code.language !== 'none' && !lesson.code.source.trim()) fail('missing example');
     // The linked exercise is optional only for a lesson that is practised elsewhere (extra exercises or missions).
     if (lesson.exercise !== undefined) exerciseRef(lesson.exercise, 'exercise');
-    else if (!lesson.practice?.length && !lesson.missions?.length) fail('a lesson without an exercise needs practice or missions');
+    else if (!lesson.practice?.length && !lesson.missions?.length && !lesson.checks?.length) fail('a lesson without an exercise needs checks, practice or missions');
     const linked = new Set(lesson.exercise ? [refKey(lesson.exercise)] : []);
     for (const [field, max] of [['checks', LIMITS.checks], ['practice', LIMITS.practice]]) {
       if (lesson[field] === undefined) continue;
       list(lesson[field], max, field); if (!lesson[field].length) fail(`${field}: empty list`);
       for (const ref of lesson[field]) {
         exerciseRef(ref, field);
+        if (field === 'practice' && QUIZ_LANGUAGES.includes(ref.language)) fail('practice: concept checks belong in checks');
         if (linked.has(refKey(ref))) fail(`${field}: duplicate exercise ${refKey(ref)}`); linked.add(refKey(ref));
       }
     }
@@ -260,14 +263,17 @@ export function lessonProgress(lesson, state, resolve, practice) {
   const records = object(practice?.exercises) ? practice.exercises : {};
   const record = ref => { const e = resolve(ref); return e ? { e, r: Object.hasOwn(records, e.key) ? records[e.key] : undefined } : undefined; };
   const solved = ref => { const x = record(ref); return Boolean(x?.r?.solved && x.r.solved.version === x.e.version); };
-  const checks = (lesson.checks ?? []).map(ref => {
+  const check = (ref, source, index) => {
     const x = record(ref); let status = 'unanswered';
     if (x?.r?.last?.mode === 'submit' && x.r.last.version === x.e.version) status = x.r.last.status === 'passed' ? 'passed' : 'failed';
     else if (x?.r?.solved && x.r.solved.version === x.e.version) status = 'passed';
-    return { id: ref.id, language: ref.language, status };
-  });
+    return { id: ref.id, language: ref.language, status, source, index };
+  };
+  // A concept check (language quiz) never verifies a lesson, even when an older lesson links one as its exercise.
+  const quizExercise = Boolean(lesson.exercise && QUIZ_LANGUAGES.includes(lesson.exercise.language));
+  const checks = [...(quizExercise ? [check(lesson.exercise, 'exercise', 0)] : []), ...(lesson.checks ?? []).map((ref, i) => check(ref, 'checks', i))];
   const extra = (lesson.practice ?? []).map(ref => ({ id: ref.id, language: ref.language, passed: solved(ref) }));
-  const exercise = lesson.exercise ? solved(lesson.exercise) : undefined;
+  const exercise = lesson.exercise && !quizExercise ? solved(lesson.exercise) : undefined;
   const run = state.executed?.[lesson.id];
   return {
     read: state.read[lesson.id]?.version === lesson.version,
@@ -299,7 +305,7 @@ export function nextUnverified(catalog, state, resolve, practice) {
       const lesson = catalog.lessons.find(l => l.id === id); const p = lessonProgress(lesson, state, resolve, practice);
       const check = p.checks.find(c => c.status !== 'passed');
       if (check) return { path: path.id, lesson: id, kind: 'check', id: check.id, language: check.language };
-      if (lesson.exercise && !p.exercise) return { path: path.id, lesson: id, kind: 'exercise', id: lesson.exercise.id, language: lesson.exercise.language };
+      if (p.exercise === false) return { path: path.id, lesson: id, kind: 'exercise', id: lesson.exercise.id, language: lesson.exercise.language };
     }
   }
   return undefined;

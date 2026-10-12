@@ -1,0 +1,336 @@
+{
+  "format": "datapass.learning-path",
+  "version": 1,
+  "path": {
+    "id": "git-shell",
+    "title": "Git and the shell",
+    "summary": "Real bash, PowerShell and Git skills, practised with your own commands in the Terminal Lab missions.",
+    "lessons": [
+      "shell-bash-basics",
+      "git-commit-branch",
+      "git-merge-rebase"
+    ]
+  },
+  "lessons": [
+    {
+      "id": "shell-bash-basics",
+      "version": 1,
+      "title": "Bash for data files",
+      "summary": "Move, find, count and filter files from a terminal: paths, globs, pipes, grep and wc, and scripts that stop on the first error.",
+      "minutes": 20,
+      "concepts": [
+        "bash",
+        "shell",
+        "pipes",
+        "grep",
+        "globs",
+        "exit codes",
+        "set -euo pipefail"
+      ],
+      "prerequisites": [],
+      "blocks": [
+        {
+          "kind": "text",
+          "title": "Paths and globs",
+          "body": "pwd prints where you are; ls -la lists the files, hidden ones included; cd - returns to the previous folder. The shell expands globs before the command runs: *.csv becomes the list of matching names, and a pattern that matches nothing stays as literal text. Quote variables (\"$file\") so a name with a space stays one argument."
+        },
+        {
+          "kind": "text",
+          "title": "Small tools joined by pipes",
+          "body": "A pipe sends one command's output to the next one's input. grep -c ERROR app.log counts matching lines; grep -h ERROR logs/*.log | sort | uniq -c | sort -rn ranks repeated errors; wc -l counts lines; head and tail show the start and the end; cut -d, -f2 takes a CSV column when no field contains a comma."
+        },
+        {
+          "kind": "callout",
+          "title": "Stop on failure",
+          "body": "A script carries on after a failing command unless told otherwise. Start it with set -euo pipefail: -e stops at the first failing command, -u makes an unset variable an error, pipefail makes a pipe fail when any part of it fails. Test conditions explicitly too: [ -s \"$file\" ] is true only for a file that exists and is not empty. Exit with a non-zero code and a message on stderr (>&2) so the scheduler sees the failure."
+        },
+        {
+          "kind": "check",
+          "title": "In the lab",
+          "body": "Open the Terminal Lab, start one of the missions below and solve it with your own commands in bash, Git Bash or PowerShell. Datapass types nothing and runs none of your commands: its checker reads the resulting folder."
+        }
+      ],
+      "code": {
+        "language": "none",
+        "source": "# Read only: type these yourself in the Terminal Lab.\npwd\nls -la landing/\nmkdir -p archive/2026-10\nmv landing/*.csv archive/2026-10/\ngrep -h ERROR logs/*.log | sort | uniq -c | sort -rn | head -5\nwc -l archive/2026-10/*.csv\n\n#!/usr/bin/env bash\nset -euo pipefail\nfor file in landing/*.csv; do\n  [ -s \"$file\" ] || { echo \"empty file: $file\" >&2; exit 1; }\ndone\n"
+      },
+      "lab": "terminal",
+      "visual": {
+        "kind": "timeline",
+        "title": "A tidy terminal session - visual walkthrough",
+        "steps": [
+          {
+            "title": "Look before you move",
+            "body": "pwd and ls -la first. mkdir -p creates the whole path and does not fail when it already exists."
+          },
+          {
+            "title": "Move by pattern",
+            "body": "The shell expands landing/*.csv into the list of files before mv runs."
+          },
+          {
+            "title": "Pipe small tools",
+            "body": "grep keeps the matching lines, sort groups equal lines, uniq -c counts them and sort -rn ranks the counts."
+          },
+          {
+            "title": "Fail loudly",
+            "body": "set -euo pipefail and an explicit exit 1, with the reason on stderr, stop the load on an empty file."
+          }
+        ]
+      },
+      "related": [
+        "git-commit-branch"
+      ],
+      "missions": [
+        {
+          "pack": "terminal-v1",
+          "id": "tidy-landing-folder"
+        },
+        {
+          "pack": "terminal-v1",
+          "id": "grep-error-report"
+        },
+        {
+          "pack": "terminal-v1",
+          "id": "guard-empty-files"
+        },
+        {
+          "pack": "terminal-v1",
+          "id": "server-inventory-report"
+        }
+      ],
+      "cheatsheet": "learning-git",
+      "deck": "git"
+    },
+    {
+      "id": "git-commit-branch",
+      "version": 1,
+      "title": "Commits and branches",
+      "summary": "Stage and commit small, explained changes, keep secrets and outputs out of history, and work on a branch that points at a commit.",
+      "minutes": 20,
+      "concepts": [
+        "Git",
+        "commit",
+        "staging area",
+        ".gitignore",
+        "branch",
+        "tag",
+        "HEAD"
+      ],
+      "prerequisites": [
+        "shell-bash-basics"
+      ],
+      "blocks": [
+        {
+          "kind": "text",
+          "title": "Three places",
+          "body": "Your files live in the working tree. git add copies a change into the staging area (the index); git commit records the staged snapshot with a message, an author and its parent commit. git status compares the three; git diff shows unstaged changes and git diff --staged shows what the next commit will contain."
+        },
+        {
+          "kind": "text",
+          "title": "A branch is a pointer",
+          "body": "A commit is an immutable snapshot identified by a hash, with a link to its parent. A branch is a movable name for one commit, and HEAD names the branch you are on. git switch -c fix/empty-files creates a branch at the current commit; each new commit moves that branch forward. An annotated tag (git tag -a v1.0.0 -m \"...\") is a fixed name with its own message."
+        },
+        {
+          "kind": "callout",
+          "title": "Keep secrets and outputs out",
+          "body": "Write .gitignore before the first commit: data extracts, .env files, virtual environments and build output do not belong in history. Deleting a file later does not remove it from the commits that already contain it."
+        },
+        {
+          "kind": "check",
+          "title": "In the lab",
+          "body": "Start the first-repository mission in the Terminal Lab: initialise the repository, ignore what must not be versioned, commit with clear messages and tag the release. The checker reads the repository with read-only git commands."
+        }
+      ],
+      "code": {
+        "language": "none",
+        "source": "# Read only: type these yourself in the Terminal Lab.\ngit init\nprintf '.env\\n.venv/\\ndata/*.csv\\n' > .gitignore\ngit add .gitignore loader.sh\ngit status --short\ngit commit -m \"feat: add the nightly loader\"\ngit tag -a v1.0.0 -m \"First release\"\ngit switch -c fix/empty-files\ngit log --oneline --graph --all\n"
+      },
+      "lab": "terminal",
+      "visual": {
+        "kind": "dag",
+        "title": "Commits and branches - visual walkthrough",
+        "steps": [
+          {
+            "title": "Working tree, index, commit",
+            "body": "git add stages a change; git commit records exactly what is staged, nothing else."
+          },
+          {
+            "title": "A commit points to its parent",
+            "body": "Each commit stores a snapshot and the hash of its parent: history is a chain you can walk back."
+          },
+          {
+            "title": "A branch is a movable pointer",
+            "body": "fix/empty-files starts at the tagged commit and moves forward with each commit made on it; main stays where it was."
+          },
+          {
+            "title": "Tag the release",
+            "body": "v1.0.0 names one commit for good, with its own message and author."
+          }
+        ],
+        "nodes": [
+          {
+            "id": "ignore",
+            "title": "Add .gitignore"
+          },
+          {
+            "id": "loader",
+            "title": "feat: nightly loader (main, v1.0.0)"
+          },
+          {
+            "id": "fix",
+            "title": "fix: guard empty files (fix/empty-files)"
+          }
+        ],
+        "edges": [
+          [
+            "ignore",
+            "loader"
+          ],
+          [
+            "loader",
+            "fix"
+          ]
+        ]
+      },
+      "related": [
+        "git-merge-rebase"
+      ],
+      "missions": [
+        {
+          "pack": "terminal-v1",
+          "id": "first-repository"
+        }
+      ],
+      "cheatsheet": "learning-git",
+      "deck": "git"
+    },
+    {
+      "id": "git-merge-rebase",
+      "version": 1,
+      "title": "Merge, rebase and recovery",
+      "summary": "Combine branches with a merge or a rebase, resolve a conflict by editing the file, and recover lost work with the reflog.",
+      "minutes": 25,
+      "concepts": [
+        "Git",
+        "merge",
+        "rebase",
+        "conflict",
+        "cherry-pick",
+        "reflog",
+        "stash"
+      ],
+      "prerequisites": [
+        "git-commit-branch"
+      ],
+      "blocks": [
+        {
+          "kind": "text",
+          "title": "Merge keeps history as it happened",
+          "body": "git merge feature creates a merge commit with two parents when both branches moved; when main has not moved, Git only fast-forwards the pointer. Nothing is rewritten, so merging a shared branch is always safe."
+        },
+        {
+          "kind": "text",
+          "title": "Rebase replays commits",
+          "body": "git rebase main replays your branch's commits on top of main: new commits with new hashes and a straight history. Only rebase commits nobody else has built on. git cherry-pick <hash> copies one commit onto the current branch, for example a fix onto a release branch."
+        },
+        {
+          "kind": "callout",
+          "title": "Resolving a conflict",
+          "body": "When both sides changed the same lines, Git stops and writes <<<<<<<, ======= and >>>>>>> markers into the file. Edit it to the result you want, remove the markers, git add the file, then git commit (merge) or git rebase --continue. git merge --abort and git rebase --abort go back to where you started."
+        },
+        {
+          "kind": "text",
+          "title": "Nothing is lost for a while",
+          "body": "git reflog lists every position HEAD has had, including commits that no branch points to after a reset or a deleted branch. git branch rescued <hash> brings one back. A stash is a commit too: git stash list, then git stash apply."
+        },
+        {
+          "kind": "check",
+          "title": "In the lab",
+          "body": "Do the merge-conflict, rebase-and-cherry-pick and reflog-rescue missions with your own git commands; the checker only reads the repository."
+        }
+      ],
+      "code": {
+        "language": "none",
+        "source": "# Read only: type these yourself in the Terminal Lab.\ngit switch main\ngit merge feature/eur\n# conflict: edit the file, remove the markers, then\ngit add rates.csv\ngit commit\ngit switch feature/batch-api\ngit rebase main\ngit switch release/1.2\ngit cherry-pick <hash-of-the-fix>\ngit reflog\ngit branch rescued HEAD@{3}\n"
+      },
+      "lab": "terminal",
+      "visual": {
+        "kind": "dag",
+        "title": "Merge and rebase - visual walkthrough",
+        "steps": [
+          {
+            "title": "Two branches moved",
+            "body": "main got commit B while the feature branch got C, both from A."
+          },
+          {
+            "title": "Merge",
+            "body": "M has two parents, B and C. No existing commit changes."
+          },
+          {
+            "title": "Rebase instead",
+            "body": "Rebasing the feature onto B replays C as a new commit C' after B: a straight line, a new hash."
+          },
+          {
+            "title": "Recover",
+            "body": "If a reset or a deleted branch loses C, git reflog still lists it; git branch rescued <hash> brings it back."
+          }
+        ],
+        "nodes": [
+          {
+            "id": "a",
+            "title": "A (common base)"
+          },
+          {
+            "id": "b",
+            "title": "B on main"
+          },
+          {
+            "id": "c",
+            "title": "C on feature"
+          },
+          {
+            "id": "merge",
+            "title": "M merge commit"
+          }
+        ],
+        "edges": [
+          [
+            "a",
+            "b"
+          ],
+          [
+            "a",
+            "c"
+          ],
+          [
+            "b",
+            "merge"
+          ],
+          [
+            "c",
+            "merge"
+          ]
+        ]
+      },
+      "related": [
+        "git-commit-branch"
+      ],
+      "missions": [
+        {
+          "pack": "terminal-v1",
+          "id": "merge-conflict"
+        },
+        {
+          "pack": "terminal-v1",
+          "id": "rebase-and-cherry-pick"
+        },
+        {
+          "pack": "terminal-v1",
+          "id": "reflog-rescue"
+        }
+      ],
+      "cheatsheet": "learning-git",
+      "deck": "git"
+    }
+  ]
+}
