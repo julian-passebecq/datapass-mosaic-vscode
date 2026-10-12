@@ -1,5 +1,5 @@
 import { Badge, Button, Text } from "@fluentui/react-components";
-import { useMemo, useState } from "react";
+import { useMemo, useState, type KeyboardEvent } from "react";
 import type {
   FactoryActivityBehavior,
   FactoryActivityRunView,
@@ -15,7 +15,32 @@ import type {
 } from "./contracts";
 import type { VsCodeApi } from "./WorkbenchApp";
 import { SharedGraphCanvas } from "./SharedGraphCanvas";
-import { factoryGraph, flattenActivities, isControlActivity } from "../platform/factoryRun";
+import { designView, factoryGraph, flattenActivities, isControlActivity } from "../platform/factoryRun";
+import {
+  addActivity,
+  addSwitchCase,
+  connectActivities,
+  defaultActivityName,
+  deleteActivities,
+  disconnectActivities,
+  moveActivity,
+  newActivity,
+  parsePipeline,
+  renameActivity,
+  sameScope,
+  scopePath,
+  setActivityProperty,
+  setDependencyConditions,
+  validatePipeline,
+  DEPENDENCY_CONDITIONS,
+  type EditResult,
+  type Scope
+} from "../platform/factoryDocument";
+import { EditorToolbar } from "./factory/EditorToolbar";
+import { Palette } from "./factory/Palette";
+import { PropertiesPanel, type MoveDestination } from "./factory/PropertiesPanel";
+import { useFactoryEditor } from "./factory/useFactoryEditor";
+import "./factory/factoryEditor.css";
 
 const FLAVORS: { id: FactoryFlavor; label: string }[] = [
   { id: "fabric", label: "Microsoft Fabric" },
@@ -39,6 +64,8 @@ interface Level {
   key: string;
 }
 
+type Raw = Record<string, unknown>;
+
 export function FactoryPipelines({
   vscode,
   factory,
@@ -55,20 +82,36 @@ export function FactoryPipelines({
   const [scenario, setScenario] = useState<FactoryScenarioInput>(runtime.factoryRun?.scenario ?? DEFAULT_SCENARIO);
   const [levels, setLevels] = useState<Level[]>([]);
   const [selectedPath, setSelectedPath] = useState<string>();
+  const [selectedEdge, setSelectedEdge] = useState<string>();
+  const [connectCondition, setConnectCondition] = useState<string>("Succeeded");
+  const [message, setMessage] = useState<string>();
 
   const available = pipelines.filter(pipeline => pipeline.flavor === flavor);
   const design = available.find(pipeline => pipeline.name === name) ?? available[0];
+  const editor = useFactoryEditor(design && !design.error ? design : undefined);
   const lab = runtime.factoryRun && design && runtime.factoryRun.flavor === design.flavor &&
     runtime.factoryRun.pipelineName === design.name ? runtime.factoryRun : undefined;
-  const levelActivities = useMemo(() => activitiesAt(design, levels), [design, levels]);
+  // The canvas shows the edited text; runs and run settings use the saved file.
+  const edited = useMemo(
+    () => design && editor ? designView(design.flavor, design.name, design.path, editor.text) : design,
+    [design, editor?.text]
+  );
+  const value = useMemo(() => editor ? parsePipeline(editor.text).value : undefined, [editor?.text]);
+  const issues = useMemo(() => value && design ? validatePipeline(value, design.flavor) : [], [value, design?.flavor]);
+  const errorCount = issues.filter(issue => issue.severity === "error").length;
+  const scope: Scope = levels.map(level => ({ activity: level.path.split("/").pop() ?? "", key: level.key }));
+  const prefix = levels.length ? `${levels[levels.length - 1].path}/` : "";
+  const levelActivities = useMemo(() => activitiesAt(edited, levels), [edited, levels]);
   const graph = useMemo(() => factoryGraph(levelActivities, lab?.run), [levelActivities, lab?.run]);
-  const selectedDesign = design ? flattenActivities(design.activities).find(activity => activity.path === selectedPath) : undefined;
+  const selectedDesign = edited ? flattenActivities(edited.activities).find(activity => activity.path === selectedPath) : undefined;
 
   const choosePipeline = (nextFlavor: FactoryFlavor, nextName?: string) => {
     setFlavor(nextFlavor);
     setName(nextName);
     setLevels([]);
     setSelectedPath(undefined);
+    setSelectedEdge(undefined);
+    setMessage(undefined);
     setScenario(current => ({ ...current, parameters: {}, activities: {} }));
   };
   const run = (dataPlane: FactoryScenarioInput["dataPlane"]) => {
@@ -76,6 +119,56 @@ export function FactoryPipelines({
     const next = { ...scenario, dataPlane };
     setScenario(next);
     vscode.postMessage({ type: "simulateFactory", flavor: design.flavor, name: design.name, scenario: next });
+  };
+  /** Apply an edit; an error is shown and nothing changes. */
+  const apply = (result: EditResult): string | undefined => {
+    if (!editor) return "The pipeline cannot be edited.";
+    const error = editor.apply(result);
+    setMessage(error);
+    return error;
+  };
+  const save = () => {
+    if (!design || !editor?.dirty) return;
+    vscode.postMessage({ type: "saveFactoryPipeline", path: design.path, text: editor.text, baseHash: editor.baseHash });
+  };
+  const select = (path: string | undefined) => {
+    setSelectedEdge(undefined);
+    setSelectedPath(path);
+    if (path && edited) {
+      const found = levelsFor(edited.activities, path, []);
+      if (found) setLevels(found);
+    }
+  };
+  const addOfType = (type: string): string | undefined => {
+    if (!editor || !value) return undefined;
+    const activityName = defaultActivityName(type, value);
+    if (apply(addActivity(editor.text, scope, newActivity(type, activityName)))) return undefined;
+    setSelectedEdge(undefined);
+    setSelectedPath(prefix + activityName);
+    return prefix + activityName;
+  };
+  const leaf = (id: string) => id.slice(prefix.length);
+  const edgeEnds = (id: string) => {
+    const edge = graph.edges.find(item => item.id === id);
+    return edge ? { from: leaf(edge.source), to: leaf(edge.target) } : undefined;
+  };
+  const chain = (steps: ((text: string) => EditResult)[]): EditResult => {
+    let text = editor?.text ?? "";
+    for (const step of steps) {
+      const result = step(text);
+      if (result.error !== undefined) return result;
+      text = result.text;
+    }
+    return { text };
+  };
+  const onKeyDown = (event: KeyboardEvent<HTMLDivElement>) => {
+    if (!editor || !(event.ctrlKey || event.metaKey)) return;
+    const target = event.target as HTMLElement;
+    const typing = ["INPUT", "TEXTAREA", "SELECT"].includes(target.tagName);
+    const key = event.key.toLowerCase();
+    if (key === "s") { event.preventDefault(); save(); }
+    else if (!typing && key === "z" && !event.shiftKey) { event.preventDefault(); editor.undo(); }
+    else if (!typing && (key === "y" || (key === "z" && event.shiftKey))) { event.preventDefault(); editor.redo(); }
   };
 
   if (!factory?.exists) {
@@ -98,8 +191,14 @@ export function FactoryPipelines({
     );
   }
 
+  const selectedRaw = selectedDesign && value ? activityRaw(value, selectedDesign, edited!) : undefined;
+  const selectedScope = selectedDesign ? scopeOf(selectedDesign.path, edited!) : undefined;
+  const selectedLeaf = selectedDesign?.name ?? "";
+  const runsOf = (path: string) => lab?.run ? allRuns(lab.run).filter(r => r.path === path) : [];
+  const edgeSelected = selectedEdge ? edgeEnds(selectedEdge) : undefined;
+
   return (
-    <div className="factory-pipelines">
+    <div className="factory-pipelines" onKeyDown={onKeyDown}>
       <div className="factory-toolbar">
         <div className="factory-flavors" role="tablist" aria-label="Product">
           {FLAVORS.map(item => (
@@ -122,6 +221,12 @@ export function FactoryPipelines({
               {available.map(pipeline => <option key={pipeline.name} value={pipeline.name}>{pipeline.name}</option>)}
             </select>
           )}
+          <Button size="small" appearance="secondary" onClick={() => vscode.postMessage({ type: "createFactoryPipeline", flavor })}>
+            New pipeline
+          </Button>
+          <Button size="small" appearance="secondary" onClick={() => vscode.postMessage({ type: "importFactoryPipeline", flavor })}>
+            Import JSON…
+          </Button>
           {design && (
             <Button size="small" appearance="secondary" onClick={() => vscode.postMessage({ type: "openFactoryFile", path: design.path })}>
               Open JSON
@@ -133,24 +238,62 @@ export function FactoryPipelines({
           <Button size="small" appearance="secondary" onClick={() => vscode.postMessage({ type: "selectModule", moduleId: "practice" })}>
             Pipeline exercises
           </Button>
-          <Button size="small" appearance="secondary" disabled={!running || !design || !!design.error} onClick={() => run("simulated")}>
+          <Button size="small" appearance="secondary" disabled={!running || !design || !!design.error || editor?.dirty} onClick={() => run("simulated")}>
             Dry run
           </Button>
-          <Button size="small" appearance="primary" disabled={!running || !design || !!design.error} onClick={() => run("local")}>
+          <Button size="small" appearance="primary" disabled={!running || !design || !!design.error || editor?.dirty} onClick={() => run("local")}>
             Run on local lakehouse
           </Button>
         </div>
       </div>
       {!running && <p className="factory-note">Start the runtime to run pipelines. The canvas below is read from the files.</p>}
+      {editor?.dirty && <p className="factory-note">A run uses the file as saved: save the pipeline to run your edits.</p>}
       {factory.warnings.map(warning => <p key={warning} className="factory-warning">{warning}</p>)}
 
       {!design ? (
         <p className="factory-note">No {FLAVORS.find(f => f.id === flavor)?.label} pipeline in <code>factory/</code> yet.</p>
-      ) : design.error ? (
-        <p className="factory-error">{design.path}: {design.error}</p>
+      ) : design.error || !edited || !editor ? (
+        <p className="factory-error">{design.path}: {design.error ?? "the file could not be read"}</p>
       ) : (
         <>
-          {design.description && <p className="factory-description">{design.description}</p>}
+          {edited.description && <p className="factory-description">{edited.description}</p>}
+          <EditorToolbar
+            dirty={editor.dirty}
+            diskChanged={editor.diskChanged}
+            canUndo={editor.canUndo}
+            canRedo={editor.canRedo}
+            errorCount={errorCount}
+            connectCondition={connectCondition}
+            onConnectCondition={setConnectCondition}
+            onSave={save}
+            onUndo={editor.undo}
+            onRedo={editor.redo}
+            onRevert={() => { editor.reload(); setMessage(undefined); }}
+            onExport={() => vscode.postMessage({ type: "exportFactoryPipeline", path: design.path, text: editor.text })}
+          />
+          {editor.diskChanged && (
+            <p className="factory-warning" role="alert">
+              {design.path} changed on disk while you were editing.{" "}
+              <button type="button" className="factory-link" onClick={editor.reload}>Reload from disk</button> drops your edits;
+              saving asks before overwriting the new version.
+            </p>
+          )}
+          {message && <p className="factory-error" role="alert">{message}</p>}
+          {issues.length > 0 && (
+            <details className="factory-issues" open={errorCount > 0}>
+              <summary>{errorCount} error{errorCount === 1 ? "" : "s"}, {issues.length - errorCount} warning{issues.length - errorCount === 1 ? "" : "s"} in this pipeline</summary>
+              <ul>
+                {issues.map((issue, index) => (
+                  <li key={index} className={issue.severity === "error" ? "factory-error" : "factory-warning"}>
+                    {issue.path
+                      ? <button type="button" className="factory-link" onClick={() => select(issue.path)}>{issue.path}</button>
+                      : <span>pipeline</span>}
+                    {": "}{issue.message}
+                  </li>
+                ))}
+              </ul>
+            </details>
+          )}
           <div className="factory-breadcrumb">
             <button type="button" onClick={() => setLevels([])}>{design.name}</button>
             {levels.map((level, index) => (
@@ -166,26 +309,122 @@ export function FactoryPipelines({
               <i className="cond-completed" /> Completed <i className="cond-skipped" /> Skipped
             </span>
           </div>
-          <SharedGraphCanvas
-            graph={graph}
-            vscode={vscode}
-            storageKey={`factory:${design.flavor}:${design.name}:${levels.map(l => `${l.path}#${l.key}`).join("|")}`}
-            onNodeClick={setSelectedPath}
-          />
-          {selectedDesign && (
-            <ActivityDetails
-              activity={selectedDesign}
-              runs={lab?.run ? allRuns(lab.run).filter(r => r.path === selectedDesign.path) : []}
-              onOpenLevel={key => setLevels([...levels, { path: selectedDesign.path, key }])}
-              onReveal={() => vscode.postMessage({ type: "revealFactoryActivity", path: design.path, activity: selectedDesign.name })}
+          <div className="factory-editor">
+            <Palette flavor={design.flavor} onAdd={addOfType} />
+            <SharedGraphCanvas
+              graph={graph}
+              vscode={vscode}
+              storageKey={`factory:${design.flavor}:${design.name}:${levels.map(l => `${l.path}#${l.key}`).join("|")}`}
+              onNodeClick={id => { setSelectedEdge(undefined); setSelectedPath(id); }}
+              editable
+              selectedNodeId={selectedEdge ? "" : selectedPath ?? ""}
+              selectedEdgeId={selectedEdge ?? ""}
+              onEdgeClick={id => { setSelectedEdge(id); setSelectedPath(undefined); }}
+              onConnect={(source, target) => apply(connectActivities(editor.text, scope, leaf(source), leaf(target), connectCondition))}
+              onDeleteNodes={ids => {
+                if (!apply(deleteActivities(editor.text, scope, ids.map(leaf)))) setSelectedPath(undefined);
+              }}
+              onDeleteEdges={ids => {
+                const ends = ids.map(edgeEnds).filter((end): end is { from: string; to: string } => !!end);
+                if (!apply(chain(ends.map(end => text => disconnectActivities(text, scope, end.from, end.to))))) setSelectedEdge(undefined);
+              }}
+              onDrop={type => addOfType(type)}
+            />
+          </div>
+          {edgeSelected && (
+            <EdgePanel
+              from={edgeSelected.from}
+              to={edgeSelected.to}
+              conditions={dependencyConditions(levelActivities, edgeSelected.from, prefix + edgeSelected.to)}
+              onConditions={conditions => {
+                if (!apply(setDependencyConditions(editor.text, scope, edgeSelected.from, edgeSelected.to, conditions)) && !conditions.length) {
+                  setSelectedEdge(undefined);
+                }
+              }}
+            />
+          )}
+          {selectedDesign && selectedRaw && selectedScope && (
+            <PropertiesPanel
+              activity={selectedRaw}
+              view={selectedDesign}
+              siblings={siblingsOf(edited, selectedDesign)}
+              destinations={destinations(edited, selectedDesign, selectedScope)}
+              issues={issues.filter(issue => issue.path === selectedDesign.path)}
+              runs={runsOf(selectedDesign.path)}
+              editsSinceRun={!!lab?.run && editor.dirty}
+              actions={{
+                rename: next => {
+                  const error = apply(renameActivity(editor.text, selectedScope, selectedLeaf, next));
+                  if (!error) {
+                    const old = selectedDesign.path;
+                    const renamed = old.slice(0, old.length - selectedLeaf.length) + next;
+                    setSelectedPath(renamed);
+                    setLevels(levels.map(level => level.path === old || level.path.startsWith(`${old}/`)
+                      ? { ...level, path: renamed + level.path.slice(old.length) } : level));
+                  }
+                  return error;
+                },
+                set: (path, next) => apply(setActivityProperty(editor.text, selectedScope, selectedLeaf, path, next)),
+                connect: (from, condition) => apply(connectActivities(editor.text, selectedScope, from, selectedLeaf, condition)),
+                setConditions: (from, conditions) => apply(setDependencyConditions(editor.text, selectedScope, from, selectedLeaf, conditions)),
+                remove: () => {
+                  if (!apply(deleteActivities(editor.text, selectedScope, [selectedLeaf]))) setSelectedPath(undefined);
+                },
+                move: target => {
+                  const error = apply(moveActivity(editor.text, selectedScope, selectedLeaf, target));
+                  if (!error) {
+                    const targetPrefix = target.length ? `${levelPath(target)}/` : "";
+                    setLevels(levelsOfScope(target));
+                    setSelectedPath(targetPrefix + selectedLeaf);
+                  }
+                  return error;
+                },
+                openLevel: key => setLevels([...levelsOfScope(selectedScope), { path: selectedDesign.path, key }]),
+                addCase: caseValue => apply(addSwitchCase(editor.text, selectedScope, selectedLeaf, caseValue)),
+                reveal: () => vscode.postMessage({ type: "revealFactoryActivity", path: design.path, activity: selectedLeaf })
+              }}
             />
           )}
           <ScenarioForm design={design} scenario={scenario} onChange={setScenario} />
-          {lab && <RunResult lab={lab} onSelect={path => setSelectedPath(path)} />}
+          {lab && <RunResult lab={lab} onSelect={select} />}
         </>
       )}
       <ProductDifferences />
     </div>
+  );
+}
+
+/** The selected dependency: its conditions, editable with the keyboard. */
+function EdgePanel({
+  from,
+  to,
+  conditions,
+  onConditions
+}: {
+  from: string;
+  to: string;
+  conditions: string[];
+  onConditions: (conditions: string[]) => void;
+}) {
+  return (
+    <section className="factory-properties" aria-label={`Dependency ${from} to ${to}`}>
+      <Text weight="semibold">{to} runs after {from} ends with</Text>
+      <fieldset className="factory-dependency">
+        <legend>Conditions (any of them)</legend>
+        {DEPENDENCY_CONDITIONS.map(condition => (
+          <label key={condition} className={`cond-${condition.toLowerCase()}`}>
+            <input
+              type="checkbox"
+              checked={conditions.includes(condition)}
+              onChange={event => onConditions(event.target.checked ? [...conditions, condition] : conditions.filter(item => item !== condition))}
+            />
+            {condition}
+          </label>
+        ))}
+        <Button size="small" appearance="subtle" onClick={() => onConditions([])}>Remove dependency</Button>
+      </fieldset>
+      <p className="factory-note">Completed means Succeeded or Failed. Press Delete on the canvas to remove the selected dependency.</p>
+    </section>
   );
 }
 
@@ -198,70 +437,66 @@ function activitiesAt(design: FactoryDesignView | undefined, levels: readonly Le
   return current;
 }
 
-function allRuns(run: FactoryRunView): FactoryActivityRunView[] {
-  return [...run.activityRuns, ...run.children.flatMap(allRuns)];
+/** The drill-down levels that show the activity at `path`. */
+function levelsFor(activities: readonly FactoryDesignActivityView[], path: string, trail: Level[]): Level[] | undefined {
+  for (const activity of activities) {
+    if (activity.path === path) return trail;
+    for (const child of activity.children) {
+      const found = levelsFor(child.activities, path, [...trail, { path: activity.path, key: child.key }]);
+      if (found) return found;
+    }
+  }
+  return undefined;
 }
 
-function ActivityDetails({
-  activity,
-  runs,
-  onOpenLevel,
-  onReveal
-}: {
-  activity: FactoryDesignActivityView;
-  runs: FactoryActivityRunView[];
-  onOpenLevel: (key: string) => void;
-  onReveal: () => void;
-}) {
-  const [index, setIndex] = useState(0);
-  const shown = runs[Math.min(index, runs.length - 1)];
-  return (
-    <div className="factory-details">
-      <div className="factory-details-head">
-        <div>
-          <Text weight="semibold">{activity.name}</Text> <code>{activity.type}</code>
-          {activity.state === "Inactive" && <Badge appearance="outline">deactivated</Badge>}
-          <div className="factory-note">
-            {activity.dependsOn.length
-              ? `Runs after ${activity.dependsOn.map(d => `${d.activity} (${d.conditions.join(" or ")})`).join(" and ")}`
-              : "No dependency: starts with its container"}
-          </div>
-        </div>
-        <div className="button-row">
-          {activity.children.map(child => (
-            <Button key={child.key} size="small" appearance="secondary" onClick={() => onOpenLevel(child.key)}>
-              Open {child.key} ({child.activities.length})
-            </Button>
-          ))}
-          <Button size="small" appearance="secondary" onClick={onReveal}>Show in JSON</Button>
-        </div>
-      </div>
-      {runs.length > 1 && (
-        <select aria-label="Activity run" value={index} onChange={event => setIndex(Number(event.target.value))}>
-          {runs.map((run, i) => <option key={i} value={i}>{run.iteration ?? `run ${i + 1}`} · {run.status}</option>)}
-        </select>
-      )}
-      {shown ? (
-        <div className="factory-io">
-          <div>
-            <strong>Status</strong>
-            <p>
-              <Badge appearance="tint" color={STATUS_TONE[shown.status] ?? "informative"}>{shown.status}</Badge>{" "}
-              <Badge appearance="outline">{shown.truth === "local" ? "ran locally" : "simulated"}</Badge>{" "}
-              {shown.attempts > 1 && <span>{shown.attempts} attempts · </span>}
-              {shown.startS}s → {shown.endS}s
-            </p>
-            {shown.note && <p className="factory-note">{shown.note}</p>}
-            {shown.error && <p className="factory-error">{shown.error.code}: {shown.error.message}</p>}
-          </div>
-          <div><strong>Input</strong><Json value={shown.input} /></div>
-          <div><strong>Output</strong><Json value={shown.output} /></div>
-        </div>
-      ) : (
-        <p className="factory-note">Run the pipeline to see this activity's input and output.</p>
-      )}
-    </div>
-  );
+function scopeOf(path: string, design: FactoryDesignView): Scope {
+  return (levelsFor(design.activities, path, []) ?? []).map(level => ({ activity: level.path.split("/").pop() ?? "", key: level.key }));
+}
+
+function levelsOfScope(scope: Scope): Level[] {
+  return scope.map((step, index) => ({ path: scope.slice(0, index + 1).map(item => item.activity).join("/"), key: step.key }));
+}
+
+function levelPath(scope: Scope): string {
+  return scope.map(step => step.activity).join("/");
+}
+
+function activityRaw(value: Raw, activity: FactoryDesignActivityView, design: FactoryDesignView): Raw | undefined {
+  const path = scopePath(value, scopeOf(activity.path, design));
+  let current: unknown = value;
+  for (const step of path ?? []) current = (current as Record<string | number, unknown> | undefined)?.[step];
+  const found = Array.isArray(current) ? current.find(item => item && typeof item === "object" && (item as Raw).name === activity.name) : undefined;
+  return found as Raw | undefined;
+}
+
+function siblingsOf(design: FactoryDesignView, activity: FactoryDesignActivityView): string[] {
+  const levels = levelsFor(design.activities, activity.path, []) ?? [];
+  return activitiesAt(design, levels).map(item => item.name).filter(item => item !== activity.name);
+}
+
+function dependencyConditions(activities: readonly FactoryDesignActivityView[], from: string, targetPath: string): string[] {
+  return activities.find(activity => activity.path === targetPath)?.dependsOn.find(dependency => dependency.activity === from)?.conditions ?? [];
+}
+
+/** Every level the activity can move to: the top level and each container branch, except its own and its insides. */
+function destinations(design: FactoryDesignView, activity: FactoryDesignActivityView, current: Scope): MoveDestination[] {
+  const found: MoveDestination[] = [{ label: `${design.name} (top level)`, scope: [] }];
+  const walk = (activities: readonly FactoryDesignActivityView[], scope: Scope) => {
+    for (const item of activities) {
+      if (item.path === activity.path) continue;
+      for (const child of item.children) {
+        const inner = [...scope, { activity: item.name, key: child.key }];
+        found.push({ label: `${item.path} › ${child.key}`, scope: inner });
+        walk(child.activities, inner);
+      }
+    }
+  };
+  walk(design.activities, []);
+  return found.filter(destination => !sameScope(destination.scope, current));
+}
+
+function allRuns(run: FactoryRunView): FactoryActivityRunView[] {
+  return [...run.activityRuns, ...run.children.flatMap(allRuns)];
 }
 
 function ScenarioForm({

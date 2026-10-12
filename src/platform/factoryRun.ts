@@ -9,6 +9,7 @@ import type {
   FactoryScenarioInput,
   GraphView
 } from "../webview/contracts";
+import { contentHash } from "./factoryDocument";
 
 type Raw = Record<string, unknown>;
 
@@ -105,10 +106,23 @@ export function parseJsonDocument(text: string): { value?: unknown; error?: stri
   }
 }
 
+/**
+ * "Reload from disk" requests of the editor, per pipeline path: the host bumps the counter when the learner chooses
+ * Reload in the save conflict dialog, and the next design view tells the webview to drop its unsaved edits.
+ */
+const reloadRequests = new Map<string, number>();
+
+export function requestFactoryReload(path: string): void {
+  reloadRequests.set(path, (reloadRequests.get(path) ?? 0) + 1);
+}
+
 /** Design view of a pipeline document, read by the host for the canvas. The runtime validates it. */
 export function designView(flavor: FactoryFlavor, name: string, path: string, text: string): FactoryDesignView {
   const parsed = parseJsonDocument(text);
-  const empty: FactoryDesignView = { flavor, name, path, description: "", parameters: [], variables: [], activities: [] };
+  const empty: FactoryDesignView = {
+    flavor, name, path, description: "", parameters: [], variables: [], activities: [],
+    text, hash: contentHash(text), reloadSeq: reloadRequests.get(path) ?? 0
+  };
   if (parsed.error) return { ...empty, error: parsed.error };
   const root = asRecord(parsed.value);
   const properties = asRecord(root.properties ?? root);

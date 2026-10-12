@@ -1,0 +1,51 @@
+/* Cloud Lab › Pipelines editor: palette, toolbar, properties panel. Colors come from the VS Code theme. */
+.factory-editor { display: grid; grid-template-columns: minmax(150px, 190px) minmax(0, 1fr); gap: 10px; min-width: 0; }
+.factory-editor .datapass-graph-host { min-width: 0; }
+@media (max-width: 720px) { .factory-editor { grid-template-columns: minmax(0, 1fr); } }
+
+.factory-palette { display: grid; align-content: start; gap: 6px; max-height: 520px; overflow: auto; padding: 8px; border: 1px solid var(--vscode-panel-border); border-radius: 7px; }
+.factory-palette-head { display: grid; gap: 2px; }
+.factory-palette-head small,
+.factory-palette-item small { color: var(--vscode-descriptionForeground); font-size: 10px; }
+.factory-palette-group { display: grid; gap: 3px; }
+.factory-palette-category { margin-top: 4px; color: var(--vscode-descriptionForeground); font-size: 10px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.04em; }
+.factory-palette-item {
+  display: grid; gap: 1px; padding: 4px 6px; text-align: left; cursor: grab;
+  border: 1px solid var(--vscode-panel-border); border-radius: 5px;
+  background: var(--vscode-editor-background); color: var(--vscode-foreground); font: inherit; font-size: 12px;
+}
+.factory-palette-item:hover:not(:disabled) { background: var(--vscode-list-hoverBackground); }
+.factory-palette-item:focus-visible,
+.factory-link:focus-visible { outline: 1px solid var(--vscode-focusBorder); outline-offset: 1px; }
+.factory-palette-item:disabled { cursor: not-allowed; opacity: 0.6; }
+
+.factory-editor-toolbar { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
+.factory-editor-condition { display: inline-flex; align-items: center; gap: 4px; margin-left: 6px; font-size: 11px; color: var(--vscode-descriptionForeground); }
+.factory-editor-toolbar select,
+.factory-properties select,
+.factory-properties input,
+.factory-properties textarea {
+  padding: 3px 5px; border: 1px solid var(--vscode-input-border, var(--vscode-panel-border)); border-radius: 4px;
+  background: var(--vscode-input-background); color: var(--vscode-input-foreground); font: inherit; font-size: 12px;
+}
+.factory-properties textarea { width: 100%; box-sizing: border-box; font-family: var(--vscode-editor-font-family); resize: vertical; }
+
+.factory-link { padding: 0; border: 0; background: none; color: var(--vscode-textLink-foreground); cursor: pointer; font: inherit; }
+.factory-issues { padding: 6px 10px; border: 1px solid var(--vscode-panel-border); border-radius: 7px; font-size: 12px; }
+.factory-issues summary { cursor: pointer; }
+.factory-issues ul { margin: 6px 0 0; padding-left: 18px; }
+
+.factory-properties { display: grid; gap: 10px; padding: 10px 12px; border: 1px solid var(--vscode-panel-border); border-radius: 7px; min-width: 0; }
+.factory-properties-grid { display: flex; flex-wrap: wrap; gap: 8px 14px; }
+.factory-properties-grid label,
+.factory-json-field label { display: grid; gap: 3px; font-size: 11px; }
+.factory-properties-grid input { min-width: 140px; }
+.factory-properties-section { display: grid; gap: 6px; }
+.factory-json-field { display: grid; gap: 4px; }
+.factory-json-field label > span { display: inline-flex; align-items: center; gap: 6px; }
+.factory-inline-form { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
+.factory-dependency { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 12px; margin: 0; padding: 4px 8px; border: 1px solid var(--vscode-panel-border); border-radius: 5px; font-size: 12px; }
+.factory-dependency legend { padding: 0 4px; font-weight: 600; }
+.factory-dependency label { display: inline-flex; align-items: center; gap: 3px; border-bottom: 2px solid var(--factory-cond); }
+.factory-run-error { padding: 6px 8px; border-left: 3px solid var(--vscode-errorForeground); font-size: 12px; }
+.factory-run-error p { margin: 2px 0 0; white-space: pre-wrap; }
