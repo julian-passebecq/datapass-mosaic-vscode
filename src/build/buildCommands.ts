@@ -78,8 +78,9 @@ async function newWorkspace(runtime: RuntimeManager): Promise<void> {
   ];
   if (seeded) notes.push("The catalog already in .datapass/data keeps its tables: Build never deletes data.");
   if (running) notes.push("Restart the Datapass runtime to apply the blank catalog.");
-  const choice = await vscode.window.showInformationMessage(notes.join(" "), "New file", "Import dataset");
+  // Mosaic (and its empty-state panel) opens now: a notification's promise stays pending until it is dismissed.
   await vscode.commands.executeCommand("datapass.openMosaic");
+  const choice = await vscode.window.showInformationMessage(notes.join(" "), "New file", "Import dataset");
   if (choice === "New file") await vscode.commands.executeCommand("datapass.build.newFile");
   if (choice === "Import dataset") await vscode.commands.executeCommand("datapass.build.importDataset");
 }
