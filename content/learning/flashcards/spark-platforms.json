@@ -1,0 +1,470 @@
+{
+  "format": "datapass.flashcards",
+  "version": 1,
+  "id": "spark-platforms",
+  "title": "Spark and the data platforms",
+  "path": "spark-platforms",
+  "cards": [
+    {
+      "id": "spark-transformation",
+      "front": "What is a Spark transformation?",
+      "back": "An operation such as filter, select, withColumn, join or groupBy that returns a new DataFrame and only extends the logical plan. Nothing runs until an action.",
+      "lesson": "platform-spark-jobs",
+      "tags": [
+        "spark"
+      ]
+    },
+    {
+      "id": "spark-action",
+      "front": "What is a Spark action?",
+      "back": "A call that needs a result: count, collect, show, take, or a write. It makes the driver optimize the plan and run a job.",
+      "lesson": "platform-spark-jobs",
+      "tags": [
+        "spark"
+      ]
+    },
+    {
+      "id": "spark-job-stage-task",
+      "front": "Job, stage, task: how do they nest?",
+      "back": "An action runs one job (sometimes more). A job is split into stages at shuffle boundaries. A stage runs one task per partition, each on one executor core.",
+      "lesson": "platform-spark-jobs",
+      "tags": [
+        "spark"
+      ]
+    },
+    {
+      "id": "spark-narrow",
+      "front": "What is a narrow transformation?",
+      "back": "One where each output partition depends on a single input partition (filter, select, withColumn). Narrow steps are pipelined inside one stage without moving data.",
+      "lesson": "platform-spark-jobs",
+      "tags": [
+        "spark"
+      ]
+    },
+    {
+      "id": "spark-wide",
+      "front": "What is a wide transformation?",
+      "back": "One where rows must move between partitions by key: groupBy, join (unless broadcast), distinct, repartition. It adds a shuffle (an Exchange in the plan) and a stage boundary.",
+      "lesson": "platform-spark-jobs",
+      "tags": [
+        "spark"
+      ]
+    },
+    {
+      "id": "spark-shuffle-partitions",
+      "front": "Default value of spark.sql.shuffle.partitions?",
+      "back": "200. AQE can coalesce small shuffle partitions at runtime.",
+      "lesson": "platform-spark-shuffle",
+      "tags": [
+        "spark",
+        "config"
+      ]
+    },
+    {
+      "id": "spark-broadcast-threshold",
+      "front": "Default spark.sql.autoBroadcastJoinThreshold?",
+      "back": "10 MB. A join side estimated below it is broadcast to every executor, so the large side is not shuffled for the join.",
+      "lesson": "platform-spark-shuffle",
+      "tags": [
+        "spark",
+        "config"
+      ]
+    },
+    {
+      "id": "spark-aqe",
+      "front": "What does Adaptive Query Execution do?",
+      "back": "After each shuffle it re-plans with real sizes: coalesces small partitions, switches sort-merge joins to broadcast joins when a side is small, and splits skewed partitions of sort-merge joins. On by default since Spark 3.2.",
+      "lesson": "platform-spark-shuffle",
+      "tags": [
+        "spark",
+        "aqe"
+      ]
+    },
+    {
+      "id": "spark-skew",
+      "front": "What is data skew and how does it show?",
+      "back": "A few keys hold a large share of the rows, so after a shuffle one partition is much bigger. One task runs far longer than the rest and may run out of memory, holding the whole stage.",
+      "lesson": "platform-spark-shuffle",
+      "tags": [
+        "spark",
+        "troubleshooting"
+      ]
+    },
+    {
+      "id": "spark-skew-fixes",
+      "front": "Three ways to handle skew",
+      "back": "Let AQE split skewed join partitions; broadcast the small side; salt the hot key (add a random suffix, aggregate twice); or filter and handle the hot key (often NULL) separately.",
+      "lesson": "platform-spark-shuffle",
+      "tags": [
+        "spark"
+      ]
+    },
+    {
+      "id": "spark-coalesce-repartition",
+      "front": "coalesce(n) versus repartition(n)?",
+      "back": "coalesce merges existing partitions without a shuffle and can only reduce their number. repartition does a full shuffle and can increase or rebalance, optionally by column.",
+      "lesson": "platform-spark-shuffle",
+      "tags": [
+        "spark"
+      ]
+    },
+    {
+      "id": "spark-cache",
+      "front": "When does cache() pay off?",
+      "back": "When the same DataFrame is used by several actions. It is materialized at the first action; caching something used once only costs memory.",
+      "lesson": "platform-spark-jobs",
+      "tags": [
+        "spark"
+      ]
+    },
+    {
+      "id": "spark-explain",
+      "front": "How do you see what Spark will do?",
+      "back": "df.explain() shows the physical plan (look for Exchange, BroadcastHashJoin, SortMergeJoin). On a cluster, the Spark UI shows jobs, stages, task times and shuffle sizes.",
+      "lesson": "platform-spark-jobs",
+      "tags": [
+        "spark"
+      ]
+    },
+    {
+      "id": "sparklab-truth",
+      "front": "What does SparkLab compute for real?",
+      "back": "The result rows, from a bounded PySpark subset compiled to local SQL. Stages, task durations and shuffle volumes are simulated teaching data, not Spark telemetry.",
+      "lesson": "platform-spark-jobs",
+      "tags": [
+        "datapass"
+      ]
+    },
+    {
+      "id": "dbx-job",
+      "front": "What is a Databricks job?",
+      "back": "A DAG of tasks (notebook, Python, SQL, dbt, pipeline, for-each) linked by depends_on, each running on chosen compute. Databricks now calls it Lakeflow Jobs.",
+      "lesson": "platform-databricks-jobs",
+      "tags": [
+        "databricks"
+      ]
+    },
+    {
+      "id": "dbx-run-if",
+      "front": "What does run_if control on a Databricks task?",
+      "back": "When the task runs relative to its dependencies: ALL_SUCCESS (default), AT_LEAST_ONE_SUCCESS, NONE_FAILED, ALL_DONE, AT_LEAST_ONE_FAILED, ALL_FAILED.",
+      "lesson": "platform-databricks-jobs",
+      "tags": [
+        "databricks"
+      ]
+    },
+    {
+      "id": "dbx-job-cluster",
+      "front": "Why run a scheduled job on a job cluster?",
+      "back": "Job compute bills at a lower DBU rate than all-purpose compute, exists only for the run, and isolates it. Tasks of one run can share it through job_cluster_key.",
+      "lesson": "platform-databricks-jobs",
+      "tags": [
+        "databricks",
+        "cost"
+      ]
+    },
+    {
+      "id": "dbx-sql-warehouse",
+      "front": "What is a SQL warehouse for?",
+      "back": "Serving SQL and BI tools (dashboards, Power BI). Serverless warehouses start in seconds and scale with the queries.",
+      "lesson": "platform-databricks-jobs",
+      "tags": [
+        "databricks"
+      ]
+    },
+    {
+      "id": "dbx-photon",
+      "front": "What is Photon?",
+      "back": "Databricks' vectorized query engine in C++. It runs Spark SQL and DataFrame code unchanged; unsupported operations fall back to Spark.",
+      "lesson": "platform-databricks-jobs",
+      "tags": [
+        "databricks"
+      ]
+    },
+    {
+      "id": "dbx-task-values",
+      "front": "How do Databricks tasks pass a small value?",
+      "back": "dbutils.jobs.taskValues.set(key, value) in one task and taskValues.get(taskKey, key) in a downstream task. For data, write a table.",
+      "lesson": "platform-databricks-jobs",
+      "tags": [
+        "databricks"
+      ]
+    },
+    {
+      "id": "dbx-lab-truth",
+      "front": "What does the Cloud Lab Databricks tab simulate, and what runs?",
+      "back": "It simulates the job orchestration and compute cost (lab DBU figures). Notebook tasks run on SparkLab, SQL tasks on local DuckDB, under Unity Catalog checks. No connection to Databricks.",
+      "lesson": "platform-databricks-jobs",
+      "tags": [
+        "datapass"
+      ]
+    },
+    {
+      "id": "delta-table",
+      "front": "What is a Delta table on disk?",
+      "back": "Parquet data files plus a _delta_log folder of numbered JSON commits (with periodic Parquet checkpoints). Readers rebuild the current file list from the log.",
+      "lesson": "platform-delta-medallion",
+      "tags": [
+        "delta"
+      ]
+    },
+    {
+      "id": "delta-acid",
+      "front": "Why can readers never see half a Delta write?",
+      "back": "A write becomes visible only when its commit file is atomically added to _delta_log. Until then its new files are not referenced.",
+      "lesson": "platform-delta-medallion",
+      "tags": [
+        "delta"
+      ]
+    },
+    {
+      "id": "delta-time-travel",
+      "front": "How does Delta time travel work?",
+      "back": "Older versions are replayed from the log: VERSION AS OF n or TIMESTAMP AS OF t. It works as long as the files those versions reference have not been vacuumed.",
+      "lesson": "platform-delta-medallion",
+      "tags": [
+        "delta"
+      ]
+    },
+    {
+      "id": "delta-optimize-vacuum",
+      "front": "OPTIMIZE versus VACUUM?",
+      "back": "OPTIMIZE rewrites small files into larger ones. VACUUM deletes files no longer referenced and older than the retention (7 days by default), which ends time travel to the versions that needed them.",
+      "lesson": "platform-delta-medallion",
+      "tags": [
+        "delta"
+      ]
+    },
+    {
+      "id": "delta-liquid",
+      "front": "What is liquid clustering?",
+      "back": "CLUSTER BY keys that replace partitioning and ZORDER. Data is clustered incrementally during OPTIMIZE, and the keys can be changed without rewriting existing data.",
+      "lesson": "platform-delta-medallion",
+      "tags": [
+        "delta",
+        "performance"
+      ]
+    },
+    {
+      "id": "medallion-layers",
+      "front": "Bronze, silver, gold?",
+      "back": "Bronze: raw data as ingested, with load metadata. Silver: cleaned, typed, deduplicated, conformed. Gold: business models and aggregates for consumers.",
+      "lesson": "platform-delta-medallion",
+      "tags": [
+        "architecture"
+      ]
+    },
+    {
+      "id": "medallion-raw-bronze",
+      "front": "Why keep bronze raw?",
+      "back": "So a wrong cleaning rule can be fixed and replayed from the original data. Clean in the silver step.",
+      "lesson": "platform-delta-medallion",
+      "tags": [
+        "architecture"
+      ]
+    },
+    {
+      "id": "auto-loader",
+      "front": "What is Auto Loader?",
+      "back": "A Databricks Structured Streaming source (format cloudFiles) that ingests new files incrementally, tracks processed files in its checkpoint, and can infer and evolve the schema.",
+      "lesson": "platform-delta-medallion",
+      "tags": [
+        "databricks"
+      ]
+    },
+    {
+      "id": "dlt-expectations",
+      "front": "Three expectation behaviours in Lakeflow Declarative Pipelines?",
+      "back": "Default: keep invalid rows and count them. ON VIOLATION DROP ROW: drop and count. ON VIOLATION FAIL UPDATE: stop the update.",
+      "lesson": "platform-delta-medallion",
+      "tags": [
+        "databricks",
+        "quality"
+      ]
+    },
+    {
+      "id": "uc-three-levels",
+      "front": "Unity Catalog name levels?",
+      "back": "catalog.schema.table, for example main.sales.orders. Reading needs USE CATALOG, USE SCHEMA and SELECT.",
+      "lesson": "platform-delta-medallion",
+      "tags": [
+        "governance"
+      ]
+    },
+    {
+      "id": "adf-pipeline",
+      "front": "What is an Azure Data Factory or Fabric pipeline?",
+      "back": "A JSON list of activities (Copy, Lookup, Notebook, ForEach, If Condition, Until...) linked by dependency conditions, with parameters and variables.",
+      "lesson": "platform-fabric-adf-pipelines",
+      "tags": [
+        "adf",
+        "fabric"
+      ]
+    },
+    {
+      "id": "adf-conditions",
+      "front": "The four dependency conditions?",
+      "back": "Succeeded, Failed, Completed (either success or failure), Skipped (the previous activity did not run).",
+      "lesson": "platform-fabric-adf-pipelines",
+      "tags": [
+        "adf"
+      ]
+    },
+    {
+      "id": "adf-leaf-rule",
+      "front": "How does Data Factory decide a run failed?",
+      "back": "By its leaf activities: the run fails when a leaf fails. A failure handled by an Upon Failure path whose activity succeeds leaves the run Succeeded.",
+      "lesson": "platform-fabric-adf-pipelines",
+      "tags": [
+        "adf"
+      ]
+    },
+    {
+      "id": "adf-fail-activity",
+      "front": "How do you keep a run red after logging an error?",
+      "back": "Put a Fail activity at the end of the failure path, with an error message and code.",
+      "lesson": "platform-fabric-adf-pipelines",
+      "tags": [
+        "adf"
+      ]
+    },
+    {
+      "id": "adf-shir",
+      "front": "What is a self-hosted integration runtime?",
+      "back": "Software installed on a machine inside a private network so Data Factory can reach sources there. Fabric uses the on-premises data gateway for the same purpose.",
+      "lesson": "platform-fabric-adf-pipelines",
+      "tags": [
+        "adf"
+      ]
+    },
+    {
+      "id": "adf-linked-service",
+      "front": "Linked service versus dataset?",
+      "back": "A linked service is the connection (like a connection string). A dataset is a named view of data in that store (a table, a folder). Fabric pipelines use connections.",
+      "lesson": "platform-fabric-adf-pipelines",
+      "tags": [
+        "adf"
+      ]
+    },
+    {
+      "id": "adf-foreach-batch",
+      "front": "How do you copy several tables in parallel, two at a time?",
+      "back": "A ForEach over the list with isSequential false and batchCount 2, the Copy inside reading @item().",
+      "lesson": "platform-fabric-adf-pipelines",
+      "tags": [
+        "adf"
+      ]
+    },
+    {
+      "id": "fabric-onelake",
+      "front": "What is OneLake?",
+      "back": "The single data lake of a Fabric tenant. Lakehouse tables in it are Delta tables, read by Spark, the SQL analytics endpoint and Power BI Direct Lake.",
+      "lesson": "platform-fabric-adf-pipelines",
+      "tags": [
+        "fabric"
+      ]
+    },
+    {
+      "id": "fabric-shortcut",
+      "front": "What is a OneLake shortcut?",
+      "back": "A pointer that shows data stored elsewhere (another OneLake item, ADLS Gen2, Amazon S3...) as a folder or table without copying it.",
+      "lesson": "platform-fabric-adf-pipelines",
+      "tags": [
+        "fabric"
+      ]
+    },
+    {
+      "id": "factory-lab-truth",
+      "front": "What does the Cloud Lab Pipelines tab run for real?",
+      "back": "Copy, Lookup, Script, stored procedures and notebooks run on the local catalog (notebooks through SparkLab, never eval/exec). The orchestration is simulated deterministically; no Azure or Fabric connection.",
+      "lesson": "platform-fabric-adf-pipelines",
+      "tags": [
+        "datapass"
+      ]
+    },
+    {
+      "id": "synapse-distributions",
+      "front": "How many distributions in a Synapse dedicated SQL pool?",
+      "back": "Always 60, whatever the DWU level. Scaling changes how many compute nodes serve them (1 to 60).",
+      "lesson": "platform-synapse-sql-pools",
+      "tags": [
+        "synapse"
+      ]
+    },
+    {
+      "id": "synapse-hash",
+      "front": "When do you HASH-distribute a table?",
+      "back": "For large fact tables, on a column with many distinct, evenly spread values and few NULLs, ideally the main join key so joins avoid data movement.",
+      "lesson": "platform-synapse-sql-pools",
+      "tags": [
+        "synapse"
+      ]
+    },
+    {
+      "id": "synapse-replicate",
+      "front": "When do you REPLICATE a table?",
+      "back": "For small dimensions (under about 2 GB compressed) joined often: each compute node keeps a full copy, so joins to it move no data.",
+      "lesson": "platform-synapse-sql-pools",
+      "tags": [
+        "synapse"
+      ]
+    },
+    {
+      "id": "synapse-round-robin",
+      "front": "When is ROUND_ROBIN right?",
+      "back": "For staging tables loaded fast and read once: rows are spread evenly with no key, so joins on them need data movement.",
+      "lesson": "platform-synapse-sql-pools",
+      "tags": [
+        "synapse"
+      ]
+    },
+    {
+      "id": "synapse-serverless",
+      "front": "How is Synapse serverless SQL billed?",
+      "back": "Per TB of data processed by queries. Parquet with column and partition pruning reads less than CSV and costs less.",
+      "lesson": "platform-synapse-sql-pools",
+      "tags": [
+        "synapse",
+        "cost"
+      ]
+    },
+    {
+      "id": "synapse-pause",
+      "front": "What does pausing a dedicated SQL pool save?",
+      "back": "The compute (DWU) charge. Storage is still billed and the data is kept.",
+      "lesson": "platform-synapse-sql-pools",
+      "tags": [
+        "synapse",
+        "cost"
+      ]
+    },
+    {
+      "id": "fabric-warehouse-distribution",
+      "front": "Does Fabric Warehouse take DISTRIBUTION = options?",
+      "back": "No. Fabric Warehouse manages distribution itself; DISTRIBUTION, CLUSTERED COLUMNSTORE and similar WITH options are Synapse dedicated pool syntax.",
+      "lesson": "platform-synapse-sql-pools",
+      "tags": [
+        "fabric"
+      ]
+    },
+    {
+      "id": "sqlpool-lab-truth",
+      "front": "What does the Cloud Lab SQL pool tab run for real?",
+      "back": "A documented T-SQL subset translated to DuckDB, run on the local catalog. Distributions, rowgroups and data movement plans are modelled teaching data, not Synapse telemetry.",
+      "lesson": "platform-synapse-sql-pools",
+      "tags": [
+        "datapass"
+      ]
+    },
+    {
+      "id": "cci-rowgroups",
+      "front": "Why can partitioning hurt a clustered columnstore table in Synapse?",
+      "back": "Rowgroups compress best near 1 million rows, built per distribution and per partition. 60 distributions times many partitions can leave each rowgroup small.",
+      "lesson": "platform-synapse-sql-pools",
+      "tags": [
+        "synapse",
+        "performance"
+      ]
+    }
+  ]
+}

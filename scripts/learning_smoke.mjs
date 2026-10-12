@@ -10,7 +10,7 @@ const clone = () => structuredClone(catalog);
 
 test('shipped learning catalog is valid and all linked exercises exist', () => {
   assert.equal(validateCatalog(catalog), catalog);
-  assert.equal(catalog.paths.length, 6); assert.equal(catalog.lessons.length, 19);
+  assert.equal(catalog.paths.length, 10); assert.equal(catalog.lessons.length, 43);
   const content = process.env.MOSAIC_CONTENT_ROOT || path.resolve('content');
   const known = new Set();
   for (const pack of readdirSync(path.join(content, 'exercise-packs'))) {

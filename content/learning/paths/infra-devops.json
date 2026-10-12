@@ -1,0 +1,587 @@
+{
+  "format": "datapass.learning-path",
+  "version": 1,
+  "path": {
+    "id": "infra-devops",
+    "title": "Infrastructure and DevOps for data",
+    "summary": "The shell, containers, Terraform, Kubernetes and VM monitoring as a data engineer meets them. The Terminal Lab runs your real shell; the Infra Lab simulates terraform, docker, kubectl and az: nothing is provisioned, built or deployed.",
+    "lessons": [
+      "infra-shell-basics",
+      "infra-docker-images",
+      "infra-docker-compose",
+      "infra-terraform-state",
+      "infra-kubernetes-rollouts",
+      "infra-vm-monitoring"
+    ]
+  },
+  "lessons": [
+    {
+      "id": "infra-shell-basics",
+      "version": 1,
+      "title": "Shell habits for data work",
+      "summary": "Exit codes, permissions, disk space and scripts that stop on the first error.",
+      "minutes": 15,
+      "concepts": [
+        "bash",
+        "exit status",
+        "set -euo pipefail",
+        "chmod",
+        "df",
+        "du"
+      ],
+      "prerequisites": [],
+      "blocks": [
+        {
+          "kind": "text",
+          "title": "The mental model",
+          "body": "Schedulers and CI judge a script by its exit status: 0 is success, anything else is failure. A bash script carries on after a failed command unless it starts with set -euo pipefail (stop on error, on unset variables, and when any part of a pipeline fails). Permissions are three digits for owner, group and others, each summing read 4, write 2, execute 1."
+        },
+        {
+          "kind": "text",
+          "title": "Where it runs",
+          "body": "The Terminal Lab opens a VS Code terminal in a mission folder with your chosen shell (bash or PowerShell). Datapass types nothing and runs none of your commands; the checker reads the resulting files and Git state. Missions guard-empty-files and server-inventory-report practise these habits."
+        },
+        {
+          "kind": "callout",
+          "title": "Common mistake",
+          "body": "cat file | grep pattern | wc -l in a script without pipefail: if the file is missing, the pipeline still exits 0 and the job reports success."
+        },
+        {
+          "kind": "check",
+          "title": "Before you run",
+          "body": "A disk is full. Which command tells you which filesystem, and which one tells you which folder?"
+        }
+      ],
+      "code": {
+        "language": "none",
+        "source": "#!/usr/bin/env bash\nset -euo pipefail\n\nlanding=\"/data/landing/$(date -u +%F)\"\ndf -h /data                      # which filesystem is full?\ndu -sh /data/landing/* | sort -h  # which folder grew?\n\nif [ ! -s \"$landing/orders.csv\" ]; then\n  echo \"orders.csv is missing or empty\" >&2\n  exit 1\nfi\nchmod 750 \"$landing\"\n"
+      },
+      "exercise": {
+        "id": "lc-linux-exit-status",
+        "language": "quiz"
+      },
+      "lab": "terminal",
+      "visual": {
+        "kind": "timeline",
+        "title": "Shell habits for data work - visual walkthrough",
+        "steps": [
+          {
+            "title": "Fail fast",
+            "body": "set -euo pipefail stops at the first failing command.",
+            "lines": [
+              2,
+              2
+            ]
+          },
+          {
+            "title": "Look at space",
+            "body": "df for filesystems, du for folders.",
+            "lines": [
+              5,
+              6
+            ]
+          },
+          {
+            "title": "Guard the input",
+            "body": "An empty or missing file exits 1 with a message on stderr.",
+            "lines": [
+              8,
+              11
+            ]
+          },
+          {
+            "title": "Restrict access",
+            "body": "750: owner rwx, group r-x, others nothing.",
+            "lines": [
+              12,
+              12
+            ]
+          }
+        ]
+      },
+      "related": [
+        "infra-vm-monitoring"
+      ]
+    },
+    {
+      "id": "infra-docker-images",
+      "version": 1,
+      "title": "Container images for pipelines",
+      "summary": "Layers, the build cache and why the same image runs the same way everywhere.",
+      "minutes": 18,
+      "concepts": [
+        "Docker",
+        "image",
+        "container",
+        "layer",
+        "build cache",
+        "ENTRYPOINT",
+        "CMD"
+      ],
+      "prerequisites": [
+        "infra-shell-basics"
+      ],
+      "blocks": [
+        {
+          "kind": "text",
+          "title": "The mental model",
+          "body": "An image is a stack of read-only layers, one per Dockerfile instruction; a container is a running instance with its own writable layer on top. When an instruction's inputs change, that layer and every later one are rebuilt, so put what changes least (base image, dependencies) first and the application code last. ENTRYPOINT fixes the program; CMD gives default arguments that docker run arguments replace."
+        },
+        {
+          "kind": "text",
+          "title": "What this lab shows",
+          "body": "The Infra Lab reads Dockerfiles and simulates builds, the layer cache and containers; nothing is built, pulled or run. The containerize-ingest-api mission practises it."
+        },
+        {
+          "kind": "callout",
+          "title": "Common mistake",
+          "body": "COPY . . before pip install: every code change reinstalls every dependency, and secrets or .git in the folder end up in the image unless .dockerignore excludes them."
+        },
+        {
+          "kind": "check",
+          "title": "Before you run",
+          "body": "You edit ingest.py only. Which layers of the example are rebuilt?"
+        }
+      ],
+      "code": {
+        "language": "none",
+        "source": "FROM python:3.12-slim\nWORKDIR /app\nCOPY requirements.txt .\nRUN pip install --no-cache-dir -r requirements.txt\nCOPY ingest.py .\nUSER 1000\nENTRYPOINT [\"python\", \"ingest.py\"]\nCMD [\"--day\", \"today\"]\n"
+      },
+      "exercise": {
+        "id": "lc-docker-layer-cache",
+        "language": "quiz"
+      },
+      "lab": "infra",
+      "visual": {
+        "kind": "storage",
+        "title": "Container images for pipelines - visual walkthrough",
+        "steps": [
+          {
+            "title": "Base layer",
+            "body": "A small, pinned base image.",
+            "lines": [
+              1,
+              2
+            ]
+          },
+          {
+            "title": "Dependencies",
+            "body": "Rebuilt only when requirements.txt changes.",
+            "lines": [
+              3,
+              4
+            ]
+          },
+          {
+            "title": "Code",
+            "body": "The layer that changes most comes last.",
+            "lines": [
+              5,
+              5
+            ]
+          },
+          {
+            "title": "Run",
+            "body": "Not as root; ENTRYPOINT is the program, CMD the default arguments.",
+            "lines": [
+              6,
+              8
+            ]
+          }
+        ]
+      },
+      "related": [
+        "infra-docker-compose"
+      ]
+    },
+    {
+      "id": "infra-docker-compose",
+      "version": 1,
+      "title": "Compose: services, health and volumes",
+      "summary": "Start an API and its database in the right order, and keep the data when containers are replaced.",
+      "minutes": 15,
+      "concepts": [
+        "Docker Compose",
+        "depends_on",
+        "healthcheck",
+        "volume",
+        "environment"
+      ],
+      "prerequisites": [
+        "infra-docker-images"
+      ],
+      "blocks": [
+        {
+          "kind": "text",
+          "title": "The mental model",
+          "body": "A compose file declares services, networks and volumes. depends_on alone only orders container start; condition: service_healthy waits for the dependency's healthcheck to pass. Data written inside a container disappears with it; a named volume survives docker compose down (unless -v is passed) and container replacement."
+        },
+        {
+          "kind": "text",
+          "title": "What this lab shows",
+          "body": "Compose files are read and simulated in the Infra Lab, never executed. The compose-keep-the-data mission checks that the database data survives a recreate."
+        },
+        {
+          "kind": "callout",
+          "title": "Common mistake",
+          "body": "Putting the database password in the compose file committed to Git. Use an env file kept out of the repository, or the platform's secret store."
+        },
+        {
+          "kind": "check",
+          "title": "Before you run",
+          "body": "Remove the volume line from db. What does the API see after docker compose up --force-recreate?"
+        }
+      ],
+      "code": {
+        "language": "none",
+        "source": "services:\n  db:\n    image: postgres:16\n    env_file: .env\n    volumes:\n      - pgdata:/var/lib/postgresql/data\n    healthcheck:\n      test: [\"CMD-SHELL\", \"pg_isready -U app\"]\n      interval: 5s\n      retries: 10\n  api:\n    build: .\n    depends_on:\n      db:\n        condition: service_healthy\nvolumes:\n  pgdata:\n"
+      },
+      "exercise": {
+        "id": "lc-docker-service-healthy",
+        "language": "quiz"
+      },
+      "lab": "infra",
+      "visual": {
+        "kind": "dag",
+        "title": "Compose: services, health and volumes - visual walkthrough",
+        "steps": [
+          {
+            "title": "Database",
+            "body": "Secrets come from an env file outside Git.",
+            "lines": [
+              2,
+              4
+            ]
+          },
+          {
+            "title": "Persist",
+            "body": "The named volume keeps the data across recreates.",
+            "lines": [
+              5,
+              6
+            ]
+          },
+          {
+            "title": "Ready, not just started",
+            "body": "The healthcheck says when Postgres accepts connections.",
+            "lines": [
+              7,
+              10
+            ]
+          },
+          {
+            "title": "Ordered start",
+            "body": "api waits for db to be healthy.",
+            "lines": [
+              13,
+              15
+            ]
+          }
+        ],
+        "nodes": [
+          {
+            "id": "volume",
+            "title": "pgdata volume"
+          },
+          {
+            "id": "db",
+            "title": "db"
+          },
+          {
+            "id": "health",
+            "title": "healthcheck"
+          },
+          {
+            "id": "api",
+            "title": "api"
+          }
+        ],
+        "edges": [
+          [
+            "volume",
+            "db"
+          ],
+          [
+            "db",
+            "health"
+          ],
+          [
+            "health",
+            "api"
+          ]
+        ]
+      },
+      "related": [
+        "infra-docker-images"
+      ]
+    },
+    {
+      "id": "infra-terraform-state",
+      "version": 1,
+      "title": "Terraform: plan, apply and state",
+      "summary": "Read a plan before applying it, share state safely and avoid replacing data stores by accident.",
+      "minutes": 20,
+      "concepts": [
+        "Terraform",
+        "plan",
+        "apply",
+        "state",
+        "backend",
+        "for_each",
+        "replacement"
+      ],
+      "prerequisites": [
+        "infra-shell-basics"
+      ],
+      "blocks": [
+        {
+          "kind": "text",
+          "title": "The mental model",
+          "body": "Terraform compares the configuration with the state (refreshed from the real infrastructure) and plans creates (+), in-place updates (~) and replacements (-/+). apply carries out a plan. The state maps each resource address to a real object, so keep it in a remote backend with locking, and treat it as sensitive: values marked sensitive are only hidden from output, not from the state."
+        },
+        {
+          "kind": "text",
+          "title": "What this lab shows",
+          "body": "The Infra Lab evaluates HCL with a whitelisted reader against a simulated azurerm provider and subscription; terraform.tfstate is marked as simulated and nothing is provisioned. Missions lake-landing-zone and datalake-module practise plans and modules."
+        },
+        {
+          "kind": "callout",
+          "title": "Common mistake",
+          "body": "Approving a plan without reading the -/+ lines. Renaming a storage account forces a replacement, and a replaced storage account starts empty."
+        },
+        {
+          "kind": "check",
+          "title": "Before you run",
+          "body": "You remove \"raw\" from the containers set. With for_each, which resources change? With count?"
+        }
+      ],
+      "code": {
+        "language": "none",
+        "source": "resource \"azurerm_storage_account\" \"lake\" {\n  name                     = \"stdatalakedev01\"\n  resource_group_name      = azurerm_resource_group.data.name\n  location                 = \"westeurope\"\n  account_tier             = \"Standard\"\n  account_replication_type = \"LRS\"\n  is_hns_enabled           = true\n}\n\nresource \"azurerm_storage_container\" \"zones\" {\n  for_each             = toset([\"raw\", \"curated\", \"gold\"])\n  name                 = each.key\n  storage_account_id   = azurerm_storage_account.lake.id\n}\n"
+      },
+      "exercise": {
+        "id": "lc-tf-plan",
+        "language": "quiz"
+      },
+      "lab": "infra",
+      "visual": {
+        "kind": "timeline",
+        "title": "Terraform: plan, apply and state - visual walkthrough",
+        "steps": [
+          {
+            "title": "Write",
+            "body": "The account has a fixed name: changing it later forces a replacement.",
+            "lines": [
+              1,
+              2
+            ]
+          },
+          {
+            "title": "Hierarchical namespace",
+            "body": "is_hns_enabled makes it an ADLS Gen2 lake.",
+            "lines": [
+              7,
+              7
+            ]
+          },
+          {
+            "title": "Keyed instances",
+            "body": "for_each addresses each container by its name.",
+            "lines": [
+              10,
+              13
+            ]
+          },
+          {
+            "title": "Plan, read, apply",
+            "body": "Review every +, ~ and -/+ before apply; state records the result."
+          }
+        ]
+      },
+      "related": [
+        "infra-kubernetes-rollouts"
+      ]
+    },
+    {
+      "id": "infra-kubernetes-rollouts",
+      "version": 1,
+      "title": "Kubernetes deployments and probes",
+      "summary": "Desired state, rolling updates, readiness versus liveness, requests versus limits.",
+      "minutes": 20,
+      "concepts": [
+        "Kubernetes",
+        "Deployment",
+        "ReplicaSet",
+        "readiness probe",
+        "liveness probe",
+        "resources",
+        "rollout"
+      ],
+      "prerequisites": [
+        "infra-docker-images"
+      ],
+      "blocks": [
+        {
+          "kind": "text",
+          "title": "The mental model",
+          "body": "You declare desired state; controllers converge to it. A Deployment owns ReplicaSets that keep N pods running. A rolling update starts new pods and removes old ones only as new ones become ready (maxSurge, maxUnavailable). Readiness controls traffic: a failing pod leaves its Service endpoints. Liveness controls restarts. Requests are what the scheduler reserves; going over the memory limit gets the container OOMKilled, going over the CPU limit gets it throttled."
+        },
+        {
+          "kind": "text",
+          "title": "What this lab shows",
+          "body": "The Infra Lab validates manifests strictly and applies them to a simulated cluster with scheduling, readiness and rollouts; no real kubectl or cluster is used. The zero-downtime-rollout mission practises this lesson."
+        },
+        {
+          "kind": "callout",
+          "title": "Common mistake",
+          "body": "Using the same endpoint for liveness and readiness that checks the database. When the database blips, every pod is restarted at once instead of just taken out of traffic."
+        },
+        {
+          "kind": "check",
+          "title": "Before you run",
+          "body": "With 3 replicas, maxUnavailable 0 and maxSurge 1, how many pods exist at most during the rollout?"
+        }
+      ],
+      "code": {
+        "language": "none",
+        "source": "apiVersion: apps/v1\nkind: Deployment\nmetadata:\n  name: ingest-api\nspec:\n  replicas: 3\n  strategy:\n    rollingUpdate: {maxSurge: 1, maxUnavailable: 0}\n  selector:\n    matchLabels: {app: ingest-api}\n  template:\n    metadata:\n      labels: {app: ingest-api}\n    spec:\n      containers:\n        - name: api\n          image: registry.example.com/ingest-api:1.4.0\n          resources:\n            requests: {cpu: 250m, memory: 256Mi}\n            limits: {memory: 512Mi}\n          readinessProbe:\n            httpGet: {path: /ready, port: 8080}\n          livenessProbe:\n            httpGet: {path: /healthz, port: 8080}\n"
+      },
+      "exercise": {
+        "id": "lc-k8s-readiness",
+        "language": "quiz"
+      },
+      "lab": "infra",
+      "visual": {
+        "kind": "timeline",
+        "title": "Kubernetes deployments and probes - visual walkthrough",
+        "steps": [
+          {
+            "title": "Desired state",
+            "body": "Three replicas, kept by a ReplicaSet.",
+            "lines": [
+              5,
+              6
+            ]
+          },
+          {
+            "title": "Rolling update",
+            "body": "One extra pod at a time; never fewer than three ready.",
+            "lines": [
+              7,
+              8
+            ]
+          },
+          {
+            "title": "Resources",
+            "body": "Requests reserve; the memory limit kills on overrun.",
+            "lines": [
+              18,
+              20
+            ]
+          },
+          {
+            "title": "Probes",
+            "body": "Readiness gates traffic; liveness restarts a stuck container.",
+            "lines": [
+              21,
+              24
+            ]
+          }
+        ]
+      },
+      "related": [
+        "infra-vm-monitoring"
+      ]
+    },
+    {
+      "id": "infra-vm-monitoring",
+      "version": 1,
+      "title": "Monitoring a VM and alerting",
+      "summary": "Metrics, aggregation windows and alert rules that fire for the right reason.",
+      "minutes": 15,
+      "concepts": [
+        "Azure Monitor",
+        "metrics",
+        "alert rule",
+        "load average",
+        "memory leak",
+        "action group"
+      ],
+      "prerequisites": [
+        "infra-shell-basics"
+      ],
+      "blocks": [
+        {
+          "kind": "text",
+          "title": "The mental model",
+          "body": "A metric alert aggregates a metric over a window (average, maximum, minimum) and compares it with a threshold at each evaluation frequency; an action group decides who is notified. A 30-second spike barely moves a 5-minute average, so pick the aggregation for the symptom: average CPU for sustained saturation, minimum available memory for a leak, maximum for latency spikes."
+        },
+        {
+          "kind": "text",
+          "title": "What this lab shows",
+          "body": "Infra Lab metrics are recorded scenarios and alert rules are replayed with Azure Monitor semantics; no VM exists. Missions etl-vm-memory-leak and page-on-shir-outage practise reading metrics and writing rules."
+        },
+        {
+          "kind": "callout",
+          "title": "Common mistake",
+          "body": "Alerting on any CPU above 80 percent: nightly batch jobs page someone every night and the real incident is ignored."
+        },
+        {
+          "kind": "check",
+          "title": "Before you run",
+          "body": "Available memory falls by 200 MB per hour and never recovers until a restart. Which aggregation and threshold catch it a day before it runs out?"
+        }
+      ],
+      "code": {
+        "language": "none",
+        "source": "az monitor metrics alert create \\\n  --name etl-vm-low-memory \\\n  --resource-group rg-data \\\n  --scopes <vm-resource-id> \\\n  --condition \"min Available Memory Bytes < 1073741824\" \\\n  --window-size 15m \\\n  --evaluation-frequency 5m \\\n  --action ag-data-oncall\n"
+      },
+      "exercise": {
+        "id": "lc-vm-alert-window",
+        "language": "quiz"
+      },
+      "lab": "infra",
+      "visual": {
+        "kind": "timeline",
+        "title": "Monitoring a VM and alerting - visual walkthrough",
+        "steps": [
+          {
+            "title": "Choose the signal",
+            "body": "Minimum available memory reveals a leak; averages hide dips.",
+            "lines": [
+              5,
+              5
+            ]
+          },
+          {
+            "title": "Window",
+            "body": "15 minutes of data are aggregated at each evaluation.",
+            "lines": [
+              6,
+              6
+            ]
+          },
+          {
+            "title": "Frequency",
+            "body": "The rule is evaluated every 5 minutes.",
+            "lines": [
+              7,
+              7
+            ]
+          },
+          {
+            "title": "Notify",
+            "body": "The action group pages the owner with a runbook link.",
+            "lines": [
+              8,
+              8
+            ]
+          }
+        ]
+      },
+      "related": [
+        "infra-kubernetes-rollouts"
+      ]
+    }
+  ]
+}

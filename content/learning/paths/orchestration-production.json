@@ -1,0 +1,588 @@
+{
+  "format": "datapass.learning-path",
+  "version": 1,
+  "path": {
+    "id": "orchestration-production",
+    "title": "Orchestration in production",
+    "summary": "Schedules, sensors, idempotent loads, API ingestion, quality gates and alerting: what keeps a pipeline correct when it reruns, waits or fails. Airflow and pipeline behaviour is simulated by the labs; ingestion Python and SQL run for real.",
+    "lessons": [
+      "orch-schedules-intervals",
+      "orch-sensors-pools",
+      "orch-idempotent-loads",
+      "orch-api-ingestion",
+      "orch-quality-gates",
+      "orch-alerting-timeouts"
+    ]
+  },
+  "lessons": [
+    {
+      "id": "orch-schedules-intervals",
+      "version": 1,
+      "title": "Schedules, intervals and catchup",
+      "summary": "Know which slice of data a run processes, and avoid an accidental backfill on deploy.",
+      "minutes": 18,
+      "concepts": [
+        "Airflow",
+        "schedule",
+        "data interval",
+        "logical date",
+        "catchup",
+        "backfill"
+      ],
+      "prerequisites": [
+        "airflow-dependencies"
+      ],
+      "blocks": [
+        {
+          "kind": "text",
+          "title": "The mental model",
+          "body": "Each DAG run has a logical date. With a data-interval timetable (Airflow 2 default for @daily) the run for 1 October covers 1 October 00:00 to 2 October 00:00 and starts once that interval is over. Airflow 3 schedules cron strings with CronTriggerTimetable by default: the run happens at the cron time and its logical date is that time, so a daily job that loads yesterday must compute yesterday from it."
+        },
+        {
+          "kind": "text",
+          "title": "Catchup",
+          "body": "With catchup=True the scheduler creates one run per missed interval since start_date. Airflow 3 defaults catchup to False; in Airflow 2 it defaulted to True, which is how a new DAG with an old start_date launched months of runs at once."
+        },
+        {
+          "kind": "callout",
+          "title": "Common mistake",
+          "body": "Filtering with the wall clock (datetime.now()) inside tasks. A retry or a backfill then loads the wrong day; use the run's data interval or logical date from the context."
+        },
+        {
+          "kind": "check",
+          "title": "Before you run",
+          "body": "A @daily DAG with start_date 1 September and catchup=True is deployed on 1 October. How many runs are created?"
+        }
+      ],
+      "code": {
+        "language": "none",
+        "source": "from airflow.sdk import dag, task\nimport pendulum\n\n@dag(schedule=\"@daily\", start_date=pendulum.datetime(2026, 9, 1, tz=\"UTC\"), catchup=False)\ndef daily_orders():\n    @task\n    def load(data_interval_start=None, data_interval_end=None):\n        print(f\"loading {data_interval_start} -> {data_interval_end}\")\n    load()\n\ndaily_orders()\n"
+      },
+      "exercise": {
+        "id": "af-no-accidental-backfill",
+        "language": "airflow"
+      },
+      "lab": "airflow",
+      "visual": {
+        "kind": "timeline",
+        "title": "Schedules, intervals and catchup - visual walkthrough",
+        "steps": [
+          {
+            "title": "Declare the schedule",
+            "body": "schedule, start_date and catchup decide which runs exist.",
+            "lines": [
+              4,
+              4
+            ]
+          },
+          {
+            "title": "Read the interval",
+            "body": "The task receives the run's interval from the context instead of reading the clock.",
+            "lines": [
+              7,
+              8
+            ]
+          },
+          {
+            "title": "Deploy",
+            "body": "With catchup=False only the latest interval is scheduled; with True, one run per missed day.",
+            "lines": [
+              4,
+              4
+            ]
+          },
+          {
+            "title": "Rerun safely",
+            "body": "A retry or backfill of 3 September reloads exactly 3 September."
+          }
+        ]
+      },
+      "related": [
+        "airflow-retries",
+        "orch-idempotent-loads"
+      ]
+    },
+    {
+      "id": "orch-sensors-pools",
+      "version": 1,
+      "title": "Sensors, pools and waiting well",
+      "summary": "Wait for data without blocking workers, and cap concurrency on a shared resource.",
+      "minutes": 15,
+      "concepts": [
+        "Airflow",
+        "sensor",
+        "reschedule",
+        "deferrable",
+        "pool",
+        "soft_fail",
+        "assets"
+      ],
+      "prerequisites": [
+        "orch-schedules-intervals"
+      ],
+      "blocks": [
+        {
+          "kind": "text",
+          "title": "The mental model",
+          "body": "A sensor checks a condition (a file exists, a partition landed) until it is true or its timeout expires. In poke mode it holds a worker slot the whole time; in reschedule mode it frees the slot between checks; a deferrable sensor waits in the triggerer process. soft_fail=True turns a timeout into skipped instead of failed."
+        },
+        {
+          "kind": "text",
+          "title": "Sharing resources",
+          "body": "A pool has a fixed number of slots; tasks assigned to it wait for a free slot, across all DAGs. Use one per rate-limited API or fragile database. When the trigger is data rather than time, schedule the consumer DAG on an asset (Dataset in Airflow 2) that the producer updates."
+        },
+        {
+          "kind": "callout",
+          "title": "Common mistake",
+          "body": "Fifty poke-mode sensors waiting for files at night, each holding a worker slot, so the real work cannot start."
+        },
+        {
+          "kind": "check",
+          "title": "Before you run",
+          "body": "The file never arrives. Should the run fail, or skip and let the next day try again? Which parameter decides?"
+        }
+      ],
+      "code": {
+        "language": "none",
+        "source": "from airflow.providers.standard.sensors.filesystem import FileSensor\n\nwait_for_file = FileSensor(\n    task_id=\"wait_for_orders_file\",\n    filepath=\"/landing/orders/{{ ds }}.csv\",\n    mode=\"reschedule\",\n    poke_interval=300,\n    timeout=6 * 60 * 60,\n    soft_fail=True,\n    pool=\"landing_fs\",\n)\n"
+      },
+      "exercise": {
+        "id": "af-sensor-soft-fail",
+        "language": "airflow"
+      },
+      "lab": "airflow",
+      "visual": {
+        "kind": "timeline",
+        "title": "Sensors, pools and waiting well - visual walkthrough",
+        "steps": [
+          {
+            "title": "Check",
+            "body": "The sensor looks for the day's file.",
+            "lines": [
+              5,
+              5
+            ]
+          },
+          {
+            "title": "Release the slot",
+            "body": "In reschedule mode the task goes back to up_for_reschedule between checks.",
+            "lines": [
+              6,
+              7
+            ]
+          },
+          {
+            "title": "Give up gracefully",
+            "body": "After 6 hours the timeout ends the wait; soft_fail marks it skipped.",
+            "lines": [
+              8,
+              9
+            ]
+          },
+          {
+            "title": "Share the resource",
+            "body": "The pool caps how many such tasks touch the landing file system at once.",
+            "lines": [
+              10,
+              10
+            ]
+          }
+        ]
+      },
+      "related": [
+        "airflow-retries"
+      ]
+    },
+    {
+      "id": "orch-idempotent-loads",
+      "version": 1,
+      "title": "Idempotent loads and backfills",
+      "summary": "A load you can rerun for the same day without duplicating or losing rows.",
+      "minutes": 18,
+      "concepts": [
+        "idempotency",
+        "MERGE",
+        "upsert",
+        "partition overwrite",
+        "backfill",
+        "watermark"
+      ],
+      "prerequisites": [
+        "orch-schedules-intervals"
+      ],
+      "blocks": [
+        {
+          "kind": "text",
+          "title": "The mental model",
+          "body": "Every production task will run twice one day: a retry after a timeout, a manual rerun, a backfill. An idempotent load leaves the same table whatever the number of runs. Two patterns: replace the slice the run owns (delete then insert the day, or overwrite that partition, in one transaction), or MERGE on the business key so repeated rows update instead of inserting."
+        },
+        {
+          "kind": "text",
+          "title": "Watermarks",
+          "body": "Incremental loads remember the highest updated_at they have committed. Read the watermark, load rows above it, write them idempotently, and only then store the new watermark."
+        },
+        {
+          "kind": "callout",
+          "title": "Common mistake",
+          "body": "INSERT INTO ... SELECT for the day without removing the previous attempt first: every retry adds the day again."
+        },
+        {
+          "kind": "check",
+          "title": "Before you run",
+          "body": "The example removes the day and inserts it again. What happens if the run fails between the two statements, and how does a transaction help?"
+        }
+      ],
+      "code": {
+        "language": "none",
+        "source": "BEGIN TRANSACTION;\nDELETE FROM silver.orders WHERE order_date = DATE '2026-10-01';\nINSERT INTO silver.orders\nSELECT * FROM bronze.orders WHERE order_date = DATE '2026-10-01';\nCOMMIT;\n\n-- or, keyed on the business key:\nMERGE INTO silver.customers AS t\nUSING bronze.customers_batch AS s ON t.customer_id = s.customer_id\nWHEN MATCHED THEN UPDATE SET name = s.name, updated_at = s.updated_at\nWHEN NOT MATCHED THEN INSERT (customer_id, name, updated_at) VALUES (s.customer_id, s.name, s.updated_at);\n"
+      },
+      "exercise": {
+        "id": "cp-upsert-idempotent",
+        "language": "factory"
+      },
+      "lab": "fabric",
+      "visual": {
+        "kind": "timeline",
+        "title": "Idempotent loads and backfills - visual walkthrough",
+        "steps": [
+          {
+            "title": "Own a slice",
+            "body": "The run owns exactly one day of the target.",
+            "lines": [
+              2,
+              2
+            ]
+          },
+          {
+            "title": "Replace it",
+            "body": "Delete and insert inside one transaction: a failure leaves the previous state.",
+            "lines": [
+              1,
+              5
+            ]
+          },
+          {
+            "title": "Or merge",
+            "body": "MERGE on customer_id updates existing rows and inserts new ones.",
+            "lines": [
+              8,
+              11
+            ]
+          },
+          {
+            "title": "Rerun",
+            "body": "A second run produces the same table: no duplicates, nothing lost."
+          }
+        ]
+      },
+      "related": [
+        "warehouse-scd2",
+        "api-retries"
+      ]
+    },
+    {
+      "id": "orch-api-ingestion",
+      "version": 1,
+      "title": "Ingesting from an API in production",
+      "summary": "Pagination, rate limits, retries and a watermark committed after the write.",
+      "minutes": 20,
+      "concepts": [
+        "REST",
+        "API",
+        "429",
+        "Retry-After",
+        "backoff",
+        "watermark",
+        "schema drift"
+      ],
+      "prerequisites": [
+        "api-retries",
+        "orch-idempotent-loads"
+      ],
+      "blocks": [
+        {
+          "kind": "text",
+          "title": "The mental model",
+          "body": "A production ingestion follows every page (cursor first, offset only when the data cannot move), retries only transient answers (429, 502, 503, 504, timeouts) with exponential backoff and jitter and honours Retry-After, fails fast on 400, 401, 403 and 404, writes each batch idempotently, then advances the watermark. New fields in the payload are schema drift: decide explicitly whether to evolve the table."
+        },
+        {
+          "kind": "text",
+          "title": "What this lab shows",
+          "body": "The API Lab serves a simulated API on 127.0.0.1 with seeded pages and faults; your ingest.py runs for real as trusted local Python and writes real DuckDB tables in bronze. Missions api-rate-limited-events and api-incremental-orders check the request log and the rows."
+        },
+        {
+          "kind": "callout",
+          "title": "Common mistake",
+          "body": "Saving the watermark from the API response before the write commits. If the write fails, the next run starts after rows that were never stored."
+        },
+        {
+          "kind": "check",
+          "title": "Before you run",
+          "body": "Which statuses does your client retry, how long does it wait at most, and what does it do after the last attempt?"
+        }
+      ],
+      "code": {
+        "language": "python",
+        "source": "import random\nimport time\n\nTRANSIENT = {429, 502, 503, 504}\n\ndef wait_seconds(attempt, retry_after=None, base=1.0, cap=60.0):\n    \"\"\"Delay before the next attempt: Retry-After wins, else capped exponential backoff with jitter.\"\"\"\n    if retry_after is not None:\n        return float(retry_after)\n    return random.uniform(0, min(cap, base * 2 ** attempt))\n\nfor attempt in range(4):\n    print(attempt, round(wait_seconds(attempt), 2), wait_seconds(attempt, retry_after=30))\n"
+      },
+      "exercise": {
+        "id": "lc-api-watermark-advance",
+        "language": "quiz"
+      },
+      "lab": "apilab",
+      "visual": {
+        "kind": "timeline",
+        "title": "Ingesting from an API in production - visual walkthrough",
+        "steps": [
+          {
+            "title": "Classify the answer",
+            "body": "Only transient statuses are retried.",
+            "lines": [
+              4,
+              4
+            ]
+          },
+          {
+            "title": "Honour the server",
+            "body": "Retry-After, when present, is the delay to use.",
+            "lines": [
+              8,
+              9
+            ]
+          },
+          {
+            "title": "Back off",
+            "body": "Otherwise the delay doubles per attempt, capped, with jitter so clients do not retry in step.",
+            "lines": [
+              10,
+              10
+            ]
+          },
+          {
+            "title": "Commit then advance",
+            "body": "Write the batch, then store the new watermark."
+          }
+        ]
+      },
+      "related": [
+        "api-pagination"
+      ]
+    },
+    {
+      "id": "orch-quality-gates",
+      "version": 1,
+      "title": "Data quality gates",
+      "summary": "Validate before publishing: quarantine bad rows and stop the run when the batch is not trustworthy.",
+      "minutes": 15,
+      "concepts": [
+        "data quality",
+        "quarantine",
+        "dead-letter",
+        "gate",
+        "expectations",
+        "tests"
+      ],
+      "prerequisites": [
+        "orch-idempotent-loads"
+      ],
+      "blocks": [
+        {
+          "kind": "text",
+          "title": "The mental model",
+          "body": "Quality checks work at two levels. Row rules (a non-null key, a positive amount, a known status) route failing rows to a quarantine table with the reason. Batch rules (row count within the usual range, no duplicate keys, the share of quarantined rows under a threshold) decide whether the batch is published at all. Publish gold only after the gate passes, so consumers never see a half-checked day."
+        },
+        {
+          "kind": "text",
+          "title": "On the platforms",
+          "body": "dbt tests, Lakeflow Declarative Pipelines expectations (warn, DROP ROW, FAIL UPDATE) and Great Expectations-style suites are the same idea. The Pipeline Lab compiles the lesson's pipeline source with a bounded AST compiler, never eval or exec."
+        },
+        {
+          "kind": "callout",
+          "title": "Common mistake",
+          "body": "Dropping invalid rows silently. The run is green, the totals are wrong, and nobody can find out which rows went missing."
+        },
+        {
+          "kind": "check",
+          "title": "Before you run",
+          "body": "Two percent of today's rows fail the amount rule; usually it is 0.1 percent. Publish or stop?"
+        }
+      ],
+      "code": {
+        "language": "sql",
+        "source": "WITH checked AS (\n    SELECT *,\n           CASE WHEN customer_id IS NULL THEN 'missing customer'\n                WHEN net_amount <= 0 THEN 'non-positive amount' END AS reason\n    FROM source.orders\n)\nSELECT count(*) FILTER (WHERE reason IS NULL) AS valid_rows,\n       count(*) FILTER (WHERE reason IS NOT NULL) AS quarantined_rows,\n       round(100.0 * count(*) FILTER (WHERE reason IS NOT NULL) / count(*), 1) AS quarantined_pct\nFROM checked;\n"
+      },
+      "exercise": {
+        "id": "retail-pipeline-design",
+        "language": "python"
+      },
+      "lab": "pipeline",
+      "visual": {
+        "kind": "dag",
+        "title": "Data quality gates - visual walkthrough",
+        "steps": [
+          {
+            "title": "Row rules",
+            "body": "Each row gets a reason when it breaks a rule.",
+            "lines": [
+              3,
+              4
+            ]
+          },
+          {
+            "title": "Split",
+            "body": "Valid rows go on; the others go to quarantine with their reason.",
+            "lines": [
+              7,
+              8
+            ]
+          },
+          {
+            "title": "Batch rule",
+            "body": "The quarantined share is compared with a threshold.",
+            "lines": [
+              9,
+              9
+            ]
+          },
+          {
+            "title": "Publish or stop",
+            "body": "Gold is refreshed only when the gate passes."
+          }
+        ],
+        "nodes": [
+          {
+            "id": "bronze",
+            "title": "Bronze batch"
+          },
+          {
+            "id": "rules",
+            "title": "Row rules"
+          },
+          {
+            "id": "quarantine",
+            "title": "Quarantine"
+          },
+          {
+            "id": "gate",
+            "title": "Batch gate"
+          },
+          {
+            "id": "gold",
+            "title": "Publish gold"
+          }
+        ],
+        "edges": [
+          [
+            "bronze",
+            "rules"
+          ],
+          [
+            "rules",
+            "quarantine"
+          ],
+          [
+            "rules",
+            "gate"
+          ],
+          [
+            "gate",
+            "gold"
+          ]
+        ]
+      },
+      "related": [
+        "warehouse-dbt"
+      ]
+    },
+    {
+      "id": "orch-alerting-timeouts",
+      "version": 1,
+      "title": "Timeouts, retries and alerting",
+      "summary": "Retry what is transient, time out what hangs, and alert a human only when action is needed.",
+      "minutes": 15,
+      "concepts": [
+        "retries",
+        "timeout",
+        "alerting",
+        "on-call",
+        "runbook",
+        "SLA"
+      ],
+      "prerequisites": [
+        "orch-quality-gates"
+      ],
+      "blocks": [
+        {
+          "kind": "text",
+          "title": "The mental model",
+          "body": "Retries handle transient failures; they need an attempt to end, so every task also needs a timeout shorter than its slot in the schedule. After the last retry the failure must stay visible: the run fails and an alert reaches the owner with the task, the run and a link to the logs. A watcher or failure-only task can send the alert, but it must not turn the run green."
+        },
+        {
+          "kind": "text",
+          "title": "Good alerts",
+          "body": "Alert on symptoms someone must act on (a failed run, a late table, a quality gate stop), with a runbook line saying what to check first. Too many alerts teach people to ignore them."
+        },
+        {
+          "kind": "callout",
+          "title": "Common mistake",
+          "body": "Retrying a slow task: retries restart the same slow work. Fix the slowness or raise the timeout; retry only transient errors."
+        },
+        {
+          "kind": "check",
+          "title": "Before you run",
+          "body": "A task has retries=3, retry delay 5 minutes and no timeout; it hangs. When does anybody find out?"
+        }
+      ],
+      "code": {
+        "language": "none",
+        "source": "{\n  \"task_key\": \"silver\",\n  \"timeout_seconds\": 1800,\n  \"max_retries\": 2,\n  \"min_retry_interval_millis\": 300000,\n  \"retry_on_timeout\": false,\n  \"email_notifications\": {\"on_failure\": [\"data-oncall@example.com\"]}\n}\n"
+      },
+      "exercise": {
+        "id": "dbx-retries-timeout",
+        "language": "databricks-job"
+      },
+      "lab": "fabric",
+      "visual": {
+        "kind": "timeline",
+        "title": "Timeouts, retries and alerting - visual walkthrough",
+        "steps": [
+          {
+            "title": "Bound each attempt",
+            "body": "A 30-minute timeout ends a hung attempt.",
+            "lines": [
+              3,
+              3
+            ]
+          },
+          {
+            "title": "Retry transient errors",
+            "body": "Two retries, five minutes apart.",
+            "lines": [
+              4,
+              5
+            ]
+          },
+          {
+            "title": "Do not retry slowness",
+            "body": "A timed-out attempt is not retried here: the same work would hang again.",
+            "lines": [
+              6,
+              6
+            ]
+          },
+          {
+            "title": "Tell a human",
+            "body": "After the last attempt the run fails and the on-call address is notified.",
+            "lines": [
+              7,
+              7
+            ]
+          }
+        ]
+      },
+      "related": [
+        "airflow-retries"
+      ]
+    }
+  ]
+}

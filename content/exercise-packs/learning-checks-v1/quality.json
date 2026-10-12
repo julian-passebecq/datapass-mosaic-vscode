@@ -1,0 +1,292 @@
+{
+  "flags": {
+    "runnable_starters": true
+  },
+  "mutants": {
+    "lc-spark-actions": [
+      "answer: a\n",
+      "answer: b\n"
+    ],
+    "lc-spark-wide": [
+      "answer: a\n",
+      "answer: b\n"
+    ],
+    "lc-spark-stages": [
+      "answer: a\n",
+      "answer: c\n"
+    ],
+    "lc-spark-shuffle-partitions": [
+      "answer: I don't know\n"
+    ],
+    "lc-spark-broadcast-threshold": [
+      "answer: a\n",
+      "answer: c\n"
+    ],
+    "lc-spark-aqe-skew": [
+      "answer: a\n",
+      "answer: c\n"
+    ],
+    "lc-airflow-interval-run": [
+      "answer: a\n",
+      "answer: c\n"
+    ],
+    "lc-airflow-catchup-default": [
+      "answer: a\n",
+      "answer: c\n"
+    ],
+    "lc-airflow-default-trigger-rule": [
+      "answer: I don't know\n"
+    ],
+    "lc-airflow-xcom": [
+      "answer: a\n",
+      "answer: c\n"
+    ],
+    "lc-airflow-top-level": [
+      "answer: b\n",
+      "answer: c\n"
+    ],
+    "lc-airflow-sensor-reschedule": [
+      "answer: a\n",
+      "answer: c\n"
+    ],
+    "lc-dbx-photon": [
+      "answer: b\n",
+      "answer: c\n"
+    ],
+    "lc-dbx-liquid-clustering": [
+      "answer: b\n",
+      "answer: c\n"
+    ],
+    "lc-dbx-auto-loader": [
+      "answer: b\n",
+      "answer: c\n"
+    ],
+    "lc-dbx-expectation-drop": [
+      "answer: a\n",
+      "answer: c\n"
+    ],
+    "lc-dbx-medallion-silver": [
+      "answer: a\n",
+      "answer: c\n"
+    ],
+    "lc-fas-self-hosted-ir": [
+      "answer: a\n",
+      "answer: c\n"
+    ],
+    "lc-fas-onelake-delta": [
+      "answer: b\n",
+      "answer: c\n"
+    ],
+    "lc-fas-shortcut": [
+      "answer: b\n",
+      "answer: c\n"
+    ],
+    "lc-fas-completed-condition": [
+      "answer: a\n",
+      "answer: b\n"
+    ],
+    "lc-fas-try-catch-status": [
+      "answer: b\n",
+      "answer: c\n"
+    ],
+    "lc-fas-serverless-billing": [
+      "answer: a\n",
+      "answer: c\n"
+    ],
+    "lc-api-retry-after": [
+      "answer: a\n",
+      "answer: c\n"
+    ],
+    "lc-api-idempotent-methods": [
+      "answer: a\n",
+      "answer: b\n"
+    ],
+    "lc-api-cursor-pagination": [
+      "answer: b\n",
+      "answer: c\n"
+    ],
+    "lc-api-no-retry-400": [
+      "answer: a\n",
+      "answer: b\n"
+    ],
+    "lc-api-watermark-advance": [
+      "answer: a\n",
+      "answer: b\n"
+    ],
+    "lc-orch-idempotent": [
+      "answer: b\n",
+      "answer: c\n"
+    ],
+    "lc-orch-timeout": [
+      "answer: a\n",
+      "answer: c\n"
+    ],
+    "lc-orch-quarantine": [
+      "answer: a\n",
+      "answer: c\n"
+    ],
+    "lc-orch-assets": [
+      "answer: b\n",
+      "answer: c\n"
+    ],
+    "lc-orch-pools": [
+      "answer: b\n",
+      "answer: c\n"
+    ],
+    "lc-docker-layer-cache": [
+      "answer: b\n",
+      "answer: c\n"
+    ],
+    "lc-docker-image-container": [
+      "answer: b\n",
+      "answer: c\n"
+    ],
+    "lc-docker-volume": [
+      "answer: a\n",
+      "answer: c\n"
+    ],
+    "lc-docker-service-healthy": [
+      "answer: a\n",
+      "answer: b\n"
+    ],
+    "lc-docker-entrypoint-cmd": [
+      "answer: b\n",
+      "answer: c\n"
+    ],
+    "lc-tf-plan": [
+      "answer: b\n",
+      "answer: c\n"
+    ],
+    "lc-tf-remote-state": [
+      "answer: b\n",
+      "answer: c\n"
+    ],
+    "lc-tf-replace-symbol": [
+      "answer: a\n",
+      "answer: c\n"
+    ],
+    "lc-tf-sensitive-state": [
+      "answer: a\n",
+      "answer: c\n"
+    ],
+    "lc-tf-for-each": [
+      "answer: b\n",
+      "answer: c\n"
+    ],
+    "lc-k8s-replicaset": [
+      "answer: b\n",
+      "answer: c\n"
+    ],
+    "lc-k8s-readiness": [
+      "answer: a\n",
+      "answer: c\n"
+    ],
+    "lc-k8s-default-service": [
+      "answer: I don't know\n"
+    ],
+    "lc-k8s-memory-limit": [
+      "answer: a\n",
+      "answer: c\n"
+    ],
+    "lc-k8s-crashloop": [
+      "answer: a\n",
+      "answer: c\n"
+    ],
+    "lc-linux-chmod-750": [
+      "answer: b\n",
+      "answer: c\n"
+    ],
+    "lc-linux-exit-status": [
+      "answer: b\n",
+      "answer: c\n"
+    ],
+    "lc-linux-df": [
+      "answer: b\n",
+      "answer: c\n"
+    ],
+    "lc-linux-load-average": [
+      "answer: a\n",
+      "answer: c\n"
+    ],
+    "lc-vm-alert-window": [
+      "answer: a\n",
+      "answer: c\n"
+    ],
+    "lc-bi-star-dimensions": [
+      "answer: b\n",
+      "answer: c\n"
+    ],
+    "lc-bi-semi-additive": [
+      "answer: a\n",
+      "answer: c\n"
+    ],
+    "lc-bi-scd2-current": [
+      "answer: a\n",
+      "answer: c\n"
+    ],
+    "lc-bi-filter-direction": [
+      "answer: b\n",
+      "answer: c\n"
+    ],
+    "lc-bi-import-mode": [
+      "answer: b\n",
+      "answer: c\n"
+    ],
+    "lc-gov-rls": [
+      "answer: b\n",
+      "answer: c\n"
+    ],
+    "lc-gov-masking": [
+      "answer: a\n",
+      "answer: c\n"
+    ],
+    "lc-gov-least-privilege": [
+      "answer: a\n",
+      "answer: b\n"
+    ],
+    "lc-gov-lineage": [
+      "answer: b\n",
+      "answer: c\n"
+    ],
+    "lc-gov-pseudonymised": [
+      "answer: a\n",
+      "answer: c\n"
+    ],
+    "lc-perf-small-files": [
+      "answer: b\n",
+      "answer: c\n"
+    ],
+    "lc-perf-partition-pruning": [
+      "answer: b\n",
+      "answer: c\n"
+    ],
+    "lc-perf-column-pruning": [
+      "answer: b\n",
+      "answer: c\n"
+    ],
+    "lc-perf-partition-cardinality": [
+      "answer: a\n",
+      "answer: c\n"
+    ],
+    "lc-perf-explain-analyze": [
+      "answer: b\n",
+      "answer: c\n"
+    ],
+    "lc-ts-first-error": [
+      "answer: a\n",
+      "answer: c\n"
+    ],
+    "lc-ts-skew": [
+      "answer: b\n",
+      "answer: c\n"
+    ],
+    "lc-ts-row-count-jump": [
+      "answer: b\n",
+      "answer: c\n"
+    ],
+    "lc-ts-module-not-found": [
+      "answer: b\n",
+      "answer: c\n"
+    ]
+  }
+}

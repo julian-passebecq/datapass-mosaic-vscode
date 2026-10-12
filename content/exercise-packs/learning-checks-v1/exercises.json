@@ -1,0 +1,5114 @@
+[
+  {
+    "schema_version": 1,
+    "id": "lc-spark-actions",
+    "version": "1",
+    "title": "What starts a Spark job",
+    "difficulty": "easy",
+    "topics": [
+      "learning-checks",
+      "spark"
+    ],
+    "tags": [
+      "concept-check",
+      "spark"
+    ],
+    "origin": "authored",
+    "language": "quiz",
+    "runtime": "datapass-quiz-v1",
+    "prompt": "Which of these calls makes Spark actually run a job?",
+    "sections": [
+      {
+        "title": "Concept check (no execution)",
+        "body": "Nothing runs here: this is a question about a platform or practice, not an execution. Answer in the file, save, and Submit; the runtime compares your answer with the pack's answer and explains it once you are right. The cheatsheet (Spark) covers the topic."
+      }
+    ],
+    "starter_source": "Concept check (no execution): nothing runs; the runtime checks your answer when you Submit.\n\nWhich of these calls makes Spark actually run a job?\n\n  a) df.filter(F.col(\"amount\") > 0)\n  b) df.withColumn(\"net\", F.col(\"amount\") * 0.8)\n  c) df.count()\n  d) df.select(\"id\", \"amount\")\n\nWrite the letter of your choice after \"answer:\" (several letters separated by commas if several are right), save, then Submit.\nanswer:\n",
+    "fixtures": [
+      {
+        "id": "lc-spark-actions-fixtures",
+        "version": "1"
+      }
+    ],
+    "visible_checks": [
+      {
+        "id": "format",
+        "description": "Your answer is well formed (Run checks only this)."
+      }
+    ],
+    "hidden_check_refs": [
+      "answer"
+    ],
+    "edge_check_refs": [],
+    "hints": [
+      "Only one of them returns a value to the driver.",
+      "Open the cheatsheet: Spark."
+    ],
+    "solution": {
+      "available": true,
+      "reveal": "explicit"
+    },
+    "explanation": "The explanation comes with a correct submission, from the runtime.",
+    "follow_ups": [],
+    "canonical_placement": {
+      "domain": "learning-checks",
+      "topic": "spark"
+    },
+    "related_associations": [
+      "practice/learning-checks"
+    ],
+    "validator_version": "quiz-v1",
+    "runtime_requirements": [],
+    "provenance": {
+      "source": "Authored for Datapass Workbench; checked against the vendors' and projects' documentation on 2026-10-12"
+    },
+    "constraints": {
+      "truth": "Concept check: no execution; the answer is compared by the runtime."
+    },
+    "context_refs": [
+      "reference/learning-spark.md"
+    ],
+    "truth": "concept-check"
+  },
+  {
+    "schema_version": 1,
+    "id": "lc-spark-wide",
+    "version": "1",
+    "title": "The transformation that shuffles",
+    "difficulty": "easy",
+    "topics": [
+      "learning-checks",
+      "spark"
+    ],
+    "tags": [
+      "concept-check",
+      "spark"
+    ],
+    "origin": "authored",
+    "language": "quiz",
+    "runtime": "datapass-quiz-v1",
+    "prompt": "Which transformation needs a shuffle (rows moved between partitions by key)?",
+    "sections": [
+      {
+        "title": "Concept check (no execution)",
+        "body": "Nothing runs here: this is a question about a platform or practice, not an execution. Answer in the file, save, and Submit; the runtime compares your answer with the pack's answer and explains it once you are right. The cheatsheet (Spark) covers the topic."
+      }
+    ],
+    "starter_source": "Concept check (no execution): nothing runs; the runtime checks your answer when you Submit.\n\nWhich transformation needs a shuffle (rows moved between partitions by key)?\n\n  a) filter\n  b) withColumn\n  c) groupBy(\"customer_id\").agg(...)\n  d) select\n\nWrite the letter of your choice after \"answer:\" (several letters separated by commas if several are right), save, then Submit.\nanswer:\n",
+    "fixtures": [
+      {
+        "id": "lc-spark-wide-fixtures",
+        "version": "1"
+      }
+    ],
+    "visible_checks": [
+      {
+        "id": "format",
+        "description": "Your answer is well formed (Run checks only this)."
+      }
+    ],
+    "hidden_check_refs": [
+      "answer"
+    ],
+    "edge_check_refs": [],
+    "hints": [
+      "Rows with the same key must end up together.",
+      "Open the cheatsheet: Spark."
+    ],
+    "solution": {
+      "available": true,
+      "reveal": "explicit"
+    },
+    "explanation": "The explanation comes with a correct submission, from the runtime.",
+    "follow_ups": [],
+    "canonical_placement": {
+      "domain": "learning-checks",
+      "topic": "spark"
+    },
+    "related_associations": [
+      "practice/learning-checks"
+    ],
+    "validator_version": "quiz-v1",
+    "runtime_requirements": [],
+    "provenance": {
+      "source": "Authored for Datapass Workbench; checked against the vendors' and projects' documentation on 2026-10-12"
+    },
+    "constraints": {
+      "truth": "Concept check: no execution; the answer is compared by the runtime."
+    },
+    "context_refs": [
+      "reference/learning-spark.md"
+    ],
+    "truth": "concept-check"
+  },
+  {
+    "schema_version": 1,
+    "id": "lc-spark-stages",
+    "version": "1",
+    "title": "Where a stage ends",
+    "difficulty": "medium",
+    "topics": [
+      "learning-checks",
+      "spark"
+    ],
+    "tags": [
+      "concept-check",
+      "spark"
+    ],
+    "origin": "authored",
+    "language": "quiz",
+    "runtime": "datapass-quiz-v1",
+    "prompt": "What splits one Spark job into several stages?",
+    "sections": [
+      {
+        "title": "Concept check (no execution)",
+        "body": "Nothing runs here: this is a question about a platform or practice, not an execution. Answer in the file, save, and Submit; the runtime compares your answer with the pack's answer and explains it once you are right. The cheatsheet (Spark) covers the topic."
+      }
+    ],
+    "starter_source": "Concept check (no execution): nothing runs; the runtime checks your answer when you Submit.\n\nWhat splits one Spark job into several stages?\n\n  a) Every transformation\n  b) Every shuffle (wide dependency)\n  c) Every column in the select\n  d) Every input file\n\nWrite the letter of your choice after \"answer:\" (several letters separated by commas if several are right), save, then Submit.\nanswer:\n",
+    "fixtures": [
+      {
+        "id": "lc-spark-stages-fixtures",
+        "version": "1"
+      }
+    ],
+    "visible_checks": [
+      {
+        "id": "format",
+        "description": "Your answer is well formed (Run checks only this)."
+      }
+    ],
+    "hidden_check_refs": [
+      "answer"
+    ],
+    "edge_check_refs": [],
+    "hints": [
+      "Narrow transformations are pipelined together.",
+      "Open the cheatsheet: Spark."
+    ],
+    "solution": {
+      "available": true,
+      "reveal": "explicit"
+    },
+    "explanation": "The explanation comes with a correct submission, from the runtime.",
+    "follow_ups": [],
+    "canonical_placement": {
+      "domain": "learning-checks",
+      "topic": "spark"
+    },
+    "related_associations": [
+      "practice/learning-checks"
+    ],
+    "validator_version": "quiz-v1",
+    "runtime_requirements": [],
+    "provenance": {
+      "source": "Authored for Datapass Workbench; checked against the vendors' and projects' documentation on 2026-10-12"
+    },
+    "constraints": {
+      "truth": "Concept check: no execution; the answer is compared by the runtime."
+    },
+    "context_refs": [
+      "reference/learning-spark.md"
+    ],
+    "truth": "concept-check"
+  },
+  {
+    "schema_version": 1,
+    "id": "lc-spark-shuffle-partitions",
+    "version": "1",
+    "title": "Default shuffle partitions",
+    "difficulty": "medium",
+    "topics": [
+      "learning-checks",
+      "spark"
+    ],
+    "tags": [
+      "concept-check",
+      "spark"
+    ],
+    "origin": "authored",
+    "language": "quiz",
+    "runtime": "datapass-quiz-v1",
+    "prompt": "What is the default value of spark.sql.shuffle.partitions? (a number)",
+    "sections": [
+      {
+        "title": "Concept check (no execution)",
+        "body": "Nothing runs here: this is a question about a platform or practice, not an execution. Answer in the file, save, and Submit; the runtime compares your answer with the pack's answer and explains it once you are right. The cheatsheet (Spark) covers the topic."
+      }
+    ],
+    "starter_source": "Concept check (no execution): nothing runs; the runtime checks your answer when you Submit.\n\nWhat is the default value of spark.sql.shuffle.partitions? (a number)\n\nWrite your short answer after \"answer:\", save, then Submit.\nanswer:\n",
+    "fixtures": [
+      {
+        "id": "lc-spark-shuffle-partitions-fixtures",
+        "version": "1"
+      }
+    ],
+    "visible_checks": [
+      {
+        "id": "format",
+        "description": "Your answer is well formed (Run checks only this)."
+      }
+    ],
+    "hidden_check_refs": [
+      "answer"
+    ],
+    "edge_check_refs": [],
+    "hints": [
+      "It is a round number in the hundreds.",
+      "Open the cheatsheet: Spark."
+    ],
+    "solution": {
+      "available": true,
+      "reveal": "explicit"
+    },
+    "explanation": "The explanation comes with a correct submission, from the runtime.",
+    "follow_ups": [],
+    "canonical_placement": {
+      "domain": "learning-checks",
+      "topic": "spark"
+    },
+    "related_associations": [
+      "practice/learning-checks"
+    ],
+    "validator_version": "quiz-v1",
+    "runtime_requirements": [],
+    "provenance": {
+      "source": "Authored for Datapass Workbench; checked against the vendors' and projects' documentation on 2026-10-12"
+    },
+    "constraints": {
+      "truth": "Concept check: no execution; the answer is compared by the runtime."
+    },
+    "context_refs": [
+      "reference/learning-spark.md"
+    ],
+    "truth": "concept-check"
+  },
+  {
+    "schema_version": 1,
+    "id": "lc-spark-broadcast-threshold",
+    "version": "1",
+    "title": "The auto-broadcast threshold",
+    "difficulty": "medium",
+    "topics": [
+      "learning-checks",
+      "spark"
+    ],
+    "tags": [
+      "concept-check",
+      "spark"
+    ],
+    "origin": "authored",
+    "language": "quiz",
+    "runtime": "datapass-quiz-v1",
+    "prompt": "What is the default spark.sql.autoBroadcastJoinThreshold?",
+    "sections": [
+      {
+        "title": "Concept check (no execution)",
+        "body": "Nothing runs here: this is a question about a platform or practice, not an execution. Answer in the file, save, and Submit; the runtime compares your answer with the pack's answer and explains it once you are right. The cheatsheet (Spark) covers the topic."
+      }
+    ],
+    "starter_source": "Concept check (no execution): nothing runs; the runtime checks your answer when you Submit.\n\nWhat is the default spark.sql.autoBroadcastJoinThreshold?\n\n  a) 1 MB\n  b) 10 MB\n  c) 100 MB\n  d) 1 GB\n\nWrite the letter of your choice after \"answer:\" (several letters separated by commas if several are right), save, then Submit.\nanswer:\n",
+    "fixtures": [
+      {
+        "id": "lc-spark-broadcast-threshold-fixtures",
+        "version": "1"
+      }
+    ],
+    "visible_checks": [
+      {
+        "id": "format",
+        "description": "Your answer is well formed (Run checks only this)."
+      }
+    ],
+    "hidden_check_refs": [
+      "answer"
+    ],
+    "edge_check_refs": [],
+    "hints": [
+      "Ten of something.",
+      "Open the cheatsheet: Spark."
+    ],
+    "solution": {
+      "available": true,
+      "reveal": "explicit"
+    },
+    "explanation": "The explanation comes with a correct submission, from the runtime.",
+    "follow_ups": [],
+    "canonical_placement": {
+      "domain": "learning-checks",
+      "topic": "spark"
+    },
+    "related_associations": [
+      "practice/learning-checks"
+    ],
+    "validator_version": "quiz-v1",
+    "runtime_requirements": [],
+    "provenance": {
+      "source": "Authored for Datapass Workbench; checked against the vendors' and projects' documentation on 2026-10-12"
+    },
+    "constraints": {
+      "truth": "Concept check: no execution; the answer is compared by the runtime."
+    },
+    "context_refs": [
+      "reference/learning-spark.md"
+    ],
+    "truth": "concept-check"
+  },
+  {
+    "schema_version": 1,
+    "id": "lc-spark-aqe-skew",
+    "version": "1",
+    "title": "Adaptive Query Execution and skew",
+    "difficulty": "hard",
+    "topics": [
+      "learning-checks",
+      "spark"
+    ],
+    "tags": [
+      "concept-check",
+      "spark"
+    ],
+    "origin": "authored",
+    "language": "quiz",
+    "runtime": "datapass-quiz-v1",
+    "prompt": "Which Adaptive Query Execution feature splits an oversized shuffle partition of a sort-merge join into smaller tasks?",
+    "sections": [
+      {
+        "title": "Concept check (no execution)",
+        "body": "Nothing runs here: this is a question about a platform or practice, not an execution. Answer in the file, save, and Submit; the runtime compares your answer with the pack's answer and explains it once you are right. The cheatsheet (Spark) covers the topic."
+      }
+    ],
+    "starter_source": "Concept check (no execution): nothing runs; the runtime checks your answer when you Submit.\n\nWhich Adaptive Query Execution feature splits an oversized shuffle partition of a sort-merge join into smaller tasks?\n\n  a) Coalescing post-shuffle partitions\n  b) Skew join optimization\n  c) Switching to a broadcast join\n  d) Column pruning\n\nWrite the letter of your choice after \"answer:\" (several letters separated by commas if several are right), save, then Submit.\nanswer:\n",
+    "fixtures": [
+      {
+        "id": "lc-spark-aqe-skew-fixtures",
+        "version": "1"
+      }
+    ],
+    "visible_checks": [
+      {
+        "id": "format",
+        "description": "Your answer is well formed (Run checks only this)."
+      }
+    ],
+    "hidden_check_refs": [
+      "answer"
+    ],
+    "edge_check_refs": [],
+    "hints": [
+      "The feature is named after the problem.",
+      "Open the cheatsheet: Spark."
+    ],
+    "solution": {
+      "available": true,
+      "reveal": "explicit"
+    },
+    "explanation": "The explanation comes with a correct submission, from the runtime.",
+    "follow_ups": [],
+    "canonical_placement": {
+      "domain": "learning-checks",
+      "topic": "spark"
+    },
+    "related_associations": [
+      "practice/learning-checks"
+    ],
+    "validator_version": "quiz-v1",
+    "runtime_requirements": [],
+    "provenance": {
+      "source": "Authored for Datapass Workbench; checked against the vendors' and projects' documentation on 2026-10-12"
+    },
+    "constraints": {
+      "truth": "Concept check: no execution; the answer is compared by the runtime."
+    },
+    "context_refs": [
+      "reference/learning-spark.md"
+    ],
+    "truth": "concept-check"
+  },
+  {
+    "schema_version": 1,
+    "id": "lc-airflow-interval-run",
+    "version": "1",
+    "title": "When an interval run starts",
+    "difficulty": "medium",
+    "topics": [
+      "learning-checks",
+      "airflow"
+    ],
+    "tags": [
+      "concept-check",
+      "airflow"
+    ],
+    "origin": "authored",
+    "language": "quiz",
+    "runtime": "datapass-quiz-v1",
+    "prompt": "With a data-interval timetable (the Airflow 2 default for @daily), a run covers 1 October 00:00 to 2 October 00:00. When does it start?",
+    "sections": [
+      {
+        "title": "Concept check (no execution)",
+        "body": "Nothing runs here: this is a question about a platform or practice, not an execution. Answer in the file, save, and Submit; the runtime compares your answer with the pack's answer and explains it once you are right. The cheatsheet (Airflow) covers the topic."
+      }
+    ],
+    "starter_source": "Concept check (no execution): nothing runs; the runtime checks your answer when you Submit.\n\nWith a data-interval timetable (the Airflow 2 default for @daily), a run covers 1 October 00:00 to 2 October 00:00. When does it start?\n\n  a) 1 October 00:00, at the start of the interval\n  b) 2 October 00:00, once the interval has ended\n  c) 1 October 12:00\n  d) Only when someone triggers it\n\nWrite the letter of your choice after \"answer:\" (several letters separated by commas if several are right), save, then Submit.\nanswer:\n",
+    "fixtures": [
+      {
+        "id": "lc-airflow-interval-run-fixtures",
+        "version": "1"
+      }
+    ],
+    "visible_checks": [
+      {
+        "id": "format",
+        "description": "Your answer is well formed (Run checks only this)."
+      }
+    ],
+    "hidden_check_refs": [
+      "answer"
+    ],
+    "edge_check_refs": [],
+    "hints": [
+      "The day's data is complete only at midnight.",
+      "Open the cheatsheet: Airflow."
+    ],
+    "solution": {
+      "available": true,
+      "reveal": "explicit"
+    },
+    "explanation": "The explanation comes with a correct submission, from the runtime.",
+    "follow_ups": [],
+    "canonical_placement": {
+      "domain": "learning-checks",
+      "topic": "airflow"
+    },
+    "related_associations": [
+      "practice/learning-checks"
+    ],
+    "validator_version": "quiz-v1",
+    "runtime_requirements": [],
+    "provenance": {
+      "source": "Authored for Datapass Workbench; checked against the vendors' and projects' documentation on 2026-10-12"
+    },
+    "constraints": {
+      "truth": "Concept check: no execution; the answer is compared by the runtime."
+    },
+    "context_refs": [
+      "reference/learning-airflow.md"
+    ],
+    "truth": "concept-check"
+  },
+  {
+    "schema_version": 1,
+    "id": "lc-airflow-catchup-default",
+    "version": "1",
+    "title": "Catchup in Airflow 3",
+    "difficulty": "medium",
+    "topics": [
+      "learning-checks",
+      "airflow"
+    ],
+    "tags": [
+      "concept-check",
+      "airflow"
+    ],
+    "origin": "authored",
+    "language": "quiz",
+    "runtime": "datapass-quiz-v1",
+    "prompt": "In Airflow 3, what happens by default when you deploy a new DAG whose start_date is 30 days in the past?",
+    "sections": [
+      {
+        "title": "Concept check (no execution)",
+        "body": "Nothing runs here: this is a question about a platform or practice, not an execution. Answer in the file, save, and Submit; the runtime compares your answer with the pack's answer and explains it once you are right. The cheatsheet (Airflow) covers the topic."
+      }
+    ],
+    "starter_source": "Concept check (no execution): nothing runs; the runtime checks your answer when you Submit.\n\nIn Airflow 3, what happens by default when you deploy a new DAG whose start_date is 30 days in the past?\n\n  a) 30 runs are created, one per missed interval\n  b) Only the latest interval is scheduled: catchup defaults to False\n  c) The DAG is refused\n  d) The start_date is moved to today and nothing runs\n\nWrite the letter of your choice after \"answer:\" (several letters separated by commas if several are right), save, then Submit.\nanswer:\n",
+    "fixtures": [
+      {
+        "id": "lc-airflow-catchup-default-fixtures",
+        "version": "1"
+      }
+    ],
+    "visible_checks": [
+      {
+        "id": "format",
+        "description": "Your answer is well formed (Run checks only this)."
+      }
+    ],
+    "hidden_check_refs": [
+      "answer"
+    ],
+    "edge_check_refs": [],
+    "hints": [
+      "The default changed between Airflow 2 and 3.",
+      "Open the cheatsheet: Airflow."
+    ],
+    "solution": {
+      "available": true,
+      "reveal": "explicit"
+    },
+    "explanation": "The explanation comes with a correct submission, from the runtime.",
+    "follow_ups": [],
+    "canonical_placement": {
+      "domain": "learning-checks",
+      "topic": "airflow"
+    },
+    "related_associations": [
+      "practice/learning-checks"
+    ],
+    "validator_version": "quiz-v1",
+    "runtime_requirements": [],
+    "provenance": {
+      "source": "Authored for Datapass Workbench; checked against the vendors' and projects' documentation on 2026-10-12"
+    },
+    "constraints": {
+      "truth": "Concept check: no execution; the answer is compared by the runtime."
+    },
+    "context_refs": [
+      "reference/learning-airflow.md"
+    ],
+    "truth": "concept-check"
+  },
+  {
+    "schema_version": 1,
+    "id": "lc-airflow-default-trigger-rule",
+    "version": "1",
+    "title": "The default trigger rule",
+    "difficulty": "easy",
+    "topics": [
+      "learning-checks",
+      "airflow"
+    ],
+    "tags": [
+      "concept-check",
+      "airflow"
+    ],
+    "origin": "authored",
+    "language": "quiz",
+    "runtime": "datapass-quiz-v1",
+    "prompt": "What is the default trigger_rule of an Airflow task? (the rule's name)",
+    "sections": [
+      {
+        "title": "Concept check (no execution)",
+        "body": "Nothing runs here: this is a question about a platform or practice, not an execution. Answer in the file, save, and Submit; the runtime compares your answer with the pack's answer and explains it once you are right. The cheatsheet (Airflow) covers the topic."
+      }
+    ],
+    "starter_source": "Concept check (no execution): nothing runs; the runtime checks your answer when you Submit.\n\nWhat is the default trigger_rule of an Airflow task? (the rule's name)\n\nWrite your short answer after \"answer:\", save, then Submit.\nanswer:\n",
+    "fixtures": [
+      {
+        "id": "lc-airflow-default-trigger-rule-fixtures",
+        "version": "1"
+      }
+    ],
+    "visible_checks": [
+      {
+        "id": "format",
+        "description": "Your answer is well formed (Run checks only this)."
+      }
+    ],
+    "hidden_check_refs": [
+      "answer"
+    ],
+    "edge_check_refs": [],
+    "hints": [
+      "Every upstream task must have done well.",
+      "Open the cheatsheet: Airflow."
+    ],
+    "solution": {
+      "available": true,
+      "reveal": "explicit"
+    },
+    "explanation": "The explanation comes with a correct submission, from the runtime.",
+    "follow_ups": [],
+    "canonical_placement": {
+      "domain": "learning-checks",
+      "topic": "airflow"
+    },
+    "related_associations": [
+      "practice/learning-checks"
+    ],
+    "validator_version": "quiz-v1",
+    "runtime_requirements": [],
+    "provenance": {
+      "source": "Authored for Datapass Workbench; checked against the vendors' and projects' documentation on 2026-10-12"
+    },
+    "constraints": {
+      "truth": "Concept check: no execution; the answer is compared by the runtime."
+    },
+    "context_refs": [
+      "reference/learning-airflow.md"
+    ],
+    "truth": "concept-check"
+  },
+  {
+    "schema_version": 1,
+    "id": "lc-airflow-xcom",
+    "version": "1",
+    "title": "What an XCom should carry",
+    "difficulty": "easy",
+    "topics": [
+      "learning-checks",
+      "airflow"
+    ],
+    "tags": [
+      "concept-check",
+      "airflow"
+    ],
+    "origin": "authored",
+    "language": "quiz",
+    "runtime": "datapass-quiz-v1",
+    "prompt": "What belongs in an XCom passed between two tasks?",
+    "sections": [
+      {
+        "title": "Concept check (no execution)",
+        "body": "Nothing runs here: this is a question about a platform or practice, not an execution. Answer in the file, save, and Submit; the runtime compares your answer with the pack's answer and explains it once you are right. The cheatsheet (Airflow) covers the topic."
+      }
+    ],
+    "starter_source": "Concept check (no execution): nothing runs; the runtime checks your answer when you Submit.\n\nWhat belongs in an XCom passed between two tasks?\n\n  a) A whole DataFrame of the day's orders\n  b) Small metadata: a file path, a partition date, a row count\n  c) The database password\n  d) The DAG file itself\n\nWrite the letter of your choice after \"answer:\" (several letters separated by commas if several are right), save, then Submit.\nanswer:\n",
+    "fixtures": [
+      {
+        "id": "lc-airflow-xcom-fixtures",
+        "version": "1"
+      }
+    ],
+    "visible_checks": [
+      {
+        "id": "format",
+        "description": "Your answer is well formed (Run checks only this)."
+      }
+    ],
+    "hidden_check_refs": [
+      "answer"
+    ],
+    "edge_check_refs": [],
+    "hints": [
+      "XComs live in Airflow's own database.",
+      "Open the cheatsheet: Airflow."
+    ],
+    "solution": {
+      "available": true,
+      "reveal": "explicit"
+    },
+    "explanation": "The explanation comes with a correct submission, from the runtime.",
+    "follow_ups": [],
+    "canonical_placement": {
+      "domain": "learning-checks",
+      "topic": "airflow"
+    },
+    "related_associations": [
+      "practice/learning-checks"
+    ],
+    "validator_version": "quiz-v1",
+    "runtime_requirements": [],
+    "provenance": {
+      "source": "Authored for Datapass Workbench; checked against the vendors' and projects' documentation on 2026-10-12"
+    },
+    "constraints": {
+      "truth": "Concept check: no execution; the answer is compared by the runtime."
+    },
+    "context_refs": [
+      "reference/learning-airflow.md"
+    ],
+    "truth": "concept-check"
+  },
+  {
+    "schema_version": 1,
+    "id": "lc-airflow-top-level",
+    "version": "1",
+    "title": "Code at the top of a DAG file",
+    "difficulty": "medium",
+    "topics": [
+      "learning-checks",
+      "airflow"
+    ],
+    "tags": [
+      "concept-check",
+      "airflow"
+    ],
+    "origin": "authored",
+    "language": "quiz",
+    "runtime": "datapass-quiz-v1",
+    "prompt": "Why should a DAG file not query a database or call an API at module top level?",
+    "sections": [
+      {
+        "title": "Concept check (no execution)",
+        "body": "Nothing runs here: this is a question about a platform or practice, not an execution. Answer in the file, save, and Submit; the runtime compares your answer with the pack's answer and explains it once you are right. The cheatsheet (Airflow) covers the topic."
+      }
+    ],
+    "starter_source": "Concept check (no execution): nothing runs; the runtime checks your answer when you Submit.\n\nWhy should a DAG file not query a database or call an API at module top level?\n\n  a) The DAG processor parses the file again and again, so that code runs at every parse\n  b) Airflow forbids imports at top level\n  c) That code runs only once, when the DAG is deployed\n  d) Tasks cannot read top-level variables\n\nWrite the letter of your choice after \"answer:\" (several letters separated by commas if several are right), save, then Submit.\nanswer:\n",
+    "fixtures": [
+      {
+        "id": "lc-airflow-top-level-fixtures",
+        "version": "1"
+      }
+    ],
+    "visible_checks": [
+      {
+        "id": "format",
+        "description": "Your answer is well formed (Run checks only this)."
+      }
+    ],
+    "hidden_check_refs": [
+      "answer"
+    ],
+    "edge_check_refs": [],
+    "hints": [
+      "Think about how often the file is read.",
+      "Open the cheatsheet: Airflow."
+    ],
+    "solution": {
+      "available": true,
+      "reveal": "explicit"
+    },
+    "explanation": "The explanation comes with a correct submission, from the runtime.",
+    "follow_ups": [],
+    "canonical_placement": {
+      "domain": "learning-checks",
+      "topic": "airflow"
+    },
+    "related_associations": [
+      "practice/learning-checks"
+    ],
+    "validator_version": "quiz-v1",
+    "runtime_requirements": [],
+    "provenance": {
+      "source": "Authored for Datapass Workbench; checked against the vendors' and projects' documentation on 2026-10-12"
+    },
+    "constraints": {
+      "truth": "Concept check: no execution; the answer is compared by the runtime."
+    },
+    "context_refs": [
+      "reference/learning-airflow.md"
+    ],
+    "truth": "concept-check"
+  },
+  {
+    "schema_version": 1,
+    "id": "lc-airflow-sensor-reschedule",
+    "version": "1",
+    "title": "A sensor that waits for hours",
+    "difficulty": "medium",
+    "topics": [
+      "learning-checks",
+      "airflow"
+    ],
+    "tags": [
+      "concept-check",
+      "airflow"
+    ],
+    "origin": "authored",
+    "language": "quiz",
+    "runtime": "datapass-quiz-v1",
+    "prompt": "A sensor may wait six hours for a file. Which mode releases its worker slot between checks?",
+    "sections": [
+      {
+        "title": "Concept check (no execution)",
+        "body": "Nothing runs here: this is a question about a platform or practice, not an execution. Answer in the file, save, and Submit; the runtime compares your answer with the pack's answer and explains it once you are right. The cheatsheet (Airflow) covers the topic."
+      }
+    ],
+    "starter_source": "Concept check (no execution): nothing runs; the runtime checks your answer when you Submit.\n\nA sensor may wait six hours for a file. Which mode releases its worker slot between checks?\n\n  a) poke\n  b) reschedule\n  c) soft_fail\n  d) all_done\n\nWrite the letter of your choice after \"answer:\" (several letters separated by commas if several are right), save, then Submit.\nanswer:\n",
+    "fixtures": [
+      {
+        "id": "lc-airflow-sensor-reschedule-fixtures",
+        "version": "1"
+      }
+    ],
+    "visible_checks": [
+      {
+        "id": "format",
+        "description": "Your answer is well formed (Run checks only this)."
+      }
+    ],
+    "hidden_check_refs": [
+      "answer"
+    ],
+    "edge_check_refs": [],
+    "hints": [
+      "The sensor gives its slot back and is scheduled again later.",
+      "Open the cheatsheet: Airflow."
+    ],
+    "solution": {
+      "available": true,
+      "reveal": "explicit"
+    },
+    "explanation": "The explanation comes with a correct submission, from the runtime.",
+    "follow_ups": [],
+    "canonical_placement": {
+      "domain": "learning-checks",
+      "topic": "airflow"
+    },
+    "related_associations": [
+      "practice/learning-checks"
+    ],
+    "validator_version": "quiz-v1",
+    "runtime_requirements": [],
+    "provenance": {
+      "source": "Authored for Datapass Workbench; checked against the vendors' and projects' documentation on 2026-10-12"
+    },
+    "constraints": {
+      "truth": "Concept check: no execution; the answer is compared by the runtime."
+    },
+    "context_refs": [
+      "reference/learning-airflow.md"
+    ],
+    "truth": "concept-check"
+  },
+  {
+    "schema_version": 1,
+    "id": "lc-dbx-photon",
+    "version": "1",
+    "title": "What Photon is",
+    "difficulty": "easy",
+    "topics": [
+      "learning-checks",
+      "databricks"
+    ],
+    "tags": [
+      "concept-check",
+      "databricks"
+    ],
+    "origin": "authored",
+    "language": "quiz",
+    "runtime": "datapass-quiz-v1",
+    "prompt": "What is Photon on Databricks?",
+    "sections": [
+      {
+        "title": "Concept check (no execution)",
+        "body": "Nothing runs here: this is a question about a platform or practice, not an execution. Answer in the file, save, and Submit; the runtime compares your answer with the pack's answer and explains it once you are right. The cheatsheet (Databricks) covers the topic."
+      }
+    ],
+    "starter_source": "Concept check (no execution): nothing runs; the runtime checks your answer when you Submit.\n\nWhat is Photon on Databricks?\n\n  a) A vectorized query engine written in C++ that runs Spark SQL and DataFrame operations\n  b) A GPU library for deep learning\n  c) A file format that replaces Parquet\n  d) A job scheduler\n\nWrite the letter of your choice after \"answer:\" (several letters separated by commas if several are right), save, then Submit.\nanswer:\n",
+    "fixtures": [
+      {
+        "id": "lc-dbx-photon-fixtures",
+        "version": "1"
+      }
+    ],
+    "visible_checks": [
+      {
+        "id": "format",
+        "description": "Your answer is well formed (Run checks only this)."
+      }
+    ],
+    "hidden_check_refs": [
+      "answer"
+    ],
+    "edge_check_refs": [],
+    "hints": [
+      "It makes the same queries faster; the code does not change.",
+      "Open the cheatsheet: Databricks."
+    ],
+    "solution": {
+      "available": true,
+      "reveal": "explicit"
+    },
+    "explanation": "The explanation comes with a correct submission, from the runtime.",
+    "follow_ups": [],
+    "canonical_placement": {
+      "domain": "learning-checks",
+      "topic": "databricks"
+    },
+    "related_associations": [
+      "practice/learning-checks"
+    ],
+    "validator_version": "quiz-v1",
+    "runtime_requirements": [],
+    "provenance": {
+      "source": "Authored for Datapass Workbench; checked against the vendors' and projects' documentation on 2026-10-12"
+    },
+    "constraints": {
+      "truth": "Concept check: no execution; the answer is compared by the runtime."
+    },
+    "context_refs": [
+      "reference/learning-databricks.md"
+    ],
+    "truth": "concept-check"
+  },
+  {
+    "schema_version": 1,
+    "id": "lc-dbx-liquid-clustering",
+    "version": "1",
+    "title": "Clustering keys you can change",
+    "difficulty": "hard",
+    "topics": [
+      "learning-checks",
+      "databricks"
+    ],
+    "tags": [
+      "concept-check",
+      "databricks"
+    ],
+    "origin": "authored",
+    "language": "quiz",
+    "runtime": "datapass-quiz-v1",
+    "prompt": "Which Delta Lake feature replaces partitioning and ZORDER with clustering keys you can change later without rewriting the existing data?",
+    "sections": [
+      {
+        "title": "Concept check (no execution)",
+        "body": "Nothing runs here: this is a question about a platform or practice, not an execution. Answer in the file, save, and Submit; the runtime compares your answer with the pack's answer and explains it once you are right. The cheatsheet (Databricks) covers the topic."
+      }
+    ],
+    "starter_source": "Concept check (no execution): nothing runs; the runtime checks your answer when you Submit.\n\nWhich Delta Lake feature replaces partitioning and ZORDER with clustering keys you can change later without rewriting the existing data?\n\n  a) Liquid clustering\n  b) Deletion vectors\n  c) Change data feed\n  d) VACUUM\n\nWrite the letter of your choice after \"answer:\" (several letters separated by commas if several are right), save, then Submit.\nanswer:\n",
+    "fixtures": [
+      {
+        "id": "lc-dbx-liquid-clustering-fixtures",
+        "version": "1"
+      }
+    ],
+    "visible_checks": [
+      {
+        "id": "format",
+        "description": "Your answer is well formed (Run checks only this)."
+      }
+    ],
+    "hidden_check_refs": [
+      "answer"
+    ],
+    "edge_check_refs": [],
+    "hints": [
+      "Its name suggests the layout can flow.",
+      "Open the cheatsheet: Databricks."
+    ],
+    "solution": {
+      "available": true,
+      "reveal": "explicit"
+    },
+    "explanation": "The explanation comes with a correct submission, from the runtime.",
+    "follow_ups": [],
+    "canonical_placement": {
+      "domain": "learning-checks",
+      "topic": "databricks"
+    },
+    "related_associations": [
+      "practice/learning-checks"
+    ],
+    "validator_version": "quiz-v1",
+    "runtime_requirements": [],
+    "provenance": {
+      "source": "Authored for Datapass Workbench; checked against the vendors' and projects' documentation on 2026-10-12"
+    },
+    "constraints": {
+      "truth": "Concept check: no execution; the answer is compared by the runtime."
+    },
+    "context_refs": [
+      "reference/learning-databricks.md"
+    ],
+    "truth": "concept-check"
+  },
+  {
+    "schema_version": 1,
+    "id": "lc-dbx-auto-loader",
+    "version": "1",
+    "title": "Ingest only new files",
+    "difficulty": "easy",
+    "topics": [
+      "learning-checks",
+      "databricks"
+    ],
+    "tags": [
+      "concept-check",
+      "databricks"
+    ],
+    "origin": "authored",
+    "language": "quiz",
+    "runtime": "datapass-quiz-v1",
+    "prompt": "Which Databricks feature incrementally ingests new files from cloud storage and remembers which files it already processed?",
+    "sections": [
+      {
+        "title": "Concept check (no execution)",
+        "body": "Nothing runs here: this is a question about a platform or practice, not an execution. Answer in the file, save, and Submit; the runtime compares your answer with the pack's answer and explains it once you are right. The cheatsheet (Databricks) covers the topic."
+      }
+    ],
+    "starter_source": "Concept check (no execution): nothing runs; the runtime checks your answer when you Submit.\n\nWhich Databricks feature incrementally ingests new files from cloud storage and remembers which files it already processed?\n\n  a) Auto Loader (the cloudFiles source)\n  b) VACUUM\n  c) Photon\n  d) Delta Sharing\n\nWrite the letter of your choice after \"answer:\" (several letters separated by commas if several are right), save, then Submit.\nanswer:\n",
+    "fixtures": [
+      {
+        "id": "lc-dbx-auto-loader-fixtures",
+        "version": "1"
+      }
+    ],
+    "visible_checks": [
+      {
+        "id": "format",
+        "description": "Your answer is well formed (Run checks only this)."
+      }
+    ],
+    "hidden_check_refs": [
+      "answer"
+    ],
+    "edge_check_refs": [],
+    "hints": [
+      "It loads automatically.",
+      "Open the cheatsheet: Databricks."
+    ],
+    "solution": {
+      "available": true,
+      "reveal": "explicit"
+    },
+    "explanation": "The explanation comes with a correct submission, from the runtime.",
+    "follow_ups": [],
+    "canonical_placement": {
+      "domain": "learning-checks",
+      "topic": "databricks"
+    },
+    "related_associations": [
+      "practice/learning-checks"
+    ],
+    "validator_version": "quiz-v1",
+    "runtime_requirements": [],
+    "provenance": {
+      "source": "Authored for Datapass Workbench; checked against the vendors' and projects' documentation on 2026-10-12"
+    },
+    "constraints": {
+      "truth": "Concept check: no execution; the answer is compared by the runtime."
+    },
+    "context_refs": [
+      "reference/learning-databricks.md"
+    ],
+    "truth": "concept-check"
+  },
+  {
+    "schema_version": 1,
+    "id": "lc-dbx-expectation-drop",
+    "version": "1",
+    "title": "An expectation that drops rows",
+    "difficulty": "medium",
+    "topics": [
+      "learning-checks",
+      "databricks"
+    ],
+    "tags": [
+      "concept-check",
+      "databricks"
+    ],
+    "origin": "authored",
+    "language": "quiz",
+    "runtime": "datapass-quiz-v1",
+    "prompt": "In Lakeflow Declarative Pipelines (formerly Delta Live Tables), what does an expectation with ON VIOLATION DROP ROW do?",
+    "sections": [
+      {
+        "title": "Concept check (no execution)",
+        "body": "Nothing runs here: this is a question about a platform or practice, not an execution. Answer in the file, save, and Submit; the runtime compares your answer with the pack's answer and explains it once you are right. The cheatsheet (Databricks) covers the topic."
+      }
+    ],
+    "starter_source": "Concept check (no execution): nothing runs; the runtime checks your answer when you Submit.\n\nIn Lakeflow Declarative Pipelines (formerly Delta Live Tables), what does an expectation with ON VIOLATION DROP ROW do?\n\n  a) Fails the pipeline update\n  b) Drops the invalid rows and records how many in the pipeline's data quality metrics\n  c) Writes the invalid rows to a quarantine table automatically\n  d) Nothing: expectations are documentation\n\nWrite the letter of your choice after \"answer:\" (several letters separated by commas if several are right), save, then Submit.\nanswer:\n",
+    "fixtures": [
+      {
+        "id": "lc-dbx-expectation-drop-fixtures",
+        "version": "1"
+      }
+    ],
+    "visible_checks": [
+      {
+        "id": "format",
+        "description": "Your answer is well formed (Run checks only this)."
+      }
+    ],
+    "hidden_check_refs": [
+      "answer"
+    ],
+    "edge_check_refs": [],
+    "hints": [
+      "The action is in its name.",
+      "Open the cheatsheet: Databricks."
+    ],
+    "solution": {
+      "available": true,
+      "reveal": "explicit"
+    },
+    "explanation": "The explanation comes with a correct submission, from the runtime.",
+    "follow_ups": [],
+    "canonical_placement": {
+      "domain": "learning-checks",
+      "topic": "databricks"
+    },
+    "related_associations": [
+      "practice/learning-checks"
+    ],
+    "validator_version": "quiz-v1",
+    "runtime_requirements": [],
+    "provenance": {
+      "source": "Authored for Datapass Workbench; checked against the vendors' and projects' documentation on 2026-10-12"
+    },
+    "constraints": {
+      "truth": "Concept check: no execution; the answer is compared by the runtime."
+    },
+    "context_refs": [
+      "reference/learning-databricks.md"
+    ],
+    "truth": "concept-check"
+  },
+  {
+    "schema_version": 1,
+    "id": "lc-dbx-medallion-silver",
+    "version": "1",
+    "title": "The cleaned layer",
+    "difficulty": "easy",
+    "topics": [
+      "learning-checks",
+      "databricks"
+    ],
+    "tags": [
+      "concept-check",
+      "databricks"
+    ],
+    "origin": "authored",
+    "language": "quiz",
+    "runtime": "datapass-quiz-v1",
+    "prompt": "In the medallion architecture, which layer holds cleaned, deduplicated and conformed data, before business aggregates?",
+    "sections": [
+      {
+        "title": "Concept check (no execution)",
+        "body": "Nothing runs here: this is a question about a platform or practice, not an execution. Answer in the file, save, and Submit; the runtime compares your answer with the pack's answer and explains it once you are right. The cheatsheet (Databricks) covers the topic."
+      }
+    ],
+    "starter_source": "Concept check (no execution): nothing runs; the runtime checks your answer when you Submit.\n\nIn the medallion architecture, which layer holds cleaned, deduplicated and conformed data, before business aggregates?\n\n  a) Bronze\n  b) Silver\n  c) Gold\n  d) Platinum\n\nWrite the letter of your choice after \"answer:\" (several letters separated by commas if several are right), save, then Submit.\nanswer:\n",
+    "fixtures": [
+      {
+        "id": "lc-dbx-medallion-silver-fixtures",
+        "version": "1"
+      }
+    ],
+    "visible_checks": [
+      {
+        "id": "format",
+        "description": "Your answer is well formed (Run checks only this)."
+      }
+    ],
+    "hidden_check_refs": [
+      "answer"
+    ],
+    "edge_check_refs": [],
+    "hints": [
+      "The middle medal.",
+      "Open the cheatsheet: Databricks."
+    ],
+    "solution": {
+      "available": true,
+      "reveal": "explicit"
+    },
+    "explanation": "The explanation comes with a correct submission, from the runtime.",
+    "follow_ups": [],
+    "canonical_placement": {
+      "domain": "learning-checks",
+      "topic": "databricks"
+    },
+    "related_associations": [
+      "practice/learning-checks"
+    ],
+    "validator_version": "quiz-v1",
+    "runtime_requirements": [],
+    "provenance": {
+      "source": "Authored for Datapass Workbench; checked against the vendors' and projects' documentation on 2026-10-12"
+    },
+    "constraints": {
+      "truth": "Concept check: no execution; the answer is compared by the runtime."
+    },
+    "context_refs": [
+      "reference/learning-databricks.md"
+    ],
+    "truth": "concept-check"
+  },
+  {
+    "schema_version": 1,
+    "id": "lc-fas-self-hosted-ir",
+    "version": "1",
+    "title": "Copying from an on-premises database",
+    "difficulty": "easy",
+    "topics": [
+      "learning-checks",
+      "fabric-adf-synapse"
+    ],
+    "tags": [
+      "concept-check",
+      "fabric-adf-synapse"
+    ],
+    "origin": "authored",
+    "language": "quiz",
+    "runtime": "datapass-quiz-v1",
+    "prompt": "In Azure Data Factory, what lets a Copy activity read an on-premises SQL Server inside a private network?",
+    "sections": [
+      {
+        "title": "Concept check (no execution)",
+        "body": "Nothing runs here: this is a question about a platform or practice, not an execution. Answer in the file, save, and Submit; the runtime compares your answer with the pack's answer and explains it once you are right. The cheatsheet (Fabric, Data Factory and Synapse) covers the topic."
+      }
+    ],
+    "starter_source": "Concept check (no execution): nothing runs; the runtime checks your answer when you Submit.\n\nIn Azure Data Factory, what lets a Copy activity read an on-premises SQL Server inside a private network?\n\n  a) The Azure integration runtime\n  b) A self-hosted integration runtime installed inside that network\n  c) The Azure-SSIS integration runtime\n  d) A linked service alone\n\nWrite the letter of your choice after \"answer:\" (several letters separated by commas if several are right), save, then Submit.\nanswer:\n",
+    "fixtures": [
+      {
+        "id": "lc-fas-self-hosted-ir-fixtures",
+        "version": "1"
+      }
+    ],
+    "visible_checks": [
+      {
+        "id": "format",
+        "description": "Your answer is well formed (Run checks only this)."
+      }
+    ],
+    "hidden_check_refs": [
+      "answer"
+    ],
+    "edge_check_refs": [],
+    "hints": [
+      "The runtime has to sit where the data is.",
+      "Open the cheatsheet: Fabric, Data Factory and Synapse."
+    ],
+    "solution": {
+      "available": true,
+      "reveal": "explicit"
+    },
+    "explanation": "The explanation comes with a correct submission, from the runtime.",
+    "follow_ups": [],
+    "canonical_placement": {
+      "domain": "learning-checks",
+      "topic": "fabric-adf-synapse"
+    },
+    "related_associations": [
+      "practice/learning-checks"
+    ],
+    "validator_version": "quiz-v1",
+    "runtime_requirements": [],
+    "provenance": {
+      "source": "Authored for Datapass Workbench; checked against the vendors' and projects' documentation on 2026-10-12"
+    },
+    "constraints": {
+      "truth": "Concept check: no execution; the answer is compared by the runtime."
+    },
+    "context_refs": [
+      "reference/learning-fabric-adf-synapse.md"
+    ],
+    "truth": "concept-check"
+  },
+  {
+    "schema_version": 1,
+    "id": "lc-fas-onelake-delta",
+    "version": "1",
+    "title": "The table format of a Fabric Lakehouse",
+    "difficulty": "easy",
+    "topics": [
+      "learning-checks",
+      "fabric-adf-synapse"
+    ],
+    "tags": [
+      "concept-check",
+      "fabric-adf-synapse"
+    ],
+    "origin": "authored",
+    "language": "quiz",
+    "runtime": "datapass-quiz-v1",
+    "prompt": "In which open table format does a Fabric Lakehouse store its managed tables in OneLake?",
+    "sections": [
+      {
+        "title": "Concept check (no execution)",
+        "body": "Nothing runs here: this is a question about a platform or practice, not an execution. Answer in the file, save, and Submit; the runtime compares your answer with the pack's answer and explains it once you are right. The cheatsheet (Fabric, Data Factory and Synapse) covers the topic."
+      }
+    ],
+    "starter_source": "Concept check (no execution): nothing runs; the runtime checks your answer when you Submit.\n\nIn which open table format does a Fabric Lakehouse store its managed tables in OneLake?\n\n  a) Delta Lake (Parquet files plus a _delta_log)\n  b) Apache Iceberg\n  c) ORC\n  d) CSV\n\nWrite the letter of your choice after \"answer:\" (several letters separated by commas if several are right), save, then Submit.\nanswer:\n",
+    "fixtures": [
+      {
+        "id": "lc-fas-onelake-delta-fixtures",
+        "version": "1"
+      }
+    ],
+    "visible_checks": [
+      {
+        "id": "format",
+        "description": "Your answer is well formed (Run checks only this)."
+      }
+    ],
+    "hidden_check_refs": [
+      "answer"
+    ],
+    "edge_check_refs": [],
+    "hints": [
+      "The same format as Databricks tables.",
+      "Open the cheatsheet: Fabric, Data Factory and Synapse."
+    ],
+    "solution": {
+      "available": true,
+      "reveal": "explicit"
+    },
+    "explanation": "The explanation comes with a correct submission, from the runtime.",
+    "follow_ups": [],
+    "canonical_placement": {
+      "domain": "learning-checks",
+      "topic": "fabric-adf-synapse"
+    },
+    "related_associations": [
+      "practice/learning-checks"
+    ],
+    "validator_version": "quiz-v1",
+    "runtime_requirements": [],
+    "provenance": {
+      "source": "Authored for Datapass Workbench; checked against the vendors' and projects' documentation on 2026-10-12"
+    },
+    "constraints": {
+      "truth": "Concept check: no execution; the answer is compared by the runtime."
+    },
+    "context_refs": [
+      "reference/learning-fabric-adf-synapse.md"
+    ],
+    "truth": "concept-check"
+  },
+  {
+    "schema_version": 1,
+    "id": "lc-fas-shortcut",
+    "version": "1",
+    "title": "A OneLake shortcut",
+    "difficulty": "medium",
+    "topics": [
+      "learning-checks",
+      "fabric-adf-synapse"
+    ],
+    "tags": [
+      "concept-check",
+      "fabric-adf-synapse"
+    ],
+    "origin": "authored",
+    "language": "quiz",
+    "runtime": "datapass-quiz-v1",
+    "prompt": "What is a OneLake shortcut?",
+    "sections": [
+      {
+        "title": "Concept check (no execution)",
+        "body": "Nothing runs here: this is a question about a platform or practice, not an execution. Answer in the file, save, and Submit; the runtime compares your answer with the pack's answer and explains it once you are right. The cheatsheet (Fabric, Data Factory and Synapse) covers the topic."
+      }
+    ],
+    "starter_source": "Concept check (no execution): nothing runs; the runtime checks your answer when you Submit.\n\nWhat is a OneLake shortcut?\n\n  a) A reference to data stored elsewhere (another OneLake item, ADLS Gen2, Amazon S3...) without copying it\n  b) A scheduled copy job\n  c) A materialized view\n  d) A pipeline template\n\nWrite the letter of your choice after \"answer:\" (several letters separated by commas if several are right), save, then Submit.\nanswer:\n",
+    "fixtures": [
+      {
+        "id": "lc-fas-shortcut-fixtures",
+        "version": "1"
+      }
+    ],
+    "visible_checks": [
+      {
+        "id": "format",
+        "description": "Your answer is well formed (Run checks only this)."
+      }
+    ],
+    "hidden_check_refs": [
+      "answer"
+    ],
+    "edge_check_refs": [],
+    "hints": [
+      "Like a file system shortcut.",
+      "Open the cheatsheet: Fabric, Data Factory and Synapse."
+    ],
+    "solution": {
+      "available": true,
+      "reveal": "explicit"
+    },
+    "explanation": "The explanation comes with a correct submission, from the runtime.",
+    "follow_ups": [],
+    "canonical_placement": {
+      "domain": "learning-checks",
+      "topic": "fabric-adf-synapse"
+    },
+    "related_associations": [
+      "practice/learning-checks"
+    ],
+    "validator_version": "quiz-v1",
+    "runtime_requirements": [],
+    "provenance": {
+      "source": "Authored for Datapass Workbench; checked against the vendors' and projects' documentation on 2026-10-12"
+    },
+    "constraints": {
+      "truth": "Concept check: no execution; the answer is compared by the runtime."
+    },
+    "context_refs": [
+      "reference/learning-fabric-adf-synapse.md"
+    ],
+    "truth": "concept-check"
+  },
+  {
+    "schema_version": 1,
+    "id": "lc-fas-completed-condition",
+    "version": "1",
+    "title": "Run the next activity in every case",
+    "difficulty": "medium",
+    "topics": [
+      "learning-checks",
+      "fabric-adf-synapse"
+    ],
+    "tags": [
+      "concept-check",
+      "fabric-adf-synapse"
+    ],
+    "origin": "authored",
+    "language": "quiz",
+    "runtime": "datapass-quiz-v1",
+    "prompt": "In an Azure Data Factory or Fabric pipeline, which dependency condition runs the next activity whether the previous one succeeded or failed?",
+    "sections": [
+      {
+        "title": "Concept check (no execution)",
+        "body": "Nothing runs here: this is a question about a platform or practice, not an execution. Answer in the file, save, and Submit; the runtime compares your answer with the pack's answer and explains it once you are right. The cheatsheet (Fabric, Data Factory and Synapse) covers the topic."
+      }
+    ],
+    "starter_source": "Concept check (no execution): nothing runs; the runtime checks your answer when you Submit.\n\nIn an Azure Data Factory or Fabric pipeline, which dependency condition runs the next activity whether the previous one succeeded or failed?\n\n  a) Upon Success\n  b) Upon Failure\n  c) Upon Completion\n  d) Upon Skip\n\nWrite the letter of your choice after \"answer:\" (several letters separated by commas if several are right), save, then Submit.\nanswer:\n",
+    "fixtures": [
+      {
+        "id": "lc-fas-completed-condition-fixtures",
+        "version": "1"
+      }
+    ],
+    "visible_checks": [
+      {
+        "id": "format",
+        "description": "Your answer is well formed (Run checks only this)."
+      }
+    ],
+    "hidden_check_refs": [
+      "answer"
+    ],
+    "edge_check_refs": [],
+    "hints": [
+      "Finished, whatever the outcome.",
+      "Open the cheatsheet: Fabric, Data Factory and Synapse."
+    ],
+    "solution": {
+      "available": true,
+      "reveal": "explicit"
+    },
+    "explanation": "The explanation comes with a correct submission, from the runtime.",
+    "follow_ups": [],
+    "canonical_placement": {
+      "domain": "learning-checks",
+      "topic": "fabric-adf-synapse"
+    },
+    "related_associations": [
+      "practice/learning-checks"
+    ],
+    "validator_version": "quiz-v1",
+    "runtime_requirements": [],
+    "provenance": {
+      "source": "Authored for Datapass Workbench; checked against the vendors' and projects' documentation on 2026-10-12"
+    },
+    "constraints": {
+      "truth": "Concept check: no execution; the answer is compared by the runtime."
+    },
+    "context_refs": [
+      "reference/learning-fabric-adf-synapse.md"
+    ],
+    "truth": "concept-check"
+  },
+  {
+    "schema_version": 1,
+    "id": "lc-fas-try-catch-status",
+    "version": "1",
+    "title": "The status of a try-catch pipeline",
+    "difficulty": "hard",
+    "topics": [
+      "learning-checks",
+      "fabric-adf-synapse"
+    ],
+    "tags": [
+      "concept-check",
+      "fabric-adf-synapse"
+    ],
+    "origin": "authored",
+    "language": "quiz",
+    "runtime": "datapass-quiz-v1",
+    "prompt": "A pipeline has only Copy -> (Upon Failure) -> Log error. Copy fails and Log error succeeds. What is the pipeline run's status?",
+    "sections": [
+      {
+        "title": "Concept check (no execution)",
+        "body": "Nothing runs here: this is a question about a platform or practice, not an execution. Answer in the file, save, and Submit; the runtime compares your answer with the pack's answer and explains it once you are right. The cheatsheet (Fabric, Data Factory and Synapse) covers the topic."
+      }
+    ],
+    "starter_source": "Concept check (no execution): nothing runs; the runtime checks your answer when you Submit.\n\nA pipeline has only Copy -> (Upon Failure) -> Log error. Copy fails and Log error succeeds. What is the pipeline run's status?\n\n  a) Succeeded\n  b) Failed\n  c) Cancelled\n  d) Skipped\n\nWrite the letter of your choice after \"answer:\" (several letters separated by commas if several are right), save, then Submit.\nanswer:\n",
+    "fixtures": [
+      {
+        "id": "lc-fas-try-catch-status-fixtures",
+        "version": "1"
+      }
+    ],
+    "visible_checks": [
+      {
+        "id": "format",
+        "description": "Your answer is well formed (Run checks only this)."
+      }
+    ],
+    "hidden_check_refs": [
+      "answer"
+    ],
+    "edge_check_refs": [],
+    "hints": [
+      "Look at the last activity that ran on each path.",
+      "Open the cheatsheet: Fabric, Data Factory and Synapse."
+    ],
+    "solution": {
+      "available": true,
+      "reveal": "explicit"
+    },
+    "explanation": "The explanation comes with a correct submission, from the runtime.",
+    "follow_ups": [],
+    "canonical_placement": {
+      "domain": "learning-checks",
+      "topic": "fabric-adf-synapse"
+    },
+    "related_associations": [
+      "practice/learning-checks"
+    ],
+    "validator_version": "quiz-v1",
+    "runtime_requirements": [],
+    "provenance": {
+      "source": "Authored for Datapass Workbench; checked against the vendors' and projects' documentation on 2026-10-12"
+    },
+    "constraints": {
+      "truth": "Concept check: no execution; the answer is compared by the runtime."
+    },
+    "context_refs": [
+      "reference/learning-fabric-adf-synapse.md"
+    ],
+    "truth": "concept-check"
+  },
+  {
+    "schema_version": 1,
+    "id": "lc-fas-serverless-billing",
+    "version": "1",
+    "title": "Paying for Synapse serverless SQL",
+    "difficulty": "medium",
+    "topics": [
+      "learning-checks",
+      "fabric-adf-synapse"
+    ],
+    "tags": [
+      "concept-check",
+      "fabric-adf-synapse"
+    ],
+    "origin": "authored",
+    "language": "quiz",
+    "runtime": "datapass-quiz-v1",
+    "prompt": "How is the Azure Synapse serverless SQL pool billed?",
+    "sections": [
+      {
+        "title": "Concept check (no execution)",
+        "body": "Nothing runs here: this is a question about a platform or practice, not an execution. Answer in the file, save, and Submit; the runtime compares your answer with the pack's answer and explains it once you are right. The cheatsheet (Fabric, Data Factory and Synapse) covers the topic."
+      }
+    ],
+    "starter_source": "Concept check (no execution): nothing runs; the runtime checks your answer when you Submit.\n\nHow is the Azure Synapse serverless SQL pool billed?\n\n  a) Per DWU hour, like a dedicated pool\n  b) Per TB of data processed by the queries\n  c) Per row returned\n  d) Per connected user\n\nWrite the letter of your choice after \"answer:\" (several letters separated by commas if several are right), save, then Submit.\nanswer:\n",
+    "fixtures": [
+      {
+        "id": "lc-fas-serverless-billing-fixtures",
+        "version": "1"
+      }
+    ],
+    "visible_checks": [
+      {
+        "id": "format",
+        "description": "Your answer is well formed (Run checks only this)."
+      }
+    ],
+    "hidden_check_refs": [
+      "answer"
+    ],
+    "edge_check_refs": [],
+    "hints": [
+      "There is no compute to reserve.",
+      "Open the cheatsheet: Fabric, Data Factory and Synapse."
+    ],
+    "solution": {
+      "available": true,
+      "reveal": "explicit"
+    },
+    "explanation": "The explanation comes with a correct submission, from the runtime.",
+    "follow_ups": [],
+    "canonical_placement": {
+      "domain": "learning-checks",
+      "topic": "fabric-adf-synapse"
+    },
+    "related_associations": [
+      "practice/learning-checks"
+    ],
+    "validator_version": "quiz-v1",
+    "runtime_requirements": [],
+    "provenance": {
+      "source": "Authored for Datapass Workbench; checked against the vendors' and projects' documentation on 2026-10-12"
+    },
+    "constraints": {
+      "truth": "Concept check: no execution; the answer is compared by the runtime."
+    },
+    "context_refs": [
+      "reference/learning-fabric-adf-synapse.md"
+    ],
+    "truth": "concept-check"
+  },
+  {
+    "schema_version": 1,
+    "id": "lc-api-retry-after",
+    "version": "1",
+    "title": "A 429 with Retry-After",
+    "difficulty": "easy",
+    "topics": [
+      "learning-checks",
+      "apis"
+    ],
+    "tags": [
+      "concept-check",
+      "apis"
+    ],
+    "origin": "authored",
+    "language": "quiz",
+    "runtime": "datapass-quiz-v1",
+    "prompt": "An API answers 429 Too Many Requests with the header Retry-After: 30. What should the client do?",
+    "sections": [
+      {
+        "title": "Concept check (no execution)",
+        "body": "Nothing runs here: this is a question about a platform or practice, not an execution. Answer in the file, save, and Submit; the runtime compares your answer with the pack's answer and explains it once you are right. The cheatsheet (REST APIs for ingestion) covers the topic."
+      }
+    ],
+    "starter_source": "Concept check (no execution): nothing runs; the runtime checks your answer when you Submit.\n\nAn API answers 429 Too Many Requests with the header Retry-After: 30. What should the client do?\n\n  a) Retry immediately\n  b) Wait at least 30 seconds, then retry\n  c) Treat it as a permanent failure\n  d) Retry with a second API key\n\nWrite the letter of your choice after \"answer:\" (several letters separated by commas if several are right), save, then Submit.\nanswer:\n",
+    "fixtures": [
+      {
+        "id": "lc-api-retry-after-fixtures",
+        "version": "1"
+      }
+    ],
+    "visible_checks": [
+      {
+        "id": "format",
+        "description": "Your answer is well formed (Run checks only this)."
+      }
+    ],
+    "hidden_check_refs": [
+      "answer"
+    ],
+    "edge_check_refs": [],
+    "hints": [
+      "The server says exactly when to come back.",
+      "Open the cheatsheet: REST APIs for ingestion."
+    ],
+    "solution": {
+      "available": true,
+      "reveal": "explicit"
+    },
+    "explanation": "The explanation comes with a correct submission, from the runtime.",
+    "follow_ups": [],
+    "canonical_placement": {
+      "domain": "learning-checks",
+      "topic": "apis"
+    },
+    "related_associations": [
+      "practice/learning-checks"
+    ],
+    "validator_version": "quiz-v1",
+    "runtime_requirements": [],
+    "provenance": {
+      "source": "Authored for Datapass Workbench; checked against the vendors' and projects' documentation on 2026-10-12"
+    },
+    "constraints": {
+      "truth": "Concept check: no execution; the answer is compared by the runtime."
+    },
+    "context_refs": [
+      "reference/learning-apis.md"
+    ],
+    "truth": "concept-check"
+  },
+  {
+    "schema_version": 1,
+    "id": "lc-api-idempotent-methods",
+    "version": "1",
+    "title": "Idempotent HTTP methods",
+    "difficulty": "medium",
+    "topics": [
+      "learning-checks",
+      "apis"
+    ],
+    "tags": [
+      "concept-check",
+      "apis"
+    ],
+    "origin": "authored",
+    "language": "quiz",
+    "runtime": "datapass-quiz-v1",
+    "prompt": "Which HTTP methods are idempotent by definition (RFC 9110)? (several letters)",
+    "sections": [
+      {
+        "title": "Concept check (no execution)",
+        "body": "Nothing runs here: this is a question about a platform or practice, not an execution. Answer in the file, save, and Submit; the runtime compares your answer with the pack's answer and explains it once you are right. The cheatsheet (REST APIs for ingestion) covers the topic."
+      }
+    ],
+    "starter_source": "Concept check (no execution): nothing runs; the runtime checks your answer when you Submit.\n\nWhich HTTP methods are idempotent by definition (RFC 9110)? (several letters)\n\n  a) GET\n  b) POST\n  c) PUT\n  d) DELETE\n\nWrite the letter of your choice after \"answer:\" (several letters separated by commas if several are right), save, then Submit.\nanswer:\n",
+    "fixtures": [
+      {
+        "id": "lc-api-idempotent-methods-fixtures",
+        "version": "1"
+      }
+    ],
+    "visible_checks": [
+      {
+        "id": "format",
+        "description": "Your answer is well formed (Run checks only this)."
+      }
+    ],
+    "hidden_check_refs": [
+      "answer"
+    ],
+    "edge_check_refs": [],
+    "hints": [
+      "Three of the four.",
+      "Open the cheatsheet: REST APIs for ingestion."
+    ],
+    "solution": {
+      "available": true,
+      "reveal": "explicit"
+    },
+    "explanation": "The explanation comes with a correct submission, from the runtime.",
+    "follow_ups": [],
+    "canonical_placement": {
+      "domain": "learning-checks",
+      "topic": "apis"
+    },
+    "related_associations": [
+      "practice/learning-checks"
+    ],
+    "validator_version": "quiz-v1",
+    "runtime_requirements": [],
+    "provenance": {
+      "source": "Authored for Datapass Workbench; checked against the vendors' and projects' documentation on 2026-10-12"
+    },
+    "constraints": {
+      "truth": "Concept check: no execution; the answer is compared by the runtime."
+    },
+    "context_refs": [
+      "reference/learning-apis.md"
+    ],
+    "truth": "concept-check"
+  },
+  {
+    "schema_version": 1,
+    "id": "lc-api-cursor-pagination",
+    "version": "1",
+    "title": "Cursor versus offset pagination",
+    "difficulty": "medium",
+    "topics": [
+      "learning-checks",
+      "apis"
+    ],
+    "tags": [
+      "concept-check",
+      "apis"
+    ],
+    "origin": "authored",
+    "language": "quiz",
+    "runtime": "datapass-quiz-v1",
+    "prompt": "Why is cursor (keyset) pagination safer than offset pagination while new rows are being inserted?",
+    "sections": [
+      {
+        "title": "Concept check (no execution)",
+        "body": "Nothing runs here: this is a question about a platform or practice, not an execution. Answer in the file, save, and Submit; the runtime compares your answer with the pack's answer and explains it once you are right. The cheatsheet (REST APIs for ingestion) covers the topic."
+      }
+    ],
+    "starter_source": "Concept check (no execution): nothing runs; the runtime checks your answer when you Submit.\n\nWhy is cursor (keyset) pagination safer than offset pagination while new rows are being inserted?\n\n  a) Offsets shift when rows are inserted or deleted, so pages skip or repeat rows\n  b) Cursors are shorter to type\n  c) HTTP forbids offsets\n  d) Cursors compress the response\n\nWrite the letter of your choice after \"answer:\" (several letters separated by commas if several are right), save, then Submit.\nanswer:\n",
+    "fixtures": [
+      {
+        "id": "lc-api-cursor-pagination-fixtures",
+        "version": "1"
+      }
+    ],
+    "visible_checks": [
+      {
+        "id": "format",
+        "description": "Your answer is well formed (Run checks only this)."
+      }
+    ],
+    "hidden_check_refs": [
+      "answer"
+    ],
+    "edge_check_refs": [],
+    "hints": [
+      "Picture a row inserted on page one while you read page two.",
+      "Open the cheatsheet: REST APIs for ingestion."
+    ],
+    "solution": {
+      "available": true,
+      "reveal": "explicit"
+    },
+    "explanation": "The explanation comes with a correct submission, from the runtime.",
+    "follow_ups": [],
+    "canonical_placement": {
+      "domain": "learning-checks",
+      "topic": "apis"
+    },
+    "related_associations": [
+      "practice/learning-checks"
+    ],
+    "validator_version": "quiz-v1",
+    "runtime_requirements": [],
+    "provenance": {
+      "source": "Authored for Datapass Workbench; checked against the vendors' and projects' documentation on 2026-10-12"
+    },
+    "constraints": {
+      "truth": "Concept check: no execution; the answer is compared by the runtime."
+    },
+    "context_refs": [
+      "reference/learning-apis.md"
+    ],
+    "truth": "concept-check"
+  },
+  {
+    "schema_version": 1,
+    "id": "lc-api-no-retry-400",
+    "version": "1",
+    "title": "A status not worth retrying",
+    "difficulty": "easy",
+    "topics": [
+      "learning-checks",
+      "apis"
+    ],
+    "tags": [
+      "concept-check",
+      "apis"
+    ],
+    "origin": "authored",
+    "language": "quiz",
+    "runtime": "datapass-quiz-v1",
+    "prompt": "Which response should an ingestion client NOT retry automatically?",
+    "sections": [
+      {
+        "title": "Concept check (no execution)",
+        "body": "Nothing runs here: this is a question about a platform or practice, not an execution. Answer in the file, save, and Submit; the runtime compares your answer with the pack's answer and explains it once you are right. The cheatsheet (REST APIs for ingestion) covers the topic."
+      }
+    ],
+    "starter_source": "Concept check (no execution): nothing runs; the runtime checks your answer when you Submit.\n\nWhich response should an ingestion client NOT retry automatically?\n\n  a) 503 Service Unavailable\n  b) 429 Too Many Requests\n  c) 400 Bad Request\n  d) 504 Gateway Timeout\n\nWrite the letter of your choice after \"answer:\" (several letters separated by commas if several are right), save, then Submit.\nanswer:\n",
+    "fixtures": [
+      {
+        "id": "lc-api-no-retry-400-fixtures",
+        "version": "1"
+      }
+    ],
+    "visible_checks": [
+      {
+        "id": "format",
+        "description": "Your answer is well formed (Run checks only this)."
+      }
+    ],
+    "hidden_check_refs": [
+      "answer"
+    ],
+    "edge_check_refs": [],
+    "hints": [
+      "Which one is the client's own mistake?",
+      "Open the cheatsheet: REST APIs for ingestion."
+    ],
+    "solution": {
+      "available": true,
+      "reveal": "explicit"
+    },
+    "explanation": "The explanation comes with a correct submission, from the runtime.",
+    "follow_ups": [],
+    "canonical_placement": {
+      "domain": "learning-checks",
+      "topic": "apis"
+    },
+    "related_associations": [
+      "practice/learning-checks"
+    ],
+    "validator_version": "quiz-v1",
+    "runtime_requirements": [],
+    "provenance": {
+      "source": "Authored for Datapass Workbench; checked against the vendors' and projects' documentation on 2026-10-12"
+    },
+    "constraints": {
+      "truth": "Concept check: no execution; the answer is compared by the runtime."
+    },
+    "context_refs": [
+      "reference/learning-apis.md"
+    ],
+    "truth": "concept-check"
+  },
+  {
+    "schema_version": 1,
+    "id": "lc-api-watermark-advance",
+    "version": "1",
+    "title": "When to move the watermark",
+    "difficulty": "medium",
+    "topics": [
+      "learning-checks",
+      "apis"
+    ],
+    "tags": [
+      "concept-check",
+      "apis"
+    ],
+    "origin": "authored",
+    "language": "quiz",
+    "runtime": "datapass-quiz-v1",
+    "prompt": "An incremental load uses updated_since. When should it store the new watermark?",
+    "sections": [
+      {
+        "title": "Concept check (no execution)",
+        "body": "Nothing runs here: this is a question about a platform or practice, not an execution. Answer in the file, save, and Submit; the runtime compares your answer with the pack's answer and explains it once you are right. The cheatsheet (REST APIs for ingestion) covers the topic."
+      }
+    ],
+    "starter_source": "Concept check (no execution): nothing runs; the runtime checks your answer when you Submit.\n\nAn incremental load uses updated_since. When should it store the new watermark?\n\n  a) Before requesting the first page\n  b) After every page is received, before writing\n  c) After the batch is durably written\n  d) Never: always reload everything\n\nWrite the letter of your choice after \"answer:\" (several letters separated by commas if several are right), save, then Submit.\nanswer:\n",
+    "fixtures": [
+      {
+        "id": "lc-api-watermark-advance-fixtures",
+        "version": "1"
+      }
+    ],
+    "visible_checks": [
+      {
+        "id": "format",
+        "description": "Your answer is well formed (Run checks only this)."
+      }
+    ],
+    "hidden_check_refs": [
+      "answer"
+    ],
+    "edge_check_refs": [],
+    "hints": [
+      "What happens if the write fails after you moved it?",
+      "Open the cheatsheet: REST APIs for ingestion."
+    ],
+    "solution": {
+      "available": true,
+      "reveal": "explicit"
+    },
+    "explanation": "The explanation comes with a correct submission, from the runtime.",
+    "follow_ups": [],
+    "canonical_placement": {
+      "domain": "learning-checks",
+      "topic": "apis"
+    },
+    "related_associations": [
+      "practice/learning-checks"
+    ],
+    "validator_version": "quiz-v1",
+    "runtime_requirements": [],
+    "provenance": {
+      "source": "Authored for Datapass Workbench; checked against the vendors' and projects' documentation on 2026-10-12"
+    },
+    "constraints": {
+      "truth": "Concept check: no execution; the answer is compared by the runtime."
+    },
+    "context_refs": [
+      "reference/learning-apis.md"
+    ],
+    "truth": "concept-check"
+  },
+  {
+    "schema_version": 1,
+    "id": "lc-orch-idempotent",
+    "version": "1",
+    "title": "An idempotent daily load",
+    "difficulty": "easy",
+    "topics": [
+      "learning-checks",
+      "orchestration"
+    ],
+    "tags": [
+      "concept-check",
+      "orchestration"
+    ],
+    "origin": "authored",
+    "language": "quiz",
+    "runtime": "datapass-quiz-v1",
+    "prompt": "What makes a daily load task idempotent?",
+    "sections": [
+      {
+        "title": "Concept check (no execution)",
+        "body": "Nothing runs here: this is a question about a platform or practice, not an execution. Answer in the file, save, and Submit; the runtime compares your answer with the pack's answer and explains it once you are right. The cheatsheet (Production orchestration) covers the topic."
+      }
+    ],
+    "starter_source": "Concept check (no execution): nothing runs; the runtime checks your answer when you Submit.\n\nWhat makes a daily load task idempotent?\n\n  a) Rerunning it for the same day leaves the same table (it overwrites that day's partition or merges on a key)\n  b) It never fails\n  c) It appends the day's rows every time it runs\n  d) It can only run once\n\nWrite the letter of your choice after \"answer:\" (several letters separated by commas if several are right), save, then Submit.\nanswer:\n",
+    "fixtures": [
+      {
+        "id": "lc-orch-idempotent-fixtures",
+        "version": "1"
+      }
+    ],
+    "visible_checks": [
+      {
+        "id": "format",
+        "description": "Your answer is well formed (Run checks only this)."
+      }
+    ],
+    "hidden_check_refs": [
+      "answer"
+    ],
+    "edge_check_refs": [],
+    "hints": [
+      "Think about running it twice.",
+      "Open the cheatsheet: Production orchestration."
+    ],
+    "solution": {
+      "available": true,
+      "reveal": "explicit"
+    },
+    "explanation": "The explanation comes with a correct submission, from the runtime.",
+    "follow_ups": [],
+    "canonical_placement": {
+      "domain": "learning-checks",
+      "topic": "orchestration"
+    },
+    "related_associations": [
+      "practice/learning-checks"
+    ],
+    "validator_version": "quiz-v1",
+    "runtime_requirements": [],
+    "provenance": {
+      "source": "Authored for Datapass Workbench; checked against the vendors' and projects' documentation on 2026-10-12"
+    },
+    "constraints": {
+      "truth": "Concept check: no execution; the answer is compared by the runtime."
+    },
+    "context_refs": [
+      "reference/learning-orchestration.md"
+    ],
+    "truth": "concept-check"
+  },
+  {
+    "schema_version": 1,
+    "id": "lc-orch-timeout",
+    "version": "1",
+    "title": "A task that sometimes hangs",
+    "difficulty": "medium",
+    "topics": [
+      "learning-checks",
+      "orchestration"
+    ],
+    "tags": [
+      "concept-check",
+      "orchestration"
+    ],
+    "origin": "authored",
+    "language": "quiz",
+    "runtime": "datapass-quiz-v1",
+    "prompt": "A task normally takes 5 minutes but sometimes hangs forever. What protects the pipeline?",
+    "sections": [
+      {
+        "title": "Concept check (no execution)",
+        "body": "Nothing runs here: this is a question about a platform or practice, not an execution. Answer in the file, save, and Submit; the runtime compares your answer with the pack's answer and explains it once you are right. The cheatsheet (Production orchestration) covers the topic."
+      }
+    ],
+    "starter_source": "Concept check (no execution): nothing runs; the runtime checks your answer when you Submit.\n\nA task normally takes 5 minutes but sometimes hangs forever. What protects the pipeline?\n\n  a) More retries alone\n  b) An execution timeout, so the hung attempt fails and can be retried\n  c) depends_on_past\n  d) A bigger worker\n\nWrite the letter of your choice after \"answer:\" (several letters separated by commas if several are right), save, then Submit.\nanswer:\n",
+    "fixtures": [
+      {
+        "id": "lc-orch-timeout-fixtures",
+        "version": "1"
+      }
+    ],
+    "visible_checks": [
+      {
+        "id": "format",
+        "description": "Your answer is well formed (Run checks only this)."
+      }
+    ],
+    "hidden_check_refs": [
+      "answer"
+    ],
+    "edge_check_refs": [],
+    "hints": [
+      "Retries wait for a failure that never comes.",
+      "Open the cheatsheet: Production orchestration."
+    ],
+    "solution": {
+      "available": true,
+      "reveal": "explicit"
+    },
+    "explanation": "The explanation comes with a correct submission, from the runtime.",
+    "follow_ups": [],
+    "canonical_placement": {
+      "domain": "learning-checks",
+      "topic": "orchestration"
+    },
+    "related_associations": [
+      "practice/learning-checks"
+    ],
+    "validator_version": "quiz-v1",
+    "runtime_requirements": [],
+    "provenance": {
+      "source": "Authored for Datapass Workbench; checked against the vendors' and projects' documentation on 2026-10-12"
+    },
+    "constraints": {
+      "truth": "Concept check: no execution; the answer is compared by the runtime."
+    },
+    "context_refs": [
+      "reference/learning-orchestration.md"
+    ],
+    "truth": "concept-check"
+  },
+  {
+    "schema_version": 1,
+    "id": "lc-orch-quarantine",
+    "version": "1",
+    "title": "Rows that fail validation",
+    "difficulty": "medium",
+    "topics": [
+      "learning-checks",
+      "orchestration"
+    ],
+    "tags": [
+      "concept-check",
+      "orchestration"
+    ],
+    "origin": "authored",
+    "language": "quiz",
+    "runtime": "datapass-quiz-v1",
+    "prompt": "Some rows of a daily file fail validation. Where should they go so the load continues and nothing is silently lost?",
+    "sections": [
+      {
+        "title": "Concept check (no execution)",
+        "body": "Nothing runs here: this is a question about a platform or practice, not an execution. Answer in the file, save, and Submit; the runtime compares your answer with the pack's answer and explains it once you are right. The cheatsheet (Production orchestration) covers the topic."
+      }
+    ],
+    "starter_source": "Concept check (no execution): nothing runs; the runtime checks your answer when you Submit.\n\nSome rows of a daily file fail validation. Where should they go so the load continues and nothing is silently lost?\n\n  a) Deleted\n  b) A quarantine (dead-letter) table, with the reason and the source file\n  c) Loaded as they are\n  d) Into the log file only\n\nWrite the letter of your choice after \"answer:\" (several letters separated by commas if several are right), save, then Submit.\nanswer:\n",
+    "fixtures": [
+      {
+        "id": "lc-orch-quarantine-fixtures",
+        "version": "1"
+      }
+    ],
+    "visible_checks": [
+      {
+        "id": "format",
+        "description": "Your answer is well formed (Run checks only this)."
+      }
+    ],
+    "hidden_check_refs": [
+      "answer"
+    ],
+    "edge_check_refs": [],
+    "hints": [
+      "Keep them, but apart.",
+      "Open the cheatsheet: Production orchestration."
+    ],
+    "solution": {
+      "available": true,
+      "reveal": "explicit"
+    },
+    "explanation": "The explanation comes with a correct submission, from the runtime.",
+    "follow_ups": [],
+    "canonical_placement": {
+      "domain": "learning-checks",
+      "topic": "orchestration"
+    },
+    "related_associations": [
+      "practice/learning-checks"
+    ],
+    "validator_version": "quiz-v1",
+    "runtime_requirements": [],
+    "provenance": {
+      "source": "Authored for Datapass Workbench; checked against the vendors' and projects' documentation on 2026-10-12"
+    },
+    "constraints": {
+      "truth": "Concept check: no execution; the answer is compared by the runtime."
+    },
+    "context_refs": [
+      "reference/learning-orchestration.md"
+    ],
+    "truth": "concept-check"
+  },
+  {
+    "schema_version": 1,
+    "id": "lc-orch-assets",
+    "version": "1",
+    "title": "Start when the data is ready",
+    "difficulty": "medium",
+    "topics": [
+      "learning-checks",
+      "orchestration"
+    ],
+    "tags": [
+      "concept-check",
+      "orchestration"
+    ],
+    "origin": "authored",
+    "language": "quiz",
+    "runtime": "datapass-quiz-v1",
+    "prompt": "A downstream DAG should start when an upstream DAG updates a table, not at a fixed time. Which Airflow feature does that?",
+    "sections": [
+      {
+        "title": "Concept check (no execution)",
+        "body": "Nothing runs here: this is a question about a platform or practice, not an execution. Answer in the file, save, and Submit; the runtime compares your answer with the pack's answer and explains it once you are right. The cheatsheet (Production orchestration) covers the topic."
+      }
+    ],
+    "starter_source": "Concept check (no execution): nothing runs; the runtime checks your answer when you Submit.\n\nA downstream DAG should start when an upstream DAG updates a table, not at a fixed time. Which Airflow feature does that?\n\n  a) Asset-based scheduling (Datasets in Airflow 2)\n  b) catchup\n  c) Pools\n  d) XCom\n\nWrite the letter of your choice after \"answer:\" (several letters separated by commas if several are right), save, then Submit.\nanswer:\n",
+    "fixtures": [
+      {
+        "id": "lc-orch-assets-fixtures",
+        "version": "1"
+      }
+    ],
+    "visible_checks": [
+      {
+        "id": "format",
+        "description": "Your answer is well formed (Run checks only this)."
+      }
+    ],
+    "hidden_check_refs": [
+      "answer"
+    ],
+    "edge_check_refs": [],
+    "hints": [
+      "The schedule is the data itself.",
+      "Open the cheatsheet: Production orchestration."
+    ],
+    "solution": {
+      "available": true,
+      "reveal": "explicit"
+    },
+    "explanation": "The explanation comes with a correct submission, from the runtime.",
+    "follow_ups": [],
+    "canonical_placement": {
+      "domain": "learning-checks",
+      "topic": "orchestration"
+    },
+    "related_associations": [
+      "practice/learning-checks"
+    ],
+    "validator_version": "quiz-v1",
+    "runtime_requirements": [],
+    "provenance": {
+      "source": "Authored for Datapass Workbench; checked against the vendors' and projects' documentation on 2026-10-12"
+    },
+    "constraints": {
+      "truth": "Concept check: no execution; the answer is compared by the runtime."
+    },
+    "context_refs": [
+      "reference/learning-orchestration.md"
+    ],
+    "truth": "concept-check"
+  },
+  {
+    "schema_version": 1,
+    "id": "lc-orch-pools",
+    "version": "1",
+    "title": "A rate-limited API shared by ten DAGs",
+    "difficulty": "medium",
+    "topics": [
+      "learning-checks",
+      "orchestration"
+    ],
+    "tags": [
+      "concept-check",
+      "orchestration"
+    ],
+    "origin": "authored",
+    "language": "quiz",
+    "runtime": "datapass-quiz-v1",
+    "prompt": "Ten DAGs call the same rate-limited API. Which Airflow feature caps how many of those tasks run at once, across all DAGs?",
+    "sections": [
+      {
+        "title": "Concept check (no execution)",
+        "body": "Nothing runs here: this is a question about a platform or practice, not an execution. Answer in the file, save, and Submit; the runtime compares your answer with the pack's answer and explains it once you are right. The cheatsheet (Production orchestration) covers the topic."
+      }
+    ],
+    "starter_source": "Concept check (no execution): nothing runs; the runtime checks your answer when you Submit.\n\nTen DAGs call the same rate-limited API. Which Airflow feature caps how many of those tasks run at once, across all DAGs?\n\n  a) A pool with a fixed number of slots\n  b) max_active_runs on each DAG\n  c) retries\n  d) A sensor\n\nWrite the letter of your choice after \"answer:\" (several letters separated by commas if several are right), save, then Submit.\nanswer:\n",
+    "fixtures": [
+      {
+        "id": "lc-orch-pools-fixtures",
+        "version": "1"
+      }
+    ],
+    "visible_checks": [
+      {
+        "id": "format",
+        "description": "Your answer is well formed (Run checks only this)."
+      }
+    ],
+    "hidden_check_refs": [
+      "answer"
+    ],
+    "edge_check_refs": [],
+    "hints": [
+      "A shared reservoir of slots.",
+      "Open the cheatsheet: Production orchestration."
+    ],
+    "solution": {
+      "available": true,
+      "reveal": "explicit"
+    },
+    "explanation": "The explanation comes with a correct submission, from the runtime.",
+    "follow_ups": [],
+    "canonical_placement": {
+      "domain": "learning-checks",
+      "topic": "orchestration"
+    },
+    "related_associations": [
+      "practice/learning-checks"
+    ],
+    "validator_version": "quiz-v1",
+    "runtime_requirements": [],
+    "provenance": {
+      "source": "Authored for Datapass Workbench; checked against the vendors' and projects' documentation on 2026-10-12"
+    },
+    "constraints": {
+      "truth": "Concept check: no execution; the answer is compared by the runtime."
+    },
+    "context_refs": [
+      "reference/learning-orchestration.md"
+    ],
+    "truth": "concept-check"
+  },
+  {
+    "schema_version": 1,
+    "id": "lc-docker-layer-cache",
+    "version": "1",
+    "title": "Order of Dockerfile instructions",
+    "difficulty": "medium",
+    "topics": [
+      "learning-checks",
+      "docker"
+    ],
+    "tags": [
+      "concept-check",
+      "docker"
+    ],
+    "origin": "authored",
+    "language": "quiz",
+    "runtime": "datapass-quiz-v1",
+    "prompt": "Why copy requirements.txt and run pip install before COPY . . in a Dockerfile?",
+    "sections": [
+      {
+        "title": "Concept check (no execution)",
+        "body": "Nothing runs here: this is a question about a platform or practice, not an execution. Answer in the file, save, and Submit; the runtime compares your answer with the pack's answer and explains it once you are right. The cheatsheet (Docker) covers the topic."
+      }
+    ],
+    "starter_source": "Concept check (no execution): nothing runs; the runtime checks your answer when you Submit.\n\nWhy copy requirements.txt and run pip install before COPY . . in a Dockerfile?\n\n  a) So the dependency layer stays cached when only the application code changes\n  b) Docker requires that order\n  c) It makes the image smaller\n  d) pip cannot read files copied later\n\nWrite the letter of your choice after \"answer:\" (several letters separated by commas if several are right), save, then Submit.\nanswer:\n",
+    "fixtures": [
+      {
+        "id": "lc-docker-layer-cache-fixtures",
+        "version": "1"
+      }
+    ],
+    "visible_checks": [
+      {
+        "id": "format",
+        "description": "Your answer is well formed (Run checks only this)."
+      }
+    ],
+    "hidden_check_refs": [
+      "answer"
+    ],
+    "edge_check_refs": [],
+    "hints": [
+      "Which file changes least often?",
+      "Open the cheatsheet: Docker."
+    ],
+    "solution": {
+      "available": true,
+      "reveal": "explicit"
+    },
+    "explanation": "The explanation comes with a correct submission, from the runtime.",
+    "follow_ups": [],
+    "canonical_placement": {
+      "domain": "learning-checks",
+      "topic": "docker"
+    },
+    "related_associations": [
+      "practice/learning-checks"
+    ],
+    "validator_version": "quiz-v1",
+    "runtime_requirements": [],
+    "provenance": {
+      "source": "Authored for Datapass Workbench; checked against the vendors' and projects' documentation on 2026-10-12"
+    },
+    "constraints": {
+      "truth": "Concept check: no execution; the answer is compared by the runtime."
+    },
+    "context_refs": [
+      "reference/learning-docker.md"
+    ],
+    "truth": "concept-check"
+  },
+  {
+    "schema_version": 1,
+    "id": "lc-docker-image-container",
+    "version": "1",
+    "title": "Image versus container",
+    "difficulty": "easy",
+    "topics": [
+      "learning-checks",
+      "docker"
+    ],
+    "tags": [
+      "concept-check",
+      "docker"
+    ],
+    "origin": "authored",
+    "language": "quiz",
+    "runtime": "datapass-quiz-v1",
+    "prompt": "What is the difference between an image and a container?",
+    "sections": [
+      {
+        "title": "Concept check (no execution)",
+        "body": "Nothing runs here: this is a question about a platform or practice, not an execution. Answer in the file, save, and Submit; the runtime compares your answer with the pack's answer and explains it once you are right. The cheatsheet (Docker) covers the topic."
+      }
+    ],
+    "starter_source": "Concept check (no execution): nothing runs; the runtime checks your answer when you Submit.\n\nWhat is the difference between an image and a container?\n\n  a) A container is an instance of an image with its own writable layer\n  b) They are the same thing\n  c) An image is a running process\n  d) A container is a registry of images\n\nWrite the letter of your choice after \"answer:\" (several letters separated by commas if several are right), save, then Submit.\nanswer:\n",
+    "fixtures": [
+      {
+        "id": "lc-docker-image-container-fixtures",
+        "version": "1"
+      }
+    ],
+    "visible_checks": [
+      {
+        "id": "format",
+        "description": "Your answer is well formed (Run checks only this)."
+      }
+    ],
+    "hidden_check_refs": [
+      "answer"
+    ],
+    "edge_check_refs": [],
+    "hints": [
+      "Class and object.",
+      "Open the cheatsheet: Docker."
+    ],
+    "solution": {
+      "available": true,
+      "reveal": "explicit"
+    },
+    "explanation": "The explanation comes with a correct submission, from the runtime.",
+    "follow_ups": [],
+    "canonical_placement": {
+      "domain": "learning-checks",
+      "topic": "docker"
+    },
+    "related_associations": [
+      "practice/learning-checks"
+    ],
+    "validator_version": "quiz-v1",
+    "runtime_requirements": [],
+    "provenance": {
+      "source": "Authored for Datapass Workbench; checked against the vendors' and projects' documentation on 2026-10-12"
+    },
+    "constraints": {
+      "truth": "Concept check: no execution; the answer is compared by the runtime."
+    },
+    "context_refs": [
+      "reference/learning-docker.md"
+    ],
+    "truth": "concept-check"
+  },
+  {
+    "schema_version": 1,
+    "id": "lc-docker-volume",
+    "version": "1",
+    "title": "Data written inside a container",
+    "difficulty": "easy",
+    "topics": [
+      "learning-checks",
+      "docker"
+    ],
+    "tags": [
+      "concept-check",
+      "docker"
+    ],
+    "origin": "authored",
+    "language": "quiz",
+    "runtime": "datapass-quiz-v1",
+    "prompt": "A container writes a database file to its own filesystem, with no volume. What happens to it when the container is removed?",
+    "sections": [
+      {
+        "title": "Concept check (no execution)",
+        "body": "Nothing runs here: this is a question about a platform or practice, not an execution. Answer in the file, save, and Submit; the runtime compares your answer with the pack's answer and explains it once you are right. The cheatsheet (Docker) covers the topic."
+      }
+    ],
+    "starter_source": "Concept check (no execution): nothing runs; the runtime checks your answer when you Submit.\n\nA container writes a database file to its own filesystem, with no volume. What happens to it when the container is removed?\n\n  a) It is kept in the image\n  b) It is lost with the container's writable layer\n  c) It moves to a volume automatically\n  d) It is pushed to the registry\n\nWrite the letter of your choice after \"answer:\" (several letters separated by commas if several are right), save, then Submit.\nanswer:\n",
+    "fixtures": [
+      {
+        "id": "lc-docker-volume-fixtures",
+        "version": "1"
+      }
+    ],
+    "visible_checks": [
+      {
+        "id": "format",
+        "description": "Your answer is well formed (Run checks only this)."
+      }
+    ],
+    "hidden_check_refs": [
+      "answer"
+    ],
+    "edge_check_refs": [],
+    "hints": [
+      "The image is read-only.",
+      "Open the cheatsheet: Docker."
+    ],
+    "solution": {
+      "available": true,
+      "reveal": "explicit"
+    },
+    "explanation": "The explanation comes with a correct submission, from the runtime.",
+    "follow_ups": [],
+    "canonical_placement": {
+      "domain": "learning-checks",
+      "topic": "docker"
+    },
+    "related_associations": [
+      "practice/learning-checks"
+    ],
+    "validator_version": "quiz-v1",
+    "runtime_requirements": [],
+    "provenance": {
+      "source": "Authored for Datapass Workbench; checked against the vendors' and projects' documentation on 2026-10-12"
+    },
+    "constraints": {
+      "truth": "Concept check: no execution; the answer is compared by the runtime."
+    },
+    "context_refs": [
+      "reference/learning-docker.md"
+    ],
+    "truth": "concept-check"
+  },
+  {
+    "schema_version": 1,
+    "id": "lc-docker-service-healthy",
+    "version": "1",
+    "title": "depends_on with a condition",
+    "difficulty": "medium",
+    "topics": [
+      "learning-checks",
+      "docker"
+    ],
+    "tags": [
+      "concept-check",
+      "docker"
+    ],
+    "origin": "authored",
+    "language": "quiz",
+    "runtime": "datapass-quiz-v1",
+    "prompt": "In Docker Compose, what does depends_on: db: condition: service_healthy wait for?",
+    "sections": [
+      {
+        "title": "Concept check (no execution)",
+        "body": "Nothing runs here: this is a question about a platform or practice, not an execution. Answer in the file, save, and Submit; the runtime compares your answer with the pack's answer and explains it once you are right. The cheatsheet (Docker) covers the topic."
+      }
+    ],
+    "starter_source": "Concept check (no execution): nothing runs; the runtime checks your answer when you Submit.\n\nIn Docker Compose, what does depends_on: db: condition: service_healthy wait for?\n\n  a) The db container to be created\n  b) The db container to start\n  c) The db healthcheck to report healthy\n  d) Nothing: Compose ignores conditions\n\nWrite the letter of your choice after \"answer:\" (several letters separated by commas if several are right), save, then Submit.\nanswer:\n",
+    "fixtures": [
+      {
+        "id": "lc-docker-service-healthy-fixtures",
+        "version": "1"
+      }
+    ],
+    "visible_checks": [
+      {
+        "id": "format",
+        "description": "Your answer is well formed (Run checks only this)."
+      }
+    ],
+    "hidden_check_refs": [
+      "answer"
+    ],
+    "edge_check_refs": [],
+    "hints": [
+      "Started is not the same as ready.",
+      "Open the cheatsheet: Docker."
+    ],
+    "solution": {
+      "available": true,
+      "reveal": "explicit"
+    },
+    "explanation": "The explanation comes with a correct submission, from the runtime.",
+    "follow_ups": [],
+    "canonical_placement": {
+      "domain": "learning-checks",
+      "topic": "docker"
+    },
+    "related_associations": [
+      "practice/learning-checks"
+    ],
+    "validator_version": "quiz-v1",
+    "runtime_requirements": [],
+    "provenance": {
+      "source": "Authored for Datapass Workbench; checked against the vendors' and projects' documentation on 2026-10-12"
+    },
+    "constraints": {
+      "truth": "Concept check: no execution; the answer is compared by the runtime."
+    },
+    "context_refs": [
+      "reference/learning-docker.md"
+    ],
+    "truth": "concept-check"
+  },
+  {
+    "schema_version": 1,
+    "id": "lc-docker-entrypoint-cmd",
+    "version": "1",
+    "title": "Arguments to docker run",
+    "difficulty": "hard",
+    "topics": [
+      "learning-checks",
+      "docker"
+    ],
+    "tags": [
+      "concept-check",
+      "docker"
+    ],
+    "origin": "authored",
+    "language": "quiz",
+    "runtime": "datapass-quiz-v1",
+    "prompt": "An image has ENTRYPOINT [\"python\", \"ingest.py\"] and CMD [\"--day\", \"today\"]. What does docker run image --day 2026-10-01 run?",
+    "sections": [
+      {
+        "title": "Concept check (no execution)",
+        "body": "Nothing runs here: this is a question about a platform or practice, not an execution. Answer in the file, save, and Submit; the runtime compares your answer with the pack's answer and explains it once you are right. The cheatsheet (Docker) covers the topic."
+      }
+    ],
+    "starter_source": "Concept check (no execution): nothing runs; the runtime checks your answer when you Submit.\n\nAn image has ENTRYPOINT [\"python\", \"ingest.py\"] and CMD [\"--day\", \"today\"]. What does docker run image --day 2026-10-01 run?\n\n  a) python ingest.py --day 2026-10-01\n  b) python ingest.py --day today --day 2026-10-01\n  c) --day 2026-10-01\n  d) python ingest.py --day today\n\nWrite the letter of your choice after \"answer:\" (several letters separated by commas if several are right), save, then Submit.\nanswer:\n",
+    "fixtures": [
+      {
+        "id": "lc-docker-entrypoint-cmd-fixtures",
+        "version": "1"
+      }
+    ],
+    "visible_checks": [
+      {
+        "id": "format",
+        "description": "Your answer is well formed (Run checks only this)."
+      }
+    ],
+    "hidden_check_refs": [
+      "answer"
+    ],
+    "edge_check_refs": [],
+    "hints": [
+      "CMD holds the defaults.",
+      "Open the cheatsheet: Docker."
+    ],
+    "solution": {
+      "available": true,
+      "reveal": "explicit"
+    },
+    "explanation": "The explanation comes with a correct submission, from the runtime.",
+    "follow_ups": [],
+    "canonical_placement": {
+      "domain": "learning-checks",
+      "topic": "docker"
+    },
+    "related_associations": [
+      "practice/learning-checks"
+    ],
+    "validator_version": "quiz-v1",
+    "runtime_requirements": [],
+    "provenance": {
+      "source": "Authored for Datapass Workbench; checked against the vendors' and projects' documentation on 2026-10-12"
+    },
+    "constraints": {
+      "truth": "Concept check: no execution; the answer is compared by the runtime."
+    },
+    "context_refs": [
+      "reference/learning-docker.md"
+    ],
+    "truth": "concept-check"
+  },
+  {
+    "schema_version": 1,
+    "id": "lc-tf-plan",
+    "version": "1",
+    "title": "What terraform plan does",
+    "difficulty": "easy",
+    "topics": [
+      "learning-checks",
+      "terraform"
+    ],
+    "tags": [
+      "concept-check",
+      "terraform"
+    ],
+    "origin": "authored",
+    "language": "quiz",
+    "runtime": "datapass-quiz-v1",
+    "prompt": "What does terraform plan do?",
+    "sections": [
+      {
+        "title": "Concept check (no execution)",
+        "body": "Nothing runs here: this is a question about a platform or practice, not an execution. Answer in the file, save, and Submit; the runtime compares your answer with the pack's answer and explains it once you are right. The cheatsheet (Terraform) covers the topic."
+      }
+    ],
+    "starter_source": "Concept check (no execution): nothing runs; the runtime checks your answer when you Submit.\n\nWhat does terraform plan do?\n\n  a) Compares the configuration with the state (refreshed from the real infrastructure) and proposes changes, without making them\n  b) Creates the resources\n  c) Deletes the state file\n  d) Formats the .tf files\n\nWrite the letter of your choice after \"answer:\" (several letters separated by commas if several are right), save, then Submit.\nanswer:\n",
+    "fixtures": [
+      {
+        "id": "lc-tf-plan-fixtures",
+        "version": "1"
+      }
+    ],
+    "visible_checks": [
+      {
+        "id": "format",
+        "description": "Your answer is well formed (Run checks only this)."
+      }
+    ],
+    "hidden_check_refs": [
+      "answer"
+    ],
+    "edge_check_refs": [],
+    "hints": [
+      "It only proposes.",
+      "Open the cheatsheet: Terraform."
+    ],
+    "solution": {
+      "available": true,
+      "reveal": "explicit"
+    },
+    "explanation": "The explanation comes with a correct submission, from the runtime.",
+    "follow_ups": [],
+    "canonical_placement": {
+      "domain": "learning-checks",
+      "topic": "terraform"
+    },
+    "related_associations": [
+      "practice/learning-checks"
+    ],
+    "validator_version": "quiz-v1",
+    "runtime_requirements": [],
+    "provenance": {
+      "source": "Authored for Datapass Workbench; checked against the vendors' and projects' documentation on 2026-10-12"
+    },
+    "constraints": {
+      "truth": "Concept check: no execution; the answer is compared by the runtime."
+    },
+    "context_refs": [
+      "reference/learning-terraform.md"
+    ],
+    "truth": "concept-check"
+  },
+  {
+    "schema_version": 1,
+    "id": "lc-tf-remote-state",
+    "version": "1",
+    "title": "Remote state with locking",
+    "difficulty": "medium",
+    "topics": [
+      "learning-checks",
+      "terraform"
+    ],
+    "tags": [
+      "concept-check",
+      "terraform"
+    ],
+    "origin": "authored",
+    "language": "quiz",
+    "runtime": "datapass-quiz-v1",
+    "prompt": "Why keep Terraform state in a remote backend with locking (for example azurerm on a storage account)?",
+    "sections": [
+      {
+        "title": "Concept check (no execution)",
+        "body": "Nothing runs here: this is a question about a platform or practice, not an execution. Answer in the file, save, and Submit; the runtime compares your answer with the pack's answer and explains it once you are right. The cheatsheet (Terraform) covers the topic."
+      }
+    ],
+    "starter_source": "Concept check (no execution): nothing runs; the runtime checks your answer when you Submit.\n\nWhy keep Terraform state in a remote backend with locking (for example azurerm on a storage account)?\n\n  a) So the team shares one state and two applies cannot run at the same time\n  b) Remote state is faster to type\n  c) Terraform refuses local state\n  d) It encrypts the providers\n\nWrite the letter of your choice after \"answer:\" (several letters separated by commas if several are right), save, then Submit.\nanswer:\n",
+    "fixtures": [
+      {
+        "id": "lc-tf-remote-state-fixtures",
+        "version": "1"
+      }
+    ],
+    "visible_checks": [
+      {
+        "id": "format",
+        "description": "Your answer is well formed (Run checks only this)."
+      }
+    ],
+    "hidden_check_refs": [
+      "answer"
+    ],
+    "edge_check_refs": [],
+    "hints": [
+      "Two engineers apply at once.",
+      "Open the cheatsheet: Terraform."
+    ],
+    "solution": {
+      "available": true,
+      "reveal": "explicit"
+    },
+    "explanation": "The explanation comes with a correct submission, from the runtime.",
+    "follow_ups": [],
+    "canonical_placement": {
+      "domain": "learning-checks",
+      "topic": "terraform"
+    },
+    "related_associations": [
+      "practice/learning-checks"
+    ],
+    "validator_version": "quiz-v1",
+    "runtime_requirements": [],
+    "provenance": {
+      "source": "Authored for Datapass Workbench; checked against the vendors' and projects' documentation on 2026-10-12"
+    },
+    "constraints": {
+      "truth": "Concept check: no execution; the answer is compared by the runtime."
+    },
+    "context_refs": [
+      "reference/learning-terraform.md"
+    ],
+    "truth": "concept-check"
+  },
+  {
+    "schema_version": 1,
+    "id": "lc-tf-replace-symbol",
+    "version": "1",
+    "title": "-/+ in a plan",
+    "difficulty": "medium",
+    "topics": [
+      "learning-checks",
+      "terraform"
+    ],
+    "tags": [
+      "concept-check",
+      "terraform"
+    ],
+    "origin": "authored",
+    "language": "quiz",
+    "runtime": "datapass-quiz-v1",
+    "prompt": "A plan shows -/+ in front of a resource. What will apply do?",
+    "sections": [
+      {
+        "title": "Concept check (no execution)",
+        "body": "Nothing runs here: this is a question about a platform or practice, not an execution. Answer in the file, save, and Submit; the runtime compares your answer with the pack's answer and explains it once you are right. The cheatsheet (Terraform) covers the topic."
+      }
+    ],
+    "starter_source": "Concept check (no execution): nothing runs; the runtime checks your answer when you Submit.\n\nA plan shows -/+ in front of a resource. What will apply do?\n\n  a) Update it in place\n  b) Destroy it and create a replacement, because a changed argument forces a new resource\n  c) Import it\n  d) Nothing\n\nWrite the letter of your choice after \"answer:\" (several letters separated by commas if several are right), save, then Submit.\nanswer:\n",
+    "fixtures": [
+      {
+        "id": "lc-tf-replace-symbol-fixtures",
+        "version": "1"
+      }
+    ],
+    "visible_checks": [
+      {
+        "id": "format",
+        "description": "Your answer is well formed (Run checks only this)."
+      }
+    ],
+    "hidden_check_refs": [
+      "answer"
+    ],
+    "edge_check_refs": [],
+    "hints": [
+      "Minus then plus.",
+      "Open the cheatsheet: Terraform."
+    ],
+    "solution": {
+      "available": true,
+      "reveal": "explicit"
+    },
+    "explanation": "The explanation comes with a correct submission, from the runtime.",
+    "follow_ups": [],
+    "canonical_placement": {
+      "domain": "learning-checks",
+      "topic": "terraform"
+    },
+    "related_associations": [
+      "practice/learning-checks"
+    ],
+    "validator_version": "quiz-v1",
+    "runtime_requirements": [],
+    "provenance": {
+      "source": "Authored for Datapass Workbench; checked against the vendors' and projects' documentation on 2026-10-12"
+    },
+    "constraints": {
+      "truth": "Concept check: no execution; the answer is compared by the runtime."
+    },
+    "context_refs": [
+      "reference/learning-terraform.md"
+    ],
+    "truth": "concept-check"
+  },
+  {
+    "schema_version": 1,
+    "id": "lc-tf-sensitive-state",
+    "version": "1",
+    "title": "sensitive = true and the state",
+    "difficulty": "hard",
+    "topics": [
+      "learning-checks",
+      "terraform"
+    ],
+    "tags": [
+      "concept-check",
+      "terraform"
+    ],
+    "origin": "authored",
+    "language": "quiz",
+    "runtime": "datapass-quiz-v1",
+    "prompt": "A variable is marked sensitive = true. Is its value kept out of the state file?",
+    "sections": [
+      {
+        "title": "Concept check (no execution)",
+        "body": "Nothing runs here: this is a question about a platform or practice, not an execution. Answer in the file, save, and Submit; the runtime compares your answer with the pack's answer and explains it once you are right. The cheatsheet (Terraform) covers the topic."
+      }
+    ],
+    "starter_source": "Concept check (no execution): nothing runs; the runtime checks your answer when you Submit.\n\nA variable is marked sensitive = true. Is its value kept out of the state file?\n\n  a) Yes, it is encrypted in the state\n  b) No: it is hidden from plan and apply output, but the state stores it in plain text\n  c) It is not stored anywhere\n  d) It is moved to Key Vault automatically\n\nWrite the letter of your choice after \"answer:\" (several letters separated by commas if several are right), save, then Submit.\nanswer:\n",
+    "fixtures": [
+      {
+        "id": "lc-tf-sensitive-state-fixtures",
+        "version": "1"
+      }
+    ],
+    "visible_checks": [
+      {
+        "id": "format",
+        "description": "Your answer is well formed (Run checks only this)."
+      }
+    ],
+    "hidden_check_refs": [
+      "answer"
+    ],
+    "edge_check_refs": [],
+    "hints": [
+      "It is about what is printed.",
+      "Open the cheatsheet: Terraform."
+    ],
+    "solution": {
+      "available": true,
+      "reveal": "explicit"
+    },
+    "explanation": "The explanation comes with a correct submission, from the runtime.",
+    "follow_ups": [],
+    "canonical_placement": {
+      "domain": "learning-checks",
+      "topic": "terraform"
+    },
+    "related_associations": [
+      "practice/learning-checks"
+    ],
+    "validator_version": "quiz-v1",
+    "runtime_requirements": [],
+    "provenance": {
+      "source": "Authored for Datapass Workbench; checked against the vendors' and projects' documentation on 2026-10-12"
+    },
+    "constraints": {
+      "truth": "Concept check: no execution; the answer is compared by the runtime."
+    },
+    "context_refs": [
+      "reference/learning-terraform.md"
+    ],
+    "truth": "concept-check"
+  },
+  {
+    "schema_version": 1,
+    "id": "lc-tf-for-each",
+    "version": "1",
+    "title": "count or for_each",
+    "difficulty": "medium",
+    "topics": [
+      "learning-checks",
+      "terraform"
+    ],
+    "tags": [
+      "concept-check",
+      "terraform"
+    ],
+    "origin": "authored",
+    "language": "quiz",
+    "runtime": "datapass-quiz-v1",
+    "prompt": "Why prefer for_each over count for a set of named storage containers?",
+    "sections": [
+      {
+        "title": "Concept check (no execution)",
+        "body": "Nothing runs here: this is a question about a platform or practice, not an execution. Answer in the file, save, and Submit; the runtime compares your answer with the pack's answer and explains it once you are right. The cheatsheet (Terraform) covers the topic."
+      }
+    ],
+    "starter_source": "Concept check (no execution): nothing runs; the runtime checks your answer when you Submit.\n\nWhy prefer for_each over count for a set of named storage containers?\n\n  a) Removing one name with count shifts the indexes of the following ones, which plans changes to them; for_each keys instances by name\n  b) count is deprecated\n  c) for_each is faster to apply\n  d) count cannot create more than 10 instances\n\nWrite the letter of your choice after \"answer:\" (several letters separated by commas if several are right), save, then Submit.\nanswer:\n",
+    "fixtures": [
+      {
+        "id": "lc-tf-for-each-fixtures",
+        "version": "1"
+      }
+    ],
+    "visible_checks": [
+      {
+        "id": "format",
+        "description": "Your answer is well formed (Run checks only this)."
+      }
+    ],
+    "hidden_check_refs": [
+      "answer"
+    ],
+    "edge_check_refs": [],
+    "hints": [
+      "How is each instance addressed?",
+      "Open the cheatsheet: Terraform."
+    ],
+    "solution": {
+      "available": true,
+      "reveal": "explicit"
+    },
+    "explanation": "The explanation comes with a correct submission, from the runtime.",
+    "follow_ups": [],
+    "canonical_placement": {
+      "domain": "learning-checks",
+      "topic": "terraform"
+    },
+    "related_associations": [
+      "practice/learning-checks"
+    ],
+    "validator_version": "quiz-v1",
+    "runtime_requirements": [],
+    "provenance": {
+      "source": "Authored for Datapass Workbench; checked against the vendors' and projects' documentation on 2026-10-12"
+    },
+    "constraints": {
+      "truth": "Concept check: no execution; the answer is compared by the runtime."
+    },
+    "context_refs": [
+      "reference/learning-terraform.md"
+    ],
+    "truth": "concept-check"
+  },
+  {
+    "schema_version": 1,
+    "id": "lc-k8s-replicaset",
+    "version": "1",
+    "title": "What keeps the replicas running",
+    "difficulty": "easy",
+    "topics": [
+      "learning-checks",
+      "kubernetes"
+    ],
+    "tags": [
+      "concept-check",
+      "kubernetes"
+    ],
+    "origin": "authored",
+    "language": "quiz",
+    "runtime": "datapass-quiz-v1",
+    "prompt": "Which object, created and managed by a Deployment, keeps the desired number of pod replicas running?",
+    "sections": [
+      {
+        "title": "Concept check (no execution)",
+        "body": "Nothing runs here: this is a question about a platform or practice, not an execution. Answer in the file, save, and Submit; the runtime compares your answer with the pack's answer and explains it once you are right. The cheatsheet (Kubernetes) covers the topic."
+      }
+    ],
+    "starter_source": "Concept check (no execution): nothing runs; the runtime checks your answer when you Submit.\n\nWhich object, created and managed by a Deployment, keeps the desired number of pod replicas running?\n\n  a) A ReplicaSet\n  b) A Service\n  c) A ConfigMap\n  d) An Ingress\n\nWrite the letter of your choice after \"answer:\" (several letters separated by commas if several are right), save, then Submit.\nanswer:\n",
+    "fixtures": [
+      {
+        "id": "lc-k8s-replicaset-fixtures",
+        "version": "1"
+      }
+    ],
+    "visible_checks": [
+      {
+        "id": "format",
+        "description": "Your answer is well formed (Run checks only this)."
+      }
+    ],
+    "hidden_check_refs": [
+      "answer"
+    ],
+    "edge_check_refs": [],
+    "hints": [
+      "Its name says what it maintains.",
+      "Open the cheatsheet: Kubernetes."
+    ],
+    "solution": {
+      "available": true,
+      "reveal": "explicit"
+    },
+    "explanation": "The explanation comes with a correct submission, from the runtime.",
+    "follow_ups": [],
+    "canonical_placement": {
+      "domain": "learning-checks",
+      "topic": "kubernetes"
+    },
+    "related_associations": [
+      "practice/learning-checks"
+    ],
+    "validator_version": "quiz-v1",
+    "runtime_requirements": [],
+    "provenance": {
+      "source": "Authored for Datapass Workbench; checked against the vendors' and projects' documentation on 2026-10-12"
+    },
+    "constraints": {
+      "truth": "Concept check: no execution; the answer is compared by the runtime."
+    },
+    "context_refs": [
+      "reference/learning-kubernetes.md"
+    ],
+    "truth": "concept-check"
+  },
+  {
+    "schema_version": 1,
+    "id": "lc-k8s-readiness",
+    "version": "1",
+    "title": "A failing readiness probe",
+    "difficulty": "medium",
+    "topics": [
+      "learning-checks",
+      "kubernetes"
+    ],
+    "tags": [
+      "concept-check",
+      "kubernetes"
+    ],
+    "origin": "authored",
+    "language": "quiz",
+    "runtime": "datapass-quiz-v1",
+    "prompt": "A pod's readiness probe starts failing. What happens?",
+    "sections": [
+      {
+        "title": "Concept check (no execution)",
+        "body": "Nothing runs here: this is a question about a platform or practice, not an execution. Answer in the file, save, and Submit; the runtime compares your answer with the pack's answer and explains it once you are right. The cheatsheet (Kubernetes) covers the topic."
+      }
+    ],
+    "starter_source": "Concept check (no execution): nothing runs; the runtime checks your answer when you Submit.\n\nA pod's readiness probe starts failing. What happens?\n\n  a) The container is restarted\n  b) The pod is removed from its Services' endpoints until the probe passes again\n  c) The node is drained\n  d) The Deployment is rolled back\n\nWrite the letter of your choice after \"answer:\" (several letters separated by commas if several are right), save, then Submit.\nanswer:\n",
+    "fixtures": [
+      {
+        "id": "lc-k8s-readiness-fixtures",
+        "version": "1"
+      }
+    ],
+    "visible_checks": [
+      {
+        "id": "format",
+        "description": "Your answer is well formed (Run checks only this)."
+      }
+    ],
+    "hidden_check_refs": [
+      "answer"
+    ],
+    "edge_check_refs": [],
+    "hints": [
+      "Readiness is about traffic.",
+      "Open the cheatsheet: Kubernetes."
+    ],
+    "solution": {
+      "available": true,
+      "reveal": "explicit"
+    },
+    "explanation": "The explanation comes with a correct submission, from the runtime.",
+    "follow_ups": [],
+    "canonical_placement": {
+      "domain": "learning-checks",
+      "topic": "kubernetes"
+    },
+    "related_associations": [
+      "practice/learning-checks"
+    ],
+    "validator_version": "quiz-v1",
+    "runtime_requirements": [],
+    "provenance": {
+      "source": "Authored for Datapass Workbench; checked against the vendors' and projects' documentation on 2026-10-12"
+    },
+    "constraints": {
+      "truth": "Concept check: no execution; the answer is compared by the runtime."
+    },
+    "context_refs": [
+      "reference/learning-kubernetes.md"
+    ],
+    "truth": "concept-check"
+  },
+  {
+    "schema_version": 1,
+    "id": "lc-k8s-default-service",
+    "version": "1",
+    "title": "The default Service type",
+    "difficulty": "easy",
+    "topics": [
+      "learning-checks",
+      "kubernetes"
+    ],
+    "tags": [
+      "concept-check",
+      "kubernetes"
+    ],
+    "origin": "authored",
+    "language": "quiz",
+    "runtime": "datapass-quiz-v1",
+    "prompt": "What is the default type of a Kubernetes Service? (the type name)",
+    "sections": [
+      {
+        "title": "Concept check (no execution)",
+        "body": "Nothing runs here: this is a question about a platform or practice, not an execution. Answer in the file, save, and Submit; the runtime compares your answer with the pack's answer and explains it once you are right. The cheatsheet (Kubernetes) covers the topic."
+      }
+    ],
+    "starter_source": "Concept check (no execution): nothing runs; the runtime checks your answer when you Submit.\n\nWhat is the default type of a Kubernetes Service? (the type name)\n\nWrite your short answer after \"answer:\", save, then Submit.\nanswer:\n",
+    "fixtures": [
+      {
+        "id": "lc-k8s-default-service-fixtures",
+        "version": "1"
+      }
+    ],
+    "visible_checks": [
+      {
+        "id": "format",
+        "description": "Your answer is well formed (Run checks only this)."
+      }
+    ],
+    "hidden_check_refs": [
+      "answer"
+    ],
+    "edge_check_refs": [],
+    "hints": [
+      "Reachable inside the cluster only.",
+      "Open the cheatsheet: Kubernetes."
+    ],
+    "solution": {
+      "available": true,
+      "reveal": "explicit"
+    },
+    "explanation": "The explanation comes with a correct submission, from the runtime.",
+    "follow_ups": [],
+    "canonical_placement": {
+      "domain": "learning-checks",
+      "topic": "kubernetes"
+    },
+    "related_associations": [
+      "practice/learning-checks"
+    ],
+    "validator_version": "quiz-v1",
+    "runtime_requirements": [],
+    "provenance": {
+      "source": "Authored for Datapass Workbench; checked against the vendors' and projects' documentation on 2026-10-12"
+    },
+    "constraints": {
+      "truth": "Concept check: no execution; the answer is compared by the runtime."
+    },
+    "context_refs": [
+      "reference/learning-kubernetes.md"
+    ],
+    "truth": "concept-check"
+  },
+  {
+    "schema_version": 1,
+    "id": "lc-k8s-memory-limit",
+    "version": "1",
+    "title": "Over the memory limit",
+    "difficulty": "medium",
+    "topics": [
+      "learning-checks",
+      "kubernetes"
+    ],
+    "tags": [
+      "concept-check",
+      "kubernetes"
+    ],
+    "origin": "authored",
+    "language": "quiz",
+    "runtime": "datapass-quiz-v1",
+    "prompt": "A container uses more memory than its limit. What happens?",
+    "sections": [
+      {
+        "title": "Concept check (no execution)",
+        "body": "Nothing runs here: this is a question about a platform or practice, not an execution. Answer in the file, save, and Submit; the runtime compares your answer with the pack's answer and explains it once you are right. The cheatsheet (Kubernetes) covers the topic."
+      }
+    ],
+    "starter_source": "Concept check (no execution): nothing runs; the runtime checks your answer when you Submit.\n\nA container uses more memory than its limit. What happens?\n\n  a) It is throttled\n  b) It is killed (OOMKilled) and restarted according to the restart policy\n  c) It is moved to another node\n  d) Nothing: limits are advisory\n\nWrite the letter of your choice after \"answer:\" (several letters separated by commas if several are right), save, then Submit.\nanswer:\n",
+    "fixtures": [
+      {
+        "id": "lc-k8s-memory-limit-fixtures",
+        "version": "1"
+      }
+    ],
+    "visible_checks": [
+      {
+        "id": "format",
+        "description": "Your answer is well formed (Run checks only this)."
+      }
+    ],
+    "hidden_check_refs": [
+      "answer"
+    ],
+    "edge_check_refs": [],
+    "hints": [
+      "Memory cannot be slowed down.",
+      "Open the cheatsheet: Kubernetes."
+    ],
+    "solution": {
+      "available": true,
+      "reveal": "explicit"
+    },
+    "explanation": "The explanation comes with a correct submission, from the runtime.",
+    "follow_ups": [],
+    "canonical_placement": {
+      "domain": "learning-checks",
+      "topic": "kubernetes"
+    },
+    "related_associations": [
+      "practice/learning-checks"
+    ],
+    "validator_version": "quiz-v1",
+    "runtime_requirements": [],
+    "provenance": {
+      "source": "Authored for Datapass Workbench; checked against the vendors' and projects' documentation on 2026-10-12"
+    },
+    "constraints": {
+      "truth": "Concept check: no execution; the answer is compared by the runtime."
+    },
+    "context_refs": [
+      "reference/learning-kubernetes.md"
+    ],
+    "truth": "concept-check"
+  },
+  {
+    "schema_version": 1,
+    "id": "lc-k8s-crashloop",
+    "version": "1",
+    "title": "CrashLoopBackOff",
+    "difficulty": "medium",
+    "topics": [
+      "learning-checks",
+      "kubernetes"
+    ],
+    "tags": [
+      "concept-check",
+      "kubernetes"
+    ],
+    "origin": "authored",
+    "language": "quiz",
+    "runtime": "datapass-quiz-v1",
+    "prompt": "A pod shows CrashLoopBackOff. What does it mean?",
+    "sections": [
+      {
+        "title": "Concept check (no execution)",
+        "body": "Nothing runs here: this is a question about a platform or practice, not an execution. Answer in the file, save, and Submit; the runtime compares your answer with the pack's answer and explains it once you are right. The cheatsheet (Kubernetes) covers the topic."
+      }
+    ],
+    "starter_source": "Concept check (no execution): nothing runs; the runtime checks your answer when you Submit.\n\nA pod shows CrashLoopBackOff. What does it mean?\n\n  a) The image cannot be pulled\n  b) The container keeps exiting after it starts, and the kubelet waits longer before each restart\n  c) The pod cannot be scheduled\n  d) The readiness probe fails\n\nWrite the letter of your choice after \"answer:\" (several letters separated by commas if several are right), save, then Submit.\nanswer:\n",
+    "fixtures": [
+      {
+        "id": "lc-k8s-crashloop-fixtures",
+        "version": "1"
+      }
+    ],
+    "visible_checks": [
+      {
+        "id": "format",
+        "description": "Your answer is well formed (Run checks only this)."
+      }
+    ],
+    "hidden_check_refs": [
+      "answer"
+    ],
+    "edge_check_refs": [],
+    "hints": [
+      "Crash, then back off.",
+      "Open the cheatsheet: Kubernetes."
+    ],
+    "solution": {
+      "available": true,
+      "reveal": "explicit"
+    },
+    "explanation": "The explanation comes with a correct submission, from the runtime.",
+    "follow_ups": [],
+    "canonical_placement": {
+      "domain": "learning-checks",
+      "topic": "kubernetes"
+    },
+    "related_associations": [
+      "practice/learning-checks"
+    ],
+    "validator_version": "quiz-v1",
+    "runtime_requirements": [],
+    "provenance": {
+      "source": "Authored for Datapass Workbench; checked against the vendors' and projects' documentation on 2026-10-12"
+    },
+    "constraints": {
+      "truth": "Concept check: no execution; the answer is compared by the runtime."
+    },
+    "context_refs": [
+      "reference/learning-kubernetes.md"
+    ],
+    "truth": "concept-check"
+  },
+  {
+    "schema_version": 1,
+    "id": "lc-linux-chmod-750",
+    "version": "1",
+    "title": "chmod 750",
+    "difficulty": "easy",
+    "topics": [
+      "learning-checks",
+      "linux-vm"
+    ],
+    "tags": [
+      "concept-check",
+      "linux-vm"
+    ],
+    "origin": "authored",
+    "language": "quiz",
+    "runtime": "datapass-quiz-v1",
+    "prompt": "What does chmod 750 run.sh grant?",
+    "sections": [
+      {
+        "title": "Concept check (no execution)",
+        "body": "Nothing runs here: this is a question about a platform or practice, not an execution. Answer in the file, save, and Submit; the runtime compares your answer with the pack's answer and explains it once you are right. The cheatsheet (Linux and VMs) covers the topic."
+      }
+    ],
+    "starter_source": "Concept check (no execution): nothing runs; the runtime checks your answer when you Submit.\n\nWhat does chmod 750 run.sh grant?\n\n  a) Owner read/write/execute, group read/execute, others nothing\n  b) Everyone read/write/execute\n  c) Owner read only\n  d) Owner execute, group write, others nothing\n\nWrite the letter of your choice after \"answer:\" (several letters separated by commas if several are right), save, then Submit.\nanswer:\n",
+    "fixtures": [
+      {
+        "id": "lc-linux-chmod-750-fixtures",
+        "version": "1"
+      }
+    ],
+    "visible_checks": [
+      {
+        "id": "format",
+        "description": "Your answer is well formed (Run checks only this)."
+      }
+    ],
+    "hidden_check_refs": [
+      "answer"
+    ],
+    "edge_check_refs": [],
+    "hints": [
+      "4 + 2 + 1.",
+      "Open the cheatsheet: Linux and VMs."
+    ],
+    "solution": {
+      "available": true,
+      "reveal": "explicit"
+    },
+    "explanation": "The explanation comes with a correct submission, from the runtime.",
+    "follow_ups": [],
+    "canonical_placement": {
+      "domain": "learning-checks",
+      "topic": "linux-vm"
+    },
+    "related_associations": [
+      "practice/learning-checks"
+    ],
+    "validator_version": "quiz-v1",
+    "runtime_requirements": [],
+    "provenance": {
+      "source": "Authored for Datapass Workbench; checked against the vendors' and projects' documentation on 2026-10-12"
+    },
+    "constraints": {
+      "truth": "Concept check: no execution; the answer is compared by the runtime."
+    },
+    "context_refs": [
+      "reference/learning-linux-vm.md"
+    ],
+    "truth": "concept-check"
+  },
+  {
+    "schema_version": 1,
+    "id": "lc-linux-exit-status",
+    "version": "1",
+    "title": "Exit status",
+    "difficulty": "easy",
+    "topics": [
+      "learning-checks",
+      "linux-vm"
+    ],
+    "tags": [
+      "concept-check",
+      "linux-vm"
+    ],
+    "origin": "authored",
+    "language": "quiz",
+    "runtime": "datapass-quiz-v1",
+    "prompt": "In bash, what does $? hold right after a command?",
+    "sections": [
+      {
+        "title": "Concept check (no execution)",
+        "body": "Nothing runs here: this is a question about a platform or practice, not an execution. Answer in the file, save, and Submit; the runtime compares your answer with the pack's answer and explains it once you are right. The cheatsheet (Linux and VMs) covers the topic."
+      }
+    ],
+    "starter_source": "Concept check (no execution): nothing runs; the runtime checks your answer when you Submit.\n\nIn bash, what does $? hold right after a command?\n\n  a) The exit status of that command: 0 means success\n  b) The process id\n  c) The number of arguments\n  d) The last line of output\n\nWrite the letter of your choice after \"answer:\" (several letters separated by commas if several are right), save, then Submit.\nanswer:\n",
+    "fixtures": [
+      {
+        "id": "lc-linux-exit-status-fixtures",
+        "version": "1"
+      }
+    ],
+    "visible_checks": [
+      {
+        "id": "format",
+        "description": "Your answer is well formed (Run checks only this)."
+      }
+    ],
+    "hidden_check_refs": [
+      "answer"
+    ],
+    "edge_check_refs": [],
+    "hints": [
+      "Zero is good news.",
+      "Open the cheatsheet: Linux and VMs."
+    ],
+    "solution": {
+      "available": true,
+      "reveal": "explicit"
+    },
+    "explanation": "The explanation comes with a correct submission, from the runtime.",
+    "follow_ups": [],
+    "canonical_placement": {
+      "domain": "learning-checks",
+      "topic": "linux-vm"
+    },
+    "related_associations": [
+      "practice/learning-checks"
+    ],
+    "validator_version": "quiz-v1",
+    "runtime_requirements": [],
+    "provenance": {
+      "source": "Authored for Datapass Workbench; checked against the vendors' and projects' documentation on 2026-10-12"
+    },
+    "constraints": {
+      "truth": "Concept check: no execution; the answer is compared by the runtime."
+    },
+    "context_refs": [
+      "reference/learning-linux-vm.md"
+    ],
+    "truth": "concept-check"
+  },
+  {
+    "schema_version": 1,
+    "id": "lc-linux-df",
+    "version": "1",
+    "title": "Is the disk full?",
+    "difficulty": "easy",
+    "topics": [
+      "learning-checks",
+      "linux-vm"
+    ],
+    "tags": [
+      "concept-check",
+      "linux-vm"
+    ],
+    "origin": "authored",
+    "language": "quiz",
+    "runtime": "datapass-quiz-v1",
+    "prompt": "Which command shows used and free space for each mounted filesystem?",
+    "sections": [
+      {
+        "title": "Concept check (no execution)",
+        "body": "Nothing runs here: this is a question about a platform or practice, not an execution. Answer in the file, save, and Submit; the runtime compares your answer with the pack's answer and explains it once you are right. The cheatsheet (Linux and VMs) covers the topic."
+      }
+    ],
+    "starter_source": "Concept check (no execution): nothing runs; the runtime checks your answer when you Submit.\n\nWhich command shows used and free space for each mounted filesystem?\n\n  a) df -h\n  b) du -sh *\n  c) free -m\n  d) top\n\nWrite the letter of your choice after \"answer:\" (several letters separated by commas if several are right), save, then Submit.\nanswer:\n",
+    "fixtures": [
+      {
+        "id": "lc-linux-df-fixtures",
+        "version": "1"
+      }
+    ],
+    "visible_checks": [
+      {
+        "id": "format",
+        "description": "Your answer is well formed (Run checks only this)."
+      }
+    ],
+    "hidden_check_refs": [
+      "answer"
+    ],
+    "edge_check_refs": [],
+    "hints": [
+      "Disk free.",
+      "Open the cheatsheet: Linux and VMs."
+    ],
+    "solution": {
+      "available": true,
+      "reveal": "explicit"
+    },
+    "explanation": "The explanation comes with a correct submission, from the runtime.",
+    "follow_ups": [],
+    "canonical_placement": {
+      "domain": "learning-checks",
+      "topic": "linux-vm"
+    },
+    "related_associations": [
+      "practice/learning-checks"
+    ],
+    "validator_version": "quiz-v1",
+    "runtime_requirements": [],
+    "provenance": {
+      "source": "Authored for Datapass Workbench; checked against the vendors' and projects' documentation on 2026-10-12"
+    },
+    "constraints": {
+      "truth": "Concept check: no execution; the answer is compared by the runtime."
+    },
+    "context_refs": [
+      "reference/learning-linux-vm.md"
+    ],
+    "truth": "concept-check"
+  },
+  {
+    "schema_version": 1,
+    "id": "lc-linux-load-average",
+    "version": "1",
+    "title": "Load average on a small VM",
+    "difficulty": "medium",
+    "topics": [
+      "learning-checks",
+      "linux-vm"
+    ],
+    "tags": [
+      "concept-check",
+      "linux-vm"
+    ],
+    "origin": "authored",
+    "language": "quiz",
+    "runtime": "datapass-quiz-v1",
+    "prompt": "A 4-vCPU VM shows a sustained load average of 8.0. What does it suggest?",
+    "sections": [
+      {
+        "title": "Concept check (no execution)",
+        "body": "Nothing runs here: this is a question about a platform or practice, not an execution. Answer in the file, save, and Submit; the runtime compares your answer with the pack's answer and explains it once you are right. The cheatsheet (Linux and VMs) covers the topic."
+      }
+    ],
+    "starter_source": "Concept check (no execution): nothing runs; the runtime checks your answer when you Submit.\n\nA 4-vCPU VM shows a sustained load average of 8.0. What does it suggest?\n\n  a) The VM is idle\n  b) About twice as many tasks want to run (or wait on I/O) as there are CPUs\n  c) 8 GB of memory are used\n  d) 8 users are logged in\n\nWrite the letter of your choice after \"answer:\" (several letters separated by commas if several are right), save, then Submit.\nanswer:\n",
+    "fixtures": [
+      {
+        "id": "lc-linux-load-average-fixtures",
+        "version": "1"
+      }
+    ],
+    "visible_checks": [
+      {
+        "id": "format",
+        "description": "Your answer is well formed (Run checks only this)."
+      }
+    ],
+    "hidden_check_refs": [
+      "answer"
+    ],
+    "edge_check_refs": [],
+    "hints": [
+      "Compare it with the CPU count.",
+      "Open the cheatsheet: Linux and VMs."
+    ],
+    "solution": {
+      "available": true,
+      "reveal": "explicit"
+    },
+    "explanation": "The explanation comes with a correct submission, from the runtime.",
+    "follow_ups": [],
+    "canonical_placement": {
+      "domain": "learning-checks",
+      "topic": "linux-vm"
+    },
+    "related_associations": [
+      "practice/learning-checks"
+    ],
+    "validator_version": "quiz-v1",
+    "runtime_requirements": [],
+    "provenance": {
+      "source": "Authored for Datapass Workbench; checked against the vendors' and projects' documentation on 2026-10-12"
+    },
+    "constraints": {
+      "truth": "Concept check: no execution; the answer is compared by the runtime."
+    },
+    "context_refs": [
+      "reference/learning-linux-vm.md"
+    ],
+    "truth": "concept-check"
+  },
+  {
+    "schema_version": 1,
+    "id": "lc-vm-alert-window",
+    "version": "1",
+    "title": "A short spike and a metric alert",
+    "difficulty": "medium",
+    "topics": [
+      "learning-checks",
+      "linux-vm"
+    ],
+    "tags": [
+      "concept-check",
+      "linux-vm"
+    ],
+    "origin": "authored",
+    "language": "quiz",
+    "runtime": "datapass-quiz-v1",
+    "prompt": "An Azure Monitor metric alert fires when average CPU > 80% over a 5-minute window, evaluated every minute. CPU spikes to 100% for 30 seconds and is 20% otherwise. Does it fire?",
+    "sections": [
+      {
+        "title": "Concept check (no execution)",
+        "body": "Nothing runs here: this is a question about a platform or practice, not an execution. Answer in the file, save, and Submit; the runtime compares your answer with the pack's answer and explains it once you are right. The cheatsheet (Linux and VMs) covers the topic."
+      }
+    ],
+    "starter_source": "Concept check (no execution): nothing runs; the runtime checks your answer when you Submit.\n\nAn Azure Monitor metric alert fires when average CPU > 80% over a 5-minute window, evaluated every minute. CPU spikes to 100% for 30 seconds and is 20% otherwise. Does it fire?\n\n  a) Yes, as soon as CPU reaches 100%\n  b) No: the 5-minute average stays well under 80%\n  c) Yes, after 5 minutes\n  d) Only if the VM restarts\n\nWrite the letter of your choice after \"answer:\" (several letters separated by commas if several are right), save, then Submit.\nanswer:\n",
+    "fixtures": [
+      {
+        "id": "lc-vm-alert-window-fixtures",
+        "version": "1"
+      }
+    ],
+    "visible_checks": [
+      {
+        "id": "format",
+        "description": "Your answer is well formed (Run checks only this)."
+      }
+    ],
+    "hidden_check_refs": [
+      "answer"
+    ],
+    "edge_check_refs": [],
+    "hints": [
+      "Compute the 5-minute average.",
+      "Open the cheatsheet: Linux and VMs."
+    ],
+    "solution": {
+      "available": true,
+      "reveal": "explicit"
+    },
+    "explanation": "The explanation comes with a correct submission, from the runtime.",
+    "follow_ups": [],
+    "canonical_placement": {
+      "domain": "learning-checks",
+      "topic": "linux-vm"
+    },
+    "related_associations": [
+      "practice/learning-checks"
+    ],
+    "validator_version": "quiz-v1",
+    "runtime_requirements": [],
+    "provenance": {
+      "source": "Authored for Datapass Workbench; checked against the vendors' and projects' documentation on 2026-10-12"
+    },
+    "constraints": {
+      "truth": "Concept check: no execution; the answer is compared by the runtime."
+    },
+    "context_refs": [
+      "reference/learning-linux-vm.md"
+    ],
+    "truth": "concept-check"
+  },
+  {
+    "schema_version": 1,
+    "id": "lc-bi-star-dimensions",
+    "version": "1",
+    "title": "Dimensions in a star schema",
+    "difficulty": "easy",
+    "topics": [
+      "learning-checks",
+      "bi"
+    ],
+    "tags": [
+      "concept-check",
+      "bi"
+    ],
+    "origin": "authored",
+    "language": "quiz",
+    "runtime": "datapass-quiz-v1",
+    "prompt": "In a star schema, what do dimension tables look like?",
+    "sections": [
+      {
+        "title": "Concept check (no execution)",
+        "body": "Nothing runs here: this is a question about a platform or practice, not an execution. Answer in the file, save, and Submit; the runtime compares your answer with the pack's answer and explains it once you are right. The cheatsheet (BI and dimensional modeling) covers the topic."
+      }
+    ],
+    "starter_source": "Concept check (no execution): nothing runs; the runtime checks your answer when you Submit.\n\nIn a star schema, what do dimension tables look like?\n\n  a) Denormalized, each joined directly to the fact table\n  b) Normalized into chains of sub-tables\n  c) Stored inside the fact table\n  d) Only numbers\n\nWrite the letter of your choice after \"answer:\" (several letters separated by commas if several are right), save, then Submit.\nanswer:\n",
+    "fixtures": [
+      {
+        "id": "lc-bi-star-dimensions-fixtures",
+        "version": "1"
+      }
+    ],
+    "visible_checks": [
+      {
+        "id": "format",
+        "description": "Your answer is well formed (Run checks only this)."
+      }
+    ],
+    "hidden_check_refs": [
+      "answer"
+    ],
+    "edge_check_refs": [],
+    "hints": [
+      "One join from fact to each dimension.",
+      "Open the cheatsheet: BI and dimensional modeling."
+    ],
+    "solution": {
+      "available": true,
+      "reveal": "explicit"
+    },
+    "explanation": "The explanation comes with a correct submission, from the runtime.",
+    "follow_ups": [],
+    "canonical_placement": {
+      "domain": "learning-checks",
+      "topic": "bi"
+    },
+    "related_associations": [
+      "practice/learning-checks"
+    ],
+    "validator_version": "quiz-v1",
+    "runtime_requirements": [],
+    "provenance": {
+      "source": "Authored for Datapass Workbench; checked against the vendors' and projects' documentation on 2026-10-12"
+    },
+    "constraints": {
+      "truth": "Concept check: no execution; the answer is compared by the runtime."
+    },
+    "context_refs": [
+      "reference/learning-bi.md"
+    ],
+    "truth": "concept-check"
+  },
+  {
+    "schema_version": 1,
+    "id": "lc-bi-semi-additive",
+    "version": "1",
+    "title": "A semi-additive measure",
+    "difficulty": "medium",
+    "topics": [
+      "learning-checks",
+      "bi"
+    ],
+    "tags": [
+      "concept-check",
+      "bi"
+    ],
+    "origin": "authored",
+    "language": "quiz",
+    "runtime": "datapass-quiz-v1",
+    "prompt": "Which measure is semi-additive (it can be summed over some dimensions but not over time)?",
+    "sections": [
+      {
+        "title": "Concept check (no execution)",
+        "body": "Nothing runs here: this is a question about a platform or practice, not an execution. Answer in the file, save, and Submit; the runtime compares your answer with the pack's answer and explains it once you are right. The cheatsheet (BI and dimensional modeling) covers the topic."
+      }
+    ],
+    "starter_source": "Concept check (no execution): nothing runs; the runtime checks your answer when you Submit.\n\nWhich measure is semi-additive (it can be summed over some dimensions but not over time)?\n\n  a) Sales amount\n  b) Account balance\n  c) Quantity sold\n  d) Number of orders\n\nWrite the letter of your choice after \"answer:\" (several letters separated by commas if several are right), save, then Submit.\nanswer:\n",
+    "fixtures": [
+      {
+        "id": "lc-bi-semi-additive-fixtures",
+        "version": "1"
+      }
+    ],
+    "visible_checks": [
+      {
+        "id": "format",
+        "description": "Your answer is well formed (Run checks only this)."
+      }
+    ],
+    "hidden_check_refs": [
+      "answer"
+    ],
+    "edge_check_refs": [],
+    "hints": [
+      "Think of a daily snapshot.",
+      "Open the cheatsheet: BI and dimensional modeling."
+    ],
+    "solution": {
+      "available": true,
+      "reveal": "explicit"
+    },
+    "explanation": "The explanation comes with a correct submission, from the runtime.",
+    "follow_ups": [],
+    "canonical_placement": {
+      "domain": "learning-checks",
+      "topic": "bi"
+    },
+    "related_associations": [
+      "practice/learning-checks"
+    ],
+    "validator_version": "quiz-v1",
+    "runtime_requirements": [],
+    "provenance": {
+      "source": "Authored for Datapass Workbench; checked against the vendors' and projects' documentation on 2026-10-12"
+    },
+    "constraints": {
+      "truth": "Concept check: no execution; the answer is compared by the runtime."
+    },
+    "context_refs": [
+      "reference/learning-bi.md"
+    ],
+    "truth": "concept-check"
+  },
+  {
+    "schema_version": 1,
+    "id": "lc-bi-scd2-current",
+    "version": "1",
+    "title": "Current rows of a type 2 dimension",
+    "difficulty": "easy",
+    "topics": [
+      "learning-checks",
+      "bi"
+    ],
+    "tags": [
+      "concept-check",
+      "bi"
+    ],
+    "origin": "authored",
+    "language": "quiz",
+    "runtime": "datapass-quiz-v1",
+    "prompt": "In an SCD type 2 customer dimension, how do you select each customer's current version?",
+    "sections": [
+      {
+        "title": "Concept check (no execution)",
+        "body": "Nothing runs here: this is a question about a platform or practice, not an execution. Answer in the file, save, and Submit; the runtime compares your answer with the pack's answer and explains it once you are right. The cheatsheet (BI and dimensional modeling) covers the topic."
+      }
+    ],
+    "starter_source": "Concept check (no execution): nothing runs; the runtime checks your answer when you Submit.\n\nIn an SCD type 2 customer dimension, how do you select each customer's current version?\n\n  a) The row with the highest surrogate key in the whole table\n  b) Rows flagged current (or whose valid_to is open or the end-of-time date)\n  c) Any row\n  d) The row with the oldest valid_from\n\nWrite the letter of your choice after \"answer:\" (several letters separated by commas if several are right), save, then Submit.\nanswer:\n",
+    "fixtures": [
+      {
+        "id": "lc-bi-scd2-current-fixtures",
+        "version": "1"
+      }
+    ],
+    "visible_checks": [
+      {
+        "id": "format",
+        "description": "Your answer is well formed (Run checks only this)."
+      }
+    ],
+    "hidden_check_refs": [
+      "answer"
+    ],
+    "edge_check_refs": [],
+    "hints": [
+      "The version that has not ended yet.",
+      "Open the cheatsheet: BI and dimensional modeling."
+    ],
+    "solution": {
+      "available": true,
+      "reveal": "explicit"
+    },
+    "explanation": "The explanation comes with a correct submission, from the runtime.",
+    "follow_ups": [],
+    "canonical_placement": {
+      "domain": "learning-checks",
+      "topic": "bi"
+    },
+    "related_associations": [
+      "practice/learning-checks"
+    ],
+    "validator_version": "quiz-v1",
+    "runtime_requirements": [],
+    "provenance": {
+      "source": "Authored for Datapass Workbench; checked against the vendors' and projects' documentation on 2026-10-12"
+    },
+    "constraints": {
+      "truth": "Concept check: no execution; the answer is compared by the runtime."
+    },
+    "context_refs": [
+      "reference/learning-bi.md"
+    ],
+    "truth": "concept-check"
+  },
+  {
+    "schema_version": 1,
+    "id": "lc-bi-filter-direction",
+    "version": "1",
+    "title": "Cross-filter direction",
+    "difficulty": "medium",
+    "topics": [
+      "learning-checks",
+      "bi"
+    ],
+    "tags": [
+      "concept-check",
+      "bi"
+    ],
+    "origin": "authored",
+    "language": "quiz",
+    "runtime": "datapass-quiz-v1",
+    "prompt": "In Power BI, what is the default cross-filter direction of a one-to-many relationship from a dimension to a fact table?",
+    "sections": [
+      {
+        "title": "Concept check (no execution)",
+        "body": "Nothing runs here: this is a question about a platform or practice, not an execution. Answer in the file, save, and Submit; the runtime compares your answer with the pack's answer and explains it once you are right. The cheatsheet (BI and dimensional modeling) covers the topic."
+      }
+    ],
+    "starter_source": "Concept check (no execution): nothing runs; the runtime checks your answer when you Submit.\n\nIn Power BI, what is the default cross-filter direction of a one-to-many relationship from a dimension to a fact table?\n\n  a) Single: the dimension filters the fact\n  b) Both\n  c) None\n  d) The fact filters the dimension\n\nWrite the letter of your choice after \"answer:\" (several letters separated by commas if several are right), save, then Submit.\nanswer:\n",
+    "fixtures": [
+      {
+        "id": "lc-bi-filter-direction-fixtures",
+        "version": "1"
+      }
+    ],
+    "visible_checks": [
+      {
+        "id": "format",
+        "description": "Your answer is well formed (Run checks only this)."
+      }
+    ],
+    "hidden_check_refs": [
+      "answer"
+    ],
+    "edge_check_refs": [],
+    "hints": [
+      "Filters flow from the one side.",
+      "Open the cheatsheet: BI and dimensional modeling."
+    ],
+    "solution": {
+      "available": true,
+      "reveal": "explicit"
+    },
+    "explanation": "The explanation comes with a correct submission, from the runtime.",
+    "follow_ups": [],
+    "canonical_placement": {
+      "domain": "learning-checks",
+      "topic": "bi"
+    },
+    "related_associations": [
+      "practice/learning-checks"
+    ],
+    "validator_version": "quiz-v1",
+    "runtime_requirements": [],
+    "provenance": {
+      "source": "Authored for Datapass Workbench; checked against the vendors' and projects' documentation on 2026-10-12"
+    },
+    "constraints": {
+      "truth": "Concept check: no execution; the answer is compared by the runtime."
+    },
+    "context_refs": [
+      "reference/learning-bi.md"
+    ],
+    "truth": "concept-check"
+  },
+  {
+    "schema_version": 1,
+    "id": "lc-bi-import-mode",
+    "version": "1",
+    "title": "Import versus DirectQuery",
+    "difficulty": "easy",
+    "topics": [
+      "learning-checks",
+      "bi"
+    ],
+    "tags": [
+      "concept-check",
+      "bi"
+    ],
+    "origin": "authored",
+    "language": "quiz",
+    "runtime": "datapass-quiz-v1",
+    "prompt": "Which Power BI storage mode keeps a compressed copy of the data inside the semantic model?",
+    "sections": [
+      {
+        "title": "Concept check (no execution)",
+        "body": "Nothing runs here: this is a question about a platform or practice, not an execution. Answer in the file, save, and Submit; the runtime compares your answer with the pack's answer and explains it once you are right. The cheatsheet (BI and dimensional modeling) covers the topic."
+      }
+    ],
+    "starter_source": "Concept check (no execution): nothing runs; the runtime checks your answer when you Submit.\n\nWhich Power BI storage mode keeps a compressed copy of the data inside the semantic model?\n\n  a) Import\n  b) DirectQuery\n  c) Live connection\n  d) None of them\n\nWrite the letter of your choice after \"answer:\" (several letters separated by commas if several are right), save, then Submit.\nanswer:\n",
+    "fixtures": [
+      {
+        "id": "lc-bi-import-mode-fixtures",
+        "version": "1"
+      }
+    ],
+    "visible_checks": [
+      {
+        "id": "format",
+        "description": "Your answer is well formed (Run checks only this)."
+      }
+    ],
+    "hidden_check_refs": [
+      "answer"
+    ],
+    "edge_check_refs": [],
+    "hints": [
+      "It brings the data in.",
+      "Open the cheatsheet: BI and dimensional modeling."
+    ],
+    "solution": {
+      "available": true,
+      "reveal": "explicit"
+    },
+    "explanation": "The explanation comes with a correct submission, from the runtime.",
+    "follow_ups": [],
+    "canonical_placement": {
+      "domain": "learning-checks",
+      "topic": "bi"
+    },
+    "related_associations": [
+      "practice/learning-checks"
+    ],
+    "validator_version": "quiz-v1",
+    "runtime_requirements": [],
+    "provenance": {
+      "source": "Authored for Datapass Workbench; checked against the vendors' and projects' documentation on 2026-10-12"
+    },
+    "constraints": {
+      "truth": "Concept check: no execution; the answer is compared by the runtime."
+    },
+    "context_refs": [
+      "reference/learning-bi.md"
+    ],
+    "truth": "concept-check"
+  },
+  {
+    "schema_version": 1,
+    "id": "lc-gov-rls",
+    "version": "1",
+    "title": "Row-level security",
+    "difficulty": "easy",
+    "topics": [
+      "learning-checks",
+      "governance"
+    ],
+    "tags": [
+      "concept-check",
+      "governance"
+    ],
+    "origin": "authored",
+    "language": "quiz",
+    "runtime": "datapass-quiz-v1",
+    "prompt": "What does row-level security restrict?",
+    "sections": [
+      {
+        "title": "Concept check (no execution)",
+        "body": "Nothing runs here: this is a question about a platform or practice, not an execution. Answer in the file, save, and Submit; the runtime compares your answer with the pack's answer and explains it once you are right. The cheatsheet (Data governance) covers the topic."
+      }
+    ],
+    "starter_source": "Concept check (no execution): nothing runs; the runtime checks your answer when you Submit.\n\nWhat does row-level security restrict?\n\n  a) Which rows of a table a user can read\n  b) Which columns a user can read\n  c) How fast a query runs\n  d) Who can create tables\n\nWrite the letter of your choice after \"answer:\" (several letters separated by commas if several are right), save, then Submit.\nanswer:\n",
+    "fixtures": [
+      {
+        "id": "lc-gov-rls-fixtures",
+        "version": "1"
+      }
+    ],
+    "visible_checks": [
+      {
+        "id": "format",
+        "description": "Your answer is well formed (Run checks only this)."
+      }
+    ],
+    "hidden_check_refs": [
+      "answer"
+    ],
+    "edge_check_refs": [],
+    "hints": [
+      "It is in the name.",
+      "Open the cheatsheet: Data governance."
+    ],
+    "solution": {
+      "available": true,
+      "reveal": "explicit"
+    },
+    "explanation": "The explanation comes with a correct submission, from the runtime.",
+    "follow_ups": [],
+    "canonical_placement": {
+      "domain": "learning-checks",
+      "topic": "governance"
+    },
+    "related_associations": [
+      "practice/learning-checks"
+    ],
+    "validator_version": "quiz-v1",
+    "runtime_requirements": [],
+    "provenance": {
+      "source": "Authored for Datapass Workbench; checked against the vendors' and projects' documentation on 2026-10-12"
+    },
+    "constraints": {
+      "truth": "Concept check: no execution; the answer is compared by the runtime."
+    },
+    "context_refs": [
+      "reference/learning-governance.md"
+    ],
+    "truth": "concept-check"
+  },
+  {
+    "schema_version": 1,
+    "id": "lc-gov-masking",
+    "version": "1",
+    "title": "Dynamic data masking",
+    "difficulty": "medium",
+    "topics": [
+      "learning-checks",
+      "governance"
+    ],
+    "tags": [
+      "concept-check",
+      "governance"
+    ],
+    "origin": "authored",
+    "language": "quiz",
+    "runtime": "datapass-quiz-v1",
+    "prompt": "Does dynamic data masking (SQL Server, Azure SQL, Synapse, Fabric Warehouse) encrypt the stored data?",
+    "sections": [
+      {
+        "title": "Concept check (no execution)",
+        "body": "Nothing runs here: this is a question about a platform or practice, not an execution. Answer in the file, save, and Submit; the runtime compares your answer with the pack's answer and explains it once you are right. The cheatsheet (Data governance) covers the topic."
+      }
+    ],
+    "starter_source": "Concept check (no execution): nothing runs; the runtime checks your answer when you Submit.\n\nDoes dynamic data masking (SQL Server, Azure SQL, Synapse, Fabric Warehouse) encrypt the stored data?\n\n  a) Yes\n  b) No: it masks query results for users without UNMASK; the stored values are unchanged\n  c) It deletes the column\n  d) It hashes the column on disk\n\nWrite the letter of your choice after \"answer:\" (several letters separated by commas if several are right), save, then Submit.\nanswer:\n",
+    "fixtures": [
+      {
+        "id": "lc-gov-masking-fixtures",
+        "version": "1"
+      }
+    ],
+    "visible_checks": [
+      {
+        "id": "format",
+        "description": "Your answer is well formed (Run checks only this)."
+      }
+    ],
+    "hidden_check_refs": [
+      "answer"
+    ],
+    "edge_check_refs": [],
+    "hints": [
+      "It changes what is shown, not what is stored.",
+      "Open the cheatsheet: Data governance."
+    ],
+    "solution": {
+      "available": true,
+      "reveal": "explicit"
+    },
+    "explanation": "The explanation comes with a correct submission, from the runtime.",
+    "follow_ups": [],
+    "canonical_placement": {
+      "domain": "learning-checks",
+      "topic": "governance"
+    },
+    "related_associations": [
+      "practice/learning-checks"
+    ],
+    "validator_version": "quiz-v1",
+    "runtime_requirements": [],
+    "provenance": {
+      "source": "Authored for Datapass Workbench; checked against the vendors' and projects' documentation on 2026-10-12"
+    },
+    "constraints": {
+      "truth": "Concept check: no execution; the answer is compared by the runtime."
+    },
+    "context_refs": [
+      "reference/learning-governance.md"
+    ],
+    "truth": "concept-check"
+  },
+  {
+    "schema_version": 1,
+    "id": "lc-gov-least-privilege",
+    "version": "1",
+    "title": "A job's permissions",
+    "difficulty": "medium",
+    "topics": [
+      "learning-checks",
+      "governance"
+    ],
+    "tags": [
+      "concept-check",
+      "governance"
+    ],
+    "origin": "authored",
+    "language": "quiz",
+    "runtime": "datapass-quiz-v1",
+    "prompt": "A nightly job must read silver tables and write gold tables. What follows least privilege?",
+    "sections": [
+      {
+        "title": "Concept check (no execution)",
+        "body": "Nothing runs here: this is a question about a platform or practice, not an execution. Answer in the file, save, and Submit; the runtime compares your answer with the pack's answer and explains it once you are right. The cheatsheet (Data governance) covers the topic."
+      }
+    ],
+    "starter_source": "Concept check (no execution): nothing runs; the runtime checks your answer when you Submit.\n\nA nightly job must read silver tables and write gold tables. What follows least privilege?\n\n  a) Run it as an administrator\n  b) Run it with an engineer's personal account\n  c) A dedicated service principal granted read on silver and write on gold only\n  d) Make the tables public\n\nWrite the letter of your choice after \"answer:\" (several letters separated by commas if several are right), save, then Submit.\nanswer:\n",
+    "fixtures": [
+      {
+        "id": "lc-gov-least-privilege-fixtures",
+        "version": "1"
+      }
+    ],
+    "visible_checks": [
+      {
+        "id": "format",
+        "description": "Your answer is well formed (Run checks only this)."
+      }
+    ],
+    "hidden_check_refs": [
+      "answer"
+    ],
+    "edge_check_refs": [],
+    "hints": [
+      "Nothing more than the job needs, under its own identity.",
+      "Open the cheatsheet: Data governance."
+    ],
+    "solution": {
+      "available": true,
+      "reveal": "explicit"
+    },
+    "explanation": "The explanation comes with a correct submission, from the runtime.",
+    "follow_ups": [],
+    "canonical_placement": {
+      "domain": "learning-checks",
+      "topic": "governance"
+    },
+    "related_associations": [
+      "practice/learning-checks"
+    ],
+    "validator_version": "quiz-v1",
+    "runtime_requirements": [],
+    "provenance": {
+      "source": "Authored for Datapass Workbench; checked against the vendors' and projects' documentation on 2026-10-12"
+    },
+    "constraints": {
+      "truth": "Concept check: no execution; the answer is compared by the runtime."
+    },
+    "context_refs": [
+      "reference/learning-governance.md"
+    ],
+    "truth": "concept-check"
+  },
+  {
+    "schema_version": 1,
+    "id": "lc-gov-lineage",
+    "version": "1",
+    "title": "What column lineage answers",
+    "difficulty": "easy",
+    "topics": [
+      "learning-checks",
+      "governance"
+    ],
+    "tags": [
+      "concept-check",
+      "governance"
+    ],
+    "origin": "authored",
+    "language": "quiz",
+    "runtime": "datapass-quiz-v1",
+    "prompt": "Which question does column lineage answer?",
+    "sections": [
+      {
+        "title": "Concept check (no execution)",
+        "body": "Nothing runs here: this is a question about a platform or practice, not an execution. Answer in the file, save, and Submit; the runtime compares your answer with the pack's answer and explains it once you are right. The cheatsheet (Data governance) covers the topic."
+      }
+    ],
+    "starter_source": "Concept check (no execution): nothing runs; the runtime checks your answer when you Submit.\n\nWhich question does column lineage answer?\n\n  a) Which downstream columns and reports change if a source column changes, and where personal data flows\n  b) How fast a query runs\n  c) Who is on call\n  d) How much storage costs\n\nWrite the letter of your choice after \"answer:\" (several letters separated by commas if several are right), save, then Submit.\nanswer:\n",
+    "fixtures": [
+      {
+        "id": "lc-gov-lineage-fixtures",
+        "version": "1"
+      }
+    ],
+    "visible_checks": [
+      {
+        "id": "format",
+        "description": "Your answer is well formed (Run checks only this)."
+      }
+    ],
+    "hidden_check_refs": [
+      "answer"
+    ],
+    "edge_check_refs": [],
+    "hints": [
+      "Follow a column downstream.",
+      "Open the cheatsheet: Data governance."
+    ],
+    "solution": {
+      "available": true,
+      "reveal": "explicit"
+    },
+    "explanation": "The explanation comes with a correct submission, from the runtime.",
+    "follow_ups": [],
+    "canonical_placement": {
+      "domain": "learning-checks",
+      "topic": "governance"
+    },
+    "related_associations": [
+      "practice/learning-checks"
+    ],
+    "validator_version": "quiz-v1",
+    "runtime_requirements": [],
+    "provenance": {
+      "source": "Authored for Datapass Workbench; checked against the vendors' and projects' documentation on 2026-10-12"
+    },
+    "constraints": {
+      "truth": "Concept check: no execution; the answer is compared by the runtime."
+    },
+    "context_refs": [
+      "reference/learning-governance.md"
+    ],
+    "truth": "concept-check"
+  },
+  {
+    "schema_version": 1,
+    "id": "lc-gov-pseudonymised",
+    "version": "1",
+    "title": "Pseudonymised data under GDPR",
+    "difficulty": "hard",
+    "topics": [
+      "learning-checks",
+      "governance"
+    ],
+    "tags": [
+      "concept-check",
+      "governance"
+    ],
+    "origin": "authored",
+    "language": "quiz",
+    "runtime": "datapass-quiz-v1",
+    "prompt": "Names are replaced by a hashed key and the lookup table is kept separately. Under GDPR, is the pseudonymised dataset still personal data?",
+    "sections": [
+      {
+        "title": "Concept check (no execution)",
+        "body": "Nothing runs here: this is a question about a platform or practice, not an execution. Answer in the file, save, and Submit; the runtime compares your answer with the pack's answer and explains it once you are right. The cheatsheet (Data governance) covers the topic."
+      }
+    ],
+    "starter_source": "Concept check (no execution): nothing runs; the runtime checks your answer when you Submit.\n\nNames are replaced by a hashed key and the lookup table is kept separately. Under GDPR, is the pseudonymised dataset still personal data?\n\n  a) No, hashing makes it anonymous\n  b) Yes: whoever can re-identify people with additional information still processes personal data\n  c) Only if it contains email addresses\n  d) GDPR does not apply to data warehouses\n\nWrite the letter of your choice after \"answer:\" (several letters separated by commas if several are right), save, then Submit.\nanswer:\n",
+    "fixtures": [
+      {
+        "id": "lc-gov-pseudonymised-fixtures",
+        "version": "1"
+      }
+    ],
+    "visible_checks": [
+      {
+        "id": "format",
+        "description": "Your answer is well formed (Run checks only this)."
+      }
+    ],
+    "hidden_check_refs": [
+      "answer"
+    ],
+    "edge_check_refs": [],
+    "hints": [
+      "Can someone link it back?",
+      "Open the cheatsheet: Data governance."
+    ],
+    "solution": {
+      "available": true,
+      "reveal": "explicit"
+    },
+    "explanation": "The explanation comes with a correct submission, from the runtime.",
+    "follow_ups": [],
+    "canonical_placement": {
+      "domain": "learning-checks",
+      "topic": "governance"
+    },
+    "related_associations": [
+      "practice/learning-checks"
+    ],
+    "validator_version": "quiz-v1",
+    "runtime_requirements": [],
+    "provenance": {
+      "source": "Authored for Datapass Workbench; checked against the vendors' and projects' documentation on 2026-10-12"
+    },
+    "constraints": {
+      "truth": "Concept check: no execution; the answer is compared by the runtime."
+    },
+    "context_refs": [
+      "reference/learning-governance.md"
+    ],
+    "truth": "concept-check"
+  },
+  {
+    "schema_version": 1,
+    "id": "lc-perf-small-files",
+    "version": "1",
+    "title": "Thousands of tiny files",
+    "difficulty": "medium",
+    "topics": [
+      "learning-checks",
+      "performance"
+    ],
+    "tags": [
+      "concept-check",
+      "performance"
+    ],
+    "origin": "authored",
+    "language": "quiz",
+    "runtime": "datapass-quiz-v1",
+    "prompt": "Why do thousands of tiny Parquet files slow a query on the same data?",
+    "sections": [
+      {
+        "title": "Concept check (no execution)",
+        "body": "Nothing runs here: this is a question about a platform or practice, not an execution. Answer in the file, save, and Submit; the runtime compares your answer with the pack's answer and explains it once you are right. The cheatsheet (Query performance) covers the topic."
+      }
+    ],
+    "starter_source": "Concept check (no execution): nothing runs; the runtime checks your answer when you Submit.\n\nWhy do thousands of tiny Parquet files slow a query on the same data?\n\n  a) Per-file work (listing, opening, reading footers, scheduling tasks) dominates the actual reading\n  b) Parquet cannot read small files\n  c) Small files are uncompressed\n  d) They are not\n\nWrite the letter of your choice after \"answer:\" (several letters separated by commas if several are right), save, then Submit.\nanswer:\n",
+    "fixtures": [
+      {
+        "id": "lc-perf-small-files-fixtures",
+        "version": "1"
+      }
+    ],
+    "visible_checks": [
+      {
+        "id": "format",
+        "description": "Your answer is well formed (Run checks only this)."
+      }
+    ],
+    "hidden_check_refs": [
+      "answer"
+    ],
+    "edge_check_refs": [],
+    "hints": [
+      "Count the fixed cost per file.",
+      "Open the cheatsheet: Query performance."
+    ],
+    "solution": {
+      "available": true,
+      "reveal": "explicit"
+    },
+    "explanation": "The explanation comes with a correct submission, from the runtime.",
+    "follow_ups": [],
+    "canonical_placement": {
+      "domain": "learning-checks",
+      "topic": "performance"
+    },
+    "related_associations": [
+      "practice/learning-checks"
+    ],
+    "validator_version": "quiz-v1",
+    "runtime_requirements": [],
+    "provenance": {
+      "source": "Authored for Datapass Workbench; checked against the vendors' and projects' documentation on 2026-10-12"
+    },
+    "constraints": {
+      "truth": "Concept check: no execution; the answer is compared by the runtime."
+    },
+    "context_refs": [
+      "reference/learning-performance.md"
+    ],
+    "truth": "concept-check"
+  },
+  {
+    "schema_version": 1,
+    "id": "lc-perf-partition-pruning",
+    "version": "1",
+    "title": "A filter that prunes partitions",
+    "difficulty": "easy",
+    "topics": [
+      "learning-checks",
+      "performance"
+    ],
+    "tags": [
+      "concept-check",
+      "performance"
+    ],
+    "origin": "authored",
+    "language": "quiz",
+    "runtime": "datapass-quiz-v1",
+    "prompt": "A table is partitioned by order_date. Which filter lets the engine skip whole partitions?",
+    "sections": [
+      {
+        "title": "Concept check (no execution)",
+        "body": "Nothing runs here: this is a question about a platform or practice, not an execution. Answer in the file, save, and Submit; the runtime compares your answer with the pack's answer and explains it once you are right. The cheatsheet (Query performance) covers the topic."
+      }
+    ],
+    "starter_source": "Concept check (no execution): nothing runs; the runtime checks your answer when you Submit.\n\nA table is partitioned by order_date. Which filter lets the engine skip whole partitions?\n\n  a) WHERE order_date = DATE '2026-10-01'\n  b) WHERE customer_id = 42\n  c) WHERE amount > 100\n  d) No filter at all\n\nWrite the letter of your choice after \"answer:\" (several letters separated by commas if several are right), save, then Submit.\nanswer:\n",
+    "fixtures": [
+      {
+        "id": "lc-perf-partition-pruning-fixtures",
+        "version": "1"
+      }
+    ],
+    "visible_checks": [
+      {
+        "id": "format",
+        "description": "Your answer is well formed (Run checks only this)."
+      }
+    ],
+    "hidden_check_refs": [
+      "answer"
+    ],
+    "edge_check_refs": [],
+    "hints": [
+      "Filter on what the folders are named after.",
+      "Open the cheatsheet: Query performance."
+    ],
+    "solution": {
+      "available": true,
+      "reveal": "explicit"
+    },
+    "explanation": "The explanation comes with a correct submission, from the runtime.",
+    "follow_ups": [],
+    "canonical_placement": {
+      "domain": "learning-checks",
+      "topic": "performance"
+    },
+    "related_associations": [
+      "practice/learning-checks"
+    ],
+    "validator_version": "quiz-v1",
+    "runtime_requirements": [],
+    "provenance": {
+      "source": "Authored for Datapass Workbench; checked against the vendors' and projects' documentation on 2026-10-12"
+    },
+    "constraints": {
+      "truth": "Concept check: no execution; the answer is compared by the runtime."
+    },
+    "context_refs": [
+      "reference/learning-performance.md"
+    ],
+    "truth": "concept-check"
+  },
+  {
+    "schema_version": 1,
+    "id": "lc-perf-column-pruning",
+    "version": "1",
+    "title": "Selecting fewer columns",
+    "difficulty": "easy",
+    "topics": [
+      "learning-checks",
+      "performance"
+    ],
+    "tags": [
+      "concept-check",
+      "performance"
+    ],
+    "origin": "authored",
+    "language": "quiz",
+    "runtime": "datapass-quiz-v1",
+    "prompt": "Why does selecting only the needed columns speed up a query on Parquet?",
+    "sections": [
+      {
+        "title": "Concept check (no execution)",
+        "body": "Nothing runs here: this is a question about a platform or practice, not an execution. Answer in the file, save, and Submit; the runtime compares your answer with the pack's answer and explains it once you are right. The cheatsheet (Query performance) covers the topic."
+      }
+    ],
+    "starter_source": "Concept check (no execution): nothing runs; the runtime checks your answer when you Submit.\n\nWhy does selecting only the needed columns speed up a query on Parquet?\n\n  a) Parquet is columnar: columns that are not selected are not read from disk\n  b) The result is sorted\n  c) It disables compression\n  d) It does not change anything\n\nWrite the letter of your choice after \"answer:\" (several letters separated by commas if several are right), save, then Submit.\nanswer:\n",
+    "fixtures": [
+      {
+        "id": "lc-perf-column-pruning-fixtures",
+        "version": "1"
+      }
+    ],
+    "visible_checks": [
+      {
+        "id": "format",
+        "description": "Your answer is well formed (Run checks only this)."
+      }
+    ],
+    "hidden_check_refs": [
+      "answer"
+    ],
+    "edge_check_refs": [],
+    "hints": [
+      "Columnar storage.",
+      "Open the cheatsheet: Query performance."
+    ],
+    "solution": {
+      "available": true,
+      "reveal": "explicit"
+    },
+    "explanation": "The explanation comes with a correct submission, from the runtime.",
+    "follow_ups": [],
+    "canonical_placement": {
+      "domain": "learning-checks",
+      "topic": "performance"
+    },
+    "related_associations": [
+      "practice/learning-checks"
+    ],
+    "validator_version": "quiz-v1",
+    "runtime_requirements": [],
+    "provenance": {
+      "source": "Authored for Datapass Workbench; checked against the vendors' and projects' documentation on 2026-10-12"
+    },
+    "constraints": {
+      "truth": "Concept check: no execution; the answer is compared by the runtime."
+    },
+    "context_refs": [
+      "reference/learning-performance.md"
+    ],
+    "truth": "concept-check"
+  },
+  {
+    "schema_version": 1,
+    "id": "lc-perf-partition-cardinality",
+    "version": "1",
+    "title": "Partitioning by customer",
+    "difficulty": "medium",
+    "topics": [
+      "learning-checks",
+      "performance"
+    ],
+    "tags": [
+      "concept-check",
+      "performance"
+    ],
+    "origin": "authored",
+    "language": "quiz",
+    "runtime": "datapass-quiz-v1",
+    "prompt": "A 10 GB table is partitioned by customer_id, which has 2 million values. What is the likely result?",
+    "sections": [
+      {
+        "title": "Concept check (no execution)",
+        "body": "Nothing runs here: this is a question about a platform or practice, not an execution. Answer in the file, save, and Submit; the runtime compares your answer with the pack's answer and explains it once you are right. The cheatsheet (Query performance) covers the topic."
+      }
+    ],
+    "starter_source": "Concept check (no execution): nothing runs; the runtime checks your answer when you Submit.\n\nA 10 GB table is partitioned by customer_id, which has 2 million values. What is the likely result?\n\n  a) Faster queries for every filter\n  b) Millions of tiny partitions and files, slow listing and slow writes\n  c) Nothing changes\n  d) The table is compressed better\n\nWrite the letter of your choice after \"answer:\" (several letters separated by commas if several are right), save, then Submit.\nanswer:\n",
+    "fixtures": [
+      {
+        "id": "lc-perf-partition-cardinality-fixtures",
+        "version": "1"
+      }
+    ],
+    "visible_checks": [
+      {
+        "id": "format",
+        "description": "Your answer is well formed (Run checks only this)."
+      }
+    ],
+    "hidden_check_refs": [
+      "answer"
+    ],
+    "edge_check_refs": [],
+    "hints": [
+      "Divide 10 GB by 2 million.",
+      "Open the cheatsheet: Query performance."
+    ],
+    "solution": {
+      "available": true,
+      "reveal": "explicit"
+    },
+    "explanation": "The explanation comes with a correct submission, from the runtime.",
+    "follow_ups": [],
+    "canonical_placement": {
+      "domain": "learning-checks",
+      "topic": "performance"
+    },
+    "related_associations": [
+      "practice/learning-checks"
+    ],
+    "validator_version": "quiz-v1",
+    "runtime_requirements": [],
+    "provenance": {
+      "source": "Authored for Datapass Workbench; checked against the vendors' and projects' documentation on 2026-10-12"
+    },
+    "constraints": {
+      "truth": "Concept check: no execution; the answer is compared by the runtime."
+    },
+    "context_refs": [
+      "reference/learning-performance.md"
+    ],
+    "truth": "concept-check"
+  },
+  {
+    "schema_version": 1,
+    "id": "lc-perf-explain-analyze",
+    "version": "1",
+    "title": "EXPLAIN ANALYZE",
+    "difficulty": "medium",
+    "topics": [
+      "learning-checks",
+      "performance"
+    ],
+    "tags": [
+      "concept-check",
+      "performance"
+    ],
+    "origin": "authored",
+    "language": "quiz",
+    "runtime": "datapass-quiz-v1",
+    "prompt": "What does EXPLAIN ANALYZE add to EXPLAIN in DuckDB or PostgreSQL?",
+    "sections": [
+      {
+        "title": "Concept check (no execution)",
+        "body": "Nothing runs here: this is a question about a platform or practice, not an execution. Answer in the file, save, and Submit; the runtime compares your answer with the pack's answer and explains it once you are right. The cheatsheet (Query performance) covers the topic."
+      }
+    ],
+    "starter_source": "Concept check (no execution): nothing runs; the runtime checks your answer when you Submit.\n\nWhat does EXPLAIN ANALYZE add to EXPLAIN in DuckDB or PostgreSQL?\n\n  a) It runs the query and reports the actual rows and time of each operator\n  b) It only formats the plan\n  c) It rewrites the query\n  d) It creates indexes\n\nWrite the letter of your choice after \"answer:\" (several letters separated by commas if several are right), save, then Submit.\nanswer:\n",
+    "fixtures": [
+      {
+        "id": "lc-perf-explain-analyze-fixtures",
+        "version": "1"
+      }
+    ],
+    "visible_checks": [
+      {
+        "id": "format",
+        "description": "Your answer is well formed (Run checks only this)."
+      }
+    ],
+    "hidden_check_refs": [
+      "answer"
+    ],
+    "edge_check_refs": [],
+    "hints": [
+      "Analyze means it actually measures.",
+      "Open the cheatsheet: Query performance."
+    ],
+    "solution": {
+      "available": true,
+      "reveal": "explicit"
+    },
+    "explanation": "The explanation comes with a correct submission, from the runtime.",
+    "follow_ups": [],
+    "canonical_placement": {
+      "domain": "learning-checks",
+      "topic": "performance"
+    },
+    "related_associations": [
+      "practice/learning-checks"
+    ],
+    "validator_version": "quiz-v1",
+    "runtime_requirements": [],
+    "provenance": {
+      "source": "Authored for Datapass Workbench; checked against the vendors' and projects' documentation on 2026-10-12"
+    },
+    "constraints": {
+      "truth": "Concept check: no execution; the answer is compared by the runtime."
+    },
+    "context_refs": [
+      "reference/learning-performance.md"
+    ],
+    "truth": "concept-check"
+  },
+  {
+    "schema_version": 1,
+    "id": "lc-ts-first-error",
+    "version": "1",
+    "title": "Which error to read first",
+    "difficulty": "easy",
+    "topics": [
+      "learning-checks",
+      "troubleshooting"
+    ],
+    "tags": [
+      "concept-check",
+      "troubleshooting"
+    ],
+    "origin": "authored",
+    "language": "quiz",
+    "runtime": "datapass-quiz-v1",
+    "prompt": "A failed job's log holds forty stack traces. Which one do you read first?",
+    "sections": [
+      {
+        "title": "Concept check (no execution)",
+        "body": "Nothing runs here: this is a question about a platform or practice, not an execution. Answer in the file, save, and Submit; the runtime compares your answer with the pack's answer and explains it once you are right. The cheatsheet (Troubleshooting pipelines) covers the topic."
+      }
+    ],
+    "starter_source": "Concept check (no execution): nothing runs; the runtime checks your answer when you Submit.\n\nA failed job's log holds forty stack traces. Which one do you read first?\n\n  a) The last line of the log\n  b) The first failure, down to its innermost 'Caused by'\n  c) Any warning\n  d) The longest trace\n\nWrite the letter of your choice after \"answer:\" (several letters separated by commas if several are right), save, then Submit.\nanswer:\n",
+    "fixtures": [
+      {
+        "id": "lc-ts-first-error-fixtures",
+        "version": "1"
+      }
+    ],
+    "visible_checks": [
+      {
+        "id": "format",
+        "description": "Your answer is well formed (Run checks only this)."
+      }
+    ],
+    "hidden_check_refs": [
+      "answer"
+    ],
+    "edge_check_refs": [],
+    "hints": [
+      "Consequences come after causes.",
+      "Open the cheatsheet: Troubleshooting pipelines."
+    ],
+    "solution": {
+      "available": true,
+      "reveal": "explicit"
+    },
+    "explanation": "The explanation comes with a correct submission, from the runtime.",
+    "follow_ups": [],
+    "canonical_placement": {
+      "domain": "learning-checks",
+      "topic": "troubleshooting"
+    },
+    "related_associations": [
+      "practice/learning-checks"
+    ],
+    "validator_version": "quiz-v1",
+    "runtime_requirements": [],
+    "provenance": {
+      "source": "Authored for Datapass Workbench; checked against the vendors' and projects' documentation on 2026-10-12"
+    },
+    "constraints": {
+      "truth": "Concept check: no execution; the answer is compared by the runtime."
+    },
+    "context_refs": [
+      "reference/learning-troubleshooting.md"
+    ],
+    "truth": "concept-check"
+  },
+  {
+    "schema_version": 1,
+    "id": "lc-ts-skew",
+    "version": "1",
+    "title": "One task far slower than the rest",
+    "difficulty": "medium",
+    "topics": [
+      "learning-checks",
+      "troubleshooting"
+    ],
+    "tags": [
+      "concept-check",
+      "troubleshooting"
+    ],
+    "origin": "authored",
+    "language": "quiz",
+    "runtime": "datapass-quiz-v1",
+    "prompt": "One task of 200 runs fifty times longer than the others and then fails with an out-of-memory error. What is the most likely cause?",
+    "sections": [
+      {
+        "title": "Concept check (no execution)",
+        "body": "Nothing runs here: this is a question about a platform or practice, not an execution. Answer in the file, save, and Submit; the runtime compares your answer with the pack's answer and explains it once you are right. The cheatsheet (Troubleshooting pipelines) covers the topic."
+      }
+    ],
+    "starter_source": "Concept check (no execution): nothing runs; the runtime checks your answer when you Submit.\n\nOne task of 200 runs fifty times longer than the others and then fails with an out-of-memory error. What is the most likely cause?\n\n  a) Data skew: one key holds a large share of the rows\n  b) The cluster is too big\n  c) A missing column\n  d) Too many partitions\n\nWrite the letter of your choice after \"answer:\" (several letters separated by commas if several are right), save, then Submit.\nanswer:\n",
+    "fixtures": [
+      {
+        "id": "lc-ts-skew-fixtures",
+        "version": "1"
+      }
+    ],
+    "visible_checks": [
+      {
+        "id": "format",
+        "description": "Your answer is well formed (Run checks only this)."
+      }
+    ],
+    "hidden_check_refs": [
+      "answer"
+    ],
+    "edge_check_refs": [],
+    "hints": [
+      "All tasks do the same code; one gets more data.",
+      "Open the cheatsheet: Troubleshooting pipelines."
+    ],
+    "solution": {
+      "available": true,
+      "reveal": "explicit"
+    },
+    "explanation": "The explanation comes with a correct submission, from the runtime.",
+    "follow_ups": [],
+    "canonical_placement": {
+      "domain": "learning-checks",
+      "topic": "troubleshooting"
+    },
+    "related_associations": [
+      "practice/learning-checks"
+    ],
+    "validator_version": "quiz-v1",
+    "runtime_requirements": [],
+    "provenance": {
+      "source": "Authored for Datapass Workbench; checked against the vendors' and projects' documentation on 2026-10-12"
+    },
+    "constraints": {
+      "truth": "Concept check: no execution; the answer is compared by the runtime."
+    },
+    "context_refs": [
+      "reference/learning-troubleshooting.md"
+    ],
+    "truth": "concept-check"
+  },
+  {
+    "schema_version": 1,
+    "id": "lc-ts-row-count-jump",
+    "version": "1",
+    "title": "The fact table doubled",
+    "difficulty": "medium",
+    "topics": [
+      "learning-checks",
+      "troubleshooting"
+    ],
+    "tags": [
+      "concept-check",
+      "troubleshooting"
+    ],
+    "origin": "authored",
+    "language": "quiz",
+    "runtime": "datapass-quiz-v1",
+    "prompt": "After adding a join to a dimension, the fact table's row count doubled. What is the most likely cause?",
+    "sections": [
+      {
+        "title": "Concept check (no execution)",
+        "body": "Nothing runs here: this is a question about a platform or practice, not an execution. Answer in the file, save, and Submit; the runtime compares your answer with the pack's answer and explains it once you are right. The cheatsheet (Troubleshooting pipelines) covers the topic."
+      }
+    ],
+    "starter_source": "Concept check (no execution): nothing runs; the runtime checks your answer when you Submit.\n\nAfter adding a join to a dimension, the fact table's row count doubled. What is the most likely cause?\n\n  a) The dimension has duplicate keys, so each fact row matches twice\n  b) The join was a left join\n  c) Compression failed\n  d) The fact table was sorted\n\nWrite the letter of your choice after \"answer:\" (several letters separated by commas if several are right), save, then Submit.\nanswer:\n",
+    "fixtures": [
+      {
+        "id": "lc-ts-row-count-jump-fixtures",
+        "version": "1"
+      }
+    ],
+    "visible_checks": [
+      {
+        "id": "format",
+        "description": "Your answer is well formed (Run checks only this)."
+      }
+    ],
+    "hidden_check_refs": [
+      "answer"
+    ],
+    "edge_check_refs": [],
+    "hints": [
+      "Count rows per key on the other side.",
+      "Open the cheatsheet: Troubleshooting pipelines."
+    ],
+    "solution": {
+      "available": true,
+      "reveal": "explicit"
+    },
+    "explanation": "The explanation comes with a correct submission, from the runtime.",
+    "follow_ups": [],
+    "canonical_placement": {
+      "domain": "learning-checks",
+      "topic": "troubleshooting"
+    },
+    "related_associations": [
+      "practice/learning-checks"
+    ],
+    "validator_version": "quiz-v1",
+    "runtime_requirements": [],
+    "provenance": {
+      "source": "Authored for Datapass Workbench; checked against the vendors' and projects' documentation on 2026-10-12"
+    },
+    "constraints": {
+      "truth": "Concept check: no execution; the answer is compared by the runtime."
+    },
+    "context_refs": [
+      "reference/learning-troubleshooting.md"
+    ],
+    "truth": "concept-check"
+  },
+  {
+    "schema_version": 1,
+    "id": "lc-ts-module-not-found",
+    "version": "1",
+    "title": "It works on my laptop",
+    "difficulty": "easy",
+    "topics": [
+      "learning-checks",
+      "troubleshooting"
+    ],
+    "tags": [
+      "concept-check",
+      "troubleshooting"
+    ],
+    "origin": "authored",
+    "language": "quiz",
+    "runtime": "datapass-quiz-v1",
+    "prompt": "A pipeline works on your laptop but fails on the scheduler's workers with ModuleNotFoundError. What is the most likely cause?",
+    "sections": [
+      {
+        "title": "Concept check (no execution)",
+        "body": "Nothing runs here: this is a question about a platform or practice, not an execution. Answer in the file, save, and Submit; the runtime compares your answer with the pack's answer and explains it once you are right. The cheatsheet (Troubleshooting pipelines) covers the topic."
+      }
+    ],
+    "starter_source": "Concept check (no execution): nothing runs; the runtime checks your answer when you Submit.\n\nA pipeline works on your laptop but fails on the scheduler's workers with ModuleNotFoundError. What is the most likely cause?\n\n  a) The workers' environment does not have the package installed\n  b) The data changed\n  c) The scheduler is down\n  d) The file is too large\n\nWrite the letter of your choice after \"answer:\" (several letters separated by commas if several are right), save, then Submit.\nanswer:\n",
+    "fixtures": [
+      {
+        "id": "lc-ts-module-not-found-fixtures",
+        "version": "1"
+      }
+    ],
+    "visible_checks": [
+      {
+        "id": "format",
+        "description": "Your answer is well formed (Run checks only this)."
+      }
+    ],
+    "hidden_check_refs": [
+      "answer"
+    ],
+    "edge_check_refs": [],
+    "hints": [
+      "Where does the code run?",
+      "Open the cheatsheet: Troubleshooting pipelines."
+    ],
+    "solution": {
+      "available": true,
+      "reveal": "explicit"
+    },
+    "explanation": "The explanation comes with a correct submission, from the runtime.",
+    "follow_ups": [],
+    "canonical_placement": {
+      "domain": "learning-checks",
+      "topic": "troubleshooting"
+    },
+    "related_associations": [
+      "practice/learning-checks"
+    ],
+    "validator_version": "quiz-v1",
+    "runtime_requirements": [],
+    "provenance": {
+      "source": "Authored for Datapass Workbench; checked against the vendors' and projects' documentation on 2026-10-12"
+    },
+    "constraints": {
+      "truth": "Concept check: no execution; the answer is compared by the runtime."
+    },
+    "context_refs": [
+      "reference/learning-troubleshooting.md"
+    ],
+    "truth": "concept-check"
+  }
+]

@@ -7,6 +7,10 @@
     "spark-mental-model",
     "warehouse-modeling",
     "lakehouse-storage",
-    "production-pipelines"
+    "production-pipelines",
+    "spark-platforms",
+    "orchestration-production",
+    "infra-devops",
+    "bi-governance"
   ]
 }
