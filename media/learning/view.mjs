@@ -143,7 +143,7 @@ function resumeCard() {
   const box = card('Resume', el('p', '', `Last lesson: ${lesson.title} (${MODE_LABELS[r.mode]})`),
     add(el('div', 'toolbar'), button('Resume lesson', () => { overview = false; render(); }, { key: 'resume-lesson' }),
       button(r.dueCards ? `Review ${r.dueCards} due flashcards` : 'Review flashcards', () => { overview = false; send('review'); }, { key: 'resume-review', disabled: !model.decks?.length })));
-  if (r.next) add(box, el('p', 'muted', `Next to verify: ${r.next.kind === 'check' ? 'concept check' : 'exercise'} "${r.next.title}" in ${r.next.lessonTitle}`),
+  if (r.next) add(box, el('p', 'muted', `Next to verify: ${r.next.kind === 'check' ? 'concept check' : r.next.kind === 'practice' ? 'practice item' : 'exercise'} "${r.next.title}" in ${r.next.lessonTitle}`),
     button('Go to it', () => destination(r.next.lesson, r.next.path), { key: 'resume-next' }));
   return box;
 }

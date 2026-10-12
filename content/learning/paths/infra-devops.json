@@ -101,7 +101,19 @@
       },
       "related": [
         "infra-vm-monitoring"
-      ]
+      ],
+      "checks": [
+        {
+          "id": "lc-linux-chmod-750",
+          "language": "quiz"
+        },
+        {
+          "id": "lc-linux-df",
+          "language": "quiz"
+        }
+      ],
+      "cheatsheet": "learning-linux-vm",
+      "deck": "infra-devops"
     },
     {
       "id": "infra-docker-images",
@@ -192,7 +204,23 @@
       },
       "related": [
         "infra-docker-compose"
-      ]
+      ],
+      "checks": [
+        {
+          "id": "lc-docker-image-container",
+          "language": "quiz"
+        },
+        {
+          "id": "lc-docker-entrypoint-cmd",
+          "language": "quiz"
+        },
+        {
+          "id": "lc-ts-module-not-found",
+          "language": "quiz"
+        }
+      ],
+      "cheatsheet": "learning-docker",
+      "deck": "infra-devops"
     },
     {
       "id": "infra-docker-compose",
@@ -313,7 +341,15 @@
       },
       "related": [
         "infra-docker-images"
-      ]
+      ],
+      "checks": [
+        {
+          "id": "lc-docker-volume",
+          "language": "quiz"
+        }
+      ],
+      "cheatsheet": "learning-docker",
+      "deck": "infra-devops"
     },
     {
       "id": "infra-terraform-state",
@@ -400,7 +436,27 @@
       },
       "related": [
         "infra-kubernetes-rollouts"
-      ]
+      ],
+      "checks": [
+        {
+          "id": "lc-tf-remote-state",
+          "language": "quiz"
+        },
+        {
+          "id": "lc-tf-replace-symbol",
+          "language": "quiz"
+        },
+        {
+          "id": "lc-tf-sensitive-state",
+          "language": "quiz"
+        },
+        {
+          "id": "lc-tf-for-each",
+          "language": "quiz"
+        }
+      ],
+      "cheatsheet": "learning-terraform",
+      "deck": "infra-devops"
     },
     {
       "id": "infra-kubernetes-rollouts",
@@ -491,7 +547,27 @@
       },
       "related": [
         "infra-vm-monitoring"
-      ]
+      ],
+      "checks": [
+        {
+          "id": "lc-k8s-replicaset",
+          "language": "quiz"
+        },
+        {
+          "id": "lc-k8s-default-service",
+          "language": "quiz"
+        },
+        {
+          "id": "lc-k8s-memory-limit",
+          "language": "quiz"
+        },
+        {
+          "id": "lc-k8s-crashloop",
+          "language": "quiz"
+        }
+      ],
+      "cheatsheet": "learning-kubernetes",
+      "deck": "infra-devops"
     },
     {
       "id": "infra-vm-monitoring",
@@ -581,7 +657,53 @@
       },
       "related": [
         "infra-kubernetes-rollouts"
-      ]
+      ],
+      "checks": [
+        {
+          "id": "lc-linux-load-average",
+          "language": "quiz"
+        },
+        {
+          "id": "infra-concept-red-use",
+          "language": "quiz"
+        },
+        {
+          "id": "infra-concept-alert-symptoms",
+          "language": "quiz"
+        },
+        {
+          "id": "infra-concept-grafana-pending-period",
+          "language": "quiz"
+        },
+        {
+          "id": "infra-concept-slo-error-budget",
+          "language": "quiz"
+        },
+        {
+          "id": "infra-concept-promql-rate",
+          "language": "quiz"
+        },
+        {
+          "id": "infra-concept-signals-cardinality",
+          "language": "quiz"
+        }
+      ],
+      "missions": [
+        {
+          "pack": "infra-v1",
+          "id": "vm-health-check"
+        },
+        {
+          "pack": "infra-v1",
+          "id": "etl-vm-memory-leak"
+        },
+        {
+          "pack": "infra-v1",
+          "id": "alert-to-action"
+        }
+      ],
+      "cheatsheet": "learning-linux-vm",
+      "deck": "infra-devops"
     }
   ]
 }

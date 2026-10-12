@@ -306,6 +306,8 @@ export function nextUnverified(catalog, state, resolve, practice) {
       const check = p.checks.find(c => c.status !== 'passed');
       if (check) return { path: path.id, lesson: id, kind: 'check', id: check.id, language: check.language };
       if (p.exercise === false) return { path: path.id, lesson: id, kind: 'exercise', id: lesson.exercise.id, language: lesson.exercise.language };
+      // A lesson verified only through extra practice (no exercise) is eligible until one item is solved.
+      if (p.exercise === undefined && p.practice.length && !p.practice.some(x => x.passed)) return { path: path.id, lesson: id, kind: 'practice', id: p.practice[0].id, language: p.practice[0].language };
     }
   }
   return undefined;

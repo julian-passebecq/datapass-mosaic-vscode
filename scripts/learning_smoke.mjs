@@ -94,6 +94,16 @@ test('next unverified item follows the current path and skips verified work', ()
   const solved = { exercises: { [resolve(catalog.lessons[0].exercise).key]: { solved: { version: '1' } } } };
   assert.notEqual(nextUnverified(catalog, state, resolve, solved).lesson, catalog.lessons[0].id);
 });
+test('next unverified makes a lesson verified only by practice items eligible', () => {
+  const resolve = ref => ({ key: `p/${ref.id}/${ref.language}`, version: '1' });
+  const cat = structuredClone(catalog);
+  const lesson = cat.lessons[0]; delete lesson.exercise; delete lesson.checks; lesson.practice = [{ id: 'extra-one', language: 'sql' }];
+  const state = initialState(cat);
+  const next = nextUnverified(cat, state, resolve, {});
+  assert.deepEqual([next.lesson, next.kind, next.id, next.language], [lesson.id, 'practice', 'extra-one', 'sql']);
+  const solved = { exercises: { [resolve(lesson.practice[0]).key]: { solved: { version: '1' } } } };
+  assert.notEqual(nextUnverified(cat, state, resolve, solved)?.lesson, lesson.id);
+});
 test('restored state keeps valid run records and self-rated flashcards, and drops the rest', () => {
   const s = initialState(catalog); const lesson = catalog.lessons[0];
   s.executed[lesson.id] = { version: lesson.version, at: '2026-10-12T08:00:00Z', sourceHash: 'b'.repeat(64), language: 'sql' };

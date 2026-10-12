@@ -100,7 +100,23 @@
       "related": [
         "airflow-retries",
         "orch-idempotent-loads"
-      ]
+      ],
+      "checks": [
+        {
+          "id": "lc-airflow-interval-run",
+          "language": "quiz"
+        },
+        {
+          "id": "lc-airflow-catchup-default",
+          "language": "quiz"
+        },
+        {
+          "id": "lc-airflow-top-level",
+          "language": "quiz"
+        }
+      ],
+      "cheatsheet": "learning-airflow",
+      "deck": "orchestration-production"
     },
     {
       "id": "orch-sensors-pools",
@@ -191,7 +207,23 @@
       },
       "related": [
         "airflow-retries"
-      ]
+      ],
+      "checks": [
+        {
+          "id": "lc-airflow-sensor-reschedule",
+          "language": "quiz"
+        },
+        {
+          "id": "lc-orch-pools",
+          "language": "quiz"
+        },
+        {
+          "id": "lc-orch-assets",
+          "language": "quiz"
+        }
+      ],
+      "cheatsheet": "learning-airflow",
+      "deck": "orchestration-production"
     },
     {
       "id": "orch-idempotent-loads",
@@ -278,7 +310,19 @@
       "related": [
         "warehouse-scd2",
         "api-retries"
-      ]
+      ],
+      "checks": [
+        {
+          "id": "lc-orch-idempotent",
+          "language": "quiz"
+        },
+        {
+          "id": "lc-airflow-xcom",
+          "language": "quiz"
+        }
+      ],
+      "cheatsheet": "learning-orchestration",
+      "deck": "orchestration-production"
     },
     {
       "id": "orch-api-ingestion",
@@ -366,7 +410,27 @@
       },
       "related": [
         "api-pagination"
-      ]
+      ],
+      "checks": [
+        {
+          "id": "lc-api-retry-after",
+          "language": "quiz"
+        },
+        {
+          "id": "lc-api-idempotent-methods",
+          "language": "quiz"
+        },
+        {
+          "id": "lc-api-cursor-pagination",
+          "language": "quiz"
+        },
+        {
+          "id": "lc-api-no-retry-400",
+          "language": "quiz"
+        }
+      ],
+      "cheatsheet": "learning-apis",
+      "deck": "orchestration-production"
     },
     {
       "id": "orch-quality-gates",
@@ -492,7 +556,15 @@
       },
       "related": [
         "warehouse-dbt"
-      ]
+      ],
+      "checks": [
+        {
+          "id": "lc-orch-quarantine",
+          "language": "quiz"
+        }
+      ],
+      "cheatsheet": "learning-orchestration",
+      "deck": "orchestration-production"
     },
     {
       "id": "orch-alerting-timeouts",
@@ -582,7 +654,19 @@
       },
       "related": [
         "airflow-retries"
-      ]
+      ],
+      "checks": [
+        {
+          "id": "lc-orch-timeout",
+          "language": "quiz"
+        },
+        {
+          "id": "lc-airflow-default-trigger-rule",
+          "language": "quiz"
+        }
+      ],
+      "cheatsheet": "learning-orchestration",
+      "deck": "orchestration-production"
     }
   ]
 }
