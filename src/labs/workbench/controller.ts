@@ -2,7 +2,7 @@ import * as vscode from "vscode";
 import { loadExerciseCatalog } from "../../exerciseCatalog";
 import { MODULES, type WorkbenchView } from "../../modules";
 import { localDay } from "../../platform/practiceReview";
-import { createDefaultProjectManifest, readProjectManifest, writeProjectManifest } from "../../project/projectManifest";
+import { catalogSeed, createDefaultProjectManifest, readProjectManifest, writeProjectManifest } from "../../project/projectManifest";
 import { loadProjectsState, readProgress } from "../../projectState";
 import type { HomeViewState, WorkbenchMessage } from "../../webview/contracts";
 import type { LabController, MessageHandlers, WorkbenchHost } from "../host";
@@ -50,10 +50,11 @@ export class WorkbenchController implements LabController<WorkbenchMessage> {
   }
 
   private async loadHome(): Promise<HomeViewState> {
-    const [projects, progress, exercises] = await Promise.all([
+    const [projects, progress, exercises, manifest] = await Promise.all([
       loadProjectsState(this.host.context.extensionUri),
       readProgress(),
-      loadExerciseCatalog(this.host.context.extensionUri)
+      loadExerciseCatalog(this.host.context.extensionUri),
+      readProjectManifest()
     ]);
     return homeView({
       hasWorkspace: projects.hasWorkspace,
@@ -61,7 +62,8 @@ export class WorkbenchController implements LabController<WorkbenchMessage> {
       projects: projects.projects,
       exerciseKeys: exercises.map(exercise => exercise.key),
       practice: progress.document.practice?.exercises ?? {},
-      today: localDay(new Date())
+      today: localDay(new Date()),
+      blankCatalog: catalogSeed(manifest.manifest) === "none"
     });
   }
 

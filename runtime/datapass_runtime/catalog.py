@@ -26,6 +26,9 @@ LAYERS = ('source', 'bronze', 'silver', 'gold', 'warehouse', 'features', 'metric
 IDENT = re.compile(r'^[A-Za-z][A-Za-z0-9_]{0,62}$')
 ASSET = re.compile(r'^(source|bronze|silver|gold|warehouse|features|metrics)\.([A-Za-z][A-Za-z0-9_]{0,62})$')
 MAX_ROWS = 200
+# Workspace catalog seed: 'demo' (the deterministic teaching tables) or 'none' (a blank Build workspace,
+# manifest catalog.seed). Grading catalogs always use 'demo'.
+SEEDS = ('demo', 'none')
 
 
 def quote_ident(name: str) -> str:
@@ -110,7 +113,10 @@ def references(sql: str) -> list[str]:
 
 
 class Catalog:
-    def __init__(self, directory: Path, mode: str = 'auto'):
+    def __init__(self, directory: Path, mode: str = 'auto', seed: str = 'demo'):
+        if seed not in SEEDS:
+            raise ValueError('Unknown catalog seed.')
+        self.seed = seed
         self.directory = directory
         self.import_directory = directory / 'imports'
         directory.mkdir(parents=True, exist_ok=True)
@@ -189,7 +195,8 @@ class Catalog:
         self._save_versions()
 
     def _seed(self):
-        if self.exists('source.orders'):
+        # 'none' only skips creating the demo tables; a catalog that already has them keeps them (never cleared).
+        if self.seed == 'none' or self.exists('source.orders'):
             return
         self.db.execute('CREATE TABLE source.orders (order_id VARCHAR, customer_id VARCHAR, segment_id INTEGER, net_amount DOUBLE, loaded_at VARCHAR)')
         rows = [

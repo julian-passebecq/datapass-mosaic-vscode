@@ -56,6 +56,7 @@ const SURFACES: Record<ModuleId, SurfaceRender> = {
       projectLayout={state.mosaicLayout}
       canPersist={state.workspace.manifestExists}
       queryHistory={state.queryHistory}
+      workspace={state.mosaicWorkspace}
     />
   ),
   practice: (vscode, state) => (

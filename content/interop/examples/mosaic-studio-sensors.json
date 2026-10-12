@@ -1,0 +1,67 @@
+{
+  "format": "datapass.mosaic-exchange",
+  "version": 1,
+  "producer": { "app": "mosaic-studio", "version": "0.4.0" },
+  "exportedAt": "2026-10-11T09:30:00Z",
+  "runtime": { "engine": "duckdb-wasm", "version": "1.1.3" },
+  "notebooks": [
+    {
+      "id": "sensor-daily",
+      "title": "Sensor readings to a daily average",
+      "cells": [
+        {
+          "id": "intro",
+          "kind": "markdown",
+          "source": "# Sensor readings to a daily average\n\nGrain of bronze: one row per sensor and reading time. Grain of silver: one row per sensor and day.\n",
+          "dependsOn": []
+        },
+        {
+          "id": "load",
+          "kind": "sql",
+          "source": "CREATE OR REPLACE TABLE bronze.sensor_readings AS\nSELECT * FROM (VALUES\n  ('s1', TIMESTAMP '2026-10-01 08:00:00', 21.5),\n  ('s1', TIMESTAMP '2026-10-01 14:00:00', 23.0),\n  ('s2', TIMESTAMP '2026-10-01 08:00:00', 19.0),\n  ('s2', TIMESTAMP '2026-10-02 08:00:00', 18.5)\n) AS t(sensor_id, read_at, temp_c);\n",
+          "dependsOn": []
+        },
+        {
+          "id": "daily",
+          "kind": "sql",
+          "source": "CREATE OR REPLACE TABLE silver.sensor_daily AS\nSELECT sensor_id, CAST(read_at AS DATE) AS day, avg(temp_c) AS avg_temp_c, count(*) AS readings\nFROM bronze.sensor_readings\nGROUP BY ALL;\n",
+          "dependsOn": ["load"]
+        },
+        {
+          "id": "check",
+          "kind": "sql",
+          "source": "-- Days with a single reading: an average of one value hides gaps.\nSELECT * FROM silver.sensor_daily WHERE readings < 2 ORDER BY sensor_id, day;\n",
+          "dependsOn": ["daily"],
+          "collapsed": true
+        }
+      ]
+    }
+  ],
+  "artifacts": [
+    {
+      "id": "bronze-sensor-readings",
+      "kind": "table",
+      "name": "bronze.sensor_readings",
+      "sha256": "1feda93bc70cf43bdd0c904cd2ba2243285a0cb4005146c23b551aeadfcce361",
+      "producedBy": { "notebook": "sensor-daily", "cell": "load" }
+    },
+    {
+      "id": "silver-sensor-daily",
+      "kind": "table",
+      "name": "silver.sensor_daily",
+      "sha256": "ab5affd60d8ed699ff4ee8f64ade767f2e2cdc5253ad37863ccf36b722abcb25",
+      "producedBy": { "notebook": "sensor-daily", "cell": "daily" }
+    }
+  ],
+  "provenance": {
+    "source": "mosaic-studio:browser-session",
+    "runs": [
+      { "cell": "load", "engine": "duckdb-wasm", "at": "2026-10-11T09:20:04Z", "status": "success" },
+      { "cell": "daily", "engine": "duckdb-wasm", "at": "2026-10-11T09:20:05Z", "status": "success" },
+      { "cell": "check", "engine": "duckdb-wasm", "at": "2026-10-11T09:21:40Z", "status": "success" }
+    ]
+  },
+  "extensions": {
+    "mosaicstudio": { "layout": [{ "cell": "daily", "x": 0, "y": 6, "w": 12, "h": 8 }], "theme": "dark" }
+  }
+}

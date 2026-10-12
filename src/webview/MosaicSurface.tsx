@@ -9,7 +9,7 @@ import { Badge, Button, Text } from "@fluentui/react-components";
 import { useEffect, useRef, useState } from "react";
 import { MOSAIC_DEFAULT_LAYOUT, type MosaicLayoutItem } from "../platform/mosaicLayout";
 import { querySummary, type QueryHistoryEntry } from "../platform/mosaicTools";
-import type { DialectTranslationView, PythonTrustView, RuntimeViewState } from "./contracts";
+import type { DialectTranslationView, MosaicWorkspaceView, PythonTrustView, RuntimeViewState } from "./contracts";
 import { ResultTable } from "./ResultTable";
 import { TrustedPythonControl } from "./TrustedPythonControl";
 import type { VsCodeApi } from "./WorkbenchApp";
@@ -26,7 +26,8 @@ export function MosaicSurface({
   pythonTrust,
   projectLayout,
   canPersist,
-  queryHistory = []
+  queryHistory = [],
+  workspace
 }: {
   vscode: VsCodeApi;
   runtime: RuntimeViewState;
@@ -34,6 +35,7 @@ export function MosaicSurface({
   projectLayout?: readonly MosaicLayoutItem[];
   canPersist: boolean;
   queryHistory?: readonly QueryHistoryEntry[];
+  workspace?: MosaicWorkspaceView;
 }) {
   const running = runtime.status === "running";
   const { width, containerRef, mounted } = useContainerWidth();
@@ -65,6 +67,10 @@ export function MosaicSurface({
         ? "Restart the runtime to apply trusted local Python."
         : undefined;
   const lastRun = runtime.lastRun;
+  // Empty state: nothing in the notebooks folder and nothing in the catalog (known when the runtime runs; a blank
+  // Build workspace's catalog is empty by design until the learner imports or creates a table).
+  const catalogEmpty = running ? (runtime.catalog ?? []).length === 0 : workspace?.blankCatalog === true;
+  const showEmptyState = workspace?.notebooksEmpty === true && catalogEmpty;
 
   const saveLayout = (next: Layout) => {
     setLayout(next);
@@ -86,6 +92,8 @@ export function MosaicSurface({
           <Badge appearance="outline">DuckDB SQL · trusted Python/Polars</Badge>
         </div>
       </div>
+
+      {showEmptyState && <MosaicEmptyState vscode={vscode} blank={workspace?.blankCatalog === true} running={running} />}
 
       <div ref={containerRef} className="mosaic-canvas">
         {mounted && (
@@ -317,6 +325,35 @@ export function MosaicSurface({
         )}
       </div>
     </section>
+  );
+}
+
+/** The empty-state panel's text, in one place. */
+export const MOSAIC_EMPTY_STATE = {
+  eyebrow: "Empty workspace",
+  title: "Start with your own data",
+  blank: "This is a blank Build workspace: the catalog has no demo tables. Create a file, or bring a dataset into datasets/.",
+  seeded: "No notebook files yet. Create a file, or bring a dataset into datasets/.",
+  stopped: "Start the runtime to run SQL or load a dataset into bronze.",
+  newFile: "New file",
+  importDataset: "Import dataset",
+  openLearning: "Open Learning"
+} as const;
+
+function MosaicEmptyState({ vscode, blank, running }: { vscode: VsCodeApi; blank: boolean; running: boolean }) {
+  const text = MOSAIC_EMPTY_STATE;
+  return (
+    <div className="mosaic-empty-state mosaic-block" role="region" aria-label={text.title}
+      style={{ height: "auto", marginBottom: 14, padding: "12px 14px", gap: 8 }}>
+      <div className="eyebrow">{text.eyebrow}</div>
+      <Text weight="semibold">{text.title}</Text>
+      <small className="muted">{blank ? text.blank : text.seeded}{running ? "" : ` ${text.stopped}`}</small>
+      <div className="button-row">
+        <Button appearance="primary" size="small" onClick={() => vscode.postMessage({ type: "buildNewFile" })}>{text.newFile}</Button>
+        <Button appearance="secondary" size="small" onClick={() => vscode.postMessage({ type: "buildImportDataset" })}>{text.importDataset}</Button>
+        <Button appearance="subtle" size="small" onClick={() => vscode.postMessage({ type: "openLearning" })}>{text.openLearning}</Button>
+      </div>
+    </div>
   );
 }
 

@@ -39,6 +39,17 @@
           "description": "Request trusted local Python/Polars execution. It also needs a per-machine confirmation and VS Code Workspace Trust; it is not a sandbox."
         }
       }
+    },
+    "catalog": {
+      "type": "object",
+      "description": "The workspace catalog (.datapass/data).",
+      "properties": {
+        "seed": {
+          "enum": ["demo", "none"],
+          "default": "demo",
+          "description": "demo: the deterministic teaching tables (source.orders, ...). none: a blank Build workspace, the catalog starts empty. Applied when the runtime starts; an already seeded catalog is never cleared."
+        }
+      }
     }
   }
 }

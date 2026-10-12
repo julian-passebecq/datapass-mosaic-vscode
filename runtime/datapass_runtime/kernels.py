@@ -22,8 +22,8 @@ class KernelTimeout(TimeoutError):
 
 
 class Kernel:
-    def __init__(self, directory: Path, mode: str, trusted: bool, cwd: Path | None = None):
-        args = [sys.executable,'-m','datapass_runtime.worker','--directory',str(directory),'--mode',mode]
+    def __init__(self, directory: Path, mode: str, trusted: bool, cwd: Path | None = None, seed: str = 'demo'):
+        args = [sys.executable,'-m','datapass_runtime.worker','--directory',str(directory),'--mode',mode,'--seed',seed]
         if trusted:
             args += ['--trusted-python']
         directory.mkdir(parents=True,exist_ok=True)
@@ -98,8 +98,9 @@ class Kernel:
 
 
 class KernelManager:
-    def __init__(self, mode='auto',trusted=False,timeout=20.0,max_workers=6):
+    def __init__(self, mode='auto',trusted=False,timeout=20.0,max_workers=6,seed='demo'):
         self.mode,self.trusted,self.timeout,self.max_workers = mode,trusted,timeout,max_workers
+        self.seed = seed if seed in ('demo','none') else 'demo'
         self.workers = {}
         self.workspace_locks = {}
         self.lock = threading.RLock()
@@ -116,7 +117,7 @@ class KernelManager:
                     key,kernel = min(idle,key=lambda pair:pair[1].last_used)
                     kernel.stop()
                     del self.workers[key]
-                self.workers[id] = Kernel(directory,self.mode,self.trusted,cwd)
+                self.workers[id] = Kernel(directory,self.mode,self.trusted,cwd,self.seed)
             return self.workers[id]
 
     @contextmanager
