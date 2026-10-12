@@ -75,7 +75,8 @@ for (const forbidden of [
   "content/lakehouse/*/*/mutants/**",
   "content/exercise-packs/*/quality.json",
   ".claude/**",
-  ".venv/**"
+  ".venv/**",
+  "handoff/**"
 ]) {
   assert.ok(ignore.includes(forbidden), `VSIX ignore is missing ${forbidden}`);
 }

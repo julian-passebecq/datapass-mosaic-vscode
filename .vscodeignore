@@ -37,3 +37,4 @@ docs/**
 !docs/QUICKSTART.md
 .vscode-test/**
 test-results/**
+handoff/**
