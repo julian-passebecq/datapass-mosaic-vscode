@@ -1,0 +1,177 @@
+{
+  "id": "vm-health-check",
+  "version": "1",
+  "lab": "infra",
+  "title": "Find the sick VM from its metrics, and restart only that one",
+  "level": "intro",
+  "estimate": "15-25 min",
+  "skills": ["az vm list / show", "az monitor metrics list-definitions / list", "intervals, aggregations and time ranges", "az vm restart", "acting on one resource, not the whole group"],
+  "ticket": {
+    "from": "Sofia Lindqvist, BI team",
+    "subject": "The 06:00 sales reports never arrived",
+    "body": [
+      "None of this morning's scheduled reports were sent. They are rendered on two app VMs, `vm-report-app-01` and",
+      "`vm-report-app-02`, which read from `vm-report-db-01`, all in `rg-reporting-prod`. Nobody changed anything",
+      "yesterday. Could you have a look?",
+      "",
+      "- **Find the VM that is not healthy** from its Azure Monitor metrics (the last 12 hours are there), the",
+      "  metric that shows it, and roughly when it started (UTC, to five minutes).",
+      "- **Restart that VM, and only that one.** Above all, do not touch `vm-report-db-01`: the finance team queries",
+      "  it all day, and a restart would cut their sessions.",
+      "- Write what you found in `health-note.txt` (one value after each colon) so the next person on duty knows.",
+      "",
+      "This is the lab's simulated subscription: the metrics are a recorded scenario and nothing is sent to Azure."
+    ]
+  },
+  "acceptance": [
+    {
+      "id": "diagnosis",
+      "text": "health-note.txt names vm-report-app-01, Percentage CPU, and a start between 02:35 and 02:45 UTC.",
+      "checks": [
+        {"kind": "text", "path": "health-note.txt",
+         "regex": ["(?im)^vm:\\s*vm-report-app-01\\s*$", "(?im)^metric:\\s*Percentage CPU\\s*$", "(?im)^since \\(UTC, HH:MM\\):\\s*0?2:(3[5-9]|4[0-5])\\s*$"],
+         "fail": "health-note.txt does not hold the right VM, metric and start time."}
+      ]
+    },
+    {
+      "id": "looked",
+      "text": "You listed the VMs and read the metrics of vm-report-app-01.",
+      "checks": [
+        {"kind": "journal", "includes": ["^az vm list", "^az monitor metrics list .*vm-report-app-01"],
+         "fail": "The VMs were not listed, or vm-report-app-01's metrics were not read."}
+      ]
+    },
+    {
+      "id": "restarted",
+      "text": "vm-report-app-01 was restarted and is running.",
+      "checks": [
+        {"kind": "journal", "includes": ["^az vm restart .*vm-report-app-01( |$)"], "fail": "vm-report-app-01 was not restarted."},
+        {"kind": "azure_resource", "type": "Microsoft.Compute/virtualMachines", "name": "vm-report-app-01", "attributes": {"power_state": "VM running"},
+         "fail": "vm-report-app-01 is not running."}
+      ]
+    },
+    {
+      "id": "only-that-one",
+      "text": "No other VM was restarted, stopped or deallocated, and vm-report-app-01 was not stopped either.",
+      "checks": [
+        {"kind": "journal", "excludes": ["^az vm (restart|stop|deallocate|start) .*vm-report-(app-02|db-01)", "^az vm (stop|deallocate) "],
+         "fail": "A VM the ticket says to leave alone was touched."}
+      ]
+    }
+  ],
+  "hints": [
+    "`az vm list -g rg-reporting-prod -o table` shows the VMs and their power state: all three say running, so the power state alone does not tell.",
+    "`az monitor metrics list-definitions --resource vm-report-app-01` lists the metrics recorded for a VM.",
+    "`az monitor metrics list --resource NAME --metric \"Percentage CPU\" --interval 1h` gives one average per hour; compare the three VMs.",
+    "Zoom in with a shorter interval and a time range: `--interval 5m --start-time 2026-10-12T02:00:00Z --end-time 2026-10-12T03:30:00Z`.",
+    "`az vm restart -g rg-reporting-prod -n NAME` restarts one VM. `az vm stop` would leave it stopped (and `deallocate` releases it), which is not what the ticket asks."
+  ],
+  "infra": {
+    "world": {
+      "clock": "2026-10-12T08:00:00Z",
+      "azure": {
+        "resources": {
+          "/subscriptions/6d1f2c3a-0b4e-4c8d-9a7f-2e5b8c1d4f60/resourceGroups/rg-reporting-prod": {
+            "type": "Microsoft.Resources/resourceGroups", "tf_type": "azurerm_resource_group",
+            "id": "/subscriptions/6d1f2c3a-0b4e-4c8d-9a7f-2e5b8c1d4f60/resourceGroups/rg-reporting-prod",
+            "managed_by": "terraform", "created_at": "2025-03-04T09:00:00Z",
+            "attributes": {"id": "/subscriptions/6d1f2c3a-0b4e-4c8d-9a7f-2e5b8c1d4f60/resourceGroups/rg-reporting-prod",
+                           "name": "rg-reporting-prod", "location": "westeurope", "managed_by": null,
+                           "tags": {"owner": "bi-team", "env": "prod"}}
+          },
+          "/subscriptions/6d1f2c3a-0b4e-4c8d-9a7f-2e5b8c1d4f60/resourceGroups/rg-reporting-prod/providers/Microsoft.Compute/virtualMachines/vm-report-app-01": {
+            "type": "Microsoft.Compute/virtualMachines", "tf_type": "azurerm_linux_virtual_machine",
+            "id": "/subscriptions/6d1f2c3a-0b4e-4c8d-9a7f-2e5b8c1d4f60/resourceGroups/rg-reporting-prod/providers/Microsoft.Compute/virtualMachines/vm-report-app-01",
+            "managed_by": "terraform", "created_at": "2025-03-04T09:00:00Z",
+            "attributes": {"id": "/subscriptions/6d1f2c3a-0b4e-4c8d-9a7f-2e5b8c1d4f60/resourceGroups/rg-reporting-prod/providers/Microsoft.Compute/virtualMachines/vm-report-app-01",
+                           "name": "vm-report-app-01", "location": "westeurope", "size": "Standard_D2s_v5", "os_type": "Linux",
+                           "power_state": "VM running", "tags": {"role": "report-renderer"}},
+            "metrics": {
+              "end": "2026-10-12T08:00:00Z", "minutes": 720,
+              "series": {
+                "Percentage CPU": {
+                  "unit": "Percent", "description": "The percentage of allocated compute units in use by the VM",
+                  "base": 14, "noise": 5, "max": 100,
+                  "events": [
+                    {"from": "2026-10-11T22:00:00Z", "minutes": 25, "value": 55, "noise": 8},
+                    {"from": "2026-10-12T02:40:00Z", "minutes": 320, "value": 99.5, "noise": 0.5}
+                  ]
+                },
+                "Available Memory Bytes": {
+                  "unit": "Bytes", "description": "Memory available to applications (8 GiB VM)",
+                  "base": 5200000000.0, "noise": 120000000.0, "min": 0,
+                  "events": [{"from": "2026-10-11T22:00:00Z", "minutes": 25, "value": 3900000000.0, "noise": 100000000.0}]
+                },
+                "Network In Total": {
+                  "unit": "Bytes", "description": "Bytes received by the VM's network interfaces, per minute",
+                  "base": 2400000, "noise": 600000, "min": 0,
+                  "events": [{"from": "2026-10-11T22:00:00Z", "minutes": 25, "value": 41000000, "noise": 5000000}]
+                }
+              }
+            }
+          },
+          "/subscriptions/6d1f2c3a-0b4e-4c8d-9a7f-2e5b8c1d4f60/resourceGroups/rg-reporting-prod/providers/Microsoft.Compute/virtualMachines/vm-report-app-02": {
+            "type": "Microsoft.Compute/virtualMachines", "tf_type": "azurerm_linux_virtual_machine",
+            "id": "/subscriptions/6d1f2c3a-0b4e-4c8d-9a7f-2e5b8c1d4f60/resourceGroups/rg-reporting-prod/providers/Microsoft.Compute/virtualMachines/vm-report-app-02",
+            "managed_by": "terraform", "created_at": "2025-03-04T09:00:00Z",
+            "attributes": {"id": "/subscriptions/6d1f2c3a-0b4e-4c8d-9a7f-2e5b8c1d4f60/resourceGroups/rg-reporting-prod/providers/Microsoft.Compute/virtualMachines/vm-report-app-02",
+                           "name": "vm-report-app-02", "location": "westeurope", "size": "Standard_D2s_v5", "os_type": "Linux",
+                           "power_state": "VM running", "tags": {"role": "report-renderer"}},
+            "metrics": {
+              "end": "2026-10-12T08:00:00Z", "minutes": 720,
+              "series": {
+                "Percentage CPU": {
+                  "unit": "Percent", "description": "The percentage of allocated compute units in use by the VM",
+                  "base": 12, "noise": 5, "max": 100,
+                  "events": [{"from": "2026-10-11T22:00:00Z", "minutes": 25, "value": 52, "noise": 8}]
+                },
+                "Available Memory Bytes": {
+                  "unit": "Bytes", "description": "Memory available to applications (8 GiB VM)",
+                  "base": 5300000000.0, "noise": 120000000.0, "min": 0,
+                  "events": [{"from": "2026-10-11T22:00:00Z", "minutes": 25, "value": 4000000000.0, "noise": 100000000.0}]
+                },
+                "Network In Total": {
+                  "unit": "Bytes", "description": "Bytes received by the VM's network interfaces, per minute",
+                  "base": 2300000, "noise": 600000, "min": 0,
+                  "events": [{"from": "2026-10-11T22:00:00Z", "minutes": 25, "value": 39000000, "noise": 5000000}]
+                }
+              }
+            }
+          },
+          "/subscriptions/6d1f2c3a-0b4e-4c8d-9a7f-2e5b8c1d4f60/resourceGroups/rg-reporting-prod/providers/Microsoft.Compute/virtualMachines/vm-report-db-01": {
+            "type": "Microsoft.Compute/virtualMachines", "tf_type": "azurerm_linux_virtual_machine",
+            "id": "/subscriptions/6d1f2c3a-0b4e-4c8d-9a7f-2e5b8c1d4f60/resourceGroups/rg-reporting-prod/providers/Microsoft.Compute/virtualMachines/vm-report-db-01",
+            "managed_by": "terraform", "created_at": "2025-03-04T09:00:00Z",
+            "attributes": {"id": "/subscriptions/6d1f2c3a-0b4e-4c8d-9a7f-2e5b8c1d4f60/resourceGroups/rg-reporting-prod/providers/Microsoft.Compute/virtualMachines/vm-report-db-01",
+                           "name": "vm-report-db-01", "location": "westeurope", "size": "Standard_E4s_v5", "os_type": "Linux",
+                           "power_state": "VM running", "tags": {"role": "postgres"}},
+            "metrics": {
+              "end": "2026-10-12T08:00:00Z", "minutes": 720,
+              "series": {
+                "Percentage CPU": {
+                  "unit": "Percent", "description": "The percentage of allocated compute units in use by the VM",
+                  "base": 31, "noise": 7, "max": 100,
+                  "events": [{"from": "2026-10-11T22:00:00Z", "minutes": 30, "value": 68, "noise": 6}]
+                },
+                "Available Memory Bytes": {
+                  "unit": "Bytes", "description": "Memory available to applications (32 GiB VM)",
+                  "base": 11500000000.0, "noise": 300000000.0, "min": 0
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "reference": [
+    {"infra": "az vm list -g rg-reporting-prod -o table"},
+    {"infra": "az vm show -g rg-reporting-prod -n vm-report-app-01"},
+    {"infra": "az monitor metrics list-definitions --resource vm-report-app-01"},
+    {"infra": "az monitor metrics list --resource vm-report-app-01 --metric \"Percentage CPU\" --interval 1h"},
+    {"infra": "az monitor metrics list --resource vm-report-app-02 --metric \"Percentage CPU\" --interval 1h"},
+    {"infra": "az monitor metrics list --resource vm-report-app-01 --metric \"Percentage CPU\" --interval 5m --start-time 2026-10-12T02:00:00Z --end-time 2026-10-12T03:30:00Z"},
+    {"infra": "az vm restart -g rg-reporting-prod -n vm-report-app-01"},
+    {"infra": "az vm list -g rg-reporting-prod -o table"}
+  ]
+}

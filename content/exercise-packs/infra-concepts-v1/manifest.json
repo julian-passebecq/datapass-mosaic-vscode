@@ -1,0 +1,10 @@
+{
+  "schema_version": 1,
+  "id": "infra-concepts-v1",
+  "version": "1",
+  "title": "Concept checks: observability, PromQL, Grafana, SLOs and error budgets (no execution)",
+  "enabled": true,
+  "provenance": {
+    "source": "Authored for Datapass Workbench"
+  }
+}

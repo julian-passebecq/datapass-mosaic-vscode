@@ -1,0 +1,1243 @@
+[
+  {
+    "schema_version": 1,
+    "id": "infra-concept-signals-traces",
+    "version": "1",
+    "title": "Which signal shows where a request spent its time",
+    "difficulty": "easy",
+    "topics": [
+      "observability",
+      "signals"
+    ],
+    "tags": [
+      "concept-check",
+      "observability",
+      "signals"
+    ],
+    "origin": "authored",
+    "language": "quiz",
+    "runtime": "datapass-quiz-v1",
+    "prompt": "A checkout request took 4 seconds. It crossed the API gateway, the orders service and the payment service. Which signal tells you which of them added the delay?",
+    "sections": [
+      {
+        "title": "Concept check (no execution)",
+        "body": "Nothing runs here: the Infra Lab simulates Azure Monitor alerts but no Prometheus, Grafana or tracing backend. Answer in the file, save, and Submit; the runtime compares your answer with the pack's answer and explains it once you are right. The reference sheet (Observability: metrics, logs, traces, PromQL, Grafana, SLOs) covers the topic."
+      }
+    ],
+    "starter_source": "Concept check (no execution): nothing runs; the runtime checks your answer when you Submit.\n\nA checkout request took 4 seconds. It crossed the API gateway, the orders service and the payment service. Which signal tells you which of them added the delay?\n\n  a) A metric of the gateway's average latency\n  b) A distributed trace of that request\n  c) The CPU usage of each service\n  d) The gateway's access log\n\nWrite the letter of your choice after \"answer:\" (several letters separated by commas if several are right), save, then Submit.\nanswer:\n",
+    "fixtures": [
+      {
+        "id": "infra-concept-signals-traces-fixtures",
+        "version": "1"
+      }
+    ],
+    "visible_checks": [
+      {
+        "id": "format",
+        "description": "Your answer is well formed (Run checks only this)."
+      }
+    ],
+    "hidden_check_refs": [
+      "answer"
+    ],
+    "edge_check_refs": [],
+    "hints": [
+      "You want the path of one request, hop by hop.",
+      "Open the reference sheet: Observability: metrics, logs, traces, PromQL, Grafana, SLOs."
+    ],
+    "solution": {
+      "available": true,
+      "reveal": "explicit"
+    },
+    "explanation": "The explanation comes with a correct submission, from the runtime.",
+    "follow_ups": [],
+    "canonical_placement": {
+      "domain": "concepts",
+      "topic": "observability"
+    },
+    "related_associations": [
+      "practice/concepts",
+      "lab/infra"
+    ],
+    "validator_version": "quiz-v1",
+    "runtime_requirements": [],
+    "provenance": {
+      "source": "Authored for Datapass Workbench; checked against the Prometheus and Grafana documentation and Google's SRE books on 2026-10-12"
+    },
+    "constraints": {
+      "truth": "Concept check: no execution; the answer is compared by the runtime. No Prometheus or Grafana is simulated."
+    },
+    "context_refs": [
+      "reference/observability.md"
+    ],
+    "truth": "concept-check"
+  },
+  {
+    "schema_version": 1,
+    "id": "infra-concept-signals-cardinality",
+    "version": "1",
+    "title": "Labels and cardinality",
+    "difficulty": "medium",
+    "topics": [
+      "observability",
+      "signals"
+    ],
+    "tags": [
+      "concept-check",
+      "observability",
+      "signals"
+    ],
+    "origin": "authored",
+    "language": "quiz",
+    "runtime": "datapass-quiz-v1",
+    "prompt": "Why should you not add a `user_id` label to a Prometheus request counter?",
+    "sections": [
+      {
+        "title": "Concept check (no execution)",
+        "body": "Nothing runs here: the Infra Lab simulates Azure Monitor alerts but no Prometheus, Grafana or tracing backend. Answer in the file, save, and Submit; the runtime compares your answer with the pack's answer and explains it once you are right. The reference sheet (Observability: metrics, logs, traces, PromQL, Grafana, SLOs) covers the topic."
+      }
+    ],
+    "starter_source": "Concept check (no execution): nothing runs; the runtime checks your answer when you Submit.\n\nWhy should you not add a `user_id` label to a Prometheus request counter?\n\n  a) Labels cannot hold numbers\n  b) Every distinct label value creates a new time series, so millions of users mean millions of series\n  c) Prometheus drops labels longer than 8 characters\n  d) Counters cannot have labels\n\nWrite the letter of your choice after \"answer:\" (several letters separated by commas if several are right), save, then Submit.\nanswer:\n",
+    "fixtures": [
+      {
+        "id": "infra-concept-signals-cardinality-fixtures",
+        "version": "1"
+      }
+    ],
+    "visible_checks": [
+      {
+        "id": "format",
+        "description": "Your answer is well formed (Run checks only this)."
+      }
+    ],
+    "hidden_check_refs": [
+      "answer"
+    ],
+    "edge_check_refs": [],
+    "hints": [
+      "Count the time series the label would create.",
+      "Open the reference sheet: Observability: metrics, logs, traces, PromQL, Grafana, SLOs."
+    ],
+    "solution": {
+      "available": true,
+      "reveal": "explicit"
+    },
+    "explanation": "The explanation comes with a correct submission, from the runtime.",
+    "follow_ups": [],
+    "canonical_placement": {
+      "domain": "concepts",
+      "topic": "observability"
+    },
+    "related_associations": [
+      "practice/concepts",
+      "lab/infra"
+    ],
+    "validator_version": "quiz-v1",
+    "runtime_requirements": [],
+    "provenance": {
+      "source": "Authored for Datapass Workbench; checked against the Prometheus and Grafana documentation and Google's SRE books on 2026-10-12"
+    },
+    "constraints": {
+      "truth": "Concept check: no execution; the answer is compared by the runtime. No Prometheus or Grafana is simulated."
+    },
+    "context_refs": [
+      "reference/observability.md"
+    ],
+    "truth": "concept-check"
+  },
+  {
+    "schema_version": 1,
+    "id": "infra-concept-signals-structured-logs",
+    "version": "1",
+    "title": "Structured logs",
+    "difficulty": "easy",
+    "topics": [
+      "observability",
+      "signals"
+    ],
+    "tags": [
+      "concept-check",
+      "observability",
+      "signals"
+    ],
+    "origin": "authored",
+    "language": "quiz",
+    "runtime": "datapass-quiz-v1",
+    "prompt": "What do you gain by writing logs as JSON objects (`{\"level\": \"error\", \"order_id\": 42, ...}`) instead of free text?",
+    "sections": [
+      {
+        "title": "Concept check (no execution)",
+        "body": "Nothing runs here: the Infra Lab simulates Azure Monitor alerts but no Prometheus, Grafana or tracing backend. Answer in the file, save, and Submit; the runtime compares your answer with the pack's answer and explains it once you are right. The reference sheet (Observability: metrics, logs, traces, PromQL, Grafana, SLOs) covers the topic."
+      }
+    ],
+    "starter_source": "Concept check (no execution): nothing runs; the runtime checks your answer when you Submit.\n\nWhat do you gain by writing logs as JSON objects (`{\"level\": \"error\", \"order_id\": 42, ...}`) instead of free text?\n\n  a) Smaller files\n  b) Fields you can filter and aggregate on without fragile text parsing\n  c) Logs no longer need timestamps\n  d) Nothing: log tools only read text\n\nWrite the letter of your choice after \"answer:\" (several letters separated by commas if several are right), save, then Submit.\nanswer:\n",
+    "fixtures": [
+      {
+        "id": "infra-concept-signals-structured-logs-fixtures",
+        "version": "1"
+      }
+    ],
+    "visible_checks": [
+      {
+        "id": "format",
+        "description": "Your answer is well formed (Run checks only this)."
+      }
+    ],
+    "hidden_check_refs": [
+      "answer"
+    ],
+    "edge_check_refs": [],
+    "hints": [
+      "Think about querying the logs later.",
+      "Open the reference sheet: Observability: metrics, logs, traces, PromQL, Grafana, SLOs."
+    ],
+    "solution": {
+      "available": true,
+      "reveal": "explicit"
+    },
+    "explanation": "The explanation comes with a correct submission, from the runtime.",
+    "follow_ups": [],
+    "canonical_placement": {
+      "domain": "concepts",
+      "topic": "observability"
+    },
+    "related_associations": [
+      "practice/concepts",
+      "lab/infra"
+    ],
+    "validator_version": "quiz-v1",
+    "runtime_requirements": [],
+    "provenance": {
+      "source": "Authored for Datapass Workbench; checked against the Prometheus and Grafana documentation and Google's SRE books on 2026-10-12"
+    },
+    "constraints": {
+      "truth": "Concept check: no execution; the answer is compared by the runtime. No Prometheus or Grafana is simulated."
+    },
+    "context_refs": [
+      "reference/observability.md"
+    ],
+    "truth": "concept-check"
+  },
+  {
+    "schema_version": 1,
+    "id": "infra-concept-promql-metric-types",
+    "version": "1",
+    "title": "Counter or gauge",
+    "difficulty": "easy",
+    "topics": [
+      "observability",
+      "promql"
+    ],
+    "tags": [
+      "concept-check",
+      "observability",
+      "promql"
+    ],
+    "origin": "authored",
+    "language": "quiz",
+    "runtime": "datapass-quiz-v1",
+    "prompt": "A metric reports how many messages are waiting in a queue right now; it goes up and down. Which Prometheus metric type is it? (one word)",
+    "sections": [
+      {
+        "title": "Concept check (no execution)",
+        "body": "Nothing runs here: the Infra Lab simulates Azure Monitor alerts but no Prometheus, Grafana or tracing backend. Answer in the file, save, and Submit; the runtime compares your answer with the pack's answer and explains it once you are right. The reference sheet (Observability: metrics, logs, traces, PromQL, Grafana, SLOs) covers the topic."
+      }
+    ],
+    "starter_source": "Concept check (no execution): nothing runs; the runtime checks your answer when you Submit.\n\nA metric reports how many messages are waiting in a queue right now; it goes up and down. Which Prometheus metric type is it? (one word)\n\nWrite your short answer after \"answer:\", save, then Submit.\nanswer:\n",
+    "fixtures": [
+      {
+        "id": "infra-concept-promql-metric-types-fixtures",
+        "version": "1"
+      }
+    ],
+    "visible_checks": [
+      {
+        "id": "format",
+        "description": "Your answer is well formed (Run checks only this)."
+      }
+    ],
+    "hidden_check_refs": [
+      "answer"
+    ],
+    "edge_check_refs": [],
+    "hints": [
+      "It is not a counter, because it can go down.",
+      "Open the reference sheet: Observability: metrics, logs, traces, PromQL, Grafana, SLOs."
+    ],
+    "solution": {
+      "available": true,
+      "reveal": "explicit"
+    },
+    "explanation": "The explanation comes with a correct submission, from the runtime.",
+    "follow_ups": [],
+    "canonical_placement": {
+      "domain": "concepts",
+      "topic": "observability"
+    },
+    "related_associations": [
+      "practice/concepts",
+      "lab/infra"
+    ],
+    "validator_version": "quiz-v1",
+    "runtime_requirements": [],
+    "provenance": {
+      "source": "Authored for Datapass Workbench; checked against the Prometheus and Grafana documentation and Google's SRE books on 2026-10-12"
+    },
+    "constraints": {
+      "truth": "Concept check: no execution; the answer is compared by the runtime. No Prometheus or Grafana is simulated."
+    },
+    "context_refs": [
+      "reference/observability.md"
+    ],
+    "truth": "concept-check"
+  },
+  {
+    "schema_version": 1,
+    "id": "infra-concept-promql-rate",
+    "version": "1",
+    "title": "Requests per second from a counter",
+    "difficulty": "easy",
+    "topics": [
+      "observability",
+      "promql"
+    ],
+    "tags": [
+      "concept-check",
+      "observability",
+      "promql"
+    ],
+    "origin": "authored",
+    "language": "quiz",
+    "runtime": "datapass-quiz-v1",
+    "prompt": "`http_requests_total` is a counter. Which query gives the requests per second, averaged over the last 5 minutes?",
+    "sections": [
+      {
+        "title": "Concept check (no execution)",
+        "body": "Nothing runs here: the Infra Lab simulates Azure Monitor alerts but no Prometheus, Grafana or tracing backend. Answer in the file, save, and Submit; the runtime compares your answer with the pack's answer and explains it once you are right. The reference sheet (Observability: metrics, logs, traces, PromQL, Grafana, SLOs) covers the topic."
+      }
+    ],
+    "starter_source": "Concept check (no execution): nothing runs; the runtime checks your answer when you Submit.\n\n`http_requests_total` is a counter. Which query gives the requests per second, averaged over the last 5 minutes?\n\n  a) http_requests_total\n  b) rate(http_requests_total[5m])\n  c) sum(http_requests_total)\n  d) avg_over_time(http_requests_total[5m])\n\nWrite the letter of your choice after \"answer:\" (several letters separated by commas if several are right), save, then Submit.\nanswer:\n",
+    "fixtures": [
+      {
+        "id": "infra-concept-promql-rate-fixtures",
+        "version": "1"
+      }
+    ],
+    "visible_checks": [
+      {
+        "id": "format",
+        "description": "Your answer is well formed (Run checks only this)."
+      }
+    ],
+    "hidden_check_refs": [
+      "answer"
+    ],
+    "edge_check_refs": [],
+    "hints": [
+      "A counter's value matters less than how fast it grows.",
+      "Open the reference sheet: Observability: metrics, logs, traces, PromQL, Grafana, SLOs."
+    ],
+    "solution": {
+      "available": true,
+      "reveal": "explicit"
+    },
+    "explanation": "The explanation comes with a correct submission, from the runtime.",
+    "follow_ups": [],
+    "canonical_placement": {
+      "domain": "concepts",
+      "topic": "observability"
+    },
+    "related_associations": [
+      "practice/concepts",
+      "lab/infra"
+    ],
+    "validator_version": "quiz-v1",
+    "runtime_requirements": [],
+    "provenance": {
+      "source": "Authored for Datapass Workbench; checked against the Prometheus and Grafana documentation and Google's SRE books on 2026-10-12"
+    },
+    "constraints": {
+      "truth": "Concept check: no execution; the answer is compared by the runtime. No Prometheus or Grafana is simulated."
+    },
+    "context_refs": [
+      "reference/observability.md"
+    ],
+    "truth": "concept-check"
+  },
+  {
+    "schema_version": 1,
+    "id": "infra-concept-promql-range-vector",
+    "version": "1",
+    "title": "What [5m] returns",
+    "difficulty": "medium",
+    "topics": [
+      "observability",
+      "promql"
+    ],
+    "tags": [
+      "concept-check",
+      "observability",
+      "promql"
+    ],
+    "origin": "authored",
+    "language": "quiz",
+    "runtime": "datapass-quiz-v1",
+    "prompt": "What does `http_requests_total[5m]` return on its own?",
+    "sections": [
+      {
+        "title": "Concept check (no execution)",
+        "body": "Nothing runs here: the Infra Lab simulates Azure Monitor alerts but no Prometheus, Grafana or tracing backend. Answer in the file, save, and Submit; the runtime compares your answer with the pack's answer and explains it once you are right. The reference sheet (Observability: metrics, logs, traces, PromQL, Grafana, SLOs) covers the topic."
+      }
+    ],
+    "starter_source": "Concept check (no execution): nothing runs; the runtime checks your answer when you Submit.\n\nWhat does `http_requests_total[5m]` return on its own?\n\n  a) A range vector: every sample of each series over the last 5 minutes\n  b) The value 5 minutes ago\n  c) The average of the last 5 minutes\n  d) An error: [5m] needs offset\n\nWrite the letter of your choice after \"answer:\" (several letters separated by commas if several are right), save, then Submit.\nanswer:\n",
+    "fixtures": [
+      {
+        "id": "infra-concept-promql-range-vector-fixtures",
+        "version": "1"
+      }
+    ],
+    "visible_checks": [
+      {
+        "id": "format",
+        "description": "Your answer is well formed (Run checks only this)."
+      }
+    ],
+    "hidden_check_refs": [
+      "answer"
+    ],
+    "edge_check_refs": [],
+    "hints": [
+      "It is the input that rate() expects.",
+      "Open the reference sheet: Observability: metrics, logs, traces, PromQL, Grafana, SLOs."
+    ],
+    "solution": {
+      "available": true,
+      "reveal": "explicit"
+    },
+    "explanation": "The explanation comes with a correct submission, from the runtime.",
+    "follow_ups": [],
+    "canonical_placement": {
+      "domain": "concepts",
+      "topic": "observability"
+    },
+    "related_associations": [
+      "practice/concepts",
+      "lab/infra"
+    ],
+    "validator_version": "quiz-v1",
+    "runtime_requirements": [],
+    "provenance": {
+      "source": "Authored for Datapass Workbench; checked against the Prometheus and Grafana documentation and Google's SRE books on 2026-10-12"
+    },
+    "constraints": {
+      "truth": "Concept check: no execution; the answer is compared by the runtime. No Prometheus or Grafana is simulated."
+    },
+    "context_refs": [
+      "reference/observability.md"
+    ],
+    "truth": "concept-check"
+  },
+  {
+    "schema_version": 1,
+    "id": "infra-concept-promql-sum-by",
+    "version": "1",
+    "title": "One line per status code",
+    "difficulty": "medium",
+    "topics": [
+      "observability",
+      "promql"
+    ],
+    "tags": [
+      "concept-check",
+      "observability",
+      "promql"
+    ],
+    "origin": "authored",
+    "language": "quiz",
+    "runtime": "datapass-quiz-v1",
+    "prompt": "Your counter `http_requests_total` has the labels `instance`, `method` and `code`. Which query gives one line per status code, all instances and methods together?",
+    "sections": [
+      {
+        "title": "Concept check (no execution)",
+        "body": "Nothing runs here: the Infra Lab simulates Azure Monitor alerts but no Prometheus, Grafana or tracing backend. Answer in the file, save, and Submit; the runtime compares your answer with the pack's answer and explains it once you are right. The reference sheet (Observability: metrics, logs, traces, PromQL, Grafana, SLOs) covers the topic."
+      }
+    ],
+    "starter_source": "Concept check (no execution): nothing runs; the runtime checks your answer when you Submit.\n\nYour counter `http_requests_total` has the labels `instance`, `method` and `code`. Which query gives one line per status code, all instances and methods together?\n\n  a) rate(http_requests_total[5m]) by (code)\n  b) sum by (code) (rate(http_requests_total[5m]))\n  c) sum(rate(http_requests_total{code}[5m]))\n  d) count by (code) (http_requests_total)\n\nWrite the letter of your choice after \"answer:\" (several letters separated by commas if several are right), save, then Submit.\nanswer:\n",
+    "fixtures": [
+      {
+        "id": "infra-concept-promql-sum-by-fixtures",
+        "version": "1"
+      }
+    ],
+    "visible_checks": [
+      {
+        "id": "format",
+        "description": "Your answer is well formed (Run checks only this)."
+      }
+    ],
+    "hidden_check_refs": [
+      "answer"
+    ],
+    "edge_check_refs": [],
+    "hints": [
+      "rate() first, then aggregate.",
+      "Open the reference sheet: Observability: metrics, logs, traces, PromQL, Grafana, SLOs."
+    ],
+    "solution": {
+      "available": true,
+      "reveal": "explicit"
+    },
+    "explanation": "The explanation comes with a correct submission, from the runtime.",
+    "follow_ups": [],
+    "canonical_placement": {
+      "domain": "concepts",
+      "topic": "observability"
+    },
+    "related_associations": [
+      "practice/concepts",
+      "lab/infra"
+    ],
+    "validator_version": "quiz-v1",
+    "runtime_requirements": [],
+    "provenance": {
+      "source": "Authored for Datapass Workbench; checked against the Prometheus and Grafana documentation and Google's SRE books on 2026-10-12"
+    },
+    "constraints": {
+      "truth": "Concept check: no execution; the answer is compared by the runtime. No Prometheus or Grafana is simulated."
+    },
+    "context_refs": [
+      "reference/observability.md"
+    ],
+    "truth": "concept-check"
+  },
+  {
+    "schema_version": 1,
+    "id": "infra-concept-promql-histogram-quantile",
+    "version": "1",
+    "title": "p95 latency from a histogram",
+    "difficulty": "hard",
+    "topics": [
+      "observability",
+      "promql"
+    ],
+    "tags": [
+      "concept-check",
+      "observability",
+      "promql"
+    ],
+    "origin": "authored",
+    "language": "quiz",
+    "runtime": "datapass-quiz-v1",
+    "prompt": "Request durations are recorded in the histogram `http_request_duration_seconds`. Which query gives the 95th percentile latency over all instances, over the last 5 minutes?",
+    "sections": [
+      {
+        "title": "Concept check (no execution)",
+        "body": "Nothing runs here: the Infra Lab simulates Azure Monitor alerts but no Prometheus, Grafana or tracing backend. Answer in the file, save, and Submit; the runtime compares your answer with the pack's answer and explains it once you are right. The reference sheet (Observability: metrics, logs, traces, PromQL, Grafana, SLOs) covers the topic."
+      }
+    ],
+    "starter_source": "Concept check (no execution): nothing runs; the runtime checks your answer when you Submit.\n\nRequest durations are recorded in the histogram `http_request_duration_seconds`. Which query gives the 95th percentile latency over all instances, over the last 5 minutes?\n\n  a) quantile(0.95, http_request_duration_seconds_sum)\n  b) histogram_quantile(0.95, sum by (le) (rate(http_request_duration_seconds_bucket[5m])))\n  c) avg(http_request_duration_seconds_bucket) * 0.95\n  d) histogram_quantile(95, http_request_duration_seconds_count)\n\nWrite the letter of your choice after \"answer:\" (several letters separated by commas if several are right), save, then Submit.\nanswer:\n",
+    "fixtures": [
+      {
+        "id": "infra-concept-promql-histogram-quantile-fixtures",
+        "version": "1"
+      }
+    ],
+    "visible_checks": [
+      {
+        "id": "format",
+        "description": "Your answer is well formed (Run checks only this)."
+      }
+    ],
+    "hidden_check_refs": [
+      "answer"
+    ],
+    "edge_check_refs": [],
+    "hints": [
+      "The buckets carry the le label; keep it when you sum.",
+      "Open the reference sheet: Observability: metrics, logs, traces, PromQL, Grafana, SLOs."
+    ],
+    "solution": {
+      "available": true,
+      "reveal": "explicit"
+    },
+    "explanation": "The explanation comes with a correct submission, from the runtime.",
+    "follow_ups": [],
+    "canonical_placement": {
+      "domain": "concepts",
+      "topic": "observability"
+    },
+    "related_associations": [
+      "practice/concepts",
+      "lab/infra"
+    ],
+    "validator_version": "quiz-v1",
+    "runtime_requirements": [],
+    "provenance": {
+      "source": "Authored for Datapass Workbench; checked against the Prometheus and Grafana documentation and Google's SRE books on 2026-10-12"
+    },
+    "constraints": {
+      "truth": "Concept check: no execution; the answer is compared by the runtime. No Prometheus or Grafana is simulated."
+    },
+    "context_refs": [
+      "reference/observability.md"
+    ],
+    "truth": "concept-check"
+  },
+  {
+    "schema_version": 1,
+    "id": "infra-concept-grafana-datasources",
+    "version": "1",
+    "title": "Where Grafana's data lives",
+    "difficulty": "easy",
+    "topics": [
+      "observability",
+      "grafana"
+    ],
+    "tags": [
+      "concept-check",
+      "observability",
+      "grafana"
+    ],
+    "origin": "authored",
+    "language": "quiz",
+    "runtime": "datapass-quiz-v1",
+    "prompt": "Where are the numbers a Grafana dashboard shows stored?",
+    "sections": [
+      {
+        "title": "Concept check (no execution)",
+        "body": "Nothing runs here: the Infra Lab simulates Azure Monitor alerts but no Prometheus, Grafana or tracing backend. Answer in the file, save, and Submit; the runtime compares your answer with the pack's answer and explains it once you are right. The reference sheet (Observability: metrics, logs, traces, PromQL, Grafana, SLOs) covers the topic."
+      }
+    ],
+    "starter_source": "Concept check (no execution): nothing runs; the runtime checks your answer when you Submit.\n\nWhere are the numbers a Grafana dashboard shows stored?\n\n  a) In Grafana's own database, copied at every refresh\n  b) In the data sources Grafana queries (Prometheus, Loki, a SQL database, Azure Monitor...)\n  c) In the browser\n  d) In the dashboard's JSON file\n\nWrite the letter of your choice after \"answer:\" (several letters separated by commas if several are right), save, then Submit.\nanswer:\n",
+    "fixtures": [
+      {
+        "id": "infra-concept-grafana-datasources-fixtures",
+        "version": "1"
+      }
+    ],
+    "visible_checks": [
+      {
+        "id": "format",
+        "description": "Your answer is well formed (Run checks only this)."
+      }
+    ],
+    "hidden_check_refs": [
+      "answer"
+    ],
+    "edge_check_refs": [],
+    "hints": [
+      "Each panel has a query and a data source.",
+      "Open the reference sheet: Observability: metrics, logs, traces, PromQL, Grafana, SLOs."
+    ],
+    "solution": {
+      "available": true,
+      "reveal": "explicit"
+    },
+    "explanation": "The explanation comes with a correct submission, from the runtime.",
+    "follow_ups": [],
+    "canonical_placement": {
+      "domain": "concepts",
+      "topic": "observability"
+    },
+    "related_associations": [
+      "practice/concepts",
+      "lab/infra"
+    ],
+    "validator_version": "quiz-v1",
+    "runtime_requirements": [],
+    "provenance": {
+      "source": "Authored for Datapass Workbench; checked against the Prometheus and Grafana documentation and Google's SRE books on 2026-10-12"
+    },
+    "constraints": {
+      "truth": "Concept check: no execution; the answer is compared by the runtime. No Prometheus or Grafana is simulated."
+    },
+    "context_refs": [
+      "reference/observability.md"
+    ],
+    "truth": "concept-check"
+  },
+  {
+    "schema_version": 1,
+    "id": "infra-concept-grafana-variables",
+    "version": "1",
+    "title": "One dashboard for every service",
+    "difficulty": "medium",
+    "topics": [
+      "observability",
+      "grafana"
+    ],
+    "tags": [
+      "concept-check",
+      "observability",
+      "grafana"
+    ],
+    "origin": "authored",
+    "language": "quiz",
+    "runtime": "datapass-quiz-v1",
+    "prompt": "You want one dashboard where the viewer picks the service in a drop-down and every panel follows. What do you use?",
+    "sections": [
+      {
+        "title": "Concept check (no execution)",
+        "body": "Nothing runs here: the Infra Lab simulates Azure Monitor alerts but no Prometheus, Grafana or tracing backend. Answer in the file, save, and Submit; the runtime compares your answer with the pack's answer and explains it once you are right. The reference sheet (Observability: metrics, logs, traces, PromQL, Grafana, SLOs) covers the topic."
+      }
+    ],
+    "starter_source": "Concept check (no execution): nothing runs; the runtime checks your answer when you Submit.\n\nYou want one dashboard where the viewer picks the service in a drop-down and every panel follows. What do you use?\n\n  a) A copy of the dashboard per service\n  b) A dashboard variable (for example `$service`) used in the panels' queries\n  c) An annotation\n  d) A transformation\n\nWrite the letter of your choice after \"answer:\" (several letters separated by commas if several are right), save, then Submit.\nanswer:\n",
+    "fixtures": [
+      {
+        "id": "infra-concept-grafana-variables-fixtures",
+        "version": "1"
+      }
+    ],
+    "visible_checks": [
+      {
+        "id": "format",
+        "description": "Your answer is well formed (Run checks only this)."
+      }
+    ],
+    "hidden_check_refs": [
+      "answer"
+    ],
+    "edge_check_refs": [],
+    "hints": [
+      "It shows up as a drop-down at the top of the dashboard.",
+      "Open the reference sheet: Observability: metrics, logs, traces, PromQL, Grafana, SLOs."
+    ],
+    "solution": {
+      "available": true,
+      "reveal": "explicit"
+    },
+    "explanation": "The explanation comes with a correct submission, from the runtime.",
+    "follow_ups": [],
+    "canonical_placement": {
+      "domain": "concepts",
+      "topic": "observability"
+    },
+    "related_associations": [
+      "practice/concepts",
+      "lab/infra"
+    ],
+    "validator_version": "quiz-v1",
+    "runtime_requirements": [],
+    "provenance": {
+      "source": "Authored for Datapass Workbench; checked against the Prometheus and Grafana documentation and Google's SRE books on 2026-10-12"
+    },
+    "constraints": {
+      "truth": "Concept check: no execution; the answer is compared by the runtime. No Prometheus or Grafana is simulated."
+    },
+    "context_refs": [
+      "reference/observability.md"
+    ],
+    "truth": "concept-check"
+  },
+  {
+    "schema_version": 1,
+    "id": "infra-concept-grafana-pending-period",
+    "version": "1",
+    "title": "The pending period of an alert rule",
+    "difficulty": "medium",
+    "topics": [
+      "observability",
+      "grafana"
+    ],
+    "tags": [
+      "concept-check",
+      "observability",
+      "grafana"
+    ],
+    "origin": "authored",
+    "language": "quiz",
+    "runtime": "datapass-quiz-v1",
+    "prompt": "A Grafana alert rule checks `error ratio > 5%` every minute, with a pending period of 5 minutes. The ratio goes above 5% for 3 minutes, then drops. What happens?",
+    "sections": [
+      {
+        "title": "Concept check (no execution)",
+        "body": "Nothing runs here: the Infra Lab simulates Azure Monitor alerts but no Prometheus, Grafana or tracing backend. Answer in the file, save, and Submit; the runtime compares your answer with the pack's answer and explains it once you are right. The reference sheet (Observability: metrics, logs, traces, PromQL, Grafana, SLOs) covers the topic."
+      }
+    ],
+    "starter_source": "Concept check (no execution): nothing runs; the runtime checks your answer when you Submit.\n\nA Grafana alert rule checks `error ratio > 5%` every minute, with a pending period of 5 minutes. The ratio goes above 5% for 3 minutes, then drops. What happens?\n\n  a) It fires after the first minute\n  b) It goes to Pending and back to Normal without firing\n  c) It fires after 5 minutes anyway\n  d) It fires and resolves at once\n\nWrite the letter of your choice after \"answer:\" (several letters separated by commas if several are right), save, then Submit.\nanswer:\n",
+    "fixtures": [
+      {
+        "id": "infra-concept-grafana-pending-period-fixtures",
+        "version": "1"
+      }
+    ],
+    "visible_checks": [
+      {
+        "id": "format",
+        "description": "Your answer is well formed (Run checks only this)."
+      }
+    ],
+    "hidden_check_refs": [
+      "answer"
+    ],
+    "edge_check_refs": [],
+    "hints": [
+      "Pending means not yet firing.",
+      "Open the reference sheet: Observability: metrics, logs, traces, PromQL, Grafana, SLOs."
+    ],
+    "solution": {
+      "available": true,
+      "reveal": "explicit"
+    },
+    "explanation": "The explanation comes with a correct submission, from the runtime.",
+    "follow_ups": [],
+    "canonical_placement": {
+      "domain": "concepts",
+      "topic": "observability"
+    },
+    "related_associations": [
+      "practice/concepts",
+      "lab/infra"
+    ],
+    "validator_version": "quiz-v1",
+    "runtime_requirements": [],
+    "provenance": {
+      "source": "Authored for Datapass Workbench; checked against the Prometheus and Grafana documentation and Google's SRE books on 2026-10-12"
+    },
+    "constraints": {
+      "truth": "Concept check: no execution; the answer is compared by the runtime. No Prometheus or Grafana is simulated."
+    },
+    "context_refs": [
+      "reference/observability.md"
+    ],
+    "truth": "concept-check"
+  },
+  {
+    "schema_version": 1,
+    "id": "infra-concept-grafana-notification-policies",
+    "version": "1",
+    "title": "Routing alerts to the right team",
+    "difficulty": "medium",
+    "topics": [
+      "observability",
+      "grafana"
+    ],
+    "tags": [
+      "concept-check",
+      "observability",
+      "grafana"
+    ],
+    "origin": "authored",
+    "language": "quiz",
+    "runtime": "datapass-quiz-v1",
+    "prompt": "In Grafana alerting, what decides that alerts labelled `team=data` go to the data team's Slack channel and the others to e-mail?",
+    "sections": [
+      {
+        "title": "Concept check (no execution)",
+        "body": "Nothing runs here: the Infra Lab simulates Azure Monitor alerts but no Prometheus, Grafana or tracing backend. Answer in the file, save, and Submit; the runtime compares your answer with the pack's answer and explains it once you are right. The reference sheet (Observability: metrics, logs, traces, PromQL, Grafana, SLOs) covers the topic."
+      }
+    ],
+    "starter_source": "Concept check (no execution): nothing runs; the runtime checks your answer when you Submit.\n\nIn Grafana alerting, what decides that alerts labelled `team=data` go to the data team's Slack channel and the others to e-mail?\n\n  a) The panel's thresholds\n  b) Notification policies, which match alert labels and route to contact points\n  c) The data source\n  d) Each alert rule's title\n\nWrite the letter of your choice after \"answer:\" (several letters separated by commas if several are right), save, then Submit.\nanswer:\n",
+    "fixtures": [
+      {
+        "id": "infra-concept-grafana-notification-policies-fixtures",
+        "version": "1"
+      }
+    ],
+    "visible_checks": [
+      {
+        "id": "format",
+        "description": "Your answer is well formed (Run checks only this)."
+      }
+    ],
+    "hidden_check_refs": [
+      "answer"
+    ],
+    "edge_check_refs": [],
+    "hints": [
+      "Labels are matched by a tree of policies.",
+      "Open the reference sheet: Observability: metrics, logs, traces, PromQL, Grafana, SLOs."
+    ],
+    "solution": {
+      "available": true,
+      "reveal": "explicit"
+    },
+    "explanation": "The explanation comes with a correct submission, from the runtime.",
+    "follow_ups": [],
+    "canonical_placement": {
+      "domain": "concepts",
+      "topic": "observability"
+    },
+    "related_associations": [
+      "practice/concepts",
+      "lab/infra"
+    ],
+    "validator_version": "quiz-v1",
+    "runtime_requirements": [],
+    "provenance": {
+      "source": "Authored for Datapass Workbench; checked against the Prometheus and Grafana documentation and Google's SRE books on 2026-10-12"
+    },
+    "constraints": {
+      "truth": "Concept check: no execution; the answer is compared by the runtime. No Prometheus or Grafana is simulated."
+    },
+    "context_refs": [
+      "reference/observability.md"
+    ],
+    "truth": "concept-check"
+  },
+  {
+    "schema_version": 1,
+    "id": "infra-concept-slo-sli",
+    "version": "1",
+    "title": "SLI or SLO",
+    "difficulty": "easy",
+    "topics": [
+      "observability",
+      "slo"
+    ],
+    "tags": [
+      "concept-check",
+      "observability",
+      "slo"
+    ],
+    "origin": "authored",
+    "language": "quiz",
+    "runtime": "datapass-quiz-v1",
+    "prompt": "Which sentence is a service level objective (SLO), not an indicator (SLI)?",
+    "sections": [
+      {
+        "title": "Concept check (no execution)",
+        "body": "Nothing runs here: the Infra Lab simulates Azure Monitor alerts but no Prometheus, Grafana or tracing backend. Answer in the file, save, and Submit; the runtime compares your answer with the pack's answer and explains it once you are right. The reference sheet (Observability: metrics, logs, traces, PromQL, Grafana, SLOs) covers the topic."
+      }
+    ],
+    "starter_source": "Concept check (no execution): nothing runs; the runtime checks your answer when you Submit.\n\nWhich sentence is a service level objective (SLO), not an indicator (SLI)?\n\n  a) The share of requests answered in under 300 ms\n  b) 99.5% of requests answered in under 300 ms over 28 days\n  c) The number of HTTP 500 responses per minute\n  d) The p99 latency of the API\n\nWrite the letter of your choice after \"answer:\" (several letters separated by commas if several are right), save, then Submit.\nanswer:\n",
+    "fixtures": [
+      {
+        "id": "infra-concept-slo-sli-fixtures",
+        "version": "1"
+      }
+    ],
+    "visible_checks": [
+      {
+        "id": "format",
+        "description": "Your answer is well formed (Run checks only this)."
+      }
+    ],
+    "hidden_check_refs": [
+      "answer"
+    ],
+    "edge_check_refs": [],
+    "hints": [
+      "An objective has a target and a period.",
+      "Open the reference sheet: Observability: metrics, logs, traces, PromQL, Grafana, SLOs."
+    ],
+    "solution": {
+      "available": true,
+      "reveal": "explicit"
+    },
+    "explanation": "The explanation comes with a correct submission, from the runtime.",
+    "follow_ups": [],
+    "canonical_placement": {
+      "domain": "concepts",
+      "topic": "observability"
+    },
+    "related_associations": [
+      "practice/concepts",
+      "lab/infra"
+    ],
+    "validator_version": "quiz-v1",
+    "runtime_requirements": [],
+    "provenance": {
+      "source": "Authored for Datapass Workbench; checked against the Prometheus and Grafana documentation and Google's SRE books on 2026-10-12"
+    },
+    "constraints": {
+      "truth": "Concept check: no execution; the answer is compared by the runtime. No Prometheus or Grafana is simulated."
+    },
+    "context_refs": [
+      "reference/observability.md"
+    ],
+    "truth": "concept-check"
+  },
+  {
+    "schema_version": 1,
+    "id": "infra-concept-slo-error-budget",
+    "version": "1",
+    "title": "The error budget of 99.9%",
+    "difficulty": "medium",
+    "topics": [
+      "observability",
+      "slo"
+    ],
+    "tags": [
+      "concept-check",
+      "observability",
+      "slo"
+    ],
+    "origin": "authored",
+    "language": "quiz",
+    "runtime": "datapass-quiz-v1",
+    "prompt": "An API has a 99.9% availability SLO over 30 days. How many minutes of full outage does its error budget allow over those 30 days? (a number)",
+    "sections": [
+      {
+        "title": "Concept check (no execution)",
+        "body": "Nothing runs here: the Infra Lab simulates Azure Monitor alerts but no Prometheus, Grafana or tracing backend. Answer in the file, save, and Submit; the runtime compares your answer with the pack's answer and explains it once you are right. The reference sheet (Observability: metrics, logs, traces, PromQL, Grafana, SLOs) covers the topic."
+      }
+    ],
+    "starter_source": "Concept check (no execution): nothing runs; the runtime checks your answer when you Submit.\n\nAn API has a 99.9% availability SLO over 30 days. How many minutes of full outage does its error budget allow over those 30 days? (a number)\n\nWrite your short answer after \"answer:\", save, then Submit.\nanswer:\n",
+    "fixtures": [
+      {
+        "id": "infra-concept-slo-error-budget-fixtures",
+        "version": "1"
+      }
+    ],
+    "visible_checks": [
+      {
+        "id": "format",
+        "description": "Your answer is well formed (Run checks only this)."
+      }
+    ],
+    "hidden_check_refs": [
+      "answer"
+    ],
+    "edge_check_refs": [],
+    "hints": [
+      "Multiply the minutes in 30 days by 0.001.",
+      "Open the reference sheet: Observability: metrics, logs, traces, PromQL, Grafana, SLOs."
+    ],
+    "solution": {
+      "available": true,
+      "reveal": "explicit"
+    },
+    "explanation": "The explanation comes with a correct submission, from the runtime.",
+    "follow_ups": [],
+    "canonical_placement": {
+      "domain": "concepts",
+      "topic": "observability"
+    },
+    "related_associations": [
+      "practice/concepts",
+      "lab/infra"
+    ],
+    "validator_version": "quiz-v1",
+    "runtime_requirements": [],
+    "provenance": {
+      "source": "Authored for Datapass Workbench; checked against the Prometheus and Grafana documentation and Google's SRE books on 2026-10-12"
+    },
+    "constraints": {
+      "truth": "Concept check: no execution; the answer is compared by the runtime. No Prometheus or Grafana is simulated."
+    },
+    "context_refs": [
+      "reference/observability.md"
+    ],
+    "truth": "concept-check"
+  },
+  {
+    "schema_version": 1,
+    "id": "infra-concept-slo-burn-rate",
+    "version": "1",
+    "title": "What a burn rate of 14.4 means",
+    "difficulty": "hard",
+    "topics": [
+      "observability",
+      "slo"
+    ],
+    "tags": [
+      "concept-check",
+      "observability",
+      "slo"
+    ],
+    "origin": "authored",
+    "language": "quiz",
+    "runtime": "datapass-quiz-v1",
+    "prompt": "A 30-day SLO has an alert on a burn rate of 14.4 sustained over 1 hour. When it fires, how much of the 30-day error budget has that hour consumed?",
+    "sections": [
+      {
+        "title": "Concept check (no execution)",
+        "body": "Nothing runs here: the Infra Lab simulates Azure Monitor alerts but no Prometheus, Grafana or tracing backend. Answer in the file, save, and Submit; the runtime compares your answer with the pack's answer and explains it once you are right. The reference sheet (Observability: metrics, logs, traces, PromQL, Grafana, SLOs) covers the topic."
+      }
+    ],
+    "starter_source": "Concept check (no execution): nothing runs; the runtime checks your answer when you Submit.\n\nA 30-day SLO has an alert on a burn rate of 14.4 sustained over 1 hour. When it fires, how much of the 30-day error budget has that hour consumed?\n\n  a) 0.2%\n  b) 2%\n  c) 14.4%\n  d) 50%\n\nWrite the letter of your choice after \"answer:\" (several letters separated by commas if several are right), save, then Submit.\nanswer:\n",
+    "fixtures": [
+      {
+        "id": "infra-concept-slo-burn-rate-fixtures",
+        "version": "1"
+      }
+    ],
+    "visible_checks": [
+      {
+        "id": "format",
+        "description": "Your answer is well formed (Run checks only this)."
+      }
+    ],
+    "hidden_check_refs": [
+      "answer"
+    ],
+    "edge_check_refs": [],
+    "hints": [
+      "At burn rate 1, the budget lasts 720 hours.",
+      "Open the reference sheet: Observability: metrics, logs, traces, PromQL, Grafana, SLOs."
+    ],
+    "solution": {
+      "available": true,
+      "reveal": "explicit"
+    },
+    "explanation": "The explanation comes with a correct submission, from the runtime.",
+    "follow_ups": [],
+    "canonical_placement": {
+      "domain": "concepts",
+      "topic": "observability"
+    },
+    "related_associations": [
+      "practice/concepts",
+      "lab/infra"
+    ],
+    "validator_version": "quiz-v1",
+    "runtime_requirements": [],
+    "provenance": {
+      "source": "Authored for Datapass Workbench; checked against the Prometheus and Grafana documentation and Google's SRE books on 2026-10-12"
+    },
+    "constraints": {
+      "truth": "Concept check: no execution; the answer is compared by the runtime. No Prometheus or Grafana is simulated."
+    },
+    "context_refs": [
+      "reference/observability.md"
+    ],
+    "truth": "concept-check"
+  },
+  {
+    "schema_version": 1,
+    "id": "infra-concept-alert-symptoms",
+    "version": "1",
+    "title": "What should wake someone up",
+    "difficulty": "medium",
+    "topics": [
+      "observability",
+      "slo"
+    ],
+    "tags": [
+      "concept-check",
+      "observability",
+      "slo"
+    ],
+    "origin": "authored",
+    "language": "quiz",
+    "runtime": "datapass-quiz-v1",
+    "prompt": "Which alert should page the on-call engineer at night?",
+    "sections": [
+      {
+        "title": "Concept check (no execution)",
+        "body": "Nothing runs here: the Infra Lab simulates Azure Monitor alerts but no Prometheus, Grafana or tracing backend. Answer in the file, save, and Submit; the runtime compares your answer with the pack's answer and explains it once you are right. The reference sheet (Observability: metrics, logs, traces, PromQL, Grafana, SLOs) covers the topic."
+      }
+    ],
+    "starter_source": "Concept check (no execution): nothing runs; the runtime checks your answer when you Submit.\n\nWhich alert should page the on-call engineer at night?\n\n  a) CPU above 80% on one VM for 5 minutes\n  b) The checkout error budget burning fast enough to be gone within days\n  c) A disk 60% full\n  d) One pod restarted\n\nWrite the letter of your choice after \"answer:\" (several letters separated by commas if several are right), save, then Submit.\nanswer:\n",
+    "fixtures": [
+      {
+        "id": "infra-concept-alert-symptoms-fixtures",
+        "version": "1"
+      }
+    ],
+    "visible_checks": [
+      {
+        "id": "format",
+        "description": "Your answer is well formed (Run checks only this)."
+      }
+    ],
+    "hidden_check_refs": [
+      "answer"
+    ],
+    "edge_check_refs": [],
+    "hints": [
+      "Ask whether a user would notice.",
+      "Open the reference sheet: Observability: metrics, logs, traces, PromQL, Grafana, SLOs."
+    ],
+    "solution": {
+      "available": true,
+      "reveal": "explicit"
+    },
+    "explanation": "The explanation comes with a correct submission, from the runtime.",
+    "follow_ups": [],
+    "canonical_placement": {
+      "domain": "concepts",
+      "topic": "observability"
+    },
+    "related_associations": [
+      "practice/concepts",
+      "lab/infra"
+    ],
+    "validator_version": "quiz-v1",
+    "runtime_requirements": [],
+    "provenance": {
+      "source": "Authored for Datapass Workbench; checked against the Prometheus and Grafana documentation and Google's SRE books on 2026-10-12"
+    },
+    "constraints": {
+      "truth": "Concept check: no execution; the answer is compared by the runtime. No Prometheus or Grafana is simulated."
+    },
+    "context_refs": [
+      "reference/observability.md"
+    ],
+    "truth": "concept-check"
+  },
+  {
+    "schema_version": 1,
+    "id": "infra-concept-red-use",
+    "version": "1",
+    "title": "RED and USE",
+    "difficulty": "medium",
+    "topics": [
+      "observability",
+      "signals"
+    ],
+    "tags": [
+      "concept-check",
+      "observability",
+      "signals"
+    ],
+    "origin": "authored",
+    "language": "quiz",
+    "runtime": "datapass-quiz-v1",
+    "prompt": "The RED method gives three signals to watch for every request-driven service. Which are they?",
+    "sections": [
+      {
+        "title": "Concept check (no execution)",
+        "body": "Nothing runs here: the Infra Lab simulates Azure Monitor alerts but no Prometheus, Grafana or tracing backend. Answer in the file, save, and Submit; the runtime compares your answer with the pack's answer and explains it once you are right. The reference sheet (Observability: metrics, logs, traces, PromQL, Grafana, SLOs) covers the topic."
+      }
+    ],
+    "starter_source": "Concept check (no execution): nothing runs; the runtime checks your answer when you Submit.\n\nThe RED method gives three signals to watch for every request-driven service. Which are they?\n\n  a) Rate, Errors, Duration\n  b) Reads, Exceptions, Disk\n  c) Requests, Endpoints, Deployments\n  d) Utilization, Saturation, Errors\n\nWrite the letter of your choice after \"answer:\" (several letters separated by commas if several are right), save, then Submit.\nanswer:\n",
+    "fixtures": [
+      {
+        "id": "infra-concept-red-use-fixtures",
+        "version": "1"
+      }
+    ],
+    "visible_checks": [
+      {
+        "id": "format",
+        "description": "Your answer is well formed (Run checks only this)."
+      }
+    ],
+    "hidden_check_refs": [
+      "answer"
+    ],
+    "edge_check_refs": [],
+    "hints": [
+      "The letters describe requests, not machines.",
+      "Open the reference sheet: Observability: metrics, logs, traces, PromQL, Grafana, SLOs."
+    ],
+    "solution": {
+      "available": true,
+      "reveal": "explicit"
+    },
+    "explanation": "The explanation comes with a correct submission, from the runtime.",
+    "follow_ups": [],
+    "canonical_placement": {
+      "domain": "concepts",
+      "topic": "observability"
+    },
+    "related_associations": [
+      "practice/concepts",
+      "lab/infra"
+    ],
+    "validator_version": "quiz-v1",
+    "runtime_requirements": [],
+    "provenance": {
+      "source": "Authored for Datapass Workbench; checked against the Prometheus and Grafana documentation and Google's SRE books on 2026-10-12"
+    },
+    "constraints": {
+      "truth": "Concept check: no execution; the answer is compared by the runtime. No Prometheus or Grafana is simulated."
+    },
+    "context_refs": [
+      "reference/observability.md"
+    ],
+    "truth": "concept-check"
+  }
+]

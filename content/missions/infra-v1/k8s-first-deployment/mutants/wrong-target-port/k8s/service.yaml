@@ -1,0 +1,12 @@
+# One stable name and address in front of the pods: other apps call http://sensor-api/.
+apiVersion: v1
+kind: Service
+metadata:
+  name: sensor-api
+spec:
+  selector:
+    app.kubernetes.io/name: sensor-api
+  ports:
+    - name: http
+      port: 80
+      targetPort: 8080
