@@ -23,7 +23,8 @@ Lead fills the "pending" rows. Commit column: the commit the run was made at.
 | E-UI-BUILD | Mosaic empty state + Build dialogs (v1_acceptance 1-4) | v1-acceptance-report.json | c35d632 | passed |
 | E-UI-PIPELINE | Pipeline edit: palette add, connect, undo/redo, save with unknown properties kept, dry run (v1_acceptance 6, 9) | v1-acceptance-report.json | c35d632 | passed; save-conflict modal, import/export dialogs and pointer drag not automated |
 | E-UI-INFRA | Infra intro mission tf-first-apply in the simulated terminal (v1_acceptance 7) | v1-acceptance-report.json | c35d632 | passed |
-| E-EXCHANGE-STUDIO | Mosaic Studio producer follows docs/MOSAIC_EXCHANGE.md | pending | pending | pending |
+| E-EXCHANGE-STUDIO | Mosaic Studio producer follows docs/MOSAIC_EXCHANGE.md | Studio origin/main | Studio 4623b04 | not produced: Studio's merged interchange is .ipynb + metadata.datapass (see E-STUDIO-IPYNB); the exchange stays pending on Studio's side |
+| E-STUDIO-IPYNB | `DATAPASS_MOSAICSTUDIO=<temp worktree of Studio origin/main> python scripts/interop/studio_roundtrip.py`: our .ipynb exports into Studio's own `import_notebook`, Studio's `export_notebook` of its samples and of every cell kind into our importer | content/interop/examples/studio/ (fixtures + README) | branch feat/studio-ipynb-interop; Studio 4623b04949906070a0b898b23a64ffd5f1eede8a | passed (OK, 0 failures; 3 fixtures, sample folder, both directions) |
 | E-UI-INTEROP | Exchange import (files, nothing run) + export validates (v1_acceptance 8) | v1-acceptance-report.json | c35d632 | passed |
 | E-VSIX | VSIX 0.4.0 built from main e4519fc, 618 entries, handoff/ excluded | source-manifest.json, SHA256SUMS | e4519fc | sha256 501db2fda8a3b5355921873a7133872020be188481209bea21531499f6958783 (rebuilt from main; c35d632 build was e88477d7…) |
 | E-CI-UI-MAIN | CI job `vscode-ui` on main | GitHub Actions | e4519fc failed (acceptance file race, fixed by #76); 4b2b91f passed | passed |

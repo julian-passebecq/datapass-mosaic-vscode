@@ -19,7 +19,8 @@
 //  7. Infra Lab: tf-first-apply started, the learner's files saved, the reference lines typed in the simulated
 //     terminal, Check my work passes.
 //  8. Interop: a content/interop/examples exchange imported (files, nothing run, no table created), then exported;
-//     the export validates against schemas/mosaic-exchange.schema.json.
+//     the export validates against schemas/mosaic-exchange.schema.json. A Mosaic Studio .ipynb fixture
+//     (content/interop/examples/studio) imported: native files exist, nothing run, no table its cells would create.
 //  9. VS Code closed and relaunched: Learning resumes, the four levels and flashcard state persist, Build files and
 //     datasets exist, Mosaic query history re-runs, the pipeline edit is still there.
 // 10. No uncaught webview console error.
@@ -605,20 +606,30 @@ try {
     const notebook = exchange.notebooks[0];
     const folder = ws("notebooks", "imported", notebook.id);
     await command("Datapass: Import Mosaic Exchange");
-    check("import writes notebooks/imported/<id>/", await fileDialog(/Import a Mosaic exchange/, example, () => existsSync(folder) && readdirSync(folder).length > 0));
+    check("import writes notebooks/imported/<id>/", await fileDialog(/Import a Mosaic Studio notebook/, example, () => existsSync(folder) && readdirSync(folder).length > 0));
     await waitFor(() => readdirSync(folder).length >= notebook.cells.length, 10000);
     const files = filesUnder(folder);
     report.importedFiles = files;
     const sources = files.map(file => read(path.join(folder, file)));
     check("each cell is a native file with its source", notebook.cells.filter(cell => cell.kind !== "markdown").every(cell => sources.some(text => text.includes(cell.source.trim().split("\n")[0]))), files.join(", "));
     check("import notification says nothing was run", await page.locator(".notifications-toasts", { hasText: "Nothing was run" }).first().waitFor({ timeout: 15000 }).then(() => true, () => false));
+    const studioFixture = path.join(repo, "content", "interop", "examples", "studio", "studio-all-kinds.ipynb");
+    const studioFolder = ws("notebooks", "imported", "studio-all-kinds");
+    const studioFiles = ["01-intro.md", "02-make-readings.py", "03-daily.sql", "04-ramp-model.model.json", "05-joined.sql", "06-raw-notes.inert.json"];
+    await command("Datapass: Import Mosaic Exchange");
+    check("Studio .ipynb import writes notebooks/imported/studio-all-kinds/", await fileDialog(/Import a Mosaic Studio notebook/, studioFixture,
+      () => existsSync(studioFolder) && studioFiles.every(name => existsSync(path.join(studioFolder, name)))), existsSync(studioFolder) ? filesUnder(studioFolder).join(", ") : "(no folder)");
+    report.importedStudioFiles = existsSync(studioFolder) ? filesUnder(studioFolder) : [];
+    check("Studio SQL cell is a .sql file with its SQL (no %%sql line)", existsSync(path.join(studioFolder, "03-daily.sql")) && /FROM readings/.test(read(path.join(studioFolder, "03-daily.sql"))) && !/%%sql/.test(read(path.join(studioFolder, "03-daily.sql"))));
+    check("Studio import record kept in .datapass/interop/", jsonFile(ws(".datapass", "interop", "studio-all-kinds.json"))?.format === "datapass.studio-ipynb-import");
     await command("Datapass: Open Mosaic");
     const f = await workbench();
     await f.getByRole("button", { name: "Refresh", exact: true }).first().click();
     await sleep(1500);
     const catalog = (await f.locator(".catalog-row strong").allInnerTexts().catch(() => [])).join(", ");
-    check("imported cells were not executed (no table they create)", !/sensor_readings|sensor_daily/.test(catalog), catalog || "(empty catalog)");
+    check("imported cells were not executed (no table they create)", !/sensor_readings|sensor_daily|readings|ramp/.test(catalog), catalog || "(empty catalog)");
     await command("Datapass: Export Mosaic Exchange");
+    await pickItem(/Export for Mosaic Studio: which format/, "Datapass exchange (.json)");
     await page.locator(".quick-input-widget .quick-input-title", { hasText: "Export a Mosaic exchange" }).first().waitFor();
     await page.keyboard.press("Enter");
     const target = ws(`${notebook.id}.mosaic-exchange.json`);

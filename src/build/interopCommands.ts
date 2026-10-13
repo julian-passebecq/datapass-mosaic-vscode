@@ -13,6 +13,20 @@ import {
   type ExportNotebookInput,
   type InteropRecord
 } from "../platform/mosaicExchange";
+import {
+  STUDIO_MAX_BYTES,
+  STUDIO_RECORD_FORMAT,
+  buildStudioNotebook,
+  parseStudioNotebook,
+  planStudioImport,
+  studioCellsFromPlain,
+  studioCellsFromRecord,
+  studioKindOfExchange,
+  studioKindOfFile,
+  type StudioCellKind,
+  type StudioExportCell,
+  type StudioRecord
+} from "../platform/studioNotebook";
 import { safeRelativeParts } from "../platform/workspacePaths";
 import { readProjectManifest } from "../project/projectManifest";
 import type { RuntimeManager } from "../runtimeManager";
@@ -20,47 +34,66 @@ import { exists } from "../workspaceFiles";
 import { createExclusive, fileNames, workspaceRoot } from "./buildFiles";
 
 /**
- * The Mosaic exchange (`datapass.mosaic-exchange` v1) with Mosaic Studio: import writes cells as native files and runs
- * nothing; export writes names and hashes, never data. DuckDB-WASM's database and this workspace's native DuckDB
+ * Interop with Mosaic Studio: its Jupyter notebooks (.ipynb + metadata.datapass, studioNotebook.ts) and the Mosaic
+ * exchange (`datapass.mosaic-exchange` v1, mosaicExchange.ts). Import writes cells as native files and runs nothing;
+ * export writes cell text, and names and hashes, never data. DuckDB-WASM's database and this workspace's native DuckDB
  * catalog are never shared: nothing here opens, attaches or copies a database file.
  */
 export function registerInteropCommands(context: vscode.ExtensionContext, runtime: RuntimeManager): vscode.Disposable[] {
   return [
     vscode.commands.registerCommand("datapass.interop.import", () => importExchange()),
-    vscode.commands.registerCommand("datapass.interop.export", () => exportExchange(context, runtime))
+    vscode.commands.registerCommand("datapass.interop.export", () => exportInterop(context, runtime))
   ];
 }
 
 const decoder = new TextDecoder();
 
+interface WritablePlan {
+  id: string;
+  folder: string;
+  files: { path: string; content: string }[];
+  readme: { path: string; content: string };
+  record: { path: string; content: unknown };
+}
+
 async function importExchange(): Promise<void> {
   const root = workspaceRoot();
   if (!root) {
-    void vscode.window.showWarningMessage("Open a folder before importing a Mosaic exchange: its cells become files in that folder.");
+    void vscode.window.showWarningMessage("Open a folder before importing a Mosaic Studio notebook or exchange: its cells become files in that folder.");
     return;
   }
   const picked = await vscode.window.showOpenDialog({
     canSelectMany: false,
-    openLabel: "Import exchange",
-    title: "Import a Mosaic exchange (datapass.mosaic-exchange v1). Cells become files; nothing is run.",
-    filters: { "Mosaic exchange": ["json"] }
+    openLabel: "Import",
+    title: "Import a Mosaic Studio notebook (.ipynb) or a Mosaic exchange (.json). Cells become files; nothing is run.",
+    filters: { "Mosaic Studio notebook or Mosaic exchange": ["ipynb", "json"] }
   });
   const source = picked?.[0];
   if (!source) return;
+  const isNotebook = source.path.toLowerCase().endsWith(".ipynb");
+  const max = isNotebook ? STUDIO_MAX_BYTES : EXCHANGE_MAX_BYTES;
   const stat = await vscode.workspace.fs.stat(source);
-  if (stat.size > EXCHANGE_MAX_BYTES) {
-    void vscode.window.showErrorMessage(`An exchange file is at most ${EXCHANGE_MAX_BYTES / 1_000_000} MB.`);
+  if (stat.size > max) {
+    void vscode.window.showErrorMessage(`Not imported: the file is above ${Math.round(max / 100_000) / 10} MB.`);
     return;
   }
-  const parsed = parseExchangeText(decoder.decode(await vscode.workspace.fs.readFile(source)));
-  if (!parsed.ok) {
-    const shown = parsed.errors.slice(0, 4).join(" ");
-    void vscode.window.showErrorMessage(`Not imported: ${shown}${parsed.errors.length > 4 ? ` (+${parsed.errors.length - 4} more)` : ""}`);
-    return;
-  }
+  const text = decoder.decode(await vscode.workspace.fs.readFile(source));
   const manifest = await readProjectManifest();
   const notebooks = safeRelativeParts(manifest.manifest?.assets?.notebooks, "notebooks").join("/");
-  const plans = planImport(parsed.exchange, notebooks, new Date().toISOString());
+  const importedAt = new Date().toISOString();
+  const sourceName = source.path.split("/").pop() ?? "notebook.ipynb";
+  let plans: WritablePlan[];
+  let wasm = 0;
+  if (isNotebook) {
+    const parsed = parseStudioNotebook(text, sourceName);
+    if (!parsed.ok) return refuse(parsed.errors);
+    plans = [planStudioImport(parsed.notebook, notebooks, importedAt, sourceName)];
+  } else {
+    const parsed = parseExchangeText(text);
+    if (!parsed.ok) return refuse(parsed.errors);
+    plans = planImport(parsed.exchange, notebooks, importedAt);
+    wasm = parsed.exchange.provenance.runs.filter(run => run.engine === "duckdb-wasm").length;
+  }
 
   // Never overwrite: a notebook already imported (its folder or record exists) is refused before anything is written.
   const taken: string[] = [];
@@ -81,12 +114,17 @@ async function importExchange(): Promise<void> {
     cells += plan.files.length;
     await createExclusive(uriOf(root, plan.record.path), JSON.stringify(plan.record.content, null, 2) + "\n");
   }
-  const wasm = parsed.exchange.provenance.runs.filter(run => run.engine === "duckdb-wasm").length;
   void vscode.window.showInformationMessage(
     `Imported ${plans.length} notebook${plans.length === 1 ? "" : "s"} (${cells} cells) as files under ${notebooks}/imported/. Nothing was run.` +
+      (isNotebook ? " Outputs were not imported; anything Mosaic Studio ran is history, not a local result." : "") +
       (wasm ? ` ${wasm} recorded run${wasm === 1 ? "" : "s"}: ran in Mosaic Studio (DuckDB-WASM), not re-run here.` : "")
   );
   await vscode.window.showTextDocument(uriOf(root, plans[0].readme.path), { preview: false });
+}
+
+function refuse(errors: string[]): void {
+  const shown = errors.slice(0, 4).join(" ");
+  void vscode.window.showErrorMessage(`Not imported: ${shown}${errors.length > 4 ? ` (+${errors.length - 4} more)` : ""}`);
 }
 
 async function readRecords(root: vscode.Uri): Promise<InteropRecord[]> {
@@ -130,6 +168,118 @@ async function notebookFromFolder(root: vscode.Uri, folder: vscode.Uri): Promise
   if (!cells.length) return undefined;
   const name = folder.path.split("/").filter(Boolean).pop() ?? "notebook";
   return { id: exchangeId(name, "notebook"), title: name, cells };
+}
+
+/** The two formats, labels from `datapass.interop.formatLabels`. */
+function formatLabels(): { studioIpynb: string; exchange: string } {
+  const configured = vscode.workspace.getConfiguration("datapass.interop").get<Record<string, unknown>>("formatLabels") ?? {};
+  const text = (value: unknown, fallback: string) => (typeof value === "string" && value.trim() ? value : fallback);
+  return {
+    studioIpynb: text(configured.studioIpynb, "Mosaic Studio notebook (.ipynb)"),
+    exchange: text(configured.exchange, "Datapass exchange (.json)")
+  };
+}
+
+async function exportInterop(context: vscode.ExtensionContext, runtime: RuntimeManager): Promise<void> {
+  const labels = formatLabels();
+  const format = await vscode.window.showQuickPick(
+    [
+      { label: labels.studioIpynb, description: "Jupyter nbformat 4 with metadata.datapass, what Mosaic Studio imports today", id: "ipynb" },
+      { label: labels.exchange, description: "datapass.mosaic-exchange v1: notebooks, artifact names and hashes, provenance", id: "exchange" }
+    ],
+    { title: "Export for Mosaic Studio: which format?", placeHolder: "Cells are exported as text; never outputs or data." }
+  );
+  if (!format) return;
+  if (format.id === "ipynb") await exportStudioNotebook();
+  else await exportExchange(context, runtime);
+}
+
+async function readStudioRecords(root: vscode.Uri): Promise<StudioRecord[]> {
+  const records: StudioRecord[] = [];
+  for (const entry of await fileNames(uriOf(root, INTEROP_RECORD_DIR))) {
+    if (!entry.isFile || !entry.name.endsWith(".json")) continue;
+    try {
+      const record = JSON.parse(decoder.decode(await vscode.workspace.fs.readFile(uriOf(root, `${INTEROP_RECORD_DIR}/${entry.name}`)))) as StudioRecord;
+      if (record?.format === STUDIO_RECORD_FORMAT && Array.isArray(record.cells)) records.push(record);
+    } catch {
+      // A broken record is skipped; the files it described are still plain files.
+    }
+  }
+  return records;
+}
+
+/** One notebook to Mosaic Studio's .ipynb: an imported Studio notebook, an imported exchange notebook or a plain folder. */
+async function exportStudioNotebook(): Promise<void> {
+  const root = workspaceRoot();
+  if (!root) {
+    void vscode.window.showWarningMessage("Open a folder before exporting a Mosaic Studio notebook.");
+    return;
+  }
+  const studio = await readStudioRecords(root);
+  const exchange = await readRecords(root);
+  const FOLDER = "folder";
+  const choice = await vscode.window.showQuickPick(
+    [
+      ...studio.map(record => ({ label: record.title, description: `imported ${record.importedAt.slice(0, 10)} from ${record.sourceName} · ${record.folder}`, id: `studio:${record.notebook}` })),
+      ...exchange.map(record => ({ label: record.exchange.notebooks[0].title, description: `exchange imported ${record.importedAt.slice(0, 10)} · ${record.folder}`, id: `exchange:${record.notebook}` })),
+      { label: "A folder of SQL, Python and Markdown files…", description: "one cell per file, in name order", id: FOLDER }
+    ],
+    { title: "Export a Mosaic Studio notebook (.ipynb): which notebook?", placeHolder: "One notebook per .ipynb. Source only: no outputs, no data." }
+  );
+  if (!choice) return;
+  let cells: StudioExportCell[] = [];
+  let metadata: Record<string, unknown> = {};
+  let name = "notebook";
+  const studioRecord = studio.find(record => `studio:${record.notebook}` === choice.id);
+  const exchangeRecord = exchange.find(record => `exchange:${record.notebook}` === choice.id);
+  if (studioRecord) {
+    const sources = new Map<string, string>();
+    for (const cell of studioRecord.cells) {
+      const uri = uriOf(root, cell.path);
+      if (await exists(uri)) sources.set(cell.path, decoder.decode(await vscode.workspace.fs.readFile(uri)));
+    }
+    cells = studioCellsFromRecord(studioRecord, sources);
+    metadata = studioRecord.metadata;
+    name = studioRecord.notebook;
+  } else if (exchangeRecord) {
+    const notebook = await readRecordNotebook(root, exchangeRecord);
+    cells = studioCellsFromPlain(notebook.cells.map(cell => ({ name: cell.id, kind: studioKindOfExchange(cell.kind), content: cell.source, dependsOn: cell.dependsOn })));
+    name = notebook.id;
+  } else {
+    const manifest = await readProjectManifest();
+    const folder = await vscode.window.showOpenDialog({
+      canSelectFiles: false,
+      canSelectFolders: true,
+      canSelectMany: false,
+      defaultUri: vscode.Uri.joinPath(root, ...safeRelativeParts(manifest.manifest?.assets?.notebooks, "notebooks")),
+      openLabel: "Export this folder"
+    });
+    if (!folder?.[0]) return;
+    if (!folder[0].path.startsWith(root.path)) {
+      void vscode.window.showErrorMessage("Export a folder of this workspace.");
+      return;
+    }
+    const items: { name: string; kind: StudioCellKind; content: string }[] = [];
+    for (const entry of (await fileNames(folder[0])).filter(item => item.isFile).map(item => item.name).sort()) {
+      const kind = studioKindOfFile(entry);
+      if (kind && entry !== "README.md") items.push({ name: entry, kind, content: decoder.decode(await vscode.workspace.fs.readFile(vscode.Uri.joinPath(folder[0], entry))) });
+    }
+    cells = studioCellsFromPlain(items);
+    name = exchangeId(folder[0].path.split("/").filter(Boolean).pop() ?? "notebook", "notebook");
+  }
+  const built = buildStudioNotebook(cells, new Date().toISOString().replace(/\.\d{3}Z$/, "Z"), metadata);
+  if (!built.ok) {
+    void vscode.window.showErrorMessage(`Export refused: ${built.errors.slice(0, 3).join(" ")}`);
+    return;
+  }
+  const target = await vscode.window.showSaveDialog({
+    defaultUri: vscode.Uri.joinPath(root, `${name}.ipynb`),
+    filters: { "Jupyter notebook": ["ipynb"] },
+    saveLabel: "Export"
+  });
+  if (!target) return;
+  await vscode.workspace.fs.writeFile(target, new TextEncoder().encode(built.text));
+  void vscode.window.showInformationMessage(`Exported ${cells.length} cells to ${target.path.split("/").pop()} for Mosaic Studio. Source only: no outputs, no data.`);
 }
 
 async function exportExchange(context: vscode.ExtensionContext, runtime: RuntimeManager): Promise<void> {

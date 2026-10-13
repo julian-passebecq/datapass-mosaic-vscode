@@ -290,6 +290,19 @@
     "configuration": {
       "title": "Datapass",
       "properties": {
+        "datapass.interop.formatLabels": {
+          "type": "object",
+          "default": {
+            "studioIpynb": "Mosaic Studio notebook (.ipynb)",
+            "exchange": "Datapass exchange (.json)"
+          },
+          "properties": {
+            "studioIpynb": { "type": "string" },
+            "exchange": { "type": "string" }
+          },
+          "additionalProperties": false,
+          "markdownDescription": "Labels of the two formats offered by **Export Mosaic Exchange**: Mosaic Studio's Jupyter notebook (`.ipynb` with `metadata.datapass`, read by Studio today) and the provenance-rich `datapass.mosaic-exchange` v1 document."
+        },
         "datapass.dbtTools.python": {
           "type": "string",
           "default": "",
