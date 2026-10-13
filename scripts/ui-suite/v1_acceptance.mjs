@@ -369,7 +369,7 @@ try {
     await pickItem("New file", "Python");
     await answerInput(/New Python file/, PY_NAME);
     const pyFile = ws("notebooks", PY_NAME);
-    check("Python file created in notebooks/", await waitFor(() => existsSync(pyFile)));
+    check("Python file created in notebooks/", await waitFor(() => existsSync(pyFile) && read(pyFile).length > 0));
     // The file can exist before its content is flushed (seen on Linux CI): wait for the header itself.
     check("Python file header says it runs only with trusted Python", await waitFor(() => existsSync(pyFile) && /trusted local Python/.test(read(pyFile)), 10000));
     writeFileSync(pyFile, PY_TEXT);
@@ -386,14 +386,15 @@ try {
     const target = ws("datasets", "orders_acc.csv");
     await command("Datapass Build: Import Dataset");
     check("CSV copied to datasets/", await fileDialog(/Import a dataset/, first, () => existsSync(target)));
-    check("copy is byte-identical", existsSync(target) && read(target) === CSV_FIRST);
+    check("copy is byte-identical", await waitFor(() => existsSync(target) && read(target) === CSV_FIRST, 10000));
     await command("Datapass Build: Import Dataset");
     await fileDialog(/Import a dataset/, second, () => page.locator(".quick-input-widget .quick-input-title", { hasText: "Import orders_acc.csv" }).isVisible().catch(() => false));
     const suggested = await quickInput().inputValue().catch(() => "");
     check("same name is not reused: a free name is suggested", suggested === "orders_acc-2.csv", suggested);
     await page.keyboard.press("Enter");
     const renamed = ws("datasets", "orders_acc-2.csv");
-    check("second import written under the new name", await waitFor(() => existsSync(renamed)) && read(renamed) === CSV_SECOND);
+    // A file can exist before its bytes are written (seen on Linux CI): wait for the content itself.
+    check("second import written under the new name", await waitFor(() => existsSync(renamed) && read(renamed) === CSV_SECOND));
     check("first dataset never overwritten", read(target) === CSV_FIRST);
     check("datasets/ holds exactly the two copies", readdirSync(ws("datasets")).sort().join(",") === "orders_acc-2.csv,orders_acc.csv", readdirSync(ws("datasets")).join(", "));
   });
@@ -621,7 +622,7 @@ try {
     await page.locator(".quick-input-widget .quick-input-title", { hasText: "Export a Mosaic exchange" }).first().waitFor();
     await page.keyboard.press("Enter");
     const target = ws(`${notebook.id}.mosaic-exchange.json`);
-    check("export written", await fileDialog(async () => /mosaic-exchange\.json$/.test(await quickInput().inputValue().catch(() => "")), target, () => existsSync(target)));
+    check("export written", await fileDialog(async () => /mosaic-exchange\.json$/.test(await quickInput().inputValue().catch(() => "")), target, () => existsSync(target) && jsonFile(target) !== undefined));
     const exported = jsonFile(target);
     const schema = JSON.parse(read(path.join(repo, "schemas", "mosaic-exchange.schema.json")));
     const ajv = new Ajv2020({ allErrors: true, strict: false });
