@@ -9,6 +9,23 @@ Add a tranche as a new `## YYYY-MM-DD · Title` section at the top, under this p
 sections, and refer to another section by its heading, not by a position. Keep the "Checked" and "Not checked"
 notes: they say what was really run.
 
+## 2026-10-13 · UI pass: BI Lab build waits for its files
+
+Branch `claude/bi-ui-race` from main `5b334dd`. The UI pass step "Lab controller: BI Lab builds its warehouse"
+failed intermittently ("1 of 2 checks not met", the result line `BI Lab: N statement(s) ran on the local catalog`
+never showed; PR #78's CI run). Root cause, a test race: the step before ("Cloud Lab copies its pipeline samples")
+passed as soon as `factory/` existed (0.2 s in CI), so the Cloud Lab copy was still running into the BI step; its
+closing refresh (or any refresh) could land while `bi/` was half copied, show "Build warehouse" over a partial
+folder, and the pass clicked it: the build ran on no or missing warehouse scripts, so no success line. Product
+behaviour is unchanged (the BI detail is not overwritten; Build reads the disk at click time). `scripts/vscode_ui_pass.mjs`
+now checks that every file of `samples/factory-lab` and `samples/bi-lab` is in the workspace, and clicks "Build
+warehouse" only once the view lists `06_fct_returns.sql`; the assertions are unchanged. A failing lab-controller
+step now leaves `fail-<step>.png` and `fail-<step>.txt` (page text) in the pass output.
+
+Checked: `npm run compile`, `npm test`; the packaged VSIX UI pass three times locally (Windows), BI step PASS each
+time (one run before the fix, two after; the third run had an unrelated `Practice pytest exercise ... no result`).
+Not checked: the race was not forced locally (diagnosed from PR #78's CI timeline and the code paths).
+
 ## 2026-10-13 · Mosaic Studio .ipynb interop
 
 Branch `feat/studio-ipynb-interop` from main `ccc3b29`. The `datapass.mosaic-exchange` contract was never produced or

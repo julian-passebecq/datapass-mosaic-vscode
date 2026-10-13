@@ -700,6 +700,14 @@ try {
   // from the Cloud Lab, Pipeline Lab, Airflow Lab and dbt Lab controllers).
   const onDisk = (...parts) => () => existsSync(path.join(workspace, ...parts));
   const shows = pattern => async () => pattern.test(await bodyText().catch(() => ""));
+  // Every file of a shipped sample folder is in the workspace: the lab's copy has finished, not only started.
+  // (A folder appears with its first file; a step that only checks it leaves the copy running into the next step.)
+  const sampleFiles = dir => readdirSync(dir, { withFileTypes: true })
+    .flatMap(entry => entry.isDirectory() ? sampleFiles(path.join(dir, entry.name)).map(f => path.join(entry.name, f)) : [entry.name]);
+  const copied = (sample, target) => () => {
+    const files = sampleFiles(path.join(repo, "samples", sample));
+    return files.length > 0 && files.every(file => existsSync(path.join(workspace, target, file)));
+  };
   async function labAction(label, commandTitle, act, checks, timeoutMs = 90000) {
     let detail = "";
     let ok = false;
@@ -716,6 +724,11 @@ try {
       }
       ok = pending.length === 0;
       if (!ok) detail = `${pending.length} of ${checks.length} checks not met`;
+      if (!ok) {
+        const slug = label.toLowerCase().replace(/[^a-z0-9]+/g, "-");
+        await shot(`fail-${slug}`);
+        writeFileSync(path.join(out, `fail-${slug}.txt`), await bodyText().catch(error => String(error)));
+      }
     } catch (error) {
       detail = String(error?.message ?? error).split("\n")[0].slice(0, 200);
     }
@@ -734,10 +747,18 @@ try {
   await labAction("Cloud Lab copies its pipeline samples", "Datapass: Open Cloud Lab", async () => {
     await subtab("Pipelines");
     await button("Create lab files").click();
-  }, [onDisk("factory")]);
+  }, [copied("factory-lab", "factory")]);
   await labAction("BI Lab builds its warehouse", "Datapass: Open BI Lab", async () => {
     await subtab("Warehouse");
     await button("Create lab files").first().click();
+    // Build only once the copy has finished and the view lists every warehouse script: a refresh that lands
+    // mid-copy shows "Build warehouse" over a partial bi/ (PR #78's intermittent failure: the build then ran
+    // on missing scripts or none, so its result line never appeared).
+    const deadline = Date.now() + 60000;
+    while (!(copied("bi-lab", "bi")() && /06_fct_returns\.sql/.test(await bodyText().catch(() => "")))) {
+      if (Date.now() > deadline) throw new Error("BI Lab files were not created and listed within 60 s");
+      await page.waitForTimeout(250);
+    }
     await button("Build warehouse").click({ timeout: 60000 });
   }, [onDisk("bi", "model.json"), shows(/BI Lab: \d+ statement\(s\) ran on the local catalog/)], 180000);
   await labAction("Airflow Lab simulates the starter DAG", "Datapass: Open Airflow Lab",
