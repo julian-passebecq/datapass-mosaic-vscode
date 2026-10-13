@@ -142,17 +142,22 @@ const button = name => web().getByRole("button", { name, exact: true });
 const bodyText = () => web().locator("body").innerText();
 
 async function command(title) {
-  await page.keyboard.press("Escape");
   const input = page.locator(".quick-input-widget input");
-  // F1 is lost when a webview or the terminal holds the keyboard; the palette text would then land in an editor.
-  // Open the palette by the command center (a click), falling back to F1, and fill only a visible quick input.
-  const center = page.locator(".command-center-center").first();
-  if (await center.isVisible().catch(() => false)) await center.click();
-  else await page.keyboard.press("F1");
-  if (!(await input.isVisible().catch(() => false))) await page.keyboard.press("F1");
-  await input.waitFor({ state: "visible" });
-  await input.fill(`>${title}`);
-  await page.locator(".quick-input-list .monaco-list-row", { hasText: title }).first().waitFor();
+  const row = page.locator(".quick-input-list .monaco-list-row", { hasText: title }).first();
+  // The palette sometimes opens without listing the command (seen locally on Windows): close it and try once more.
+  for (let attempt = 1; ; attempt++) {
+    await page.keyboard.press("Escape");
+    // F1 is lost when a webview or the terminal holds the keyboard; the palette text would then land in an editor.
+    // Open the palette by the command center (a click), falling back to F1, and fill only a visible quick input.
+    const center = page.locator(".command-center-center").first();
+    if (await center.isVisible().catch(() => false)) await center.click();
+    else await page.keyboard.press("F1");
+    if (!(await input.isVisible().catch(() => false))) await page.keyboard.press("F1");
+    await input.waitFor({ state: "visible" });
+    await input.fill(`>${title}`);
+    try { await row.waitFor({ timeout: 30000 }); break; }
+    catch (error) { if (attempt >= 2) throw error; }
+  }
   await page.keyboard.press("Enter");
 }
 

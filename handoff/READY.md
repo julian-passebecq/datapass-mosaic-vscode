@@ -1,15 +1,14 @@
 # READY · Datapass Workbench 0.4.0 (Mosaic VSIX V1)
 
-**Status: locally qualified, remote publication STAGED.** The four required CI jobs (`extension`, `runtime`,
-`extension-host`, `vscode-ui`) have not run on this branch yet, because pushing needs Julian's grant. Release readiness
-is claimed only after they are green.
+**Status: merged to main and green.** PR #75 squash-merged as `e4519fc` (all four required CI jobs green on the PR);
+main CI on the follow-up #76 (`4b2b91f`) is green on `extension`, `runtime`, `extension-host` and `vscode-ui`. Not tagged.
 
 ## Package
 - VSIX: `D:\PROJ\datapass-mosaic-vscode-release\0.4.0\datapass-mosaic-vscode-0.4.0.vsix`
-  - sha256 `e88477d791b8d44c531028a9d7b8b54b4b6a15320282e619cb0675f8ddac974a`
+  - sha256 `501db2fda8a3b5355921873a7133872020be188481209bea21531499f6958783`
   - 618 entries; `handoff/`, solutions, mutants and `quality.json` are excluded.
-- Source: branch `codex/mosaic-vsix-v1-finish-20261011`, commit `c35d632d8b8e49915700371f1e38cbd78c9ae15a`, base main `544c420`.
-  - Later commits change `handoff/` only, which is not packaged.
+- Source: main at `e4519fc08fede946a1d58c9bf0c9bd3e2cb89d38` (squash of PR #75). Later main commits change `scripts/` and
+  `handoff/` only, which are not packaged, so this VSIX is also main's.
 - Manifest: `source-manifest.json` (each entry with its sha256), `SHA256SUMS`, and the three UI reports, in the same folder.
 
 ## Install locally
@@ -38,16 +37,15 @@ folder, or **Datapass: Open Learning**. Python 3.11+ is needed for Setup runtime
 Local gates: compile, `npm test`, compileall, the runtime / packs / projects / terminal / infra / lakehouse / API
 smokes, `gen_json_schemas --check` and `test:host` all pass (handoff/EVIDENCE.md).
 
-## Open before calling it released
-1. **Julian:** grant remote publication (target repo, branch and file scope as in the brief). Then the branch is pushed
-   and the four CI jobs must go green on the exact commit.
-2. **Not run locally** (CI covers them): `dbt_oracle_smoke.py` and `missions_smoke.py` (they need the dbt tools).
-   No dbt code changed.
-3. **Known flake:** `vscode_ui_pass` timed out once after the concept-check sheet step (1 of 2 runs at c35d632). The
-   rerun was green.
-4. **Content caveats:**
+## Open
+1. **Not run locally** (CI runs them): `dbt_oracle_smoke.py` and `missions_smoke.py` (they need the dbt tools).
+2. **Flakes seen locally on Windows and fixed in the harness:**
+   - files read before their content was written (#75, #76);
+   - a command-palette row that sometimes does not appear (one retry in `vscode_ui_pass.mjs`).
+3. **Content caveats:**
    - The platform facts in learning-checks-v1 and infra-concepts-v1 were written from documented behaviour and not
      re-checked against live vendor docs (E-FACTS-P2).
    - The Git and shell, and Polars, lesson examples were not run on every version (E-CONTENT-RUN-P1).
-5. **Not automated:** the pipeline save-conflict modal, the import/export file dialogs and pointer drag on the canvas.
-6. **Not done here:** no tag, no Marketplace publication, no merge to main.
+4. **Not automated:** the pipeline save-conflict modal, the import/export file dialogs and pointer drag on the canvas.
+5. **Not done:** no tag, no GitHub Release, no Marketplace publication. Pushing a `v0.4.0` tag would trigger the release
+   workflow (docs/RELEASE.md).
