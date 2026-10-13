@@ -1,0 +1,343 @@
+{
+  "format": "datapass.learning-path",
+  "version": 1,
+  "path": {
+    "id": "polars",
+    "title": "Polars DataFrames",
+    "summary": "Expressions, lazy queries and joins with real Polars, run as trusted local Python only when you enable it.",
+    "lessons": [
+      "polars-expressions",
+      "polars-lazy",
+      "polars-joins"
+    ]
+  },
+  "lessons": [
+    {
+      "id": "polars-expressions",
+      "version": 1,
+      "title": "Expressions: columns in, columns out",
+      "summary": "Build transformations from pl.col expressions inside select, with_columns, filter and group_by().agg, and handle nulls on purpose.",
+      "minutes": 15,
+      "concepts": [
+        "Polars",
+        "expressions",
+        "with_columns",
+        "group_by",
+        "null",
+        "when/then"
+      ],
+      "prerequisites": [],
+      "blocks": [
+        {
+          "kind": "text",
+          "title": "An expression describes a column",
+          "body": "pl.col(\"amount\") * 1.2 is not a value: it is a recipe that Polars evaluates inside a context. select keeps only the expressions you list; with_columns adds or replaces columns; filter keeps the rows where a boolean expression is true; group_by(...).agg(...) evaluates expressions per group. The expressions of one context run in parallel and cannot see each other's new columns: chain another with_columns for that."
+        },
+        {
+          "kind": "text",
+          "title": "Conditions and nulls",
+          "body": "pl.when(condition).then(a).otherwise(b) is the CASE WHEN of Polars. A comparison with null gives null, and filter treats null as false. is_null(), fill_null() and eq_missing() make the choice explicit. count() counts non-null values; pl.len() counts rows."
+        },
+        {
+          "kind": "callout",
+          "title": "No Python loops over rows",
+          "body": "map_elements with a Python lambda runs row by row in Python, loses the engine's speed and hides the logic from the query plan. Look for an expression first: the str, dt and list namespaces cover most text, date and list work."
+        },
+        {
+          "kind": "check",
+          "title": "Before you run",
+          "body": "Predict impressions, clicks and spend per campaign. clicked_at is null when the ad was shown but not clicked."
+        }
+      ],
+      "code": {
+        "language": "polars",
+        "source": "import polars as pl\n\nevents = pl.DataFrame({\n    \"campaign_id\": [\"spring\", \"spring\", \"spring\", \"summer\", \"summer\"],\n    \"amount\": [1.0, 2.5, None, 4.0, 1.5],\n    \"clicked_at\": [\"2026-03-01\", None, \"2026-03-02\", None, None],\n})\n\nresult = (\n    events\n    .with_columns(pl.col(\"clicked_at\").str.to_date())\n    .with_columns(\n        pl.when(pl.col(\"amount\").is_null()).then(0.0).otherwise(pl.col(\"amount\")).alias(\"amount_filled\")\n    )\n    .group_by(\"campaign_id\")\n    .agg(\n        pl.len().alias(\"impressions\"),\n        pl.col(\"clicked_at\").count().alias(\"clicks\"),\n        pl.col(\"amount_filled\").sum().alias(\"spend\"),\n    )\n    .sort(\"campaign_id\")\n)\ndisplay(result)\n"
+      },
+      "exercise": {
+        "id": "spark-count-column-vs-star-polars",
+        "language": "polars"
+      },
+      "lab": "sparklab",
+      "visual": {
+        "kind": "grain",
+        "title": "Expressions - visual walkthrough",
+        "steps": [
+          {
+            "title": "Data with nulls",
+            "body": "Five events; one amount and three clicked_at values are null.",
+            "lines": [
+              3,
+              7
+            ]
+          },
+          {
+            "title": "Parse, then derive",
+            "body": "The first with_columns parses the date; the second one can use the parsed column and fills the missing amount with when/then.",
+            "lines": [
+              11,
+              14
+            ]
+          },
+          {
+            "title": "Aggregate per group",
+            "body": "agg evaluates three expressions for each campaign_id: one output row per campaign.",
+            "lines": [
+              15,
+              20
+            ]
+          },
+          {
+            "title": "count() versus len()",
+            "body": "pl.len() counts every row (impressions); count() on clicked_at skips nulls (clicks): spring 3 and 2, summer 2 and 0.",
+            "lines": [
+              17,
+              18
+            ]
+          }
+        ]
+      },
+      "related": [
+        "polars-lazy",
+        "sql-aggregation"
+      ],
+      "practice": [
+        {
+          "id": "spark-null-safe-change-detection-polars",
+          "language": "polars"
+        }
+      ],
+      "cheatsheet": "learning-polars",
+      "deck": "polars"
+    },
+    {
+      "id": "polars-lazy",
+      "version": 1,
+      "title": "Lazy frames and the query plan",
+      "summary": "Describe the whole query with scan_* or .lazy(), let the optimizer push filters and projections down, then collect once.",
+      "minutes": 15,
+      "concepts": [
+        "Polars",
+        "LazyFrame",
+        "collect",
+        "explain",
+        "predicate pushdown",
+        "projection pushdown"
+      ],
+      "prerequisites": [
+        "polars-expressions"
+      ],
+      "blocks": [
+        {
+          "kind": "text",
+          "title": "Eager versus lazy",
+          "body": "A DataFrame runs each method as soon as you call it. A LazyFrame (pl.scan_parquet, pl.scan_csv or df.lazy()) records the steps and runs nothing until collect(). Because the optimizer sees the whole query, it reads only the columns used (projection pushdown), applies filters while reading (predicate pushdown) and skips work whose result is never used."
+        },
+        {
+          "kind": "text",
+          "title": "Read the plan",
+          "body": "lf.explain() prints the optimized plan; read it from the bottom up: the scan first, then filters, joins and aggregations. In Datapass, display(lazy_frame) collects it and shows Polars' own plan next to the rows: the real output of LazyFrame.explain(), not a model."
+        },
+        {
+          "kind": "callout",
+          "title": "Collect once",
+          "body": "Calling collect() in the middle and continuing on the DataFrame splits the query in two: the optimizer can no longer push a later filter into the scan. Stay lazy until the end. collect() keeps the whole result in memory; sink_parquet writes a large result to disk in streaming mode instead."
+        },
+        {
+          "kind": "check",
+          "title": "Before you run",
+          "body": "Predict the revenue per customer. Then find in the plan where the filter on status is applied and which columns are read."
+        }
+      ],
+      "code": {
+        "language": "polars",
+        "source": "import polars as pl\n\norders = pl.DataFrame({\n    \"order_id\": [1, 2, 3, 4, 5],\n    \"customer_id\": [\"A\", \"B\", \"A\", \"C\", \"B\"],\n    \"status\": [\"DONE\", \"OPEN\", \"DONE\", \"DONE\", \"CANCELLED\"],\n    \"amount\": [40.0, 15.0, 60.0, 90.0, 20.0],\n    \"note\": [\"\", \"call back\", \"\", \"gift\", \"\"],\n}).lazy()\n\nquery = (\n    orders\n    .filter(pl.col(\"status\") == \"DONE\")\n    .group_by(\"customer_id\")\n    .agg(pl.col(\"amount\").sum().alias(\"revenue\"), pl.len().alias(\"orders\"))\n    .sort(\"revenue\", descending=True)\n)\ndisplay(query)\n"
+      },
+      "exercise": {
+        "id": "spark-join-fanout-before-sum-polars",
+        "language": "polars"
+      },
+      "lab": "sparklab",
+      "visual": {
+        "kind": "dag",
+        "title": "Lazy query - visual walkthrough",
+        "steps": [
+          {
+            "title": "Make it lazy",
+            "body": ".lazy() turns the DataFrame into a LazyFrame: nothing is computed yet.",
+            "lines": [
+              3,
+              9
+            ]
+          },
+          {
+            "title": "Describe, do not run",
+            "body": "filter, group_by, agg and sort only add nodes to the plan.",
+            "lines": [
+              11,
+              17
+            ]
+          },
+          {
+            "title": "Collect and see the plan",
+            "body": "display() collects the query once and shows the optimized plan from LazyFrame.explain().",
+            "lines": [
+              18,
+              18
+            ]
+          },
+          {
+            "title": "Unused columns are dropped",
+            "body": "note and order_id are never used, so the optimized plan does not carry them."
+          }
+        ],
+        "nodes": [
+          {
+            "id": "scan",
+            "title": "Scan orders"
+          },
+          {
+            "id": "filter",
+            "title": "filter status = DONE"
+          },
+          {
+            "id": "aggregate",
+            "title": "group_by + agg"
+          },
+          {
+            "id": "sort",
+            "title": "sort revenue"
+          }
+        ],
+        "edges": [
+          [
+            "scan",
+            "filter"
+          ],
+          [
+            "filter",
+            "aggregate"
+          ],
+          [
+            "aggregate",
+            "sort"
+          ]
+        ]
+      },
+      "related": [
+        "polars-joins",
+        "spark-partitions"
+      ],
+      "practice": [
+        {
+          "id": "spark-running-total-ties-polars",
+          "language": "polars"
+        }
+      ],
+      "cheatsheet": "learning-polars",
+      "deck": "polars"
+    },
+    {
+      "id": "polars-joins",
+      "version": 1,
+      "title": "Joins in Polars",
+      "summary": "Join DataFrames with how=\"left\", \"inner\", \"semi\", \"anti\" and \"full\", and keep a left join when you filter the right side.",
+      "minutes": 15,
+      "concepts": [
+        "Polars",
+        "joins",
+        "left join",
+        "semi join",
+        "anti join",
+        "null keys"
+      ],
+      "prerequisites": [
+        "polars-expressions"
+      ],
+      "blocks": [
+        {
+          "kind": "text",
+          "title": "The same row logic as SQL",
+          "body": "df.join(other, on=\"customer_id\", how=\"left\") matches rows with equal keys and keeps unmatched left rows with nulls on the right. Duplicate keys multiply rows exactly as in SQL. how=\"semi\" keeps the left rows that have a match, once each, and adds no column; how=\"anti\" keeps those that have none."
+        },
+        {
+          "kind": "text",
+          "title": "Null keys",
+          "body": "By default a null key matches nothing, as in SQL. The nulls_equal=True option (join_nulls in older Polars versions) makes null match null: use it only when a null key really identifies one thing."
+        },
+        {
+          "kind": "callout",
+          "title": "Filter before, not after",
+          "body": "Filtering the joined frame on a right-side column (status == \"COMPLETED\") removes the unmatched rows, whose status is null: the left join silently becomes an inner join. Filter the right frame first, then join."
+        },
+        {
+          "kind": "check",
+          "title": "Before you run",
+          "body": "Predict the row count of each result and which customers keep a null order_id."
+        }
+      ],
+      "code": {
+        "language": "polars",
+        "source": "import polars as pl\n\ncustomers = pl.DataFrame({\"customer_id\": [1, 2, 3], \"name\": [\"Ada\", \"Ben\", \"Chloe\"]})\norders = pl.DataFrame({\n    \"order_id\": [101, 102, 103, 104],\n    \"customer_id\": [1, 1, 2, None],\n    \"status\": [\"COMPLETED\", \"OPEN\", \"OPEN\", \"COMPLETED\"],\n})\n\ncompleted = orders.filter(pl.col(\"status\") == \"COMPLETED\")\nkept = customers.join(completed, on=\"customer_id\", how=\"left\")\nlost = customers.join(orders, on=\"customer_id\", how=\"left\").filter(pl.col(\"status\") == \"COMPLETED\")\nwithout_orders = customers.join(orders, on=\"customer_id\", how=\"anti\")\n\ndisplay(pl.DataFrame({\n    \"result\": [\"filter then join\", \"join then filter\", \"anti join\"],\n    \"rows\": [kept.height, lost.height, without_orders.height],\n}))\n"
+      },
+      "exercise": {
+        "id": "spark-left-join-filter-placement-polars",
+        "language": "polars"
+      },
+      "lab": "sparklab",
+      "visual": {
+        "kind": "join",
+        "title": "Polars joins - visual walkthrough",
+        "steps": [
+          {
+            "title": "Filter the right side first",
+            "body": "Ada keeps order 101; Ben and Chloe stay with a null order: 3 rows.",
+            "lines": [
+              10,
+              11
+            ]
+          },
+          {
+            "title": "Filtering after the join drops rows",
+            "body": "Ben and Chloe have a null status after the left join, so the filter removes them: 1 row.",
+            "lines": [
+              12,
+              12
+            ]
+          },
+          {
+            "title": "Anti join",
+            "body": "Only Chloe has no order at all. The order with a null customer_id matches nobody.",
+            "lines": [
+              13,
+              13
+            ]
+          },
+          {
+            "title": "Compare the counts",
+            "body": "The same data gives 3, 1 and 1 rows: the order of filter and join changes the answer.",
+            "lines": [
+              15,
+              18
+            ]
+          }
+        ]
+      },
+      "related": [
+        "sql-filter-placement",
+        "polars-lazy"
+      ],
+      "practice": [
+        {
+          "id": "spark-semi-join-existence-polars",
+          "language": "polars"
+        },
+        {
+          "id": "spark-full-outer-reconcile-polars",
+          "language": "polars"
+        }
+      ],
+      "cheatsheet": "learning-polars",
+      "deck": "polars"
+    }
+  ]
+}

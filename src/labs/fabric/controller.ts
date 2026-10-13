@@ -1,3 +1,5 @@
+import { mkdir, writeFile } from "node:fs/promises";
+import { dirname } from "node:path";
 import * as vscode from "vscode";
 import { AIRFLOW_STARTER_FILE } from "../../airflowState";
 import {
@@ -11,7 +13,16 @@ import {
   readPoolScript
 } from "../../factoryState";
 import { JOB_NAME } from "../../platform/databricksRun";
-import { FACTORY_FLAVORS, PIPELINE_NAME, pipelineRelativePath } from "../../platform/factoryRun";
+import { contentHash, parsePipeline } from "../../platform/factoryDocument";
+import {
+  FACTORY_FLAVORS,
+  FACTORY_FOLDER,
+  PIPELINE_NAME,
+  classifyFactoryPath,
+  designView,
+  pipelineRelativePath,
+  requestFactoryReload
+} from "../../platform/factoryRun";
 import { SQLPOOL_FLAVORS, SQLPOOL_LIMITS, isValidScale } from "../../platform/sqlpoolRun";
 import { safeRelativeParts } from "../../platform/workspacePaths";
 import { createDefaultProjectManifest, readProjectManifest, writeProjectManifest } from "../../project/projectManifest";
@@ -49,6 +60,10 @@ export class FabricController implements LabController<FabricMessage> {
     openFactoryFile: message => this.openFactoryFile(message.path),
     revealFactoryActivity: message => this.revealFactoryActivity(message.path, message.activity),
     simulateFactory: message => this.simulateFactory(message.flavor, message.name, message.scenario),
+    saveFactoryPipeline: message => this.host.guarded("Saving the pipeline", () => this.saveFactoryPipeline(message.path, message.text, message.baseHash)),
+    createFactoryPipeline: message => this.host.guarded("Creating the pipeline", () => this.createFactoryPipeline(message.flavor)),
+    importFactoryPipeline: message => this.host.guarded("Importing the pipeline", () => this.importFactoryPipeline(message.flavor)),
+    exportFactoryPipeline: message => this.host.guarded("Exporting the pipeline", () => this.exportFactoryPipeline(message.path, message.text)),
     runSqlPool: message => this.runSqlPool(message.flavor, message.scale, message.source, message.path),
     revealSqlPoolLine: message => this.revealSqlPoolLine(message.line),
     simulateDatabricks: message => this.simulateDatabricks(message.name, message.scenario),
@@ -211,6 +226,144 @@ export class FabricController implements LabController<FabricMessage> {
   }
 
   /**
+   * Save the pipeline editor's text. The editor sends the hash of the file it started from; when the file changed
+   * since (another editor, git, a restore), nothing is written until the learner chooses Reload or Overwrite.
+   */
+  private async saveFactoryPipeline(path: string, text: string, baseHash: string): Promise<void> {
+    const target = this.pipelineTarget(path);
+    if (!target) return;
+    if (typeof text !== "string" || text.length > MAX_PIPELINE_CHARS) {
+      void vscode.window.showWarningMessage(`The pipeline is longer than ${MAX_PIPELINE_CHARS} characters; it was not saved.`);
+      return;
+    }
+    const parsed = parsePipeline(text);
+    if (parsed.error) {
+      void vscode.window.showWarningMessage(`The pipeline was not saved: ${parsed.error}`);
+      return;
+    }
+    const open = vscode.workspace.textDocuments.find(document => document.uri.toString() === target.uri.toString());
+    const current = open ? open.getText() : (await exists(target.uri)) ? await readUtf8(target.uri) : undefined;
+    if (current === undefined || contentHash(current) !== baseHash) {
+      const choice = await vscode.window.showWarningMessage(
+        current === undefined
+          ? `${path} no longer exists on disk.`
+          : `${path} changed since the pipeline editor loaded it${open?.isDirty ? " (it has unsaved changes in a text editor)" : ""}.`,
+        {
+          modal: true,
+          detail: "Reload from disk drops the edits made in the pipeline editor and shows the file as it is now. Overwrite replaces the file with the pipeline editor's version."
+        },
+        "Reload from disk",
+        "Overwrite"
+      );
+      if (choice === "Reload from disk") {
+        requestFactoryReload(path);
+        await this.host.refresh();
+        return;
+      }
+      if (choice !== "Overwrite") return;
+    }
+    if (open && !open.isClosed) {
+      const edit = new vscode.WorkspaceEdit();
+      edit.replace(open.uri, new vscode.Range(open.positionAt(0), open.positionAt(open.getText().length)), text);
+      if (!(await vscode.workspace.applyEdit(edit)) || !(await open.save())) {
+        throw new Error(`could not write ${path}`);
+      }
+    } else {
+      await vscode.workspace.fs.writeFile(target.uri, new TextEncoder().encode(text));
+    }
+    await this.host.refresh();
+  }
+
+  /** A factory pipeline path from the webview, or undefined (with a warning) when it is anything else. */
+  private pipelineTarget(path: string): { uri: vscode.Uri; flavor: FactoryFlavor; name: string } | undefined {
+    const uri = typeof path === "string" ? factoryFileUri(path) : undefined;
+    const role = uri ? classifyFactoryPath(path.replaceAll("\\", "/").slice(FACTORY_FOLDER.length + 1)) : undefined;
+    if (!uri || role?.role !== "pipeline" || !PIPELINE_NAME.test(role.name)) {
+      void vscode.window.showWarningMessage(`Not a Cloud Lab pipeline file: ${String(path)}`);
+      return undefined;
+    }
+    return { uri, flavor: role.flavor, name: role.name };
+  }
+
+  /** An empty pipeline of the product, in its git layout; an existing file is never replaced. */
+  private async createFactoryPipeline(flavor: FactoryFlavor): Promise<void> {
+    if (!FACTORY_FLAVORS.includes(flavor) || !vscode.workspace.workspaceFolders?.length) return;
+    const name = await askPipelineName("New pipeline name", "pl_new");
+    if (!name) return;
+    const properties = { description: "", activities: [], parameters: {}, variables: {}, annotations: [] };
+    const document = flavor === "fabric" ? { properties } : { name, properties };
+    const relative = pipelineRelativePath(flavor, name);
+    if (!(await createExclusive(relative, `${JSON.stringify(document, null, 2)}\n`))) {
+      void vscode.window.showWarningMessage(`${relative} already exists: choose another name.`);
+      return;
+    }
+    await this.host.refresh();
+  }
+
+  /**
+   * Copy a pipeline JSON file into factory/<flavor>/ as written (Data Factory / Synapse pipeline/*.json, or a Fabric
+   * pipeline-content.json). The file is checked to be a pipeline; its activities are checked by the editor and the
+   * run, like any other pipeline. An existing pipeline is never replaced.
+   */
+  private async importFactoryPipeline(flavor: FactoryFlavor): Promise<void> {
+    if (!FACTORY_FLAVORS.includes(flavor) || !vscode.workspace.workspaceFolders?.length) return;
+    const picked = await vscode.window.showOpenDialog({
+      canSelectMany: false,
+      canSelectFiles: true,
+      openLabel: "Import pipeline",
+      title: "Import a pipeline JSON file into the Cloud Lab",
+      filters: { "Pipeline JSON": ["json"] }
+    });
+    const source = picked?.[0];
+    if (!source) return;
+    const bytes = await vscode.workspace.fs.readFile(source);
+    if (bytes.byteLength > MAX_PIPELINE_CHARS) {
+      void vscode.window.showWarningMessage(`The file is larger than ${MAX_PIPELINE_CHARS} bytes.`);
+      return;
+    }
+    const text = new TextDecoder().decode(bytes);
+    const check = designView(flavor, "import", "import.json", text);
+    if (check.error) {
+      void vscode.window.showWarningMessage(`Not imported: ${check.error}`);
+      return;
+    }
+    const parsed = parsePipeline(text).value ?? {};
+    const parts = source.path.split("/");
+    const file = parts[parts.length - 1];
+    const folder = parts[parts.length - 2] ?? "";
+    const suggested = typeof parsed.name === "string" && PIPELINE_NAME.test(parsed.name)
+      ? parsed.name
+      : file === "pipeline-content.json" && folder.endsWith(".DataPipeline")
+        ? folder.slice(0, -".DataPipeline".length)
+        : file.replace(/\.json$/i, "");
+    const name = await askPipelineName("Pipeline name in the Cloud Lab", suggested);
+    if (!name) return;
+    const relative = pipelineRelativePath(flavor, name);
+    if (!(await createExclusive(relative, text))) {
+      void vscode.window.showWarningMessage(`${relative} already exists: the import never replaces a pipeline. Choose another name.`);
+      return;
+    }
+    void vscode.window.showInformationMessage(`Imported as ${relative}. Its activities are checked against what the simulator supports.`);
+    await this.host.refresh();
+  }
+
+  /** Save the editor's version of a pipeline to a file the learner chooses (the save dialog asks before replacing). */
+  private async exportFactoryPipeline(path: string, text: string): Promise<void> {
+    const target = this.pipelineTarget(path);
+    if (!target || typeof text !== "string" || parsePipeline(text).error) return;
+    const folder = vscode.workspace.workspaceFolders?.[0]?.uri;
+    const chosen = await vscode.window.showSaveDialog({
+      defaultUri: folder ? vscode.Uri.joinPath(folder, `${target.name}.json`) : undefined,
+      filters: { "Pipeline JSON": ["json"] },
+      saveLabel: "Export pipeline",
+      title: `Export ${target.name}`
+    });
+    if (!chosen) return;
+    await vscode.workspace.fs.writeFile(chosen, new TextEncoder().encode(text));
+    void vscode.window.showInformationMessage(`Exported ${target.name} to ${vscode.workspace.asRelativePath(chosen)}.`);
+  }
+
+  /**
    * SQL pool tab: run a script of factory/sql/pool, the active .sql editor, or nothing (describe the
    * tables). The runtime translates the T-SQL; data statements run on the local catalog.
    */
@@ -288,6 +441,42 @@ export class FabricController implements LabController<FabricMessage> {
     }
     await this.host.refresh();
   }
+}
+
+/** Pipeline files the editor writes or imports stay well under what the runtime reads. */
+const MAX_PIPELINE_CHARS = 1_000_000;
+
+async function readUtf8(uri: vscode.Uri): Promise<string> {
+  return new TextDecoder().decode(await vscode.workspace.fs.readFile(uri));
+}
+
+async function askPipelineName(title: string, value: string): Promise<string | undefined> {
+  const name = await vscode.window.showInputBox({
+    title,
+    value,
+    prompt: "Letters, digits, spaces, _ and - (at most 140 characters)",
+    validateInput: input => PIPELINE_NAME.test(input) ? undefined : "Use letters, digits, spaces, _ and - (at most 140), starting with a letter or digit."
+  });
+  return name && PIPELINE_NAME.test(name) ? name : undefined;
+}
+
+/** Write a new workspace file, failing (false) when it already exists: the check and the write are one operation. */
+async function createExclusive(relative: string, text: string): Promise<boolean> {
+  const uri = factoryFileUri(relative);
+  if (!uri) return false;
+  if (uri.scheme === "file") {
+    await mkdir(dirname(uri.fsPath), { recursive: true });
+    try {
+      await writeFile(uri.fsPath, text, { encoding: "utf8", flag: "wx" });
+      return true;
+    } catch (error) {
+      if ((error as NodeJS.ErrnoException).code === "EEXIST") return false;
+      throw error;
+    }
+  }
+  if (await exists(uri)) return false;
+  await vscode.workspace.fs.writeFile(uri, new TextEncoder().encode(text));
+  return true;
 }
 
 function escapeRegExp(value: string): string {

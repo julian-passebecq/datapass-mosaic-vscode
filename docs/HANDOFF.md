@@ -7,7 +7,7 @@ Read this before a substantial change. It is kept short on purpose and updated i
   T-x, and the code-debt audit D-1…D-10).
 - **Rules** (product boundary, truth model, security, gates): CLAUDE.md, which wins over this file.
 
-Last updated: 2026-10-04.
+Last updated: 2026-10-13.
 
 ## Baseline and workflow
 
@@ -22,8 +22,7 @@ Last updated: 2026-10-04.
   infra missions smokes; packs are graded in parallel processes),
   `extension-host` (the dbt missions smoke, then `npm run test:host`, both with the dbt tools) and
   `vscode-ui` (the packaged VSIX driven by Playwright).
-- Record each tranche as a new dated section at the top of docs/HANDOFF_HISTORY.md (`## YYYY-MM-DD · Title`, never
-  numbered or lettered), and update this file when what exists, where it lives, or a known gap changes.
+- Record each tranche as a new dated section at the top of docs/HANDOFF_HISTORY.md (`## YYYY-MM-DD · Title`), and update this file when a fact changes.
 
 ## What exists
 
@@ -53,6 +52,17 @@ manifests, and the "Get started with Datapass" walkthrough:
 | Airflow Lab (`airflow`) | Airflow 3 DAG files read by a whitelisted AST reader; scheduler, runs, retries simulated | simulation, never eval/exec | `runtime/airflowlab` |
 | Pipeline Lab (`pipeline`) | Python-like pipeline source compiled to a graph; supported activity bodies run | source never eval/exec'd; SQL, quality, Python, Polars bodies real; dbt activity declared only; schedule is metadata | `runtime/datapass_runtime/pipeline_compiler.py`, `native_pipeline.py` |
 
+V1 additions (branch `codex/mosaic-vsix-v1-finish-20261011`, merged locally, not on `main`; list: `handoff/features.csv`):
+- **Learning** (`src/learning/`, `content/learning/`, docs/MOSAIC_LEARNING.md): 13 paths, 59 lessons linking concept
+  checks, Practice, missions, a cheatsheet and a deck. Four progress levels (read, concept checks, ran locally,
+  Practice passed); only a Practice pass is verified. Flashcards are self-rated (`datapass.learning.review`, Leitner
+  intervals, outside `.datapass/progress.json`).
+- **Build**: blank workspace (`catalog.seed: "none"`, absent = demo), New file, Import dataset (never overwrite);
+  exchange `datapass.mosaic-exchange` v1 (docs/MOSAIC_EXCHANGE.md): import writes native files never run, export is names and hashes.
+- **Pipeline editor**: Cloud Lab › Pipelines edits Fabric / ADF / Synapse JSON in place (unknown fields kept, save
+  refuses a file changed on disk, undo capped at 100). **Infra ladder**: `infra-v1` has 13 missions.
+- New `quiz` packs, no execution: `learning-checks-v1` (72 checks), `infra-concepts-v1` (17).
+
 Also: a native **Catalog** tree view (`src/catalogTree.ts`), managed runtime setup (uv when available, else venv +
 pip; Setup records a fingerprint of the bundled `runtime/` in the venv's `datapass-runtime.json`, and a mismatch after
 an extension update shows "needs update" / **Update runtime** and is never started as is,
@@ -61,7 +71,7 @@ an extension update shows "needs update" / **Update runtime** and is never start
 
 Practice packs: `sql-lab-v1`, `engine-lab-v1` (incl. T-SQL and BigQuery variants), `python-lab-v1`,
 `de-patterns-v1`, `spark-lab-v1` (PySpark + Polars), `spark-sql-v1` (Spark SQL), `airflow-lab-v1`, `cloud-pipelines-v1`, `sqlpool-v1`, `databricks-v1`, `dwh-v1`,
-`dbt-v1`, `zilla-v1` (52 ZillaCode problems in six languages), `concepts-v1` (24 concept checks: Fabric capacities, Synapse DWUs, Databricks compute, Unity Catalog, Delta / Iceberg / DuckLake), `python-prod-v1` (8 pytest exercises: typing, files, logging, errors, retries), `governance-v1` (5: row-level security, column GRANT/DENY and dynamic data masking in the SQL pool; Unity Catalog row filters, column masks and PII tags; graded by real queries as each principal), plus `guided-spark-v1` (needs a qualified remote
+`dbt-v1`, `zilla-v1` (52 ZillaCode problems in six languages), `concepts-v1` (24 concept checks: Fabric capacities, Synapse DWUs, Databricks compute, Unity Catalog, Delta / Iceberg / DuckLake), `python-prod-v1` (8 pytest exercises: typing, files, logging, errors, retries), `learning-checks-v1`, `infra-concepts-v1`, `governance-v1` (5: row-level security, column GRANT/DENY and dynamic data masking in the SQL pool; Unity Catalog row filters, column masks and PII tags; graded by real queries as each principal), plus `guided-spark-v1` (needs a qualified remote
 connection, not graded locally), `unified-retail-v1`, `pipeline-design-v1`, `sparklab-runtime` and `internal-demo`. Languages include SQL dialects `snowflake`, `tsql`,
 `bigquery`, translated to DuckDB (`runtime/sqldialects`, README there).
 
@@ -135,7 +145,7 @@ The gates are listed in CLAUDE.md "Required quality gates"; run them all before 
   `_electron.launch` with a fresh `--user-data-dir` on a **short** path (long paths broke DuckDB's DLL load, venv
   creation and the webview bundle). Write files on disk rather than typing into Monaco; use a new file name per run
   (hot exit restores old buffers).
-- Windows: a smoke can hit a transient file lock (antivirus) on a temp-file rename; rerun before debugging.
+- Windows: a transient file lock (antivirus) can break a temp-file rename; rerun first.
 
 ## Known gaps and open points
 
@@ -144,13 +154,12 @@ Verification:
   Concepts, dbt) were checked button by button only in a browser harness with a real runtime response. Real VS Code
   passes covered opening each lab, grading one exercise per pack and rendering every tab at a narrow width, not every
   button.
-- The pack generators were not rerun after they started writing `quality.json` (several need CodeDELeet or dbt Core).
 
 Labs:
 - dbt Lab: `dct serve` keeps the catalog lent while it runs; without shell integration (cmd.exe) the end of a command
   is not reported, so use **Reattach catalog**; `dbt deps` downloads packages when a project declares them; dbt
   Charts is pre-1.0 and pinned to 0.8.x (re-check its conventions before moving the pin).
-- Infra Lab (`infra-v1`, 8 missions, two per simulator): Terraform modules are local only (no registry or Git
+- Infra Lab (`infra-v1`, 13 missions incl. 5 intro ones): Terraform modules are local only (no registry or Git
   source, no `count`/`for_each` on a module); `fmt` checks a documented subset of hclwrite's rules and never rewrites
   files; no remote backends; VM creation from Terraform is not simulated. Compose has networks and named volumes but
   no `configs`, `secrets` or external volumes. Kubernetes: no StatefulSets, Jobs, PVCs or TLS termination (a `tls`
@@ -171,22 +180,20 @@ Labs:
 - Governance (`sqlpoollab/security.py`, `databrickslab/governance.py`): only SELECT is secured in the SQL pool (no BLOCK
   predicates, views not filtered, a filter on a masked column sees the masked value); UC filters/masks are refused on
   notebook reads and take one expression (no lookup table); no ABAC policies or table-level tags.
-- Fabric's pipeline "dbt job" activity has no documented JSON `type` string: verify it before writing exercises.
-- `zilla-v1` keeps ZillaCode's company names; the NOTICE is not a legal review.
+- Unverified: Fabric "dbt job" JSON `type`; `zilla-v1` keeps ZillaCode's company names (NOTICE is not legal review); pack generators not rerun since `quality.json`.
 
 Security (by design, keep it so): the kernel worker isolates lifecycle, it is not a sandbox; trusted Python is an
 explicit choice; dbt and dct run as the learner's own terminal commands.
 
 ## Next
 
-The roadmap artifact is the source of truth for order and status. Named directions so far: BI-3 (KPIs, a DAX-like measure layer translated to
-SQL, charts), the Cloud Lab dbt layer (Databricks `dbt_task`, Fabric dbt job).
+Roadmap artifact = order. Named: BI-3 (KPIs, DAX-like layer), Cloud Lab dbt layer, V1 open checks in handoff/EVIDENCE.md.
 
 ## What not to do
 
 - Do not restart the project, add another app shell, editor, notebook runtime or Spark engine, or copy whole donor
   repositories into the VSIX.
-- Do not commit to `main` directly or rewrite its history; do not continue the historical branch.
+- Do not commit to `main` directly, rewrite its history or continue the historical branch.
 - Do not claim a simulation or emulation is the real product (Spark, Airflow, Fabric, Synapse, Databricks, dbt Core,
   dbt Charts, Snowflake, Power BI), and do not enable trusted Python or install the dbt tools silently.
 - Do not eval/exec Pipeline Lab source, Airflow DAG files or Cloud Lab notebooks.

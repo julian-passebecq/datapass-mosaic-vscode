@@ -1,0 +1,262 @@
+{
+  "format": "datapass.learning-path",
+  "version": 1,
+  "path": {
+    "id": "lakehouse-storage",
+    "title": "Lakehouse storage",
+    "summary": "Files, pruning and table snapshots without format confusion.",
+    "lessons": [
+      "storage-partitions",
+      "storage-snapshots",
+      "storage-time-travel"
+    ]
+  },
+  "lessons": [
+    {
+      "id": "storage-partitions",
+      "version": 1,
+      "title": "Files, partitions and pruning",
+      "summary": "Understand physical storage before adding a new table format.",
+      "minutes": 18,
+      "concepts": [
+        "Parquet",
+        "partitioning",
+        "pruning",
+        "lakehouse"
+      ],
+      "prerequisites": [],
+      "blocks": [
+        {
+          "kind": "text",
+          "title": "The mental model",
+          "body": "The diagram is a conceptual storage tree. The Try query groups the local seed only; it does not measure Parquet pruning. Actual pruning and file checks remain in Lakehouse Lab."
+        },
+        {
+          "kind": "callout",
+          "title": "Common mistake",
+          "body": "Calling a logical SQL GROUP BY a physical partitioning operation, or treating an illustrated grey file as measured pruning."
+        },
+        {
+          "kind": "check",
+          "title": "Before you run",
+          "body": "Where would you expect a predicate on year to eliminate work: table, file or row group?"
+        },
+        {
+          "kind": "text",
+          "title": "Changing a partition scheme",
+          "body": "The linked concept check compares partition evolution across table formats. It is a no-execution question; use Lakehouse Lab for the existing real-file partitioning and pruning missions. Changing metadata does not imply that every historical file was rewritten."
+        }
+      ],
+      "code": {
+        "language": "sql",
+        "source": "SELECT segment_id, COUNT(*) AS rows_in_segment\nFROM source.orders GROUP BY segment_id ORDER BY segment_id;\n"
+      },
+      "exercise": {
+        "id": "concept-formats-partition-evolution",
+        "language": "quiz"
+      },
+      "lab": "lakehouse",
+      "visual": {
+        "kind": "storage",
+        "title": "Files, partitions and pruning - visual walkthrough",
+        "steps": [
+          {
+            "title": "A table spans files",
+            "body": "Several Parquet files can make up one logical table."
+          },
+          {
+            "title": "Partition directories",
+            "body": "Directory values can eliminate entire partitions for compatible predicates."
+          },
+          {
+            "title": "Row groups",
+            "body": "Min/max statistics may let the reader skip row groups; this is not an index."
+          },
+          {
+            "title": "Verify on real files",
+            "body": "Open Lakehouse Lab and use the pruning mission. This visual does not inspect your files."
+          }
+        ]
+      },
+      "related": [
+        "spark-partitions",
+        "storage-snapshots"
+      ],
+      "checks": [
+        {
+          "id": "concept-formats-iceberg-metadata",
+          "language": "quiz"
+        }
+      ],
+      "cheatsheet": "learning-lakehouse",
+      "deck": "lakehouse"
+    },
+    {
+      "id": "storage-snapshots",
+      "version": 1,
+      "title": "Snapshots: Delta, DuckLake and Iceberg",
+      "summary": "Keep file formats, table metadata and retention separate.",
+      "minutes": 18,
+      "concepts": [
+        "Delta",
+        "DuckLake",
+        "Iceberg",
+        "snapshots",
+        "Parquet"
+      ],
+      "prerequisites": [
+        "storage-partitions"
+      ],
+      "blocks": [
+        {
+          "kind": "text",
+          "title": "The mental model",
+          "body": "Mosaic already has real local DuckLake and bounded Delta missions. Iceberg is a concept here, not an implemented connector. The visual does not manufacture manifests or transaction logs."
+        },
+        {
+          "kind": "callout",
+          "title": "Common mistake",
+          "body": "Promising time travel after all historic files have been removed, or treating Delta and Iceberg as alternative Parquet encodings."
+        },
+        {
+          "kind": "check",
+          "title": "Before you run",
+          "body": "Why is keeping only the transaction log insufficient for time travel?"
+        }
+      ],
+      "code": {
+        "language": "none",
+        "source": ""
+      },
+      "exercise": {
+        "id": "concept-formats-delta-log",
+        "language": "quiz"
+      },
+      "lab": "lakehouse",
+      "visual": {
+        "kind": "storage",
+        "title": "Snapshots: Delta, DuckLake and Iceberg - visual walkthrough",
+        "steps": [
+          {
+            "title": "Parquet is data",
+            "body": "Parquet stores columnar data, not a complete transaction history."
+          },
+          {
+            "title": "Metadata selects files",
+            "body": "A table format describes which data files belong to a table version."
+          },
+          {
+            "title": "Time travel",
+            "body": "A historical query needs both the metadata and referenced data files."
+          },
+          {
+            "title": "Retention matters",
+            "body": "Deleting old files can make old versions unreadable."
+          }
+        ]
+      },
+      "related": [
+        "warehouse-scd2"
+      ],
+      "checks": [
+        {
+          "id": "concept-formats-vacuum",
+          "language": "quiz"
+        },
+        {
+          "id": "concept-formats-uniform",
+          "language": "quiz"
+        }
+      ],
+      "cheatsheet": "table-formats",
+      "deck": "lakehouse"
+    },
+    {
+      "id": "storage-time-travel",
+      "version": 1,
+      "title": "DuckLake snapshots and time travel",
+      "summary": "Every DuckLake commit is a snapshot recorded in a SQL catalog: read an older version, list what changed, and know what expiring snapshots removes.",
+      "minutes": 15,
+      "concepts": [
+        "DuckLake",
+        "snapshots",
+        "time travel",
+        "catalog database",
+        "schema evolution",
+        "Parquet"
+      ],
+      "prerequisites": [
+        "storage-snapshots"
+      ],
+      "blocks": [
+        {
+          "kind": "text",
+          "title": "Metadata in a database",
+          "body": "DuckLake stores table data as Parquet files and all metadata (schemas, file lists, statistics, snapshots) in an ordinary SQL database: DuckDB, SQLite, PostgreSQL or MySQL. A commit is one database transaction, so several tables can change atomically, and finding a table's files is a query rather than a folder listing."
+        },
+        {
+          "kind": "text",
+          "title": "Snapshots and time travel",
+          "body": "Every committed change creates a snapshot with an id and a time. SELECT * FROM lake.orders AT (VERSION => 2) reads the table as of snapshot 2, and AT (TIMESTAMP => ...) as of a moment. lake.snapshots() lists the snapshots, and lake.table_changes('orders', 2, 3) returns the rows inserted, deleted or updated between two of them."
+        },
+        {
+          "kind": "callout",
+          "title": "Expiring snapshots",
+          "body": "Old snapshots keep their Parquet files alive. Expiring them (ducklake_expire_snapshots) and then cleaning up old files frees the space, and time travel to an expired snapshot stops working. A schema change such as ALTER TABLE ... ADD COLUMN is a snapshot too: older versions keep their old schema."
+        },
+        {
+          "kind": "check",
+          "title": "In the lab",
+          "body": "Open the Lakehouse Lab: its DuckLake missions use the official ducklake extension on a local lake in the mission folder, and the checker reads snapshots and time travel with DuckDB. Then answer the concept checks below; they run nothing."
+        }
+      ],
+      "code": {
+        "language": "none",
+        "source": "-- Read only. Outside the lab, DuckDB attaches a lake with:\n--   ATTACH 'ducklake:metadata.ducklake' AS lake (DATA_PATH 'data/');\n-- The Lakehouse Lab attaches each mission's lake itself (ATTACH is refused there).\nCREATE TABLE lake.orders AS SELECT 1 AS id, 40 AS amount;\nINSERT INTO lake.orders VALUES (2, 15);\nUPDATE lake.orders SET amount = 45 WHERE id = 1;\nSELECT * FROM lake.snapshots();\nSELECT * FROM lake.orders AT (VERSION => 2);\nSELECT * FROM lake.table_changes('orders', 2, 3);\n"
+      },
+      "lab": "lakehouse",
+      "visual": {
+        "kind": "storage",
+        "title": "DuckLake snapshots - visual walkthrough",
+        "steps": [
+          {
+            "title": "A commit is a snapshot",
+            "body": "CREATE, INSERT and UPDATE each commit one transaction in the catalog database and add a snapshot."
+          },
+          {
+            "title": "Read an older version",
+            "body": "AT (VERSION => n) reads the file list recorded for snapshot n: the Parquet files are still there. Take the ids from snapshots(); they depend on the lake's history."
+          },
+          {
+            "title": "See what changed",
+            "body": "table_changes lists the rows inserted, deleted or updated between two snapshots: useful for incremental readers."
+          },
+          {
+            "title": "Expire to free space",
+            "body": "Expiring old snapshots and cleaning up their files frees storage; those versions can no longer be read."
+          }
+        ]
+      },
+      "related": [
+        "storage-snapshots",
+        "de-incremental"
+      ],
+      "checks": [
+        {
+          "id": "concept-formats-ducklake",
+          "language": "quiz"
+        },
+        {
+          "id": "concept-formats-vacuum",
+          "language": "quiz"
+        },
+        {
+          "id": "concept-formats-delta-log",
+          "language": "quiz"
+        }
+      ],
+      "cheatsheet": "learning-lakehouse",
+      "deck": "lakehouse"
+    }
+  ]
+}

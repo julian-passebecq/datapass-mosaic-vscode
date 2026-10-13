@@ -1,0 +1,725 @@
+{
+  "format": "datapass.learning-path",
+  "version": 1,
+  "path": {
+    "id": "bi-governance",
+    "title": "BI, governance and performance",
+    "summary": "Star schemas, history, semantic models, access control, lineage, and finding why a query is slow or wrong. Warehouse SQL and star checks run for real on the local catalog; lineage is static analysis; platform security rules are translated to DuckDB, not the vendors' engines.",
+    "lessons": [
+      "bi-star-schema",
+      "bi-history-scd",
+      "bi-semantic-model",
+      "gov-access-control",
+      "gov-lineage",
+      "perf-troubleshooting"
+    ]
+  },
+  "lessons": [
+    {
+      "id": "bi-star-schema",
+      "version": 1,
+      "title": "Facts, dimensions and the star",
+      "summary": "Declare the grain, keep dimensions wide and measures additive.",
+      "minutes": 18,
+      "concepts": [
+        "star schema",
+        "fact",
+        "dimension",
+        "grain",
+        "surrogate key",
+        "additive measure"
+      ],
+      "prerequisites": [
+        "warehouse-grain"
+      ],
+      "blocks": [
+        {
+          "kind": "text",
+          "title": "The mental model",
+          "body": "A fact table records events at one declared grain (one row per order line, per day and account...) with foreign keys and numeric measures. Dimensions describe the who, what, where and when in wide, denormalized tables joined directly to the fact: a star. Measures are additive (sales amount), semi-additive (a balance: sum across accounts, not across days) or non-additive (a ratio: recompute from its parts)."
+        },
+        {
+          "kind": "text",
+          "title": "What this lab shows",
+          "body": "The BI Lab runs warehouse SQL for real on the local DuckDB catalog and checks the star model (keys, grain, relationships) with real queries."
+        },
+        {
+          "kind": "callout",
+          "title": "Common mistake",
+          "body": "Mixing grains in one fact: an order-level shipping fee stored on every line is summed once per line."
+        },
+        {
+          "kind": "check",
+          "title": "Before you run",
+          "body": "The example sums revenue per segment. Would the total change if dim_customer_segment had two rows for segment 1?"
+        }
+      ],
+      "code": {
+        "language": "sql",
+        "source": "SELECT s.segment_name,\n       count(*)          AS orders,\n       sum(o.net_amount) AS revenue\nFROM source.orders AS o\nJOIN source.dim_customer_segment AS s USING (segment_id)\nGROUP BY s.segment_name\nORDER BY revenue DESC;\n"
+      },
+      "exercise": {
+        "id": "dwh-grain-allocation",
+        "language": "warehouse"
+      },
+      "lab": "bi",
+      "visual": {
+        "kind": "grain",
+        "title": "Facts, dimensions and the star - visual walkthrough",
+        "steps": [
+          {
+            "title": "The fact",
+            "body": "source.orders: one row per order, with a segment key and a measure.",
+            "lines": [
+              4,
+              4
+            ]
+          },
+          {
+            "title": "The dimension",
+            "body": "One row per segment: the join must not multiply orders.",
+            "lines": [
+              5,
+              5
+            ]
+          },
+          {
+            "title": "Aggregate",
+            "body": "Additive measures sum safely to the segment level.",
+            "lines": [
+              1,
+              3
+            ]
+          },
+          {
+            "title": "Check the grain",
+            "body": "Count rows before and after the join: they must match.",
+            "lines": [
+              6,
+              7
+            ]
+          }
+        ]
+      },
+      "related": [
+        "warehouse-scd2",
+        "bi-semantic-model"
+      ],
+      "checks": [
+        {
+          "id": "lc-bi-star-dimensions",
+          "language": "quiz"
+        },
+        {
+          "id": "lc-bi-semi-additive",
+          "language": "quiz"
+        }
+      ],
+      "cheatsheet": "learning-dimensional-modeling",
+      "deck": "bi-governance"
+    },
+    {
+      "id": "bi-history-scd",
+      "version": 1,
+      "title": "Keeping history: SCD types in practice",
+      "summary": "Type 1 overwrites, type 2 versions, and facts join the version valid at the time.",
+      "minutes": 20,
+      "concepts": [
+        "SCD",
+        "type 1",
+        "type 2",
+        "valid_from",
+        "valid_to",
+        "point-in-time join"
+      ],
+      "prerequisites": [
+        "bi-star-schema",
+        "warehouse-scd2"
+      ],
+      "blocks": [
+        {
+          "kind": "text",
+          "title": "The mental model",
+          "body": "Type 1 overwrites an attribute (corrections, or when history does not matter). Type 2 closes the current version (valid_to, is_current = false) and inserts a new one with a new surrogate key, so old facts keep pointing at the version that was true when they happened. Type 3 keeps only the previous value in an extra column. A point-in-time join matches the event date to the validity range."
+        },
+        {
+          "kind": "callout",
+          "title": "Common mistake",
+          "body": "Joining facts to a type 2 dimension on the business key alone: each fact matches every version and the totals multiply."
+        },
+        {
+          "kind": "check",
+          "title": "Before you run",
+          "body": "C001 moved from Paris to Lyon on 15 September. Which city does an order of 10 September report, and which an order of 20 September?"
+        }
+      ],
+      "code": {
+        "language": "sql",
+        "source": "WITH dim_customer AS (\n    SELECT * FROM (VALUES\n        (1, 'C001', 'Paris', DATE '2026-01-01', DATE '2026-09-15'),\n        (2, 'C001', 'Lyon',  DATE '2026-09-15', DATE '9999-12-31')\n    ) AS t(customer_sk, customer_id, city, valid_from, valid_to)\n),\nsales AS (\n    SELECT * FROM (VALUES ('C001', DATE '2026-09-10', 40.0), ('C001', DATE '2026-09-20', 60.0))\n        AS t(customer_id, sale_date, amount)\n)\nSELECT s.sale_date, d.customer_sk, d.city, s.amount\nFROM sales AS s\nJOIN dim_customer AS d\n  ON d.customer_id = s.customer_id\n AND s.sale_date >= d.valid_from AND s.sale_date < d.valid_to\nORDER BY s.sale_date;\n"
+      },
+      "exercise": {
+        "id": "dwh-point-in-time",
+        "language": "warehouse"
+      },
+      "lab": "bi",
+      "visual": {
+        "kind": "timeline",
+        "title": "Keeping history: SCD types in practice - visual walkthrough",
+        "steps": [
+          {
+            "title": "Two versions",
+            "body": "Each version has its own surrogate key and a half-open validity range.",
+            "lines": [
+              2,
+              5
+            ]
+          },
+          {
+            "title": "Facts carry a date",
+            "body": "Each sale happened on one day.",
+            "lines": [
+              7,
+              9
+            ]
+          },
+          {
+            "title": "Point-in-time join",
+            "body": "Match the business key and the date inside [valid_from, valid_to).",
+            "lines": [
+              13,
+              15
+            ]
+          },
+          {
+            "title": "Result",
+            "body": "10 September reports Paris, 20 September Lyon: history is preserved.",
+            "lines": [
+              11,
+              16
+            ]
+          }
+        ]
+      },
+      "related": [
+        "warehouse-scd2"
+      ],
+      "checks": [
+        {
+          "id": "lc-bi-scd2-current",
+          "language": "quiz"
+        }
+      ],
+      "cheatsheet": "learning-dimensional-modeling",
+      "deck": "bi-governance"
+    },
+    {
+      "id": "bi-semantic-model",
+      "version": 1,
+      "title": "Semantic models and relationships",
+      "summary": "Relationships, filter direction and storage modes in a Power BI-style model.",
+      "minutes": 18,
+      "concepts": [
+        "semantic model",
+        "relationship",
+        "cardinality",
+        "cross-filter direction",
+        "role-playing dimension",
+        "Import",
+        "DirectQuery"
+      ],
+      "prerequisites": [
+        "bi-star-schema"
+      ],
+      "blocks": [
+        {
+          "kind": "text",
+          "title": "The mental model",
+          "body": "A semantic model sits between the tables and the reports: relationships (usually one-to-many from dimension to fact), measures, and how filters flow. With single cross-filter direction a slicer on a dimension filters the fact, not the other way round. A date dimension used for both order date and ship date is role-playing: one active relationship, the other inactive and activated in specific measures. Import mode stores a compressed copy refreshed on schedule; DirectQuery queries the source at report time; Direct Lake (Fabric) reads Delta tables in OneLake."
+        },
+        {
+          "kind": "text",
+          "title": "What this lab shows",
+          "body": "The BI Lab star model file is Datapass's own format with Power BI's relationship vocabulary; there is no Power BI or DAX engine and no connection to one. Its checks (keys, cardinality, relationships) are real queries on the local catalog."
+        },
+        {
+          "kind": "callout",
+          "title": "Common mistake",
+          "body": "Setting every relationship to both directions to \"make the visual work\". It creates ambiguous filter paths and wrong totals that are hard to see."
+        },
+        {
+          "kind": "check",
+          "title": "Before you run",
+          "body": "Which relationship of the example must be inactive, and why can only one be active?"
+        }
+      ],
+      "code": {
+        "language": "none",
+        "source": "{\n  \"relationships\": [\n    {\"from\": \"fact_sales.customer_sk\", \"to\": \"dim_customer.customer_sk\", \"cardinality\": \"many-to-one\", \"crossFilter\": \"single\"},\n    {\"from\": \"fact_sales.order_date_sk\", \"to\": \"dim_date.date_sk\", \"cardinality\": \"many-to-one\", \"active\": true},\n    {\"from\": \"fact_sales.ship_date_sk\", \"to\": \"dim_date.date_sk\", \"cardinality\": \"many-to-one\", \"active\": false}\n  ]\n}\n"
+      },
+      "exercise": {
+        "id": "bi-model-relationships",
+        "language": "bi-model"
+      },
+      "lab": "bi",
+      "visual": {
+        "kind": "dag",
+        "title": "Semantic models and relationships - visual walkthrough",
+        "steps": [
+          {
+            "title": "Customer filters sales",
+            "body": "Many-to-one, single direction.",
+            "lines": [
+              3,
+              3
+            ]
+          },
+          {
+            "title": "Order date",
+            "body": "The active path from the date dimension.",
+            "lines": [
+              4,
+              4
+            ]
+          },
+          {
+            "title": "Ship date",
+            "body": "Same dimension, second role: inactive until a measure activates it.",
+            "lines": [
+              5,
+              5
+            ]
+          },
+          {
+            "title": "Read the arrows",
+            "body": "Filters flow from the one side to the many side."
+          }
+        ],
+        "nodes": [
+          {
+            "id": "customer",
+            "title": "dim_customer"
+          },
+          {
+            "id": "date",
+            "title": "dim_date"
+          },
+          {
+            "id": "sales",
+            "title": "fact_sales"
+          }
+        ],
+        "edges": [
+          [
+            "customer",
+            "sales"
+          ],
+          [
+            "date",
+            "sales"
+          ]
+        ]
+      },
+      "related": [
+        "bi-star-schema"
+      ],
+      "checks": [
+        {
+          "id": "lc-bi-filter-direction",
+          "language": "quiz"
+        },
+        {
+          "id": "lc-bi-import-mode",
+          "language": "quiz"
+        }
+      ],
+      "cheatsheet": "learning-bi",
+      "deck": "bi-governance"
+    },
+    {
+      "id": "gov-access-control",
+      "version": 1,
+      "title": "Row, column and masking security",
+      "summary": "Restrict rows by user, deny columns, mask what support agents see.",
+      "minutes": 18,
+      "concepts": [
+        "row-level security",
+        "column-level security",
+        "dynamic data masking",
+        "least privilege",
+        "service principal"
+      ],
+      "prerequisites": [
+        "bi-star-schema"
+      ],
+      "blocks": [
+        {
+          "kind": "text",
+          "title": "The mental model",
+          "body": "Row-level security attaches a predicate to a table so each principal reads only its rows (a rep sees their region). Column-level security grants or denies SELECT per column. Dynamic data masking changes what is shown to users without UNMASK; the stored values are unchanged, so it complements permissions rather than replacing them. Jobs run under their own service principal with only the grants they need."
+        },
+        {
+          "kind": "text",
+          "title": "What this lab shows",
+          "body": "The Cloud Lab SQL pool tab enforces row-level security, column permissions and masking for real by rewriting each SELECT for its EXECUTE AS principal: T-SQL security translated to DuckDB, not SQL Server. The Databricks tab does the same for Unity Catalog row filters and column masks on SQL tasks."
+        },
+        {
+          "kind": "callout",
+          "title": "Common mistake",
+          "body": "Treating masking as encryption. A user who can filter WHERE salary > 100000 learns about masked values anyway."
+        },
+        {
+          "kind": "check",
+          "title": "Before you run",
+          "body": "A rep runs SELECT SUM(amount) FROM sales. Does the total include other regions' rows?"
+        }
+      ],
+      "code": {
+        "language": "none",
+        "source": "CREATE FUNCTION security.fn_rep_filter(@rep_login AS sysname)\n    RETURNS TABLE WITH SCHEMABINDING\nAS RETURN SELECT 1 AS allowed WHERE @rep_login = USER_NAME();\nGO\nCREATE SECURITY POLICY security.sales_by_rep\n    ADD FILTER PREDICATE security.fn_rep_filter(rep_login) ON dbo.sales\n    WITH (STATE = ON);\nGO\nALTER TABLE dbo.customers\n    ALTER COLUMN email ADD MASKED WITH (FUNCTION = 'email()');\n"
+      },
+      "exercise": {
+        "id": "gov-rls-sales-reps",
+        "language": "sqlpool"
+      },
+      "lab": "fabric",
+      "visual": {
+        "kind": "dag",
+        "title": "Row, column and masking security - visual walkthrough",
+        "steps": [
+          {
+            "title": "Predicate",
+            "body": "An inline function returns a row when the rep is the current user.",
+            "lines": [
+              1,
+              3
+            ]
+          },
+          {
+            "title": "Policy",
+            "body": "The security policy applies it as a filter on every read.",
+            "lines": [
+              5,
+              7
+            ]
+          },
+          {
+            "title": "Mask",
+            "body": "Email is shown masked to users without UNMASK.",
+            "lines": [
+              9,
+              10
+            ]
+          },
+          {
+            "title": "Aggregates too",
+            "body": "SUM and COUNT see only the filtered rows."
+          }
+        ],
+        "nodes": [
+          {
+            "id": "user",
+            "title": "Signed-in rep"
+          },
+          {
+            "id": "predicate",
+            "title": "Filter predicate"
+          },
+          {
+            "id": "table",
+            "title": "dbo.sales"
+          },
+          {
+            "id": "result",
+            "title": "Own rows only"
+          }
+        ],
+        "edges": [
+          [
+            "user",
+            "predicate"
+          ],
+          [
+            "predicate",
+            "table"
+          ],
+          [
+            "table",
+            "result"
+          ]
+        ]
+      },
+      "related": [
+        "gov-lineage"
+      ],
+      "checks": [
+        {
+          "id": "lc-gov-rls",
+          "language": "quiz"
+        },
+        {
+          "id": "lc-gov-masking",
+          "language": "quiz"
+        },
+        {
+          "id": "lc-gov-least-privilege",
+          "language": "quiz"
+        }
+      ],
+      "cheatsheet": "learning-governance",
+      "deck": "bi-governance"
+    },
+    {
+      "id": "gov-lineage",
+      "version": 1,
+      "title": "Lineage and personal data",
+      "summary": "Follow a column downstream before you change it, and keep personal data where it belongs.",
+      "minutes": 15,
+      "concepts": [
+        "column lineage",
+        "impact analysis",
+        "personal data",
+        "GDPR",
+        "pseudonymisation",
+        "Unity Catalog"
+      ],
+      "prerequisites": [
+        "gov-access-control"
+      ],
+      "blocks": [
+        {
+          "kind": "text",
+          "title": "The mental model",
+          "body": "Column lineage records which source columns each column is derived from. Read downstream for impact analysis (what breaks if I rename or redefine this column) and for privacy (which views expose an email address). Pseudonymised data, with names replaced by keys and the lookup kept apart, is still personal data under GDPR; only data that cannot reasonably be linked back to a person is anonymous."
+        },
+        {
+          "kind": "text",
+          "title": "What this lab shows",
+          "body": "The BI Lab computes column lineage and impact as a static analysis of the SQL text with sqlglot: nothing is executed to obtain it. Unity Catalog and Microsoft Purview capture lineage from real runs on their platforms."
+        },
+        {
+          "kind": "callout",
+          "title": "Common mistake",
+          "body": "Hashing an email without a secret and calling it anonymous. Anyone with a list of emails can hash them and join."
+        },
+        {
+          "kind": "check",
+          "title": "Before you run",
+          "body": "A shared view selects customer_key, city and a hash of email. Which of those columns trace back to personal data?"
+        }
+      ],
+      "code": {
+        "language": "sql",
+        "source": "WITH customers AS (\n    SELECT * FROM (VALUES ('C001', 'ada@example.com', 'Paris'), ('C002', 'ben@example.com', 'Lyon'))\n        AS t(customer_id, email, city)\n)\nSELECT md5(customer_id) AS customer_key,  -- derived from customer_id\n       city                              -- copied from city\nFROM customers;\n"
+      },
+      "exercise": {
+        "id": "dwh-lineage-personal-data",
+        "language": "warehouse"
+      },
+      "lab": "bi",
+      "visual": {
+        "kind": "dag",
+        "title": "Lineage and personal data - visual walkthrough",
+        "steps": [
+          {
+            "title": "Sources",
+            "body": "customer_id and email identify a person; city does not on its own.",
+            "lines": [
+              2,
+              3
+            ]
+          },
+          {
+            "title": "Derived key",
+            "body": "customer_key derives from customer_id: an unsalted hash can be reversed by hashing known ids.",
+            "lines": [
+              5,
+              5
+            ]
+          },
+          {
+            "title": "Copied column",
+            "body": "city flows through unchanged.",
+            "lines": [
+              6,
+              6
+            ]
+          },
+          {
+            "title": "Not exposed",
+            "body": "email does not reach the view: the lineage shows no path."
+          }
+        ],
+        "nodes": [
+          {
+            "id": "customer-id",
+            "title": "customer_id"
+          },
+          {
+            "id": "email",
+            "title": "email"
+          },
+          {
+            "id": "city",
+            "title": "city"
+          },
+          {
+            "id": "customer-key",
+            "title": "customer_key"
+          },
+          {
+            "id": "view-city",
+            "title": "view.city"
+          }
+        ],
+        "edges": [
+          [
+            "customer-id",
+            "customer-key"
+          ],
+          [
+            "city",
+            "view-city"
+          ]
+        ]
+      },
+      "related": [
+        "gov-access-control"
+      ],
+      "checks": [
+        {
+          "id": "lc-gov-lineage",
+          "language": "quiz"
+        },
+        {
+          "id": "lc-gov-pseudonymised",
+          "language": "quiz"
+        }
+      ],
+      "cheatsheet": "learning-governance",
+      "deck": "bi-governance"
+    },
+    {
+      "id": "perf-troubleshooting",
+      "version": 1,
+      "title": "Why is it slow, why is it wrong?",
+      "summary": "Read the first error, check row counts at each join, prune files and partitions.",
+      "minutes": 20,
+      "concepts": [
+        "troubleshooting",
+        "fan-out",
+        "partition pruning",
+        "small files",
+        "skew",
+        "EXPLAIN ANALYZE"
+      ],
+      "prerequisites": [
+        "bi-star-schema"
+      ],
+      "blocks": [
+        {
+          "kind": "text",
+          "title": "Wrong results",
+          "body": "Most wrong totals come from a join that multiplies rows: a dimension with duplicate keys, a type 2 dimension joined on the business key, or a many-to-many without a bridge. Count rows before and after each join and check the key is unique on the one side."
+        },
+        {
+          "kind": "text",
+          "title": "Slow queries",
+          "body": "Read the plan with real numbers (EXPLAIN ANALYZE in DuckDB or PostgreSQL, the Spark UI on a cluster). Look for scans that read every partition (no filter on the partition column), thousands of tiny files, one task far slower than the rest (skew), and SELECT * on wide tables. In logs, read the first failure and its innermost cause before the cascade that follows."
+        },
+        {
+          "kind": "callout",
+          "title": "Common mistake",
+          "body": "Fixing a duplicate total with SELECT DISTINCT. It hides the bad join and silently drops genuinely identical rows."
+        },
+        {
+          "kind": "check",
+          "title": "Before you run",
+          "body": "The example adds a duplicate segment row on purpose. How many rows does the join return compared with the 12 orders?"
+        }
+      ],
+      "code": {
+        "language": "sql",
+        "source": "WITH segments AS (\n    SELECT * FROM source.dim_customer_segment\n    UNION ALL\n    SELECT 1, 'Consumer (duplicate)'\n)\nSELECT (SELECT count(*) FROM source.orders)           AS orders_before,\n       count(*)                                      AS rows_after_join,\n       sum(o.net_amount)                             AS revenue_after_join,\n       (SELECT sum(net_amount) FROM source.orders)   AS true_revenue\nFROM source.orders AS o\nJOIN segments AS s USING (segment_id);\n"
+      },
+      "exercise": {
+        "id": "lc-ts-row-count-jump",
+        "language": "quiz"
+      },
+      "lab": "mosaic",
+      "visual": {
+        "kind": "timeline",
+        "title": "Why is it slow, why is it wrong? - visual walkthrough",
+        "steps": [
+          {
+            "title": "Introduce a duplicate",
+            "body": "Segment 1 now has two rows.",
+            "lines": [
+              1,
+              5
+            ]
+          },
+          {
+            "title": "Count before",
+            "body": "The fact has 12 orders.",
+            "lines": [
+              6,
+              6
+            ]
+          },
+          {
+            "title": "Count after",
+            "body": "Every segment-1 order matches twice: more rows, inflated revenue.",
+            "lines": [
+              7,
+              8
+            ]
+          },
+          {
+            "title": "Compare",
+            "body": "The true revenue differs; fix the key, not the symptom.",
+            "lines": [
+              9,
+              11
+            ]
+          }
+        ]
+      },
+      "related": [
+        "sql-joins",
+        "spark-partitions"
+      ],
+      "checks": [
+        {
+          "id": "lc-perf-small-files",
+          "language": "quiz"
+        },
+        {
+          "id": "lc-perf-partition-pruning",
+          "language": "quiz"
+        },
+        {
+          "id": "lc-perf-column-pruning",
+          "language": "quiz"
+        },
+        {
+          "id": "lc-perf-partition-cardinality",
+          "language": "quiz"
+        },
+        {
+          "id": "lc-perf-explain-analyze",
+          "language": "quiz"
+        },
+        {
+          "id": "lc-ts-first-error",
+          "language": "quiz"
+        },
+        {
+          "id": "lc-ts-skew",
+          "language": "quiz"
+        }
+      ],
+      "cheatsheet": "learning-performance",
+      "deck": "bi-governance"
+    }
+  ]
+}

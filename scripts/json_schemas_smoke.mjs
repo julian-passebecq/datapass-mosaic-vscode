@@ -65,6 +65,20 @@ try {
   }
   assert.ok(!packSchema({ schema_version: 1, id: "a b", version: "1", title: "x" }), "a bad pack id fails");
 
+  // Mosaic exchange (datapass.mosaic-exchange v1): every shipped example; a blank Build manifest.
+  const exchange = await validator("mosaic-exchange");
+  let exchanges = 0;
+  for (const name of (await readdir("content/interop/examples")).filter(file => file.endsWith(".json"))) {
+    const doc = await json(`content/interop/examples/${name}`);
+    check(exchange, doc, `content/interop/examples/${name}`);
+    assert.ok(!exchange({ ...doc, version: 2 }), `${name}: another version fails`);
+    exchanges += 1;
+  }
+  assert.ok(exchanges >= 2, `exchange examples checked: ${exchanges}`);
+  const { createBlankProjectManifest } = await import(pathToFileURL(outfile).href);
+  check(project, createBlankProjectManifest("Blank"), "blank Build project.json");
+  assert.ok(!project({ ...manifest, catalog: { seed: "empty" } }), "an unknown catalog seed fails");
+
   // package.json: each schema is contributed for its files, and the API Lab missions only get theirs.
   const pkg = await json("package.json");
   const contributed = Object.fromEntries(pkg.contributes.jsonValidation.map(entry => [entry.url, [entry.fileMatch].flat()]));

@@ -9,12 +9,15 @@ import {
   ReactFlow,
   ReactFlowProvider,
   applyNodeChanges,
+  useReactFlow,
+  type Connection,
+  type Edge,
   type Node,
   type NodeChange,
   type NodeProps,
   type Viewport
 } from "@xyflow/react";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, type DragEvent } from "react";
 import "@xyflow/react/dist/style.css";
 import type { GraphView } from "./contracts";
 import type { VsCodeApi } from "./WorkbenchApp";
@@ -34,7 +37,27 @@ interface Props {
   storageKey: string;
   /** Called with the node id when a node is clicked (Factory Lab opens its details). */
   onNodeClick?: (id: string) => void;
+  // Editing (Cloud Lab › Pipelines). All optional: without them the canvas is read-only, as on the other surfaces.
+  /** Handles connect, Delete removes the selection, and keyboard selection reaches onNodeClick. */
+  editable?: boolean;
+  /** A connection dragged from a node's right handle to another node's left handle. */
+  onConnect?: (source: string, target: string) => void;
+  /** Delete pressed on selected nodes; the canvas removes nothing itself (the graph prop is the truth). */
+  onDeleteNodes?: (ids: string[]) => void;
+  /** Delete pressed on selected edges. */
+  onDeleteEdges?: (ids: string[]) => void;
+  onEdgeClick?: (id: string) => void;
+  /** Something was dropped on the canvas (dataTransfer type DROP_TYPE); return the new node's id to place it there. */
+  onDrop?: (data: string, position: { x: number; y: number }) => string | undefined;
+  /** A node was dragged to a new position (the position is kept in the webview state only). */
+  onMove?: (id: string, position: { x: number; y: number }) => void;
+  /** Node and edge to show as selected (selection then follows these props). */
+  selectedNodeId?: string;
+  selectedEdgeId?: string;
 }
+
+/** dataTransfer type the canvas accepts in onDrop. */
+export const GRAPH_DROP_TYPE = "application/x-datapass-graph-item";
 
 const SIDES = [["top", Position.Top], ["right", Position.Right], ["bottom", Position.Bottom], ["left", Position.Left]] as const;
 
@@ -56,7 +79,11 @@ function DatapassGraphNode({ data, selected }: NodeProps) {
 
 const nodeTypes = { datapass: DatapassGraphNode };
 
-function InnerGraph({ graph, vscode, storageKey, onNodeClick }: Props) {
+function InnerGraph({
+  graph, vscode, storageKey, onNodeClick, editable, onConnect, onDeleteNodes, onDeleteEdges, onEdgeClick, onDrop, onMove,
+  selectedNodeId, selectedEdgeId
+}: Props) {
+  const flow = useReactFlow();
   // Read persisted view state once per graph surface. Recreating it on every render
   // produced new dependencies each time and an endless setNodes/render loop.
   const stored = useMemo(() => readGraphView(vscode, storageKey), [vscode, storageKey]);
@@ -88,9 +115,49 @@ function InnerGraph({ graph, vscode, storageKey, onNodeClick }: Props) {
     [graphKey]
   );
 
+  // Selection follows selectedNodeId / selectedEdgeId when the surface passes them; otherwise React Flow keeps its own.
+  const controlled = selectedNodeId !== undefined;
   const onNodesChange = (changes: NodeChange[]) => {
+    if (controlled) {
+      // Enter or Space on a focused node selects it: keyboard users reach the same details as a click.
+      const picked = changes.filter(change => change.type === "select" && change.selected);
+      if (editable && onNodeClick && picked.length === 1 && "id" in picked[0] && picked[0].id !== selectedNodeId) onNodeClick(picked[0].id);
+      changes = changes.filter(change => change.type !== "select");
+      if (!changes.length) return;
+    }
     setNodes(current => applyNodeChanges(changes, current));
   };
+
+  const shownNodes = useMemo(
+    () => controlled
+      ? nodes.map(node => !!node.selected === (node.id === selectedNodeId) ? node : { ...node, selected: node.id === selectedNodeId })
+      : nodes,
+    [nodes, controlled, selectedNodeId]
+  );
+  const shownEdges: Edge[] = useMemo(
+    () => selectedEdgeId === undefined ? edges : edges.map(edge => ({ ...edge, selected: edge.id === selectedEdgeId })),
+    [edges, selectedEdgeId]
+  );
+
+  const dropProps = onDrop
+    ? {
+      onDragOver: (event: DragEvent) => {
+        if (event.dataTransfer.types.includes(GRAPH_DROP_TYPE)) {
+          event.preventDefault();
+          event.dataTransfer.dropEffect = "copy";
+        }
+      },
+      onDrop: (event: DragEvent) => {
+        const data = event.dataTransfer.getData(GRAPH_DROP_TYPE);
+        if (!data) return;
+        event.preventDefault();
+        const position = flow.screenToFlowPosition({ x: event.clientX, y: event.clientY });
+        const rounded = { x: Math.round(position.x / 10) * 10, y: Math.round(position.y / 10) * 10 };
+        const id = onDrop(data, rounded);
+        if (id) save({ positions: { ...readGraphView(vscode, storageKey).positions, [id]: rounded } });
+      }
+    }
+    : {};
 
   const save = (patch: Partial<StoredGraphView>) => {
     const currentState = readState(vscode);
@@ -107,22 +174,25 @@ function InnerGraph({ graph, vscode, storageKey, onNodeClick }: Props) {
   return (
     <div className="datapass-graph-host">
       <ReactFlow
-        nodes={nodes}
-        edges={edges}
+        nodes={shownNodes}
+        edges={shownEdges}
         nodeTypes={nodeTypes}
         onNodesChange={onNodesChange}
         onNodeClick={onNodeClick ? (_, node) => onNodeClick(node.id) : undefined}
+        onEdgeClick={onEdgeClick ? (_, edge) => onEdgeClick(edge.id) : undefined}
+        onConnect={onConnect ? (connection: Connection) => {
+          if (connection.source && connection.target) onConnect(connection.source, connection.target);
+        } : undefined}
+        onBeforeDelete={editable ? async ({ nodes: removed, edges: cut }) => {
+          if (removed.length && onDeleteNodes) onDeleteNodes(removed.map(node => node.id));
+          else if (cut.length && onDeleteEdges) onDeleteEdges(cut.map(edge => edge.id));
+          return false;
+        } : undefined}
         onNodeDragStop={(_, node) => {
           const view = readGraphView(vscode, storageKey);
-          save({
-            positions: {
-              ...view.positions,
-              [node.id]: {
-                x: Math.round(node.position.x),
-                y: Math.round(node.position.y)
-              }
-            }
-          });
+          const position = { x: Math.round(node.position.x), y: Math.round(node.position.y) };
+          save({ positions: { ...view.positions, [node.id]: position } });
+          onMove?.(node.id, position);
         }}
         onMoveEnd={(event, viewport) => {
           if (event) save({ viewport });
@@ -130,8 +200,9 @@ function InnerGraph({ graph, vscode, storageKey, onNodeClick }: Props) {
         defaultViewport={stored.viewport}
         fitView={!stored.viewport}
         fitViewOptions={{ padding: 0.2, maxZoom: 1.1 }}
-        nodesConnectable={false}
-        deleteKeyCode={null}
+        nodesConnectable={!!editable && !!onConnect}
+        deleteKeyCode={editable ? ["Delete", "Backspace"] : null}
+        {...dropProps}
         minZoom={0.2}
         maxZoom={3}
         snapToGrid

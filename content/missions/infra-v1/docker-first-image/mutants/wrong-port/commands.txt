@@ -1,0 +1,4 @@
+docker build -t sensor-api:0.1 .
+docker run -d --name sensor-api -p 8080:8080 sensor-api:0.1
+docker ps
+curl http://localhost:8080/health

@@ -18,6 +18,11 @@ export interface HomeInputs {
   practice: Readonly<Record<string, ExerciseProgressRecord>>;
   /** Local calendar day `YYYY-MM-DD`. */
   today: string;
+  /**
+   * A blank Build workspace (manifest catalog.seed "none"): its catalog has no demo tables, and every shipped project
+   * step reads them (source.orders, ...), so no project step or project start is suggested.
+   */
+  blankCatalog?: boolean;
 }
 
 export function homeView(input: HomeInputs): HomeViewState {
@@ -60,7 +65,7 @@ function nextStep(input: HomeInputs, list: HomeProjectView[], current: HomeProje
   if (!input.hasWorkspace) {
     return { kind: "open-folder", title: "Open a folder", detail: "Your progress, catalog and lab files live in the workspace folder." };
   }
-  if (current?.nextStep) {
+  if (current?.nextStep && !input.blankCatalog) {
     return {
       kind: "project-step",
       title: current.nextStep.title,
@@ -74,7 +79,7 @@ function nextStep(input: HomeInputs, list: HomeProjectView[], current: HomeProje
     const plural = practice.dueReviews === 1 ? "exercise is" : "exercises are";
     return { kind: "reviews", title: "Review in Practice", detail: `${practice.dueReviews} ${plural} due for review today.` };
   }
-  const fresh = input.projects.find(project => !project.started);
+  const fresh = input.blankCatalog ? undefined : input.projects.find(project => !project.started);
   if (fresh) {
     const steps = list.find(project => project.id === fresh.id)?.required;
     return {

@@ -1,0 +1,489 @@
+{
+  "format": "datapass.learning-path",
+  "version": 1,
+  "path": {
+    "id": "python-foundations",
+    "title": "Python for data work",
+    "summary": "Records, validation and transformation tests.",
+    "lessons": [
+      "python-records",
+      "python-errors",
+      "python-files",
+      "python-tests",
+      "python-typing"
+    ]
+  },
+  "lessons": [
+    {
+      "id": "python-records",
+      "version": 1,
+      "title": "Lists, dictionaries and records",
+      "summary": "Choose a data structure for lookup instead of repeated nested scans.",
+      "minutes": 12,
+      "concepts": [
+        "Python",
+        "lists",
+        "dictionaries",
+        "lookup"
+      ],
+      "prerequisites": [],
+      "blocks": [
+        {
+          "kind": "text",
+          "title": "The mental model",
+          "body": "A dictionary lookup is useful when the key is unique. For one-to-many relationships, build a dictionary of lists or use a table join. The Watch join is an analogy, not execution of this Python."
+        },
+        {
+          "kind": "callout",
+          "title": "Common mistake",
+          "body": "Replacing a join with a dictionary can silently discard duplicate-key rows."
+        },
+        {
+          "kind": "check",
+          "title": "Before you run",
+          "body": "What should happen if two customers share the same id?"
+        }
+      ],
+      "code": {
+        "language": "python",
+        "source": "import pandas as pd\ncustomers = [{\"id\": 1, \"name\": \"Ada\"}, {\"id\": 2, \"name\": \"Ben\"}]\norders = [{\"customer_id\": 1, \"amount\": 20}, {\"customer_id\": 3, \"amount\": 15}]\nby_id = {row[\"id\"]: row[\"name\"] for row in customers}\nresult = pd.DataFrame([{**o, \"name\": by_id.get(o[\"customer_id\"])} for o in orders])\nresult\n"
+      },
+      "exercise": {
+        "id": "py-hash-join",
+        "language": "python"
+      },
+      "lab": "mosaic",
+      "visual": {
+        "kind": "join",
+        "title": "Lists, dictionaries and records - visual walkthrough",
+        "steps": [
+          {
+            "title": "Inspect the keys",
+            "body": "Understand the record shape before selecting a container."
+          },
+          {
+            "title": "Build a lookup",
+            "body": "A dictionary can store one value per key."
+          },
+          {
+            "title": "Enrich the rows",
+            "body": "Use get for missing keys instead of raising KeyError."
+          },
+          {
+            "title": "Watch duplicates",
+            "body": "A plain dictionary overwrites duplicate keys; this is not a many-to-many SQL join."
+          }
+        ]
+      },
+      "related": [
+        "sql-joins"
+      ],
+      "practice": [
+        {
+          "id": "py-frequency",
+          "language": "python"
+        },
+        {
+          "id": "py-dedupe-order",
+          "language": "python"
+        }
+      ],
+      "cheatsheet": "learning-python",
+      "deck": "python"
+    },
+    {
+      "id": "python-errors",
+      "version": 1,
+      "title": "Validate at the boundary",
+      "summary": "Treat malformed input as a deliberate outcome, not a silent zero.",
+      "minutes": 12,
+      "concepts": [
+        "Python",
+        "exceptions",
+        "validation",
+        "typing"
+      ],
+      "prerequisites": [
+        "python-records"
+      ],
+      "blocks": [
+        {
+          "kind": "text",
+          "title": "The mental model",
+          "body": "Read the example, then run it only after explicitly enabling trusted local Python. Exceptions should identify a known failure mode; broad exception swallowing hides unrelated bugs."
+        },
+        {
+          "kind": "callout",
+          "title": "Common mistake",
+          "body": "Returning zero for every parsing error contaminates downstream metrics."
+        },
+        {
+          "kind": "check",
+          "title": "Before you run",
+          "body": "How would you distinguish a true zero from a malformed amount?"
+        }
+      ],
+      "code": {
+        "language": "python",
+        "source": "import pandas as pd\nraw = [\"12\", \"\", \"bad\", \"0\"]\ndef parse_int(value):\n    try:\n        return int(value)\n    except (TypeError, ValueError):\n        return None\nresult = pd.DataFrame({\"raw\": raw, \"parsed\": [parse_int(v) for v in raw]})\nresult\n"
+      },
+      "exercise": {
+        "id": "py-safe-int",
+        "language": "python"
+      },
+      "lab": "mosaic",
+      "visual": {
+        "kind": "dag",
+        "title": "Validate at the boundary - visual walkthrough",
+        "steps": [
+          {
+            "title": "Receive input",
+            "body": "An external field can be missing or malformed."
+          },
+          {
+            "title": "Validate",
+            "body": "Accept a clear set of input values."
+          },
+          {
+            "title": "Record failures",
+            "body": "Keep enough context to investigate rejected rows."
+          },
+          {
+            "title": "Continue deliberately",
+            "body": "Do not confuse an invalid value with a genuine zero."
+          }
+        ],
+        "nodes": [
+          {
+            "id": "input",
+            "title": "Raw records"
+          },
+          {
+            "id": "validate",
+            "title": "Validate"
+          },
+          {
+            "id": "valid",
+            "title": "Accepted"
+          },
+          {
+            "id": "reject",
+            "title": "Rejected"
+          }
+        ],
+        "edges": [
+          [
+            "input",
+            "validate"
+          ],
+          [
+            "validate",
+            "valid"
+          ],
+          [
+            "validate",
+            "reject"
+          ]
+        ]
+      },
+      "related": [],
+      "practice": [
+        {
+          "id": "py-parse-timestamp",
+          "language": "python"
+        },
+        {
+          "id": "py-set-validate",
+          "language": "python"
+        }
+      ],
+      "cheatsheet": "learning-python",
+      "deck": "python"
+    },
+    {
+      "id": "python-tests",
+      "version": 1,
+      "title": "Tests for production transformations",
+      "summary": "Check boundaries, missing values and duplicate events.",
+      "minutes": 15,
+      "concepts": [
+        "Python",
+        "pytest",
+        "testing",
+        "idempotency"
+      ],
+      "prerequisites": [
+        "python-errors"
+      ],
+      "blocks": [
+        {
+          "kind": "text",
+          "title": "The mental model",
+          "body": "The example is a small transformation. Exercise opens the existing pytest activity: learner tests and hidden checks are executed by the current grader, not by this lesson UI."
+        },
+        {
+          "kind": "callout",
+          "title": "Common mistake",
+          "body": "Passing the visible example is not equivalent to passing the full submission. Reading the lesson never marks the exercise solved."
+        },
+        {
+          "kind": "check",
+          "title": "Before you run",
+          "body": "What tie policy do you need for two records with the same key and version?"
+        }
+      ],
+      "code": {
+        "language": "python",
+        "source": "import pandas as pd\nrows = [{\"id\": 1, \"version\": 1}, {\"id\": 1, \"version\": 2}, {\"id\": 2, \"version\": 1}]\nlatest = {}\nfor row in rows:\n    if row[\"id\"] not in latest or row[\"version\"] > latest[row[\"id\"]][\"version\"]:\n        latest[row[\"id\"]] = row\nassert latest[1][\"version\"] == 2\nresult = pd.DataFrame(latest.values())\nresult\n"
+      },
+      "exercise": {
+        "id": "py-latest-by-key",
+        "language": "pytest"
+      },
+      "lab": "mosaic",
+      "visual": {
+        "kind": "timeline",
+        "title": "Tests for production transformations - visual walkthrough",
+        "steps": [
+          {
+            "title": "Describe the rule",
+            "body": "A key identifies an entity and a version decides which event wins."
+          },
+          {
+            "title": "Test the easy case",
+            "body": "Start with ordered versions."
+          },
+          {
+            "title": "Reverse the input",
+            "body": "A latest-by-key transformation should not depend on input arrival order."
+          },
+          {
+            "title": "Test the boundary",
+            "body": "Equal versions, missing keys and an empty batch need explicit policies."
+          }
+        ]
+      },
+      "related": [
+        "api-retries"
+      ],
+      "practice": [
+        {
+          "id": "py-write-report",
+          "language": "pytest"
+        }
+      ],
+      "cheatsheet": "learning-python",
+      "deck": "python"
+    },
+    {
+      "id": "python-files",
+      "version": 1,
+      "title": "Read files and fail clearly",
+      "summary": "Read CSV with the csv module and an explicit encoding, and raise errors that name the file, the line and the value.",
+      "minutes": 15,
+      "concepts": [
+        "Python",
+        "files",
+        "csv",
+        "encoding",
+        "exceptions",
+        "error messages"
+      ],
+      "prerequisites": [
+        "python-errors"
+      ],
+      "blocks": [
+        {
+          "kind": "text",
+          "title": "Open with intent",
+          "body": "Open text files with an explicit encoding: open(path, encoding=\"utf-8\", newline=\"\"). The result then does not depend on the machine, and newline=\"\" lets the csv module handle quoted fields that contain line breaks. Use a with block so the file is closed even when an exception is raised."
+        },
+        {
+          "kind": "text",
+          "title": "Let csv parse, not split",
+          "body": "line.split(\",\") breaks \"Smith, Jo\" into two fields. csv.DictReader reads the header, handles quotes, embedded commas and doubled quotes, and skips blank lines. Every value is a string: convert types yourself, in one place."
+        },
+        {
+          "kind": "callout",
+          "title": "Errors that help",
+          "body": "ValueError: invalid literal for int() does not say which file or which line. Catch the narrow exception, add context and chain it: raise ValueError(f\"{name}:{line}: bad amount {raw!r}\") from exc. Never hide an error with except: pass; if you drop a row on purpose, log it with its line number."
+        },
+        {
+          "kind": "check",
+          "title": "Before you run",
+          "body": "Predict the total per customer. Then change an amount to \"abc\" and predict the message, line number included."
+        }
+      ],
+      "code": {
+        "language": "python",
+        "source": "import csv\nimport io\n\n# In a real job: with open(path, encoding=\"utf-8\", newline=\"\") as handle:\nhandle = io.StringIO('customer,amount\\n\"Smith, Jo\",10\\nAda,5\\n\\n\"Smith, Jo\",7\\n')\n\ndef total_by_customer(handle, name=\"orders.csv\"):\n    totals = {}\n    reader = csv.DictReader(handle)\n    for row in reader:\n        raw = row[\"amount\"]\n        try:\n            amount = int(raw)\n        except ValueError as exc:\n            raise ValueError(f\"{name}:{reader.line_num}: bad amount {raw!r}\") from exc\n        totals[row[\"customer\"]] = totals.get(row[\"customer\"], 0) + amount\n    return totals\n\ntotals = total_by_customer(handle)\ndisplay([{\"customer\": customer, \"amount\": amount} for customer, amount in sorted(totals.items())])\n"
+      },
+      "exercise": {
+        "id": "py-read-totals",
+        "language": "pytest"
+      },
+      "lab": "mosaic",
+      "visual": {
+        "kind": "timeline",
+        "title": "Reading a file - visual walkthrough",
+        "steps": [
+          {
+            "title": "Explicit encoding and newline",
+            "body": "The example reads from memory; a real job opens the file with encoding and newline set, inside with.",
+            "lines": [
+              4,
+              5
+            ]
+          },
+          {
+            "title": "csv parses the quotes",
+            "body": "DictReader turns each line into a dict keyed by the header and keeps \"Smith, Jo\" as one field.",
+            "lines": [
+              9,
+              10
+            ]
+          },
+          {
+            "title": "Narrow except, chained error",
+            "body": "Only ValueError is caught, and the new error names the file, the line and the value, with the original as its cause.",
+            "lines": [
+              12,
+              15
+            ]
+          },
+          {
+            "title": "Show the result",
+            "body": "display() shows the totals as rows: Ada 5, Smith, Jo 17.",
+            "lines": [
+              19,
+              20
+            ]
+          }
+        ]
+      },
+      "related": [
+        "python-tests",
+        "api-retries"
+      ],
+      "practice": [
+        {
+          "id": "py-config-errors",
+          "language": "pytest"
+        },
+        {
+          "id": "py-log-bad-rows",
+          "language": "pytest"
+        },
+        {
+          "id": "py-write-report",
+          "language": "pytest"
+        }
+      ],
+      "cheatsheet": "learning-python",
+      "deck": "python"
+    },
+    {
+      "id": "python-typing",
+      "version": 1,
+      "title": "Type hints and tests that pin behaviour",
+      "summary": "Describe inputs and outputs with type hints, then pin the normal case, the edge case and the error with small pytest tests.",
+      "minutes": 15,
+      "concepts": [
+        "Python",
+        "type hints",
+        "pytest",
+        "parametrize",
+        "Decimal",
+        "edge cases"
+      ],
+      "prerequisites": [
+        "python-tests"
+      ],
+      "blocks": [
+        {
+          "kind": "text",
+          "title": "Hints describe a contract",
+          "body": "def parse_amount(text: str) -> int says what goes in and what comes out. Python does not check hints when the code runs: a type checker such as mypy or pyright reads them, and so does the next reader. Use built-in generics (list[str], dict[str, int]) and X | None for a value that may be missing."
+        },
+        {
+          "kind": "text",
+          "title": "Three tests per function",
+          "body": "Write one test for the normal case, one for an edge (empty input, a boundary, a negative number) and one for the error: with pytest.raises(ValueError): parse_amount(\"1.234\"). @pytest.mark.parametrize runs one test body over a table of cases, so a new case is one line. In the exercise, Practice runs your tests and its hidden tests under real pytest."
+        },
+        {
+          "kind": "callout",
+          "title": "Money is not a float",
+          "body": "0.1 + 0.2 == 0.3 is False in binary floating point. Parse amounts with decimal.Decimal or as integer cents, and compare them exactly."
+        },
+        {
+          "kind": "check",
+          "title": "Before you run",
+          "body": "Predict which cases would fail if Decimal were replaced by float, then run the table of cases."
+        }
+      ],
+      "code": {
+        "language": "python",
+        "source": "from decimal import Decimal, InvalidOperation\n\ndef parse_amount(text: str) -> int:\n    \"\"\"'12.34' -> 1234 cents; at most two decimals.\"\"\"\n    try:\n        value = Decimal(text.strip())\n    except InvalidOperation as exc:\n        raise ValueError(f\"not an amount: {text!r}\") from exc\n    if not value.is_finite() or value.as_tuple().exponent < -2:\n        raise ValueError(f\"not an amount: {text!r}\")\n    return int(value * 100)\n\ncases = [(\"12.34\", 1234), (\" 5 \", 500), (\"-0.5\", -50)]\nresults = [{\"text\": t, \"expected\": str(e), \"actual\": str(parse_amount(t))} for t, e in cases]\nfor bad in [\"\", \"abc\", \"1.234\"]:\n    try:\n        results.append({\"text\": bad, \"expected\": \"ValueError\", \"actual\": str(parse_amount(bad))})\n    except ValueError:\n        results.append({\"text\": bad, \"expected\": \"ValueError\", \"actual\": \"ValueError\"})\ndisplay(results)\n"
+      },
+      "exercise": {
+        "id": "py-parse-amount",
+        "language": "pytest"
+      },
+      "lab": "mosaic",
+      "visual": {
+        "kind": "timeline",
+        "title": "Pinning behaviour - visual walkthrough",
+        "steps": [
+          {
+            "title": "The signature is the contract",
+            "body": "text: str in, int out, and the docstring states the rule in one line.",
+            "lines": [
+              3,
+              4
+            ]
+          },
+          {
+            "title": "Exact decimal parsing",
+            "body": "Decimal keeps the digits; more than two decimals, NaN or Infinity is refused with a ValueError.",
+            "lines": [
+              5,
+              11
+            ]
+          },
+          {
+            "title": "A table of cases",
+            "body": "Each case is (input, expected). In pytest this table becomes @pytest.mark.parametrize.",
+            "lines": [
+              13,
+              14
+            ]
+          },
+          {
+            "title": "The error is behaviour too",
+            "body": "Bad inputs must raise ValueError. In pytest: with pytest.raises(ValueError).",
+            "lines": [
+              15,
+              19
+            ]
+          }
+        ]
+      },
+      "related": [
+        "python-tests",
+        "python-files"
+      ],
+      "practice": [
+        {
+          "id": "py-chunked",
+          "language": "pytest"
+        },
+        {
+          "id": "py-latest-by-key",
+          "language": "pytest"
+        }
+      ],
+      "cheatsheet": "learning-python",
+      "deck": "python"
+    }
+  ]
+}

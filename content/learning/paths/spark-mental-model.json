@@ -1,0 +1,252 @@
+{
+  "format": "datapass.learning-path",
+  "version": 1,
+  "path": {
+    "id": "spark-mental-model",
+    "title": "Spark mental models",
+    "summary": "Local rows plus explicitly simulated distributed plans.",
+    "lessons": [
+      "spark-broadcast",
+      "spark-partitions",
+      "spark-windows"
+    ]
+  },
+  "lessons": [
+    {
+      "id": "spark-broadcast",
+      "version": 1,
+      "title": "Broadcast a small dimension",
+      "summary": "Separate relational results, join strategy and network movement.",
+      "minutes": 20,
+      "concepts": [
+        "Spark",
+        "PySpark",
+        "broadcast",
+        "shuffle",
+        "joins"
+      ],
+      "prerequisites": [],
+      "blocks": [
+        {
+          "kind": "text",
+          "title": "The mental model",
+          "body": "SparkLab compiles a bounded PySpark subset into local SQL. Result rows are computed locally; stages, task durations and shuffle volumes are simulated. The Watch buckets are an authored illustration, not Spark telemetry."
+        },
+        {
+          "kind": "callout",
+          "title": "Common mistake",
+          "body": "No join shuffle does not mean no data movement or no later shuffle. The tiny demo may be auto-broadcast even without the hint; the linked exercise uses authored scale assumptions."
+        },
+        {
+          "kind": "check",
+          "title": "Before you run",
+          "body": "Which exchange remains after a broadcast join followed by GROUP BY segment_name?"
+        }
+      ],
+      "code": {
+        "language": "sparklab",
+        "source": "from pyspark.sql import functions as F\norders = spark.table(\"source.orders\")\nsegments = spark.table(\"source.dim_customer_segment\")\njoined = orders.join(F.broadcast(segments), \"segment_id\", \"inner\")\nresult = joined.groupBy(\"segment_name\").agg(F.sum(\"net_amount\").alias(\"revenue\"))\n"
+      },
+      "exercise": {
+        "id": "spark-broadcast-dimension",
+        "language": "sparklab"
+      },
+      "lab": "sparklab",
+      "visual": {
+        "kind": "partitions",
+        "title": "Broadcast a small dimension - visual walkthrough",
+        "steps": [
+          {
+            "title": "Read both sides",
+            "body": "The example reads the real local source seed tables through SparkLab.",
+            "lines": [
+              2,
+              3
+            ]
+          },
+          {
+            "title": "Replicate the small side",
+            "body": "Broadcast sends a copy to workers. This still moves data and uses memory.",
+            "lines": [
+              4,
+              4
+            ]
+          },
+          {
+            "title": "Keep the streamed side",
+            "body": "A broadcast join can avoid shuffling the large side for the join.",
+            "lines": [
+              4,
+              4
+            ]
+          },
+          {
+            "title": "Aggregate separately",
+            "body": "GROUP BY may still add an exchange. Inspect the complete plan, not just the join.",
+            "lines": [
+              5,
+              5
+            ]
+          }
+        ]
+      },
+      "related": [
+        "sql-joins",
+        "spark-partitions"
+      ],
+      "practice": [
+        {
+          "id": "spark-join-fanout-before-sum",
+          "language": "sparklab"
+        }
+      ]
+    },
+    {
+      "id": "spark-partitions",
+      "version": 1,
+      "title": "Repartition versus coalesce",
+      "summary": "See row redistribution, output partitions and the limits of a narrow reduction.",
+      "minutes": 18,
+      "concepts": [
+        "Spark",
+        "PySpark",
+        "partitions",
+        "coalesce",
+        "repartition"
+      ],
+      "prerequisites": [
+        "spark-broadcast"
+      ],
+      "blocks": [
+        {
+          "kind": "text",
+          "title": "The mental model",
+          "body": "The tokens conserve their identities when moving between layouts. Choose the operation and target count. Try uses the existing source.orders table; its runtime plan is separate evidence from the toy visual."
+        },
+        {
+          "kind": "callout",
+          "title": "Common mistake",
+          "body": "coalesce(1) can concentrate work. A lower shuffle count alone is not proof that a production job will be faster."
+        },
+        {
+          "kind": "check",
+          "title": "Before you run",
+          "body": "Pin a run, change coalesce(2) to repartition(2), run again, then compare the recorded plans."
+        }
+      ],
+      "code": {
+        "language": "sparklab",
+        "source": "from pyspark.sql import functions as F\norders = spark.table(\"source.orders\")\nresult = orders.repartition(8, \"customer_id\").filter(F.col(\"net_amount\") > 0).coalesce(2)\n"
+      },
+      "exercise": {
+        "id": "spark-coalesce-output-partitions",
+        "language": "sparklab"
+      },
+      "lab": "sparklab",
+      "visual": {
+        "kind": "partitions",
+        "title": "Repartition versus coalesce - visual walkthrough",
+        "steps": [
+          {
+            "title": "Start with four visual partitions",
+            "body": "The Watch diagram uses twelve visible tokens in four authored partitions."
+          },
+          {
+            "title": "Repartition",
+            "body": "Reassign rows into new buckets. The visual hash is illustrative, not Spark murmur3."
+          },
+          {
+            "title": "Coalesce",
+            "body": "Merge existing partitions; asking for more does not increase their number."
+          },
+          {
+            "title": "Read the full plan",
+            "body": "The example already repartitions once. A final coalesce does not erase that earlier exchange."
+          }
+        ]
+      },
+      "related": [
+        "storage-partitions"
+      ],
+      "practice": [
+        {
+          "id": "spark-remove-random-repartition",
+          "language": "sparklab"
+        }
+      ]
+    },
+    {
+      "id": "spark-windows",
+      "version": 1,
+      "title": "Spark windows and ordering",
+      "summary": "Reuse the window mental model in the bounded PySpark runtime.",
+      "minutes": 18,
+      "concepts": [
+        "Spark",
+        "PySpark",
+        "window functions",
+        "ROWS",
+        "partitionBy"
+      ],
+      "prerequisites": [
+        "sql-windows",
+        "spark-partitions"
+      ],
+      "blocks": [
+        {
+          "kind": "text",
+          "title": "The mental model",
+          "body": "The Watch example explains frame semantics. Try runs the seeded orders with actual local result rows and a simulated distributed plan. It is not Apache Spark execution."
+        },
+        {
+          "kind": "callout",
+          "title": "Common mistake",
+          "body": "The window PARTITION BY is a logical grouping requirement, not a request to create one physical partition per customer."
+        },
+        {
+          "kind": "check",
+          "title": "Before you run",
+          "body": "Which columns must stay unchanged for an earlier hash partitioning to be reusable?"
+        }
+      ],
+      "code": {
+        "language": "sparklab",
+        "source": "from pyspark.sql import functions as F\nfrom pyspark.sql.window import Window\norders = spark.table(\"source.orders\")\nw = Window.partitionBy(\"customer_id\").orderBy(\"loaded_at\", \"order_id\").rowsBetween(Window.unboundedPreceding, Window.currentRow)\nresult = orders.withColumn(\"running_revenue\", F.sum(\"net_amount\").over(w))\n"
+      },
+      "exercise": {
+        "id": "spark-running-total-ties",
+        "language": "sparklab"
+      },
+      "lab": "sparklab",
+      "visual": {
+        "kind": "window",
+        "title": "Spark windows and ordering - visual walkthrough",
+        "steps": [
+          {
+            "title": "Partition the window",
+            "body": "Each customer has an independent running total."
+          },
+          {
+            "title": "Order within the customer",
+            "body": "A second key makes ties deterministic."
+          },
+          {
+            "title": "Choose ROWS",
+            "body": "The explicit frame counts positions, not peer groups."
+          },
+          {
+            "title": "Inspect the plan",
+            "body": "The engine may need an exchange and sort to satisfy the window."
+          }
+        ]
+      },
+      "related": [],
+      "practice": [
+        {
+          "id": "spark-window-instead-of-self-join",
+          "language": "sparklab"
+        }
+      ]
+    }
+  ]
+}

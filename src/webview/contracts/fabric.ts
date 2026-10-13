@@ -53,6 +53,12 @@ export interface FactoryDesignView {
   variables: FactoryParameterView[];
   activities: FactoryDesignActivityView[];
   error?: string;
+  /** The file as read from disk: the pipeline editor edits this text. */
+  text?: string;
+  /** contentHash(text): sent back as baseHash when saving, so a file changed on disk is not overwritten silently. */
+  hash?: string;
+  /** Bumped when the learner chose "Reload from disk" in the save conflict dialog: the editor drops its edits. */
+  reloadSeq?: number;
 }
 
 export interface FactoryViewState {
@@ -470,6 +476,14 @@ export type FabricMessage =
   | { type: "openFactoryFile"; path: string }
   | { type: "revealFactoryActivity"; path: string; activity: string }
   | { type: "simulateFactory"; flavor: FactoryFlavor; name: string; scenario: FactoryScenarioInput }
+  /** Save the pipeline editor's text; refused (Reload / Overwrite dialog) when the file on disk no longer has baseHash. */
+  | { type: "saveFactoryPipeline"; path: string; text: string; baseHash: string }
+  /** Create an empty pipeline of this product in factory/ (never overwrites). */
+  | { type: "createFactoryPipeline"; flavor: FactoryFlavor }
+  /** Copy a pipeline JSON file chosen by the learner into factory/<flavor>/ (never overwrites). */
+  | { type: "importFactoryPipeline"; flavor: FactoryFlavor }
+  /** Save the editor's text to a file the learner chooses outside factory/. */
+  | { type: "exportFactoryPipeline"; path: string; text: string }
   | { type: "runSqlPool"; flavor: SqlPoolFlavor; scale: number; source: "file" | "active" | "describe"; path?: string }
   | { type: "revealSqlPoolLine"; line: number }
   | { type: "simulateDatabricks"; name: string; scenario: DatabricksScenarioInput }

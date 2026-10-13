@@ -1,0 +1,37 @@
+id,surface,entry,empty_state,error_state,narrow_width,a11y_note
+UX-home,Today,datapass.openHome,Shows progress and next step; blank workspace suggests no project step,Runtime card offers Setup/Start,existing narrow check,not audited
+UX-learn-open,Learning,datapass.learning.open,Path list; read-only in Restricted Mode,Execution disabled message in Restricted Mode,existing narrow-overflow check passes; new cards not checked,not audited
+UX-learn-resume,Learning,datapass.learning.resume,unverified,unverified,new Resume card not checked,not audited
+UX-learn-select,Learning,datapass.learning.select,unverified,unverified,n/a (quick pick),native quick pick
+UX-learn-review,Learning flashcards,datapass.learning.review,unverified,unverified,new flashcard card not checked,not audited
+UX-build-ws,Build,datapass.build.newWorkspace,n/a,Refuses an existing manifest,n/a (native dialog),native dialog
+UX-build-file,Build,datapass.build.newFile,n/a,Never overwrites,n/a (native dialog),native dialog
+UX-build-import,Build,datapass.build.importDataset,n/a,Never overwrites,n/a (native dialog),native dialog
+UX-xchg-import,Mosaic exchange,datapass.interop.import,n/a,Refuses cycles and bad ids and format and version and artifact data and oversize,n/a (native dialog),native dialog
+UX-xchg-export,Mosaic exchange,datapass.interop.export,n/a,Refuses a folder outside the workspace and non-file workspaces,n/a (native dialog),native dialog
+UX-projects,Projects,datapass.openProjects,Lists 3 demo projects even on a blank workspace,unverified,existing narrow check,not audited
+UX-mosaic,Mosaic,datapass.openMosaic,Empty-state panel on a blank workspace (webview not checked in VS Code),unverified,existing narrow check,not audited
+UX-practice,Practice,datapass.openPractice,unverified,unverified,existing narrow check,not audited
+UX-fabric,Cloud Lab,datapass.openFabricLab,unverified,Pipelines editor: save conflict modal (Reload/Overwrite) not checked in VS Code,existing narrow check for tabs,pointer drag on canvas not checked
+UX-bi,BI Lab,datapass.openBiLab,unverified,unverified,existing narrow check,not audited
+UX-spark,SparkLab,datapass.openSparkLab,unverified,unverified,existing narrow check,not audited
+UX-dbt,dbt Lab,datapass.openDbtLab,Install dbt tools action,unverified,existing narrow check,not audited
+UX-terminal,Terminal Lab,datapass.openTerminalLab,unverified,unverified,existing narrow check,not audited
+UX-infra,Infra Lab,datapass.openInfraLab,unverified,unverified,mission list with intro levels not inspected,not audited
+UX-lakehouse,Lakehouse Lab,datapass.openLakehouseLab,unverified,unverified,existing narrow check,not audited
+UX-api,API Lab,datapass.openApiLab,unverified,Refused while trusted Python is off,existing narrow check,not audited
+UX-airflow,Airflow Lab,datapass.openAirflowLab,unverified,unverified,existing narrow check,not audited
+UX-pipeline,Pipeline Lab,datapass.openPipelineLab,unverified,unverified,existing narrow check,not audited
+UX-cat-refresh,Catalog tree,datapass.catalog.refresh,unverified,unverified,n/a (native tree),native tree
+UX-cat-scratch,Catalog tree,datapass.catalog.openScratch,n/a,unverified,n/a (native editor),native editor
+UX-cat-preview,Catalog tree,datapass.catalog.previewTable,n/a,unverified,n/a,native
+UX-cat-copy,Catalog tree,datapass.catalog.copyName,n/a,n/a,n/a,native
+UX-cat-reattach,Catalog tree,datapass.catalog.reattach,n/a,unverified,n/a,native
+UX-dialect,Mosaic SQL,datapass.sql.pickDialect,n/a,n/a,n/a (quick pick),native quick pick
+UX-rt-setup,Runtime,datapass.runtime.setup,n/a,unverified,n/a,native
+UX-rt-start,Runtime,datapass.runtime.start,n/a,unverified,n/a,native
+UX-rt-action,Runtime status bar,datapass.runtime.action,n/a,Shows set up or update or start by state,n/a,native status bar
+UX-prac-run,Practice CodeLens,datapass.practice.runVisible,n/a,unverified,n/a,native CodeLens
+UX-prac-submit,Practice CodeLens,datapass.practice.submit,n/a,unverified,n/a,native CodeLens
+UX-mission-check,Mission CodeLens,datapass.missions.check,n/a,unverified,n/a,native CodeLens
+UX-api-run,API Lab CodeLens,datapass.apilab.run,n/a,Refused while trusted Python is off,n/a,native CodeLens

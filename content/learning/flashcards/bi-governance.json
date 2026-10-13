@@ -1,0 +1,465 @@
+{
+  "format": "datapass.flashcards",
+  "version": 1,
+  "id": "bi-governance",
+  "title": "BI, governance and performance",
+  "path": "bi-governance",
+  "cards": [
+    {
+      "id": "grain",
+      "front": "What is the grain of a fact table?",
+      "back": "What one row represents, stated in one sentence (\"one row per order line\"). Declare it before choosing columns.",
+      "lesson": "bi-star-schema",
+      "tags": [
+        "modeling"
+      ]
+    },
+    {
+      "id": "fact",
+      "front": "What does a fact table hold?",
+      "back": "Foreign keys to dimensions and numeric measures at the declared grain.",
+      "lesson": "bi-star-schema",
+      "tags": [
+        "modeling"
+      ]
+    },
+    {
+      "id": "dimension",
+      "front": "What does a dimension table hold?",
+      "back": "Descriptive attributes of one entity (customer, product, date), wide and denormalized, with a surrogate key.",
+      "lesson": "bi-star-schema",
+      "tags": [
+        "modeling"
+      ]
+    },
+    {
+      "id": "star-vs-snowflake",
+      "front": "Star versus snowflake?",
+      "back": "A star joins each denormalized dimension directly to the fact. A snowflake splits dimensions into sub-tables, adding joins for the same answer.",
+      "lesson": "bi-star-schema",
+      "tags": [
+        "modeling"
+      ]
+    },
+    {
+      "id": "surrogate-key",
+      "front": "Why surrogate keys?",
+      "back": "Warehouse-owned integer keys survive source key changes, allow several versions of a type 2 row, and an unknown member for missing references.",
+      "lesson": "bi-star-schema",
+      "tags": [
+        "modeling"
+      ]
+    },
+    {
+      "id": "unknown-member",
+      "front": "What is the unknown member?",
+      "back": "A dimension row (often key -1) that facts point to when the reference is missing, so inner joins keep every fact.",
+      "lesson": "bi-star-schema",
+      "tags": [
+        "modeling"
+      ]
+    },
+    {
+      "id": "additive",
+      "front": "Additive measure?",
+      "back": "One that can be summed across every dimension: sales amount, quantity.",
+      "lesson": "bi-star-schema",
+      "tags": [
+        "modeling"
+      ]
+    },
+    {
+      "id": "semi-additive",
+      "front": "Semi-additive measure?",
+      "back": "Summable across some dimensions but not time: an account balance or stock level. Over time take the last or the average.",
+      "lesson": "bi-star-schema",
+      "tags": [
+        "modeling"
+      ]
+    },
+    {
+      "id": "non-additive",
+      "front": "Non-additive measure?",
+      "back": "A ratio or percentage: never sum it, recompute it from its additive parts.",
+      "lesson": "bi-star-schema",
+      "tags": [
+        "modeling"
+      ]
+    },
+    {
+      "id": "mixed-grain",
+      "front": "What goes wrong with mixed grain?",
+      "back": "An order-level value (shipping fee) repeated on each line is summed once per line. Allocate it or keep it at its own grain.",
+      "lesson": "bi-star-schema",
+      "tags": [
+        "modeling"
+      ]
+    },
+    {
+      "id": "scd1",
+      "front": "SCD type 1?",
+      "back": "Overwrite the attribute in place: no history. For corrections or attributes nobody reports historically.",
+      "lesson": "bi-history-scd",
+      "tags": [
+        "scd"
+      ]
+    },
+    {
+      "id": "scd2",
+      "front": "SCD type 2?",
+      "back": "Close the current row (valid_to, is_current false) and insert a new version with a new surrogate key. Old facts keep the old version.",
+      "lesson": "bi-history-scd",
+      "tags": [
+        "scd"
+      ]
+    },
+    {
+      "id": "scd3",
+      "front": "SCD type 3?",
+      "back": "Keep the previous value in an extra column. Only one step of history.",
+      "lesson": "bi-history-scd",
+      "tags": [
+        "scd"
+      ]
+    },
+    {
+      "id": "scd2-current",
+      "front": "How do you select current rows of a type 2 dimension?",
+      "back": "is_current = true, or valid_to open (NULL or the end-of-time date such as 9999-12-31).",
+      "lesson": "bi-history-scd",
+      "tags": [
+        "scd"
+      ]
+    },
+    {
+      "id": "point-in-time",
+      "front": "Point-in-time join condition?",
+      "back": "Same business key and event_date >= valid_from AND event_date < valid_to (half-open range).",
+      "lesson": "bi-history-scd",
+      "tags": [
+        "scd",
+        "sql"
+      ]
+    },
+    {
+      "id": "scd2-business-key-join",
+      "front": "What happens if facts join a type 2 dimension on the business key only?",
+      "back": "Each fact matches every version of its customer and totals multiply.",
+      "lesson": "bi-history-scd",
+      "tags": [
+        "scd",
+        "troubleshooting"
+      ]
+    },
+    {
+      "id": "late-arriving",
+      "front": "What is a late-arriving dimension member?",
+      "back": "A fact references a customer not yet loaded. Insert an inferred member (key plus placeholders) and complete it when the customer arrives.",
+      "lesson": "bi-history-scd",
+      "tags": [
+        "scd"
+      ]
+    },
+    {
+      "id": "periodic-snapshot",
+      "front": "Periodic snapshot fact?",
+      "back": "One row per entity per period with its state at period end, such as stock per product per month.",
+      "lesson": "bi-star-schema",
+      "tags": [
+        "modeling"
+      ]
+    },
+    {
+      "id": "accumulating-snapshot",
+      "front": "Accumulating snapshot fact?",
+      "back": "One row per process instance (an order) updated as milestones happen (ordered, shipped, delivered dates).",
+      "lesson": "bi-star-schema",
+      "tags": [
+        "modeling"
+      ]
+    },
+    {
+      "id": "factless",
+      "front": "Factless fact table?",
+      "back": "Rows recording an event or coverage with no measure, such as products on promotion per day; counted or compared with sales.",
+      "lesson": "bi-star-schema",
+      "tags": [
+        "modeling"
+      ]
+    },
+    {
+      "id": "bridge",
+      "front": "When do you need a bridge table?",
+      "back": "For many-to-many relationships (accounts with several owners), often with allocation weights so totals are not double counted.",
+      "lesson": "bi-semantic-model",
+      "tags": [
+        "modeling"
+      ]
+    },
+    {
+      "id": "semantic-model",
+      "front": "What is a semantic model?",
+      "back": "The layer between tables and reports: relationships, measures, hierarchies and how filters flow.",
+      "lesson": "bi-semantic-model",
+      "tags": [
+        "bi"
+      ]
+    },
+    {
+      "id": "cross-filter",
+      "front": "Default cross-filter direction from a dimension to a fact?",
+      "back": "Single: the dimension filters the fact. Both directions can create ambiguous paths and wrong totals.",
+      "lesson": "bi-semantic-model",
+      "tags": [
+        "bi"
+      ]
+    },
+    {
+      "id": "role-playing",
+      "front": "Role-playing dimension?",
+      "back": "One dimension used in several roles, such as dim_date for order date and ship date: one active relationship, the others inactive and activated in specific measures.",
+      "lesson": "bi-semantic-model",
+      "tags": [
+        "bi"
+      ]
+    },
+    {
+      "id": "import-mode",
+      "front": "Import storage mode?",
+      "back": "A compressed copy of the data in the model, refreshed on schedule. Fast queries, data as fresh as the last refresh.",
+      "lesson": "bi-semantic-model",
+      "tags": [
+        "bi"
+      ]
+    },
+    {
+      "id": "directquery",
+      "front": "DirectQuery storage mode?",
+      "back": "Each visual sends queries to the source at report time. Fresh data, speed depends on the source.",
+      "lesson": "bi-semantic-model",
+      "tags": [
+        "bi"
+      ]
+    },
+    {
+      "id": "direct-lake",
+      "front": "Direct Lake?",
+      "back": "A Fabric mode where the semantic model reads Delta tables in OneLake directly, without import refreshes.",
+      "lesson": "bi-semantic-model",
+      "tags": [
+        "bi",
+        "fabric"
+      ]
+    },
+    {
+      "id": "bi-lab-truth",
+      "front": "What is real in the BI Lab?",
+      "back": "Warehouse SQL runs on local DuckDB; star model checks are real queries; lineage is static analysis of SQL. There is no Power BI or DAX engine.",
+      "lesson": "bi-semantic-model",
+      "tags": [
+        "datapass"
+      ]
+    },
+    {
+      "id": "rls",
+      "front": "Row-level security?",
+      "back": "A predicate attached to a table so each principal reads only its rows, including inside aggregates.",
+      "lesson": "gov-access-control",
+      "tags": [
+        "governance"
+      ]
+    },
+    {
+      "id": "cls",
+      "front": "Column-level security?",
+      "back": "Granting or denying SELECT on specific columns, such as DENY SELECT ON customers(email) TO support.",
+      "lesson": "gov-access-control",
+      "tags": [
+        "governance"
+      ]
+    },
+    {
+      "id": "ddm",
+      "front": "Dynamic data masking?",
+      "back": "Query results show masked values to users without UNMASK. Stored data is unchanged; not encryption.",
+      "lesson": "gov-access-control",
+      "tags": [
+        "governance"
+      ]
+    },
+    {
+      "id": "ddm-inference",
+      "front": "Why is masking not enough on its own?",
+      "back": "Users can still filter on masked columns (WHERE salary > 100000) and infer values. Combine it with permissions.",
+      "lesson": "gov-access-control",
+      "tags": [
+        "governance"
+      ]
+    },
+    {
+      "id": "uc-row-filter",
+      "front": "Unity Catalog row filters and column masks?",
+      "back": "SQL UDFs attached to a table (SET ROW FILTER) or column (SET MASK) that Unity Catalog applies on every query.",
+      "lesson": "gov-access-control",
+      "tags": [
+        "governance",
+        "databricks"
+      ]
+    },
+    {
+      "id": "least-privilege",
+      "front": "Least privilege for a job?",
+      "back": "A dedicated service principal with only the grants the job needs, for example read on silver and write on gold.",
+      "lesson": "gov-access-control",
+      "tags": [
+        "governance"
+      ]
+    },
+    {
+      "id": "grant-groups",
+      "front": "Why grant to groups rather than people?",
+      "back": "Joining or leaving a team changes one membership instead of many grants, and reviews are simpler.",
+      "lesson": "gov-access-control",
+      "tags": [
+        "governance"
+      ]
+    },
+    {
+      "id": "governance-lab-truth",
+      "front": "How does the Cloud Lab enforce T-SQL security?",
+      "back": "It rewrites each SELECT for its EXECUTE AS principal and runs it on DuckDB: T-SQL security translated to DuckDB, not SQL Server.",
+      "lesson": "gov-access-control",
+      "tags": [
+        "datapass"
+      ]
+    },
+    {
+      "id": "lineage",
+      "front": "What is column lineage?",
+      "back": "For each column, the source columns it is derived from, across views, models and reports.",
+      "lesson": "gov-lineage",
+      "tags": [
+        "governance"
+      ]
+    },
+    {
+      "id": "impact-analysis",
+      "front": "Impact analysis?",
+      "back": "Following lineage downstream to see which models and reports change if a column is renamed or redefined.",
+      "lesson": "gov-lineage",
+      "tags": [
+        "governance"
+      ]
+    },
+    {
+      "id": "personal-data",
+      "front": "Personal data under GDPR?",
+      "back": "Any information relating to an identifiable person: name, email, customer id, IP address, and combinations that single someone out.",
+      "lesson": "gov-lineage",
+      "tags": [
+        "governance",
+        "privacy"
+      ]
+    },
+    {
+      "id": "pseudonymised",
+      "front": "Is pseudonymised data personal data?",
+      "back": "Yes. If re-identification is possible with additional information, GDPR still applies. Only anonymous data falls outside it.",
+      "lesson": "gov-lineage",
+      "tags": [
+        "governance",
+        "privacy"
+      ]
+    },
+    {
+      "id": "unsalted-hash",
+      "front": "Why is an unsalted hash of an email weak protection?",
+      "back": "Anyone with a list of emails can hash them and join back. Use a secret key (keyed hash) or a lookup table kept apart.",
+      "lesson": "gov-lineage",
+      "tags": [
+        "privacy"
+      ]
+    },
+    {
+      "id": "minimisation",
+      "front": "Data minimisation?",
+      "back": "Copy and expose only the columns a use case needs; it is a GDPR principle and the cheapest protection.",
+      "lesson": "gov-lineage",
+      "tags": [
+        "privacy"
+      ]
+    },
+    {
+      "id": "fan-out",
+      "front": "Join fan-out?",
+      "back": "A join multiplies rows by the number of matches; duplicate keys on the \"one\" side inflate totals.",
+      "lesson": "perf-troubleshooting",
+      "tags": [
+        "troubleshooting"
+      ]
+    },
+    {
+      "id": "first-error",
+      "front": "Which error do you read first?",
+      "back": "The first failure and its innermost cause; later errors are usually consequences.",
+      "lesson": "perf-troubleshooting",
+      "tags": [
+        "troubleshooting"
+      ]
+    },
+    {
+      "id": "partition-pruning",
+      "front": "What does partition pruning need?",
+      "back": "A filter on the partition column itself, so whole folders or partitions are skipped.",
+      "lesson": "perf-troubleshooting",
+      "tags": [
+        "performance"
+      ]
+    },
+    {
+      "id": "column-pruning",
+      "front": "Why select only needed columns on Parquet?",
+      "back": "Columnar files store columns separately; unselected columns are not read.",
+      "lesson": "perf-troubleshooting",
+      "tags": [
+        "performance"
+      ]
+    },
+    {
+      "id": "small-files",
+      "front": "Why are many small files slow?",
+      "back": "Fixed per-file costs (listing, opening, footers, tasks) dominate. Compact to roughly 128 MB to 1 GB files.",
+      "lesson": "perf-troubleshooting",
+      "tags": [
+        "performance"
+      ]
+    },
+    {
+      "id": "partition-cardinality",
+      "front": "Which columns make good partition keys?",
+      "back": "Low-cardinality columns that queries filter on, such as a date or region. Never a key with millions of values.",
+      "lesson": "perf-troubleshooting",
+      "tags": [
+        "performance"
+      ]
+    },
+    {
+      "id": "explain-analyze",
+      "front": "EXPLAIN versus EXPLAIN ANALYZE?",
+      "back": "EXPLAIN shows the planned operators and estimates. EXPLAIN ANALYZE runs the query and reports actual rows and time per operator.",
+      "lesson": "perf-troubleshooting",
+      "tags": [
+        "performance"
+      ]
+    },
+    {
+      "id": "measure-twice",
+      "front": "How do you compare two versions of a query fairly?",
+      "back": "Same data, several runs, one change at a time, and note whether caches were warm.",
+      "lesson": "perf-troubleshooting",
+      "tags": [
+        "performance"
+      ]
+    }
+  ]
+}

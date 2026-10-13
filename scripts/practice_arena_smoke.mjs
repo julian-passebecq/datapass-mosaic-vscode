@@ -161,8 +161,10 @@ try {
   // Interview mode: the draw, the tracking, the summary and its history in progress.json.
   assert.equal(mod.problemFamily(zilla)?.id, "logic", "zilla-001 filters rows");
   const familyOf = key => mod.problemFamily(problems.find(p => p.key === key))?.id;
-  const classic = problems.filter(p => mod.problemFamily(p)).length;
-  assert.ok(classic / problems.length > 0.6, `most problems have a pattern family (${classic}/${problems.length})`);
+  // Concept checks (language quiz) are questions, not coding problems: they never have a pattern family.
+  const coding = problems.filter(p => !p.variants.every(v => v.language === "quiz"));
+  const classic = coding.filter(p => mod.problemFamily(p)).length;
+  assert.ok(classic / coding.length > 0.6, `most coding problems have a pattern family (${classic}/${coding.length})`);
   const mixed = { format: "mixed", count: 3, difficulty: "", family: "" };
   for (let seed = 1; seed <= 40; seed++) {
     const drawn = mod.drawInterview(problems, mixed, mod.seededRandom(seed));

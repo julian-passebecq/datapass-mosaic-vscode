@@ -1,0 +1,7 @@
+Reporting VMs: health check
+Fill in each line after the colon (one value per line), then run the check.
+
+vm: vm-report-app-02
+metric: Percentage CPU
+since (UTC, HH:MM): 02:40
+action: az vm restart -g rg-reporting-prod -n vm-report-app-02

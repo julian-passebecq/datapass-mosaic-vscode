@@ -1,0 +1,684 @@
+{
+  "infra-concept-signals-traces": {
+    "solution": "answer: b\n",
+    "fixtures": [
+      {
+        "id": "format",
+        "visibility": "visible",
+        "input_rows": [],
+        "expected": [],
+        "scenario": {
+          "check": "format",
+          "kind": "choice",
+          "choices": [
+            "a",
+            "b",
+            "c",
+            "d"
+          ]
+        }
+      },
+      {
+        "id": "answer",
+        "visibility": "hidden",
+        "input_rows": [],
+        "expected": [],
+        "scenario": {
+          "check": "answer",
+          "kind": "choice",
+          "choices": [
+            "a",
+            "b",
+            "c",
+            "d"
+          ],
+          "why": "A trace records one request as a tree of spans, one per service or operation, each with its start and duration, so it shows where the time went. Metrics aggregate many requests; logs describe events one service at a time.",
+          "correct": [
+            "b"
+          ]
+        }
+      }
+    ]
+  },
+  "infra-concept-signals-cardinality": {
+    "solution": "answer: b\n",
+    "fixtures": [
+      {
+        "id": "format",
+        "visibility": "visible",
+        "input_rows": [],
+        "expected": [],
+        "scenario": {
+          "check": "format",
+          "kind": "choice",
+          "choices": [
+            "a",
+            "b",
+            "c",
+            "d"
+          ]
+        }
+      },
+      {
+        "id": "answer",
+        "visibility": "hidden",
+        "input_rows": [],
+        "expected": [],
+        "scenario": {
+          "check": "answer",
+          "kind": "choice",
+          "choices": [
+            "a",
+            "b",
+            "c",
+            "d"
+          ],
+          "why": "Each unique combination of label values is its own time series, stored and indexed separately. Unbounded values (user ids, request ids, emails) explode memory and query time. Put such details in logs or traces instead.",
+          "correct": [
+            "b"
+          ]
+        }
+      }
+    ]
+  },
+  "infra-concept-signals-structured-logs": {
+    "solution": "answer: b\n",
+    "fixtures": [
+      {
+        "id": "format",
+        "visibility": "visible",
+        "input_rows": [],
+        "expected": [],
+        "scenario": {
+          "check": "format",
+          "kind": "choice",
+          "choices": [
+            "a",
+            "b",
+            "c",
+            "d"
+          ]
+        }
+      },
+      {
+        "id": "answer",
+        "visibility": "hidden",
+        "input_rows": [],
+        "expected": [],
+        "scenario": {
+          "check": "answer",
+          "kind": "choice",
+          "choices": [
+            "a",
+            "b",
+            "c",
+            "d"
+          ],
+          "why": "Structured logs keep each value in a named field, so a log backend can filter (`level = error`), group and join on them reliably. Free text needs regular expressions that break when the message changes.",
+          "correct": [
+            "b"
+          ]
+        }
+      }
+    ]
+  },
+  "infra-concept-promql-metric-types": {
+    "solution": "answer: gauge\n",
+    "fixtures": [
+      {
+        "id": "format",
+        "visibility": "visible",
+        "input_rows": [],
+        "expected": [],
+        "scenario": {
+          "check": "format",
+          "kind": "text",
+          "choices": []
+        }
+      },
+      {
+        "id": "answer",
+        "visibility": "hidden",
+        "input_rows": [],
+        "expected": [],
+        "scenario": {
+          "check": "answer",
+          "kind": "text",
+          "choices": [],
+          "why": "A gauge is a value that can go up and down (queue depth, memory in use, temperature). A counter only goes up (or resets to zero on restart), like a total number of requests.",
+          "accepted": [
+            "gauge",
+            "a gauge"
+          ]
+        }
+      }
+    ]
+  },
+  "infra-concept-promql-rate": {
+    "solution": "answer: b\n",
+    "fixtures": [
+      {
+        "id": "format",
+        "visibility": "visible",
+        "input_rows": [],
+        "expected": [],
+        "scenario": {
+          "check": "format",
+          "kind": "choice",
+          "choices": [
+            "a",
+            "b",
+            "c",
+            "d"
+          ]
+        }
+      },
+      {
+        "id": "answer",
+        "visibility": "hidden",
+        "input_rows": [],
+        "expected": [],
+        "scenario": {
+          "check": "answer",
+          "kind": "choice",
+          "choices": [
+            "a",
+            "b",
+            "c",
+            "d"
+          ],
+          "why": "`rate()` takes a range vector of a counter and returns its per-second increase, handling counter resets. The raw counter only grows since the process started, and averaging it means nothing.",
+          "correct": [
+            "b"
+          ]
+        }
+      }
+    ]
+  },
+  "infra-concept-promql-range-vector": {
+    "solution": "answer: a\n",
+    "fixtures": [
+      {
+        "id": "format",
+        "visibility": "visible",
+        "input_rows": [],
+        "expected": [],
+        "scenario": {
+          "check": "format",
+          "kind": "choice",
+          "choices": [
+            "a",
+            "b",
+            "c",
+            "d"
+          ]
+        }
+      },
+      {
+        "id": "answer",
+        "visibility": "hidden",
+        "input_rows": [],
+        "expected": [],
+        "scenario": {
+          "check": "answer",
+          "kind": "choice",
+          "choices": [
+            "a",
+            "b",
+            "c",
+            "d"
+          ],
+          "why": "A range selector returns, for each series, all its samples in the window. Functions like rate(), increase() or avg_over_time() turn it into one value per series (an instant vector), which is what a graph plots. `offset 5m` is what shifts a query into the past.",
+          "correct": [
+            "a"
+          ]
+        }
+      }
+    ]
+  },
+  "infra-concept-promql-sum-by": {
+    "solution": "answer: b\n",
+    "fixtures": [
+      {
+        "id": "format",
+        "visibility": "visible",
+        "input_rows": [],
+        "expected": [],
+        "scenario": {
+          "check": "format",
+          "kind": "choice",
+          "choices": [
+            "a",
+            "b",
+            "c",
+            "d"
+          ]
+        }
+      },
+      {
+        "id": "answer",
+        "visibility": "hidden",
+        "input_rows": [],
+        "expected": [],
+        "scenario": {
+          "check": "answer",
+          "kind": "choice",
+          "choices": [
+            "a",
+            "b",
+            "c",
+            "d"
+          ],
+          "why": "Aggregate after rate(): `sum by (code) (...)` adds the per-second rates of every series that shares a code and keeps only that label. Summing raw counters before rate() would hide counter resets; count counts series, not requests.",
+          "correct": [
+            "b"
+          ]
+        }
+      }
+    ]
+  },
+  "infra-concept-promql-histogram-quantile": {
+    "solution": "answer: b\n",
+    "fixtures": [
+      {
+        "id": "format",
+        "visibility": "visible",
+        "input_rows": [],
+        "expected": [],
+        "scenario": {
+          "check": "format",
+          "kind": "choice",
+          "choices": [
+            "a",
+            "b",
+            "c",
+            "d"
+          ]
+        }
+      },
+      {
+        "id": "answer",
+        "visibility": "hidden",
+        "input_rows": [],
+        "expected": [],
+        "scenario": {
+          "check": "answer",
+          "kind": "choice",
+          "choices": [
+            "a",
+            "b",
+            "c",
+            "d"
+          ],
+          "why": "A Prometheus histogram exposes cumulative `_bucket` counters labelled `le` (less than or equal). Take their rate, sum them keeping `le`, then histogram_quantile(0.95, ...) estimates the 95th percentile from the buckets. The quantile is written as 0.95, not 95.",
+          "correct": [
+            "b"
+          ]
+        }
+      }
+    ]
+  },
+  "infra-concept-grafana-datasources": {
+    "solution": "answer: b\n",
+    "fixtures": [
+      {
+        "id": "format",
+        "visibility": "visible",
+        "input_rows": [],
+        "expected": [],
+        "scenario": {
+          "check": "format",
+          "kind": "choice",
+          "choices": [
+            "a",
+            "b",
+            "c",
+            "d"
+          ]
+        }
+      },
+      {
+        "id": "answer",
+        "visibility": "hidden",
+        "input_rows": [],
+        "expected": [],
+        "scenario": {
+          "check": "answer",
+          "kind": "choice",
+          "choices": [
+            "a",
+            "b",
+            "c",
+            "d"
+          ],
+          "why": "Grafana is a visualization and alerting layer: each panel sends a query to a data source when the dashboard loads or refreshes. Its own database keeps dashboards, users and alert rules, not the time series.",
+          "correct": [
+            "b"
+          ]
+        }
+      }
+    ]
+  },
+  "infra-concept-grafana-variables": {
+    "solution": "answer: b\n",
+    "fixtures": [
+      {
+        "id": "format",
+        "visibility": "visible",
+        "input_rows": [],
+        "expected": [],
+        "scenario": {
+          "check": "format",
+          "kind": "choice",
+          "choices": [
+            "a",
+            "b",
+            "c",
+            "d"
+          ]
+        }
+      },
+      {
+        "id": "answer",
+        "visibility": "hidden",
+        "input_rows": [],
+        "expected": [],
+        "scenario": {
+          "check": "answer",
+          "kind": "choice",
+          "choices": [
+            "a",
+            "b",
+            "c",
+            "d"
+          ],
+          "why": "Dashboard (template) variables are drop-downs whose values can come from a query (for example `label_values(up, service)`); panels refer to them as `$service`, so one dashboard serves every service.",
+          "correct": [
+            "b"
+          ]
+        }
+      }
+    ]
+  },
+  "infra-concept-grafana-pending-period": {
+    "solution": "answer: b\n",
+    "fixtures": [
+      {
+        "id": "format",
+        "visibility": "visible",
+        "input_rows": [],
+        "expected": [],
+        "scenario": {
+          "check": "format",
+          "kind": "choice",
+          "choices": [
+            "a",
+            "b",
+            "c",
+            "d"
+          ]
+        }
+      },
+      {
+        "id": "answer",
+        "visibility": "hidden",
+        "input_rows": [],
+        "expected": [],
+        "scenario": {
+          "check": "answer",
+          "kind": "choice",
+          "choices": [
+            "a",
+            "b",
+            "c",
+            "d"
+          ],
+          "why": "When the condition becomes true the rule enters Pending; it fires only if the condition stays true for the whole pending period. Short spikes therefore never notify anyone.",
+          "correct": [
+            "b"
+          ]
+        }
+      }
+    ]
+  },
+  "infra-concept-grafana-notification-policies": {
+    "solution": "answer: b\n",
+    "fixtures": [
+      {
+        "id": "format",
+        "visibility": "visible",
+        "input_rows": [],
+        "expected": [],
+        "scenario": {
+          "check": "format",
+          "kind": "choice",
+          "choices": [
+            "a",
+            "b",
+            "c",
+            "d"
+          ]
+        }
+      },
+      {
+        "id": "answer",
+        "visibility": "hidden",
+        "input_rows": [],
+        "expected": [],
+        "scenario": {
+          "check": "answer",
+          "kind": "choice",
+          "choices": [
+            "a",
+            "b",
+            "c",
+            "d"
+          ],
+          "why": "Contact points say how to notify (Slack, e-mail, a webhook, an on-call tool); the notification policy tree matches alert labels and routes each alert to a contact point, with grouping, timing and muting.",
+          "correct": [
+            "b"
+          ]
+        }
+      }
+    ]
+  },
+  "infra-concept-slo-sli": {
+    "solution": "answer: b\n",
+    "fixtures": [
+      {
+        "id": "format",
+        "visibility": "visible",
+        "input_rows": [],
+        "expected": [],
+        "scenario": {
+          "check": "format",
+          "kind": "choice",
+          "choices": [
+            "a",
+            "b",
+            "c",
+            "d"
+          ]
+        }
+      },
+      {
+        "id": "answer",
+        "visibility": "hidden",
+        "input_rows": [],
+        "expected": [],
+        "scenario": {
+          "check": "answer",
+          "kind": "choice",
+          "choices": [
+            "a",
+            "b",
+            "c",
+            "d"
+          ],
+          "why": "An SLI is a measurement, usually a ratio of good events to all events. An SLO is a target for an SLI over a window: a percentage and a period. An SLA is a contract with consequences when the SLO is missed.",
+          "correct": [
+            "b"
+          ]
+        }
+      }
+    ]
+  },
+  "infra-concept-slo-error-budget": {
+    "solution": "answer: 43.2\n",
+    "fixtures": [
+      {
+        "id": "format",
+        "visibility": "visible",
+        "input_rows": [],
+        "expected": [],
+        "scenario": {
+          "check": "format",
+          "kind": "text",
+          "choices": []
+        }
+      },
+      {
+        "id": "answer",
+        "visibility": "hidden",
+        "input_rows": [],
+        "expected": [],
+        "scenario": {
+          "check": "answer",
+          "kind": "text",
+          "choices": [],
+          "why": "The error budget is 100% - 99.9% = 0.1% of the window: 30 days x 24 h x 60 min = 43,200 minutes, and 0.1% of it is 43.2 minutes. At 99.99% it would be 4.32 minutes.",
+          "accepted": [
+            "43.2",
+            "43.2 minutes",
+            "43.2 min",
+            "43",
+            "43 minutes"
+          ]
+        }
+      }
+    ]
+  },
+  "infra-concept-slo-burn-rate": {
+    "solution": "answer: b\n",
+    "fixtures": [
+      {
+        "id": "format",
+        "visibility": "visible",
+        "input_rows": [],
+        "expected": [],
+        "scenario": {
+          "check": "format",
+          "kind": "choice",
+          "choices": [
+            "a",
+            "b",
+            "c",
+            "d"
+          ]
+        }
+      },
+      {
+        "id": "answer",
+        "visibility": "hidden",
+        "input_rows": [],
+        "expected": [],
+        "scenario": {
+          "check": "answer",
+          "kind": "choice",
+          "choices": [
+            "a",
+            "b",
+            "c",
+            "d"
+          ],
+          "why": "A burn rate of 1 spends the budget exactly over the 30 days (720 hours). At 14.4, one hour spends 14.4 / 720 = 2% of the budget. Google's SRE workbook pairs this fast-burn alert (page) with slower ones, for example 6 over 6 hours (5%), for tickets.",
+          "correct": [
+            "b"
+          ]
+        }
+      }
+    ]
+  },
+  "infra-concept-alert-symptoms": {
+    "solution": "answer: b\n",
+    "fixtures": [
+      {
+        "id": "format",
+        "visibility": "visible",
+        "input_rows": [],
+        "expected": [],
+        "scenario": {
+          "check": "format",
+          "kind": "choice",
+          "choices": [
+            "a",
+            "b",
+            "c",
+            "d"
+          ]
+        }
+      },
+      {
+        "id": "answer",
+        "visibility": "hidden",
+        "input_rows": [],
+        "expected": [],
+        "scenario": {
+          "check": "answer",
+          "kind": "choice",
+          "choices": [
+            "a",
+            "b",
+            "c",
+            "d"
+          ],
+          "why": "Page on symptoms users feel (errors, latency, SLO burn) and send causes (CPU, disk, restarts) to dashboards or tickets: a busy CPU that hurts nobody is not an emergency, and user-facing pain is one even when no cause alert fired.",
+          "correct": [
+            "b"
+          ]
+        }
+      }
+    ]
+  },
+  "infra-concept-red-use": {
+    "solution": "answer: a\n",
+    "fixtures": [
+      {
+        "id": "format",
+        "visibility": "visible",
+        "input_rows": [],
+        "expected": [],
+        "scenario": {
+          "check": "format",
+          "kind": "choice",
+          "choices": [
+            "a",
+            "b",
+            "c",
+            "d"
+          ]
+        }
+      },
+      {
+        "id": "answer",
+        "visibility": "hidden",
+        "input_rows": [],
+        "expected": [],
+        "scenario": {
+          "check": "answer",
+          "kind": "choice",
+          "choices": [
+            "a",
+            "b",
+            "c",
+            "d"
+          ],
+          "why": "RED (Tom Wilkie): request Rate, Errors and Duration, per service. USE (Brendan Gregg): Utilization, Saturation and Errors, per resource (CPU, memory, disk, network). RED tells you users are hurting; USE helps find which resource is why.",
+          "correct": [
+            "a"
+          ]
+        }
+      }
+    ]
+  }
+}

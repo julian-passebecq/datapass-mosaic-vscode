@@ -1,0 +1,3 @@
+az vm list -g rg-reporting-prod -o table
+az monitor metrics list --resource vm-report-app-02 --metric "Percentage CPU" --interval 1h
+az vm restart -g rg-reporting-prod -n vm-report-app-02

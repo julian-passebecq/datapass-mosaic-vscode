@@ -1,0 +1,468 @@
+{
+  "format": "datapass.flashcards",
+  "version": 1,
+  "id": "infra-devops",
+  "title": "Infrastructure and DevOps for data",
+  "path": "infra-devops",
+  "cards": [
+    {
+      "id": "exit-status",
+      "front": "What does $? hold in bash?",
+      "back": "The exit status of the last command: 0 means success, anything else failure. Schedulers judge a job by it.",
+      "lesson": "infra-shell-basics",
+      "tags": [
+        "linux"
+      ]
+    },
+    {
+      "id": "set-euo",
+      "front": "What does set -euo pipefail do?",
+      "back": "-e stops at the first failing command, -u fails on unset variables, pipefail makes a pipeline fail if any stage fails.",
+      "lesson": "infra-shell-basics",
+      "tags": [
+        "linux"
+      ]
+    },
+    {
+      "id": "pipefail-why",
+      "front": "Why does a missing file not fail cat f | grep x | wc -l without pipefail?",
+      "back": "A pipeline's status is the last command's; wc succeeds, so the error from cat is lost.",
+      "lesson": "infra-shell-basics",
+      "tags": [
+        "linux"
+      ]
+    },
+    {
+      "id": "chmod-750",
+      "front": "What does chmod 750 grant?",
+      "back": "Owner rwx (7), group r-x (5), others nothing (0). Digits sum read 4, write 2, execute 1.",
+      "lesson": "infra-shell-basics",
+      "tags": [
+        "linux"
+      ]
+    },
+    {
+      "id": "df-du",
+      "front": "df versus du?",
+      "back": "df -h shows used and free space per mounted filesystem. du -sh sums file and folder sizes, to find what filled it.",
+      "lesson": "infra-shell-basics",
+      "tags": [
+        "linux"
+      ]
+    },
+    {
+      "id": "stderr",
+      "front": "Where should a script print errors?",
+      "back": "To stderr (echo \"msg\" >&2), and exit with a non-zero status.",
+      "lesson": "infra-shell-basics",
+      "tags": [
+        "linux"
+      ]
+    },
+    {
+      "id": "test-s",
+      "front": "What does [ -s file ] test?",
+      "back": "That the file exists and is not empty.",
+      "lesson": "infra-shell-basics",
+      "tags": [
+        "linux"
+      ]
+    },
+    {
+      "id": "load-average",
+      "front": "How do you read a load average?",
+      "back": "Runnable tasks plus tasks in uninterruptible I/O wait, averaged over 1, 5 and 15 minutes. Compare it with the number of vCPUs.",
+      "lesson": "infra-vm-monitoring",
+      "tags": [
+        "linux"
+      ]
+    },
+    {
+      "id": "iowait",
+      "front": "High load but low CPU usage?",
+      "back": "Likely I/O wait: tasks are blocked on disk or network. Check iowait in top or iostat.",
+      "lesson": "infra-vm-monitoring",
+      "tags": [
+        "linux"
+      ]
+    },
+    {
+      "id": "memory-leak",
+      "front": "What does a memory leak look like on a VM?",
+      "back": "Available memory falling steadily and only recovering at a restart.",
+      "lesson": "infra-vm-monitoring",
+      "tags": [
+        "linux",
+        "monitoring"
+      ]
+    },
+    {
+      "id": "terminal-lab-truth",
+      "front": "What does Datapass run in the Terminal Lab?",
+      "back": "None of your commands. It opens a VS Code terminal in the mission folder with your shell; the checker reads files and Git state afterwards.",
+      "lesson": "infra-shell-basics",
+      "tags": [
+        "datapass"
+      ]
+    },
+    {
+      "id": "docker-image",
+      "front": "What is a Docker image?",
+      "back": "A read-only stack of layers, one per Dockerfile instruction, identified by a name, tag and digest.",
+      "lesson": "infra-docker-images",
+      "tags": [
+        "docker"
+      ]
+    },
+    {
+      "id": "docker-container",
+      "front": "What is a container?",
+      "back": "A running (or stopped) instance of an image plus its own writable layer. Several containers can share one image.",
+      "lesson": "infra-docker-images",
+      "tags": [
+        "docker"
+      ]
+    },
+    {
+      "id": "docker-cache",
+      "front": "How does the Docker build cache work?",
+      "back": "A layer is reused while its instruction and inputs are unchanged; once one layer changes, every later layer is rebuilt.",
+      "lesson": "infra-docker-images",
+      "tags": [
+        "docker"
+      ]
+    },
+    {
+      "id": "docker-order",
+      "front": "Best order of Dockerfile instructions?",
+      "back": "Least to most frequently changed: base image, system packages, dependency manifest and install, then application code.",
+      "lesson": "infra-docker-images",
+      "tags": [
+        "docker"
+      ]
+    },
+    {
+      "id": "entrypoint-cmd",
+      "front": "ENTRYPOINT versus CMD?",
+      "back": "ENTRYPOINT is the program. CMD gives default arguments; arguments after the image name in docker run replace CMD.",
+      "lesson": "infra-docker-images",
+      "tags": [
+        "docker"
+      ]
+    },
+    {
+      "id": "dockerignore",
+      "front": "Why a .dockerignore?",
+      "back": "To keep .git, .env, data and caches out of the build context: faster builds and no secrets baked into layers.",
+      "lesson": "infra-docker-images",
+      "tags": [
+        "docker",
+        "security"
+      ]
+    },
+    {
+      "id": "docker-nonroot",
+      "front": "Why add USER in a Dockerfile?",
+      "back": "So the process does not run as root inside the container, limiting damage if it is compromised.",
+      "lesson": "infra-docker-images",
+      "tags": [
+        "docker",
+        "security"
+      ]
+    },
+    {
+      "id": "docker-pin",
+      "front": "Why pin image tags?",
+      "back": "latest changes under you; a pinned tag (or digest) gives reproducible builds.",
+      "lesson": "infra-docker-images",
+      "tags": [
+        "docker"
+      ]
+    },
+    {
+      "id": "docker-volume",
+      "front": "What happens to data written inside a container without a volume?",
+      "back": "It lives in the container's writable layer and is lost when the container is removed.",
+      "lesson": "infra-docker-compose",
+      "tags": [
+        "docker"
+      ]
+    },
+    {
+      "id": "compose-depends",
+      "front": "What does a plain depends_on guarantee?",
+      "back": "Only start order. The dependency may not be ready to accept connections yet.",
+      "lesson": "infra-docker-compose",
+      "tags": [
+        "docker"
+      ]
+    },
+    {
+      "id": "compose-healthy",
+      "front": "condition: service_healthy?",
+      "back": "Waits for the dependency's healthcheck to pass before starting the service.",
+      "lesson": "infra-docker-compose",
+      "tags": [
+        "docker"
+      ]
+    },
+    {
+      "id": "compose-down-v",
+      "front": "docker compose down versus down -v?",
+      "back": "down removes containers and networks but keeps named volumes; down -v also deletes the volumes and their data.",
+      "lesson": "infra-docker-compose",
+      "tags": [
+        "docker"
+      ]
+    },
+    {
+      "id": "compose-secrets",
+      "front": "Where do compose secrets go?",
+      "back": "In an env file or secret store kept out of Git, referenced with env_file or secrets, never written in the compose file.",
+      "lesson": "infra-docker-compose",
+      "tags": [
+        "docker",
+        "security"
+      ]
+    },
+    {
+      "id": "infra-lab-truth",
+      "front": "What does the Infra Lab execute?",
+      "back": "Nothing real: terraform, docker, kubectl and az are simulated in a pseudoterminal; files are read, never executed; nothing is provisioned, built or deployed.",
+      "lesson": "infra-docker-images",
+      "tags": [
+        "datapass"
+      ]
+    },
+    {
+      "id": "tf-plan",
+      "front": "What does terraform plan do?",
+      "back": "Compares the configuration with the state, refreshed from real infrastructure, and proposes creates, updates and replacements without making them.",
+      "lesson": "infra-terraform-state",
+      "tags": [
+        "terraform"
+      ]
+    },
+    {
+      "id": "tf-apply-plan",
+      "front": "Why apply a saved plan file?",
+      "back": "terraform apply tfplan applies exactly what was reviewed, even if the code changed since.",
+      "lesson": "infra-terraform-state",
+      "tags": [
+        "terraform"
+      ]
+    },
+    {
+      "id": "tf-symbols",
+      "front": "Plan symbols + ~ -/+ -?",
+      "back": "+ create, ~ update in place, -/+ destroy then create a replacement, - destroy. +/- creates the replacement first.",
+      "lesson": "infra-terraform-state",
+      "tags": [
+        "terraform"
+      ]
+    },
+    {
+      "id": "tf-replacement-risk",
+      "front": "Why read every -/+ line?",
+      "back": "A replaced storage account or database starts empty: a changed name or another force-new argument can destroy data.",
+      "lesson": "infra-terraform-state",
+      "tags": [
+        "terraform"
+      ]
+    },
+    {
+      "id": "tf-state",
+      "front": "What is Terraform state?",
+      "back": "The mapping from each resource address in the code to a real object, with its attributes. Terraform plans from it.",
+      "lesson": "infra-terraform-state",
+      "tags": [
+        "terraform"
+      ]
+    },
+    {
+      "id": "tf-remote-backend",
+      "front": "Why a remote backend with locking?",
+      "back": "The team shares one state, and the lock prevents two applies from running at once and corrupting it.",
+      "lesson": "infra-terraform-state",
+      "tags": [
+        "terraform"
+      ]
+    },
+    {
+      "id": "tf-sensitive",
+      "front": "Does sensitive = true keep a value out of the state?",
+      "back": "No. It hides the value from plan and apply output; the state still stores it in plain text. Protect the backend.",
+      "lesson": "infra-terraform-state",
+      "tags": [
+        "terraform",
+        "security"
+      ]
+    },
+    {
+      "id": "tf-for-each",
+      "front": "for_each versus count?",
+      "back": "for_each addresses instances by key (zones[\"raw\"]); count by index, so removing one renumbers the rest and plans changes to them.",
+      "lesson": "infra-terraform-state",
+      "tags": [
+        "terraform"
+      ]
+    },
+    {
+      "id": "tf-modules",
+      "front": "What is a Terraform module?",
+      "back": "A reusable folder of .tf files with input variables and outputs, called with a module block.",
+      "lesson": "infra-terraform-state",
+      "tags": [
+        "terraform"
+      ]
+    },
+    {
+      "id": "tf-init",
+      "front": "What does terraform init do?",
+      "back": "Downloads providers and modules and configures the backend. Run it first and after changing them.",
+      "lesson": "infra-terraform-state",
+      "tags": [
+        "terraform"
+      ]
+    },
+    {
+      "id": "adls-hns",
+      "front": "What makes an Azure storage account a Data Lake Storage Gen2 account?",
+      "back": "The hierarchical namespace (is_hns_enabled = true in azurerm): real directories and POSIX-like ACLs.",
+      "lesson": "infra-terraform-state",
+      "tags": [
+        "azure"
+      ]
+    },
+    {
+      "id": "k8s-desired-state",
+      "front": "What is desired state in Kubernetes?",
+      "back": "You declare what should exist (3 replicas of image X); controllers continuously converge the cluster towards it.",
+      "lesson": "infra-kubernetes-rollouts",
+      "tags": [
+        "kubernetes"
+      ]
+    },
+    {
+      "id": "k8s-deployment",
+      "front": "Deployment versus ReplicaSet?",
+      "back": "A ReplicaSet keeps N pods of one template. A Deployment manages ReplicaSets across template versions and performs rollouts.",
+      "lesson": "infra-kubernetes-rollouts",
+      "tags": [
+        "kubernetes"
+      ]
+    },
+    {
+      "id": "k8s-rolling",
+      "front": "maxSurge and maxUnavailable?",
+      "back": "maxSurge: extra pods allowed above the desired count during a rollout. maxUnavailable: pods that may be missing. 1 and 0 means one new pod at a time, never fewer than desired.",
+      "lesson": "infra-kubernetes-rollouts",
+      "tags": [
+        "kubernetes"
+      ]
+    },
+    {
+      "id": "k8s-readiness",
+      "front": "Readiness probe failing?",
+      "back": "The pod is removed from Service endpoints (no traffic) but not restarted. Rollouts wait for new pods to be ready.",
+      "lesson": "infra-kubernetes-rollouts",
+      "tags": [
+        "kubernetes"
+      ]
+    },
+    {
+      "id": "k8s-liveness",
+      "front": "Liveness probe failing?",
+      "back": "The kubelet restarts the container. Keep liveness cheap and independent of dependencies like the database.",
+      "lesson": "infra-kubernetes-rollouts",
+      "tags": [
+        "kubernetes"
+      ]
+    },
+    {
+      "id": "k8s-requests-limits",
+      "front": "Requests versus limits?",
+      "back": "Requests are what the scheduler reserves on a node. Limits cap usage: memory over limit is OOMKilled, CPU over limit is throttled.",
+      "lesson": "infra-kubernetes-rollouts",
+      "tags": [
+        "kubernetes"
+      ]
+    },
+    {
+      "id": "k8s-service",
+      "front": "What does a Service give pods?",
+      "back": "A stable virtual IP and DNS name in front of the pods matching its selector. Default type ClusterIP is reachable only inside the cluster.",
+      "lesson": "infra-kubernetes-rollouts",
+      "tags": [
+        "kubernetes"
+      ]
+    },
+    {
+      "id": "k8s-crashloop",
+      "front": "CrashLoopBackOff?",
+      "back": "The container keeps exiting after it starts; the kubelet restarts it with growing delays. Read kubectl logs --previous and the exit code.",
+      "lesson": "infra-kubernetes-rollouts",
+      "tags": [
+        "kubernetes",
+        "troubleshooting"
+      ]
+    },
+    {
+      "id": "k8s-pending",
+      "front": "A pod stays Pending?",
+      "back": "No node can fit its requests, or a volume cannot bind. kubectl describe pod shows the scheduling events.",
+      "lesson": "infra-kubernetes-rollouts",
+      "tags": [
+        "kubernetes",
+        "troubleshooting"
+      ]
+    },
+    {
+      "id": "k8s-imagepull",
+      "front": "ImagePullBackOff?",
+      "back": "The image cannot be pulled: wrong name or tag, or missing registry credentials.",
+      "lesson": "infra-kubernetes-rollouts",
+      "tags": [
+        "kubernetes",
+        "troubleshooting"
+      ]
+    },
+    {
+      "id": "k8s-rollback",
+      "front": "How do you roll back a Deployment?",
+      "back": "kubectl rollout undo deployment/name returns to the previous ReplicaSet's template.",
+      "lesson": "infra-kubernetes-rollouts",
+      "tags": [
+        "kubernetes"
+      ]
+    },
+    {
+      "id": "alert-aggregation",
+      "front": "Why does a 30-second CPU spike not trigger a 5-minute average alert?",
+      "back": "The rule aggregates the window first: 30 s at 100 % and 270 s at 20 % average 28 %.",
+      "lesson": "infra-vm-monitoring",
+      "tags": [
+        "monitoring"
+      ]
+    },
+    {
+      "id": "alert-signal",
+      "front": "Which aggregation catches a memory leak early?",
+      "back": "Minimum available memory against a threshold, with a window long enough to ignore short dips.",
+      "lesson": "infra-vm-monitoring",
+      "tags": [
+        "monitoring"
+      ]
+    },
+    {
+      "id": "action-group",
+      "front": "What is an Azure Monitor action group?",
+      "back": "The list of notifications and actions (email, SMS, webhook, runbook) an alert rule triggers.",
+      "lesson": "infra-vm-monitoring",
+      "tags": [
+        "monitoring",
+        "azure"
+      ]
+    }
+  ]
+}

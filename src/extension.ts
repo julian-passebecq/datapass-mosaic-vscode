@@ -1,8 +1,10 @@
 import * as vscode from "vscode";
+import { registerBuildCommands } from "./build/buildCommands";
 import { registerCatalogTree } from "./catalogTree";
 import { DbtTerminalSession, DbtToolsManager } from "./dbtLab";
 import { MissionsService } from "./missions";
 import { LabTreeProvider } from "./labTree";
+import { registerLearningWorkspace } from "./learning/learningWorkspace";
 import { TerminalLabSession } from "./terminalLab";
 import { InfraLabSession } from "./infraLab";
 import { MODULES } from "./modules";
@@ -46,6 +48,9 @@ export function activate(context: vscode.ExtensionContext): void {
   );
   context.subscriptions.push(...registerNativeIntegration(runtimeManager, dbtLab.missions, context.extensionUri,
     (view, message) => WorkbenchPanel.dispatch(context, runtimeManager, pythonTrust, view, dbtLab, message)));
+  context.subscriptions.push(...registerLearningWorkspace(context, runtimeManager,
+    (view, message) => WorkbenchPanel.dispatch(context, runtimeManager, pythonTrust, view, dbtLab, message)));
+  context.subscriptions.push(...registerBuildCommands(context, runtimeManager, pythonTrust));
   for (const module of MODULES) {
     context.subscriptions.push(
       vscode.commands.registerCommand(module.command, () => {

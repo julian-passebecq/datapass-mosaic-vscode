@@ -1,5 +1,5 @@
 import { toSparkLabRunView } from "../../platform/sparkLabRun";
-import type { SparkLabEngine } from "../../webview/contracts";
+import type { SparkLabEngine, SparkLabRunView } from "../../webview/contracts";
 import type { RuntimeConnection } from "../runtimeConnection";
 
 /** SparkLab: bounded PySpark-style files, or the same lesson in real Polars. */
@@ -9,8 +9,9 @@ export class SparkLabClient {
   /**
    * SparkLab: whitelisted AST to local SQL, never executed as Python. Polars: real local Python, which the
    * runtime refuses unless trusted Python is enabled; no simulated Polars output is ever returned.
+   * Returns this request's result, so another view cannot accidentally claim the global last run as its own.
    */
-  async runSparkLab(code: string, fileName: string, profileId: string, aqe: boolean, engine: SparkLabEngine = "sparklab"): Promise<void> {
+  async runSparkLab(code: string, fileName: string, profileId: string, aqe: boolean, engine: SparkLabEngine = "sparklab"): Promise<SparkLabRunView> {
     const url = this.runtime.runningUrl();
     if (!url) throw new Error("Start the Datapass runtime before running the Spark Lab.");
     const raw = await this.runtime.postJson<unknown>(
@@ -31,5 +32,6 @@ export class SparkLabClient {
       sparkRun
     });
     await this.runtime.refreshCatalog();
+    return sparkRun;
   }
 }

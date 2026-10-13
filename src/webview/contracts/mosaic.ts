@@ -86,6 +86,15 @@ export interface MosaicViewSlice {
   mosaicLayout?: readonly MosaicLayoutItem[];
   /** Mosaic SQL runs and plans in this workspace, newest first (VS Code workspace state, not a project file). */
   queryHistory?: readonly QueryHistoryEntry[];
+  /** What Mosaic's empty-state panel needs: set while Mosaic is shown in an open folder. */
+  mosaicWorkspace?: MosaicWorkspaceView;
+}
+
+export interface MosaicWorkspaceView {
+  /** No file yet in the notebooks folder (or no such folder). */
+  notebooksEmpty: boolean;
+  /** The manifest asks for a blank catalog (catalog.seed "none"): no demo tables. */
+  blankCatalog: boolean;
 }
 
 export type MosaicMessage =
@@ -100,4 +109,8 @@ export type MosaicMessage =
   | { type: "runActiveSql" }
   | { type: "runActivePython" }
   | { type: "saveMosaicLayout"; layout: readonly { i: string; x: number; y: number; w: number; h: number }[] }
-  | { type: "openScratch"; kind: ScratchKind };
+  | { type: "openScratch"; kind: ScratchKind }
+  /** The empty-state panel: Build's New file and Import dataset commands, and the Learning workspace. */
+  | { type: "buildNewFile" }
+  | { type: "buildImportDataset" }
+  | { type: "openLearning" };

@@ -114,7 +114,8 @@ export class MosaicClient {
     return plan;
   }
 
-  async runPython(code: string): Promise<void> {
+  /** Returns this request's result; callers need not read the mutable global lastRun. */
+  async runPython(code: string): Promise<LocalCellRunView> {
     const url = this.runtime.runningUrl();
     if (!url) throw new Error("Start the Datapass runtime before running Python.");
     if (!this.runtime.state().trustedPython) {
@@ -138,5 +139,20 @@ export class MosaicClient {
       csvImport: undefined
     });
     await this.runtime.refreshCatalog();
+    return lastRun;
+  }
+
+  /** The running runtime's native DuckDB version and catalog seed (GET /api/capabilities), or undefined when stopped. */
+  async engineInfo(): Promise<{ duckdbVersion?: string; catalogSeed?: string } | undefined> {
+    const url = this.runtime.runningUrl();
+    if (!url) return undefined;
+    const capabilities = await this.runtime.getJson<{ mosaic?: { duckdb_version?: unknown; catalog_seed?: unknown } }>(
+      `${url}/api/capabilities`, 10000);
+    const version = capabilities.mosaic?.duckdb_version;
+    const seed = capabilities.mosaic?.catalog_seed;
+    return {
+      duckdbVersion: typeof version === "string" ? version : undefined,
+      catalogSeed: typeof seed === "string" ? seed : undefined
+    };
   }
 }

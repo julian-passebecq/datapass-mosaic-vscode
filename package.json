@@ -2,7 +2,7 @@
   "name": "datapass-mosaic-vscode",
   "displayName": "Datapass Workbench",
   "description": "Local-first data-engineering practice workbench for VS Code.",
-  "version": "0.3.0",
+  "version": "0.4.0",
   "publisher": "datapass",
   "repository": {
     "type": "git",
@@ -27,8 +27,50 @@
   "contributes": {
     "commands": [
       {
+        "command": "datapass.learning.open",
+        "title": "Datapass: Open Learning",
+        "icon": "$(book)"
+      },
+      {
+        "command": "datapass.learning.resume",
+        "title": "Datapass: Resume Learning"
+      },
+      {
+        "command": "datapass.learning.select",
+        "title": "Datapass: Select Learning Topic"
+      },
+      {
+        "command": "datapass.learning.review",
+        "title": "Datapass: Review Learning Flashcards"
+      },
+      {
         "command": "datapass.openHome",
         "title": "Datapass: Open Today"
+      },
+      {
+        "command": "datapass.build.newWorkspace",
+        "title": "New Blank Workspace",
+        "category": "Datapass Build"
+      },
+      {
+        "command": "datapass.build.newFile",
+        "title": "New File (SQL, Python, Polars, Markdown)",
+        "category": "Datapass Build"
+      },
+      {
+        "command": "datapass.build.importDataset",
+        "title": "Import Dataset",
+        "category": "Datapass Build"
+      },
+      {
+        "command": "datapass.interop.import",
+        "title": "Import Mosaic Exchange",
+        "category": "Datapass"
+      },
+      {
+        "command": "datapass.interop.export",
+        "title": "Export Mosaic Exchange",
+        "category": "Datapass"
       },
       {
         "command": "datapass.openProjects",
@@ -157,6 +199,11 @@
     "views": {
       "datapass": [
         {
+          "id": "datapass.learning.path",
+          "name": "Learning Path",
+          "visibility": "collapsed"
+        },
+        {
           "id": "datapass.labs",
           "name": "Labs"
         },
@@ -168,6 +215,11 @@
     },
     "menus": {
       "view/title": [
+        {
+          "command": "datapass.learning.open",
+          "when": "view == datapass.labs || view == datapass.learning.path",
+          "group": "navigation@0"
+        },
         {
           "command": "datapass.catalog.refresh",
           "when": "view == datapass.catalog",
@@ -228,6 +280,10 @@
         {
           "command": "datapass.apilab.run",
           "when": "false"
+        },
+        {
+          "command": "datapass.learning.select",
+          "when": "false"
         }
       ]
     },
@@ -280,6 +336,17 @@
         "title": "Get started with Datapass",
         "description": "Set up the local runtime, open Today, solve a first Practice problem and do a first mission.",
         "steps": [
+          {
+            "id": "learningPaths",
+            "title": "Learn by following a path",
+            "description": "Read a course, inspect a teaching diagram, open native code and move to the linked Practice exercise without losing the topic.\n[Open Learning](command:datapass.learning.open)",
+            "media": {
+              "markdown": "media/walkthrough/learning.md"
+            },
+            "completionEvents": [
+              "onCommand:datapass.learning.open"
+            ]
+          },
           {
             "id": "setupRuntime",
             "title": "Set up the local runtime",
@@ -336,8 +403,8 @@
     "vscode:prepublish": "npm run compile",
     "test:host": "npm run build && node scripts/extension_host_e2e.mjs",
     "package": "vsce package --skip-license",
-    "test:ui": "node scripts/vscode_ui_pass.mjs",
-    "test": "node scripts/scaffold_smoke.mjs && node scripts/runtime_endpoint_smoke.mjs && node scripts/runtime_auth_smoke.mjs && node scripts/package_smoke.mjs && node scripts/runtime_environment_smoke.mjs && node scripts/runtime_fingerprint_smoke.mjs && node scripts/trust_smoke.mjs && node scripts/mosaic_layout_smoke.mjs && node scripts/csv_import_smoke.mjs && node scripts/airflow_lab_smoke.mjs && node scripts/factory_lab_smoke.mjs && node scripts/sqlpool_lab_smoke.mjs && node scripts/databricks_lab_smoke.mjs && node scripts/bi_lab_smoke.mjs && node scripts/catalog_tree_smoke.mjs && node scripts/projects_ui_smoke.mjs && node scripts/exercise_workspace_smoke.mjs && node scripts/practice_progress_smoke.mjs && node scripts/practice_arena_smoke.mjs && node scripts/dbt_lab_smoke.mjs && node scripts/missions_ui_smoke.mjs && node scripts/practice_feedback_smoke.mjs && node scripts/mosaic_tools_smoke.mjs && node scripts/sql_dialect_smoke.mjs && node scripts/terminal_lab_smoke.mjs && node scripts/infra_lab_smoke.mjs && node scripts/message_table_smoke.mjs && node scripts/home_smoke.mjs && node scripts/native_smoke.mjs && node scripts/json_schemas_smoke.mjs"
+    "test:ui": "node scripts/vscode_ui_pass.mjs && node scripts/learning_vscode_smoke.mjs && node scripts/ui_suite.mjs",
+    "test": "node scripts/scaffold_smoke.mjs && node scripts/runtime_endpoint_smoke.mjs && node scripts/runtime_auth_smoke.mjs && node scripts/package_smoke.mjs && node scripts/runtime_environment_smoke.mjs && node scripts/runtime_fingerprint_smoke.mjs && node scripts/trust_smoke.mjs && node scripts/mosaic_layout_smoke.mjs && node scripts/csv_import_smoke.mjs && node scripts/airflow_lab_smoke.mjs && node scripts/factory_lab_smoke.mjs && node scripts/sqlpool_lab_smoke.mjs && node scripts/databricks_lab_smoke.mjs && node scripts/bi_lab_smoke.mjs && node scripts/catalog_tree_smoke.mjs && node scripts/projects_ui_smoke.mjs && node scripts/exercise_workspace_smoke.mjs && node scripts/practice_progress_smoke.mjs && node scripts/practice_arena_smoke.mjs && node scripts/dbt_lab_smoke.mjs && node scripts/missions_ui_smoke.mjs && node scripts/practice_feedback_smoke.mjs && node scripts/mosaic_tools_smoke.mjs && node scripts/sql_dialect_smoke.mjs && node scripts/terminal_lab_smoke.mjs && node scripts/infra_lab_smoke.mjs && node scripts/message_table_smoke.mjs && node scripts/home_smoke.mjs && node scripts/native_smoke.mjs && node scripts/json_schemas_smoke.mjs && node --test scripts/learning_smoke.mjs scripts/learning_host_smoke.mjs && node scripts/run_suite.mjs"
   },
   "dependencies": {
     "@fluentui/react-components": "^9.68.0",

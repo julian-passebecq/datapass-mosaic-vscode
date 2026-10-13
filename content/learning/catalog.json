@@ -1,0 +1,19 @@
+{
+  "format": "datapass.learning",
+  "version": 1,
+  "paths": [
+    "sql-foundations",
+    "python-foundations",
+    "spark-mental-model",
+    "warehouse-modeling",
+    "lakehouse-storage",
+    "production-pipelines",
+    "polars",
+    "de-foundations",
+    "git-shell",
+    "spark-platforms",
+    "orchestration-production",
+    "infra-devops",
+    "bi-governance"
+  ]
+}

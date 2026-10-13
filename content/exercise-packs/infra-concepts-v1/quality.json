@@ -1,0 +1,75 @@
+{
+  "flags": {
+    "runnable_starters": true
+  },
+  "mutants": {
+    "infra-concept-signals-traces": [
+      "answer: a\n",
+      "answer: c\n"
+    ],
+    "infra-concept-signals-cardinality": [
+      "answer: a\n",
+      "answer: c\n"
+    ],
+    "infra-concept-signals-structured-logs": [
+      "answer: a\n",
+      "answer: c\n"
+    ],
+    "infra-concept-promql-metric-types": [
+      "answer: I don't know\n",
+      "answer: counter\n"
+    ],
+    "infra-concept-promql-rate": [
+      "answer: a\n",
+      "answer: c\n"
+    ],
+    "infra-concept-promql-range-vector": [
+      "answer: b\n",
+      "answer: c\n"
+    ],
+    "infra-concept-promql-sum-by": [
+      "answer: a\n",
+      "answer: c\n"
+    ],
+    "infra-concept-promql-histogram-quantile": [
+      "answer: a\n",
+      "answer: c\n"
+    ],
+    "infra-concept-grafana-datasources": [
+      "answer: a\n",
+      "answer: c\n"
+    ],
+    "infra-concept-grafana-variables": [
+      "answer: a\n",
+      "answer: c\n"
+    ],
+    "infra-concept-grafana-pending-period": [
+      "answer: a\n",
+      "answer: c\n"
+    ],
+    "infra-concept-grafana-notification-policies": [
+      "answer: a\n",
+      "answer: c\n"
+    ],
+    "infra-concept-slo-sli": [
+      "answer: a\n",
+      "answer: c\n"
+    ],
+    "infra-concept-slo-error-budget": [
+      "answer: I don't know\n",
+      "answer: 4.32\n"
+    ],
+    "infra-concept-slo-burn-rate": [
+      "answer: a\n",
+      "answer: c\n"
+    ],
+    "infra-concept-alert-symptoms": [
+      "answer: a\n",
+      "answer: c\n"
+    ],
+    "infra-concept-red-use": [
+      "answer: b\n",
+      "answer: c\n"
+    ]
+  }
+}

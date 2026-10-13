@@ -1,0 +1,93 @@
+{
+  "id": "docker-first-image",
+  "version": "1",
+  "lab": "infra",
+  "title": "Your first image: write a Dockerfile, build it, run it",
+  "level": "intro",
+  "estimate": "20-30 min",
+  "skills": ["Dockerfile FROM / WORKDIR / COPY / RUN / CMD", "docker build -t and the layer cache", "docker run -d --name -p", "docker ps / logs / images", "binding 0.0.0.0 inside a container"],
+  "ticket": {
+    "from": "Marco Bianchi, IoT team lead",
+    "subject": "sensor-api: ship it as an image",
+    "body": [
+      "The dashboards team wants to run `sensor-api` (the FastAPI app in `app/`) without installing Python. Please",
+      "write its `Dockerfile` and try it on your machine:",
+      "",
+      "- **Base image** `python:3.12-slim`: a pinned, small Python. Never `latest`, which changes under your feet.",
+      "- **Fast rebuilds**: we change `app/main.py` many times a day. A change there must not reinstall the",
+      "  dependencies: the `pip install` layer has to come from the cache.",
+      "- **The command** starts `uvicorn app.main:app` on port 8000, in the JSON (exec) form, reachable from outside",
+      "  the container.",
+      "- Build it as `sensor-api:0.1`, run it in the background as a container named `sensor-api` with the app's",
+      "  port 8000 published on port **8080** of your machine, check it with `docker ps`, and call",
+      "  http://localhost:8080/health.",
+      "",
+      "This is the lab's simulated Docker engine: nothing is built, pulled or run, and your files are read, never",
+      "executed."
+    ]
+  },
+  "acceptance": [
+    {
+      "id": "image",
+      "text": "sensor-api:0.1 is built from the current Dockerfile on python:3.12-slim, with an exec-form command.",
+      "checks": [
+        {"kind": "docker_image", "tag": "sensor-api:0.1", "current": true, "base": "python:3\\.12-slim", "no_lint": ["DL3007", "DL3025"],
+         "fail": "The image is not the one the ticket asks for."}
+      ]
+    },
+    {
+      "id": "cache",
+      "text": "A change to app/main.py keeps the pip install layer cached.",
+      "checks": [
+        {"kind": "docker_build", "changed": ["app/main.py"], "cached": ["pip install"], "fail": "Rebuilds after a code change reinstall the dependencies."}
+      ]
+    },
+    {
+      "id": "container",
+      "text": "A container named sensor-api runs the image and answers on http://localhost:8080/health.",
+      "checks": [
+        {"kind": "docker_container", "name": "sensor-api", "running": true, "reachable": [8080, "/health"],
+         "fail": "The sensor-api container does not answer on localhost:8080."}
+      ]
+    },
+    {
+      "id": "workflow",
+      "text": "You built the image, ran it and looked at it with docker ps.",
+      "checks": [
+        {"kind": "journal", "includes": ["^docker build ", "^docker run ", "^docker ps"], "before": [["^docker build ", "^docker run "]],
+         "fail": "docker build, docker run and docker ps were not all run, in that order."}
+      ]
+    }
+  ],
+  "hints": [
+    "A Dockerfile is read top to bottom: `FROM` the base image, `WORKDIR /app`, `COPY` files in, `RUN` a command at build time, `CMD` the command the container starts with.",
+    "Each instruction is a layer, cached until it or what it copies changes, and every layer after a changed one is rebuilt. `COPY requirements.txt .` then `RUN pip install ...` then `COPY app ./app` keeps the install cached when only the code changes.",
+    "`CMD [\"uvicorn\", \"app.main:app\", \"--host\", \"0.0.0.0\", \"--port\", \"8000\"]`: uvicorn listens on 127.0.0.1 by default, which inside a container is the container itself, so a published port could never reach it.",
+    "`docker run -d --name sensor-api -p 8080:8000 sensor-api:0.1`: `-p HOST:CONTAINER`. `docker ps` lists running containers, `docker logs sensor-api` shows what the app printed.",
+    "The lint findings at the end of `docker build` explain what to improve (DL3007: unpinned base, DL3025: shell-form command, DP001: code copied before the dependencies). `docker history sensor-api:0.1` lists the layers.",
+    "Changed the Dockerfile? Build again: a container keeps the image it started from, so remove it (`docker rm -f sensor-api`) and run it again from the new image."
+  ],
+  "infra": {
+    "world": {
+      "clock": "2026-10-12T10:00:00Z",
+      "docker": {
+        "apps": {
+          "sensor-api": {
+            "health_path": "/health",
+            "routes": {"/": "{\"service\":\"sensor-api\",\"sensors\":2}"},
+            "start_log": ["INFO:     Started server process [1]", "INFO:     Waiting for application startup.", "INFO:     Application startup complete."]
+          }
+        }
+      }
+    }
+  },
+  "reference": [
+    {"infra": "docker build -t sensor-api:0.1 ."},
+    {"infra": "docker images"},
+    {"infra": "docker history sensor-api:0.1"},
+    {"infra": "docker run -d --name sensor-api -p 8080:8000 sensor-api:0.1"},
+    {"infra": "docker ps"},
+    {"infra": "docker logs sensor-api"},
+    {"infra": "curl http://localhost:8080/health"}
+  ]
+}

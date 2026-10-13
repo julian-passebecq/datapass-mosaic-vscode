@@ -1,0 +1,286 @@
+{
+  "format": "datapass.flashcards",
+  "version": 1,
+  "id": "polars",
+  "title": "Polars",
+  "path": "polars",
+  "cards": [
+    {
+      "id": "expression",
+      "front": "What is a Polars expression?",
+      "back": "A description of a computation on columns, such as pl.col(\"amount\") * 2, evaluated inside a context like select, with_columns, filter or agg.",
+      "lesson": "polars-expressions",
+      "tags": [
+        "expressions"
+      ]
+    },
+    {
+      "id": "select-vs-with-columns",
+      "front": "What is the difference between select and with_columns?",
+      "back": "select returns only the listed expressions; with_columns returns all existing columns plus the new or replaced ones.",
+      "lesson": "polars-expressions",
+      "tags": [
+        "expressions"
+      ]
+    },
+    {
+      "id": "parallel-expressions",
+      "front": "Can an expression in with_columns use a column created by another expression in the same call?",
+      "back": "No. Expressions of one context are evaluated in parallel on the input frame. Use a second with_columns.",
+      "lesson": "polars-expressions",
+      "tags": [
+        "expressions"
+      ]
+    },
+    {
+      "id": "alias",
+      "front": "How do you name the result of an expression?",
+      "back": "With .alias(\"name\"), for example pl.col(\"a\").sum().alias(\"total\").",
+      "lesson": "polars-expressions",
+      "tags": [
+        "expressions"
+      ]
+    },
+    {
+      "id": "when-then",
+      "front": "What is the Polars equivalent of CASE WHEN?",
+      "back": "pl.when(condition).then(value).otherwise(other); several .when().then() can be chained.",
+      "lesson": "polars-expressions",
+      "tags": [
+        "expressions",
+        "conditions"
+      ]
+    },
+    {
+      "id": "len-vs-count",
+      "front": "What is the difference between pl.len() and pl.col(\"x\").count()?",
+      "back": "pl.len() counts rows; count() counts the non-null values of the column.",
+      "lesson": "polars-expressions",
+      "tags": [
+        "aggregation",
+        "null"
+      ]
+    },
+    {
+      "id": "filter-null",
+      "front": "How does filter treat a null result of the predicate?",
+      "back": "As false: the row is dropped.",
+      "lesson": "polars-expressions",
+      "tags": [
+        "null",
+        "filters"
+      ]
+    },
+    {
+      "id": "fill-null",
+      "front": "How do you replace nulls in a column?",
+      "back": "pl.col(\"x\").fill_null(value), or fill_null(strategy=\"forward\") to carry the previous value.",
+      "lesson": "polars-expressions",
+      "tags": [
+        "null"
+      ]
+    },
+    {
+      "id": "eq-missing",
+      "front": "How do you compare two columns so that null equals null?",
+      "back": "pl.col(\"a\").eq_missing(pl.col(\"b\")): null and null give true, null and a value give false.",
+      "lesson": "polars-expressions",
+      "tags": [
+        "null"
+      ]
+    },
+    {
+      "id": "group-by-agg",
+      "front": "How do you compute several aggregates per group?",
+      "back": "df.group_by(\"key\").agg(pl.col(\"x\").sum(), pl.col(\"y\").mean(), pl.len()); each expression gives one output column.",
+      "lesson": "polars-expressions",
+      "tags": [
+        "aggregation"
+      ]
+    },
+    {
+      "id": "group-by-order",
+      "front": "Is the row order of group_by output stable?",
+      "back": "Not by default. Pass maintain_order=True or sort the result when order matters.",
+      "lesson": "polars-expressions",
+      "tags": [
+        "aggregation",
+        "ordering"
+      ]
+    },
+    {
+      "id": "map-elements",
+      "front": "Why avoid map_elements with a Python lambda?",
+      "back": "It calls Python once per value, which is slow and opaque to the optimizer. Native expressions (str, dt, list namespaces) run in Rust and appear in the plan.",
+      "lesson": "polars-expressions",
+      "tags": [
+        "performance"
+      ]
+    },
+    {
+      "id": "str-namespace",
+      "front": "Where are the string functions of an expression?",
+      "back": "In the .str namespace: pl.col(\"name\").str.to_lowercase(), .str.contains(), .str.to_date() and so on.",
+      "lesson": "polars-expressions",
+      "tags": [
+        "expressions"
+      ]
+    },
+    {
+      "id": "lazy-vs-eager",
+      "front": "What is the difference between a DataFrame and a LazyFrame?",
+      "back": "A DataFrame computes each step immediately. A LazyFrame records the steps and computes only on collect(), after optimizing the whole query.",
+      "lesson": "polars-lazy",
+      "tags": [
+        "lazy"
+      ]
+    },
+    {
+      "id": "scan-vs-read",
+      "front": "What is the difference between pl.read_parquet and pl.scan_parquet?",
+      "back": "read_parquet loads the file into a DataFrame now; scan_parquet returns a LazyFrame, so only the needed columns and rows are read when it is collected.",
+      "lesson": "polars-lazy",
+      "tags": [
+        "lazy",
+        "parquet"
+      ]
+    },
+    {
+      "id": "predicate-pushdown",
+      "front": "What is predicate pushdown?",
+      "back": "Moving a filter as close to the scan as possible, so rows that fail it are dropped while reading instead of later.",
+      "lesson": "polars-lazy",
+      "tags": [
+        "optimizer"
+      ]
+    },
+    {
+      "id": "projection-pushdown",
+      "front": "What is projection pushdown?",
+      "back": "Reading only the columns the query uses; unused columns are never loaded.",
+      "lesson": "polars-lazy",
+      "tags": [
+        "optimizer"
+      ]
+    },
+    {
+      "id": "explain",
+      "front": "How do you see the plan Polars will run?",
+      "back": "lazy_frame.explain() returns the optimized plan as text; read it from the bottom (the scan) up.",
+      "lesson": "polars-lazy",
+      "tags": [
+        "optimizer"
+      ]
+    },
+    {
+      "id": "collect-once",
+      "front": "Why avoid calling collect() in the middle of a lazy query?",
+      "back": "It materializes an intermediate result and splits the plan, so later filters and projections cannot be pushed into the scan.",
+      "lesson": "polars-lazy",
+      "tags": [
+        "lazy"
+      ]
+    },
+    {
+      "id": "sink",
+      "front": "How do you write a lazy result that does not fit in memory?",
+      "back": "Use sink_parquet (or sink_csv) on the LazyFrame: it runs the query in streaming mode and writes the result to disk.",
+      "lesson": "polars-lazy",
+      "tags": [
+        "lazy",
+        "streaming"
+      ]
+    },
+    {
+      "id": "lazy-from-df",
+      "front": "How do you turn an existing DataFrame into a LazyFrame?",
+      "back": "df.lazy(); collect() turns it back into a DataFrame.",
+      "lesson": "polars-lazy",
+      "tags": [
+        "lazy"
+      ]
+    },
+    {
+      "id": "join-how",
+      "front": "Which join types does DataFrame.join support with how=?",
+      "back": "inner, left, right, full, semi, anti and cross.",
+      "lesson": "polars-joins",
+      "tags": [
+        "joins"
+      ]
+    },
+    {
+      "id": "semi-anti",
+      "front": "What do how=\"semi\" and how=\"anti\" return?",
+      "back": "semi: the left rows with at least one match, once each, left columns only. anti: the left rows with no match.",
+      "lesson": "polars-joins",
+      "tags": [
+        "joins"
+      ]
+    },
+    {
+      "id": "join-null-keys",
+      "front": "Do null keys match in a Polars join by default?",
+      "back": "No. Set nulls_equal=True (join_nulls in older versions) to make null match null.",
+      "lesson": "polars-joins",
+      "tags": [
+        "joins",
+        "null"
+      ]
+    },
+    {
+      "id": "join-suffix",
+      "front": "What happens to a non-key column that exists on both sides of a join?",
+      "back": "The right one is renamed with the suffix \"_right\" by default; change it with suffix=.",
+      "lesson": "polars-joins",
+      "tags": [
+        "joins"
+      ]
+    },
+    {
+      "id": "left-join-filter",
+      "front": "Why can filtering after a left join turn it into an inner join?",
+      "back": "Unmatched left rows have nulls in the right columns; a filter on a right column drops them. Filter the right frame before the join.",
+      "lesson": "polars-joins",
+      "tags": [
+        "joins",
+        "filters"
+      ]
+    },
+    {
+      "id": "join-validate",
+      "front": "How can a Polars join check its cardinality?",
+      "back": "validate=\"1:1\", \"1:m\" or \"m:1\" raises an error when keys are not unique on the side that should be unique.",
+      "lesson": "polars-joins",
+      "tags": [
+        "joins",
+        "cardinality"
+      ]
+    },
+    {
+      "id": "join-on-different-names",
+      "front": "How do you join when the key columns have different names?",
+      "back": "left_on=\"customer_id\", right_on=\"id\".",
+      "lesson": "polars-joins",
+      "tags": [
+        "joins"
+      ]
+    },
+    {
+      "id": "over",
+      "front": "What is the Polars equivalent of a SQL window function with PARTITION BY?",
+      "back": "An expression with .over(\"key\"), for example pl.col(\"amount\").sum().over(\"customer_id\") puts the per-customer total on each row.",
+      "tags": [
+        "windows"
+      ]
+    },
+    {
+      "id": "trusted-python",
+      "front": "Why does Polars in Datapass need trusted local Python?",
+      "back": "Polars runs as real Python code in the local worker, which is not a sandbox, so it only runs after you explicitly enable trusted Python for the workspace.",
+      "tags": [
+        "datapass"
+      ]
+    }
+  ]
+}
