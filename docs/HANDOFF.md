@@ -58,7 +58,8 @@ V1 additions (branch `codex/mosaic-vsix-v1-finish-20261011`, merged locally, not
   Practice passed); only a Practice pass is verified. Flashcards are self-rated (`datapass.learning.review`, Leitner
   intervals, outside `.datapass/progress.json`).
 - **Build**: blank workspace (`catalog.seed: "none"`, absent = demo), New file, Import dataset (never overwrite);
-  exchange `datapass.mosaic-exchange` v1 (docs/MOSAIC_EXCHANGE.md): import writes native files never run, export is names and hashes.
+  Mosaic Studio interop (docs/MOSAIC_EXCHANGE.md): Studio's real `.ipynb` + `metadata.datapass` and the
+  `datapass.mosaic-exchange` v1 contract (not produced by Studio yet); import writes native files never run, export is text, names and hashes.
 - **Pipeline editor**: Cloud Lab › Pipelines edits Fabric / ADF / Synapse JSON in place (unknown fields kept, save
   refuses a file changed on disk, undo capped at 100). **Infra ladder**: `infra-v1` has 13 missions.
 - New `quiz` packs, no execution: `learning-checks-v1` (72 checks), `infra-concepts-v1` (17).

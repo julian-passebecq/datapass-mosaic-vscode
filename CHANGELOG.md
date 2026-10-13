@@ -6,6 +6,12 @@ Each version's section becomes the notes of its GitHub Release (see docs/RELEASE
 
 ## [Unreleased]
 
+- **Mosaic Studio notebooks (.ipynb)**: Import Mosaic Exchange also reads Mosaic Studio's real interchange (Jupyter
+  nbformat 4 with `metadata.datapass`) into native files that are never run, and Export Mosaic Exchange can write a
+  `.ipynb` that Studio's `import_notebook` accepts unchanged (source only, no outputs, no data); fixtures exported by
+  Studio itself, a local round trip against Studio's own Python (`scripts/interop/studio_roundtrip.py`), and
+  docs/MOSAIC_EXCHANGE.md now says Studio does not produce `datapass.mosaic-exchange` yet.
+
 ## [0.4.0] - 2026-10-13
 
 Mosaic V1: Learning workspace, blank Build workspace, pipeline authoring, Infra ladder, Mosaic Studio exchange.

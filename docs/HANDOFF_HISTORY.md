@@ -9,6 +9,30 @@ Add a tranche as a new `## YYYY-MM-DD · Title` section at the top, under this p
 sections, and refer to another section by its heading, not by a position. Keep the "Checked" and "Not checked"
 notes: they say what was really run.
 
+## 2026-10-13 · Mosaic Studio .ipynb interop
+
+Branch `feat/studio-ipynb-interop` from main `ccc3b29`. The `datapass.mosaic-exchange` contract was never produced or
+read by Mosaic Studio; Studio's merged interchange is Jupyter `.ipynb` (nbformat 4) with `metadata.datapass`
+(`py/service/notebook_io.py`). New `src/platform/studioNotebook.ts` (pure) maps it exactly as Studio does (note, sql,
+jupyter, runtime-model, inert) into native files under `notebooks/imported/<id>/` with a record in
+`.datapass/interop/<id>.json`, and exports a notebook folder or an imported notebook back to a `.ipynb` Studio
+accepts unchanged. `datapass.interop.import` accepts `.ipynb`; `datapass.interop.export` asks for the format
+(`datapass.interop.formatLabels`). Fixtures in `content/interop/examples/studio/` were written by Studio's own
+`export_notebook` at Studio `4623b04949906070a0b898b23a64ffd5f1eede8a`. docs/MOSAIC_EXCHANGE.md now says which
+format Studio produces; Studio's open PR #45 (`datapass.workbench.notebook`) is not targeted.
+
+Checked:
+- `scripts/interop/studio_roundtrip.py` against a temporary worktree of Studio origin/main `4623b04` (Studio's
+  notebook_io.py with its pinned nbformat 5.11.1): passed both ways; it skips without `DATAPASS_MOSAICSTUDIO`.
+- `scripts/suite/studio_notebook.test.mjs` (fixture round trips, cycle/dangling/non-runnable refusal, no overwrite,
+  never executes, unknown metadata kept); `npm run compile`, `npm test`, `json_schemas_smoke`; v1_acceptance step 8
+  imports `studio-all-kinds.ipynb` (files exist, no table created).
+
+Not checked:
+- A notebook exported by the Workbench opened in the Studio browser UI (only Studio's Python import was used).
+- Plain Jupyter notebooks without ids get random nbformat ids when Studio re-exports them (Studio's behaviour), so
+  `studio-wind-reference.ipynb` is not byte-stable across regenerations.
+
 ## 2026-10-13 · Mosaic VSIX V1 finish
 
 Branch `codex/mosaic-vsix-v1-finish-20261011` (tip `57ab2d8`): the sqlglot typing fix (`ad8d7b7`), PR #72 Learning and
