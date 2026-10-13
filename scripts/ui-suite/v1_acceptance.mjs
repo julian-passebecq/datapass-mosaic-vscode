@@ -351,7 +351,7 @@ try {
     await pickItem("New file", "SQL");
     await answerInput(/New SQL file/, SQL_NAME);
     const sqlFile = ws("notebooks", SQL_NAME);
-    check("SQL file created in notebooks/", await waitFor(() => existsSync(sqlFile)));
+    check("SQL file created in notebooks/", await waitFor(() => existsSync(sqlFile) && read(sqlFile).length > 0));
     check("SQL file opened in a native editor", await page.locator(".tab", { hasText: SQL_NAME }).first().waitFor({ timeout: 15000 }).then(() => true, () => false));
     // The learner's query, saved as a learner would (typing into Monaco through Electron is flaky).
     writeFileSync(sqlFile, SQL_TEXT);
@@ -370,7 +370,8 @@ try {
     await answerInput(/New Python file/, PY_NAME);
     const pyFile = ws("notebooks", PY_NAME);
     check("Python file created in notebooks/", await waitFor(() => existsSync(pyFile)));
-    check("Python file header says it runs only with trusted Python", /trusted local Python/.test(existsSync(pyFile) ? read(pyFile) : ""));
+    // The file can exist before its content is flushed (seen on Linux CI): wait for the header itself.
+    check("Python file header says it runs only with trusted Python", await waitFor(() => existsSync(pyFile) && /trusted local Python/.test(read(pyFile)), 10000));
     writeFileSync(pyFile, PY_TEXT);
     check("New file did not turn trusted Python on", jsonFile(ws(".datapass", "project.json"))?.runtime?.trustedLocalPython !== true);
   });

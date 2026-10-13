@@ -67,7 +67,7 @@ Validation refuses unknown fields, invalid sizes, unknown references, cycles, du
 
 ## Tests
 
-`npm test` retains the existing gates and adds `node --test scripts/learning_smoke.mjs scripts/learning_host_smoke.mjs` and `node --test scripts/suite/` (catalog files, flashcard decks).
+`npm test` retains the existing gates and adds `node --test scripts/learning_smoke.mjs scripts/learning_host_smoke.mjs` and `node scripts/run_suite.mjs` (every `scripts/suite/*.test.mjs`).
 
 The first script checks every exercise, check and practice target against the actual shipped packs, the shipped missions, cheatsheets and decks, contract rejection of the new fields, the four progress levels, next-unverified, restored run and flashcard state, bounded webview messages, search, SQL toy fixtures, partition conservation and renderer safety. The second executes the actual TypeScript host through a mocked VS Code/runtime adapter with real temporary files. It covers no implicit execution, file preservation, unsaved buffers, Restricted Mode, symlinks, controller delegation, cross-topic result isolation, immutable comparisons, local run records, concept checks that never verify, mission and cheatsheet links, flashcard rating and persistence apart from Practice, resume, refused bad references and tree level labels. A mocked adapter is not a real VS Code integration run.
 
