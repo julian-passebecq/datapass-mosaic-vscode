@@ -41,5 +41,12 @@
 Mosaic Studio (`datapass-mosaicstudio`) was not touched. The exchange is file-based and versioned. DuckDB-WASM and
 native DuckDB never share a database; imported cells are never executed.
 
+## After V1 (2026-10-13)
+- #78: Mosaic Studio's real interchange, `.ipynb` with `metadata.datapass`, imported and exported (never executed),
+  round trip checked against Studio 4623b04's own `notebook_io.py`.
+- #79: BI Lab UI test race fixed (test only).
+- Delivered: VSIX 0.4.0 from main 44e8007 into the private galaxy-release-vault (see READY.md).
+
 ## Remaining
-See handoff/READY.md "Open before calling it released". The main item is Julian's publication grant, followed by CI.
+See handoff/READY.md "Open". Owner decision still open in Galaxy: F08, a real local Docker data journey, against the
+simulation-first Infra Lab. The original ChatGPT acceptance text was not recovered (NOT_RECOVERED).
