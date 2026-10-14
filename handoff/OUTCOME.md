@@ -48,5 +48,6 @@ native DuckDB never share a database; imported cells are never executed.
 - Delivered: VSIX 0.4.0 from main 44e8007 into the private galaxy-release-vault (see READY.md).
 
 ## Remaining
-See handoff/READY.md "Open". Owner decision still open in Galaxy: F08, a real local Docker data journey, against the
-simulation-first Infra Lab. The original ChatGPT acceptance text was not recovered (NOT_RECOVERED).
+See handoff/READY.md "Open". F08 (real local Docker data journey): EXCLUDED_V1 by owner decision (Julian, 14 Oct 2026). Infra Lab stays
+simulated in V1. A real Docker mode, optional and enabled only when Docker is detected, is a later idea
+(handoff/ROADMAP.md). The original ChatGPT acceptance text was not recovered (NOT_RECOVERED).
