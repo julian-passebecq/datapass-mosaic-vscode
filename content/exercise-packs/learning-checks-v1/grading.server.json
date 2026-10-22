@@ -381,7 +381,7 @@
             "c",
             "d"
           ],
-          "why": "XComs are stored in the metadata database: keep them small. Pass a reference to the data (a path or a table name), not the data, and never secrets.",
+          "why": "With Airflow's default BaseXCom backend, values are stored in the metadata database; custom and object-storage backends also exist. Keep XComs small. Pass a reference to the data (a path or a table name), not the data, and never secrets.",
           "correct": [
             "b"
           ]

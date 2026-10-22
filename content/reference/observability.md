@@ -23,7 +23,7 @@ documentation and Google's SRE books on 2026-10-12.
 |---|---|---|---|
 | Counter | Only goes up; resets to 0 when the process restarts | `http_requests_total` | `rate()`, `increase()`, never the raw value |
 | Gauge | Goes up and down | queue depth, memory in use | the value, `avg_over_time()`, `max_over_time()` |
-| Histogram | Cumulative `_bucket{le="..."}` counters plus `_sum` and `_count` | `http_request_duration_seconds` | `histogram_quantile()` over `rate()` of the buckets |
+| Classic histogram | Cumulative `_bucket{le="..."}` counters plus `_sum` and `_count` | `http_request_duration_seconds` | `histogram_quantile()` over `rate()` of the buckets |
 | Summary | Quantiles computed in the client | older client libraries | cannot be aggregated across instances |
 
 ## PromQL basics
@@ -36,8 +36,8 @@ documentation and Google's SRE books on 2026-10-12.
 - Aggregate **after** `rate()`: `sum by (code) (rate(http_requests_total[5m]))` gives one series per status code;
   `without (instance)` drops one label instead of keeping some.
 - Error ratio: `sum(rate(http_requests_total{code=~"5.."}[5m])) / sum(rate(http_requests_total[5m]))`.
-- p95 latency: `histogram_quantile(0.95, sum by (le) (rate(http_request_duration_seconds_bucket[5m])))`; keep `le`
-  when you sum, and write the quantile as 0.95.
+- p95 latency from a classic histogram: `histogram_quantile(0.95, sum by (le) (rate(http_request_duration_seconds_bucket[5m])))`; keep `le`
+  when you sum, and write the quantile as 0.95. Native histograms use the base metric without `_bucket` or `le`.
 - `offset 1h` shifts a selector into the past (compare with last hour); `up == 0` lists targets Prometheus cannot
   scrape.
 

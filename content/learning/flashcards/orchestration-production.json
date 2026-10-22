@@ -99,7 +99,7 @@
     {
       "id": "af-xcom",
       "front": "What belongs in an XCom?",
-      "back": "Small metadata: a path, a table name, a row count, a date. Not data frames, not secrets: XComs are stored in the metadata database.",
+      "back": "Small metadata: a path, a table name, a row count, a date. Not data frames or secrets. The default BaseXCom backend stores values in the metadata database; custom and object-storage backends also exist.",
       "lesson": "orch-sensors-pools",
       "tags": [
         "airflow"

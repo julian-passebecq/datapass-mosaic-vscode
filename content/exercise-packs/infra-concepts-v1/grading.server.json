@@ -310,7 +310,7 @@
             "c",
             "d"
           ],
-          "why": "A Prometheus histogram exposes cumulative `_bucket` counters labelled `le` (less than or equal). Take their rate, sum them keeping `le`, then histogram_quantile(0.95, ...) estimates the 95th percentile from the buckets. The quantile is written as 0.95, not 95.",
+          "why": "A classic Prometheus histogram exposes cumulative `_bucket` counters labelled `le` (less than or equal). Take their rate, sum them keeping `le`, then histogram_quantile(0.95, ...) estimates the 95th percentile from the buckets. The quantile is written as 0.95, not 95.",
           "correct": [
             "b"
           ]
@@ -591,7 +591,7 @@
             "c",
             "d"
           ],
-          "why": "A burn rate of 1 spends the budget exactly over the 30 days (720 hours). At 14.4, one hour spends 14.4 / 720 = 2% of the budget. Google's SRE workbook pairs this fast-burn alert (page) with slower ones, for example 6 over 6 hours (5%), for tickets.",
+          "why": "A burn rate of 1 spends the budget exactly over the 30 days (720 hours). At 14.4, one hour spends 14.4 / 720 = 2% of the budget. Google's recommended examples use 14.4 over one hour and 6 over six hours for pages, and 1 over three days for tickets; teams can adapt notification severity.",
           "correct": [
             "b"
           ]

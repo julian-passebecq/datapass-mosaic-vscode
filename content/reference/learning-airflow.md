@@ -21,7 +21,7 @@ Airflow 3 semantics; it is not an Airflow scheduler or executor.
 - A cleanup task with `all_done` runs in every case; a run still fails if a leaf task failed. A watcher task with
   `one_failed` that is downstream of every task keeps a failure visible.
 - `retries`, `retry_delay`, `retry_exponential_backoff`, and `execution_timeout` so a hung attempt ends.
-- XComs live in the metadata database: pass small metadata (paths, counts), never data frames or secrets.
+- The default BaseXCom backend stores XCom values in the metadata database; custom and object-storage backends also exist. Pass small metadata (paths, counts), never data frames or secrets.
 - `depends_on_past=True`: a run waits for the same task of the previous run to have succeeded.
 
 ## Waiting and sharing

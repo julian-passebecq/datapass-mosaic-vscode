@@ -12,6 +12,7 @@ Each version's section becomes the notes of its GitHub Release (see docs/RELEASE
 - Stop Cloud, BI and API Lab runs when an editor refuses to save; SQL pool runs use the text after save actions finish.
 - Preserve every dataset on exchange export when file names share a stem; refresh input-file hashes without attributing changed files to historical runs.
 - Keep unknown producer/runtime/provenance metadata on exchange round trips, and generate unique Jupyter cell IDs.
+- Correct selected SLO alert examples, classic-histogram wording and the default Airflow XCom backend description.
 - Candidate qualification and remaining release gates are recorded in `handoff/GA-PASS-2026-10-22.md`.
 
 - **Mosaic Studio notebooks (.ipynb)**: Import Mosaic Exchange also reads Mosaic Studio's real interchange (Jupyter
