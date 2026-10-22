@@ -488,12 +488,18 @@ export function buildExport(input: ExportInput): MosaicExchange {
   for (const file of [...input.files].sort((a, b) => a.name.localeCompare(b.name))) {
     // Refresh a plain file's hash by path, not by an id derived from its stem. A produced artifact with changed
     // bytes stays historical: the current file gets its own id and never inherits an unverified producer claim.
-    const existing = artifacts.findIndex(artifact => artifact.kind === "file" && artifact.name === file.name &&
-      (!artifact.producedBy || artifact.sha256 === file.sha256));
-    if (existing >= 0) {
-      artifacts[existing] = { ...artifacts[existing], sha256: file.sha256 };
-      continue;
+    // Refresh every current record before considering a historical hash match. Otherwise a file reverting to
+    // earlier bytes can match history first and leave a later current-file record stale.
+    let refreshed = false;
+    for (let index = 0; index < artifacts.length; index++) {
+      const artifact = artifacts[index];
+      if (artifact.kind === "file" && artifact.name === file.name && !artifact.producedBy) {
+        artifacts[index] = { ...artifact, sha256: file.sha256 };
+        refreshed = true;
+      }
     }
+    if (refreshed || artifacts.some(artifact => artifact.kind === "file" && artifact.name === file.name &&
+      artifact.sha256 === file.sha256)) continue;
     let id = file.id;
     let counter = 2;
     while (artifacts.some(artifact => artifact.id === id)) {

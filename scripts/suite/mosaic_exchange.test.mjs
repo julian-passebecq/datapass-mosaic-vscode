@@ -72,6 +72,32 @@ test('nested unknown producer, runtime and provenance fields survive a round tri
   assert.equal(exported.provenance.commit, undefined, 'the new export does not claim the imported commit');
 });
 
+test('a file reverting to historical bytes refreshes every plain current record first', () => {
+  const doc = clone(examples[0].doc);
+  const notebook = doc.notebooks[0];
+  const history = { id: 'historical-orders', kind: 'file', name: 'datasets/orders.csv', sha256: 'a'.repeat(64),
+    producedBy: { notebook: notebook.id, cell: notebook.cells[0].id } };
+  const current = { id: 'current-orders', kind: 'file', name: history.name, sha256: 'b'.repeat(64), custom: 'keep' };
+  const another = { ...current, id: 'another-current-record', sha256: 'c'.repeat(64) };
+  for (const artifacts of [[history, current, another], [another, current, history]]) {
+    doc.artifacts = artifacts;
+    assert.ok(x.validateExchange(doc).ok);
+    const [plan] = x.planImport(doc, 'notebooks', '2026-10-22T12:00:00Z');
+    const sources = new Map(plan.files.map(f => [f.path, f.content]));
+    const exported = x.buildExport({
+      producerVersion: '0.4.1', exportedAt: '2026-10-22T13:00:00Z', duckdbVersion: '1.5.6', source: 'test',
+      notebooks: [x.notebookFromRecord(plan.record.content, sources)],
+      files: [{ id: 'dataset-orders', name: history.name, sha256: history.sha256 }]
+    });
+    assert.ok(x.validateExchange(exported).ok);
+    assert.deepEqual(exported.artifacts.find(a => a.id === history.id), history, 'historical producer claim stays intact');
+    for (const record of [current, another]) {
+      assert.deepEqual(exported.artifacts.find(a => a.id === record.id), { ...record, sha256: history.sha256 });
+    }
+    assert.equal(exported.artifacts.length, 3, 'no redundant record is added');
+  }
+});
+
 test('a current dataset survives deleting its historical producer cell', () => {
   const doc = clone(examples[0].doc);
   const notebook = doc.notebooks[0];
