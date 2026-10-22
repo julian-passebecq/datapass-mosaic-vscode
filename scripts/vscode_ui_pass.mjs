@@ -161,6 +161,17 @@ async function command(title) {
   await page.keyboard.press("Enter");
 }
 
+async function reloadWindow() {
+  // The old document still contains .monaco-workbench after Reload is entered. Waiting for that
+  // selector alone can return before navigation and send the next command into the closing window.
+  // Subscribe first, then require the new document before reacquiring the workbench.
+  await Promise.all([
+    page.waitForEvent("domcontentloaded", { timeout: 180000 }),
+    command("Developer: Reload Window")
+  ]);
+  await page.waitForSelector(".monaco-workbench", { timeout: 180000 });
+}
+
 /**
  * Filter Practice on a card title, write `source` as its solution file first (Open solution never overwrites a file,
  * and typing into Monaco through Electron is flaky), open it with Open solution, then Submit from the same card.
@@ -285,8 +296,7 @@ async function arenaReleaseJourney() {
   const saved = JSON.parse(readFileSync(progressFile, "utf8"));
   saved.practice.exercises[key("sql")].review = { box: 1, due: "2020-01-01" };
   writeFileSync(progressFile, JSON.stringify(saved, null, 2));
-  await command("Developer: Reload Window");
-  await page.waitForSelector(".monaco-workbench", { timeout: 180000 });
+  await reloadWindow();
   await openWorkbench("Datapass: Open Practice");
   await button("Start runtime").click();
   await button("Stop runtime").waitFor({ timeout: 180000 });
@@ -799,8 +809,7 @@ try {
   const initFile = installedRuntimeInit();
   if (!initFile) throw new Error(`No installed datapass_runtime/__init__.py under ${venvRoot}.`);
   appendFileSync(initFile, "\nINSTALLED_BY_AN_OLDER_VSIX = True\n");
-  await command("Developer: Reload Window");
-  await page.waitForSelector(".monaco-workbench", { timeout: 180000 });
+  await reloadWindow();
   await page.waitForTimeout(1500);
   await openWorkbench();
   const stale = await waitForText(/needs update[\s\S]*installed by Datapass 0\.0\.1-older/, 30000);
@@ -825,6 +834,7 @@ try {
   if (process.env.DATAPASS_UI_RELEASE === "1") await inspectWalkthrough();
 } catch (error) {
   step("UI pass", false, String(error?.message ?? error).split("\n")[0].slice(0, 400));
+  writeFileSync(path.join(out, "error-stack.txt"), String(error?.stack ?? error));
   await shot("error");
   await button("Stop runtime").click({ timeout: 5000 }).catch(() => undefined);
 }

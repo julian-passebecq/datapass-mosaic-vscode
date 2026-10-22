@@ -7,7 +7,7 @@ Read this before a substantial change. It is kept short on purpose and updated i
   T-x, and the code-debt audit D-1…D-10).
 - **Rules** (product boundary, truth model, security, gates): CLAUDE.md, which wins over this file.
 
-Last updated: 2026-10-13.
+Last updated: 2026-10-22. Current candidate qualification: `handoff/GA-PASS-2026-10-22.md` (not GA).
 
 ## Baseline and workflow
 
@@ -52,7 +52,7 @@ manifests, and the "Get started with Datapass" walkthrough:
 | Airflow Lab (`airflow`) | Airflow 3 DAG files read by a whitelisted AST reader; scheduler, runs, retries simulated | simulation, never eval/exec | `runtime/airflowlab` |
 | Pipeline Lab (`pipeline`) | Python-like pipeline source compiled to a graph; supported activity bodies run | source never eval/exec'd; SQL, quality, Python, Polars bodies real; dbt activity declared only; schedule is metadata | `runtime/datapass_runtime/pipeline_compiler.py`, `native_pipeline.py` |
 
-V1 additions (branch `codex/mosaic-vsix-v1-finish-20261011`, merged locally, not on `main`; list: `handoff/features.csv`):
+V1 additions (merged on `main` through #75–#79; list: `handoff/features.csv`):
 - **Learning** (`src/learning/`, `content/learning/`, docs/MOSAIC_LEARNING.md): 13 paths, 59 lessons linking concept
   checks, Practice, missions, a cheatsheet and a deck. Four progress levels (read, concept checks, ran locally,
   Practice passed); only a Practice pass is verified. Flashcards are self-rated (`datapass.learning.review`, Leitner

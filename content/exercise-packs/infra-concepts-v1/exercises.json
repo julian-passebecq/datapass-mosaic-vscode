@@ -514,7 +514,7 @@
     "schema_version": 1,
     "id": "infra-concept-promql-histogram-quantile",
     "version": "1",
-    "title": "p95 latency from a histogram",
+    "title": "p95 latency from a classic histogram",
     "difficulty": "hard",
     "topics": [
       "observability",
@@ -528,14 +528,14 @@
     "origin": "authored",
     "language": "quiz",
     "runtime": "datapass-quiz-v1",
-    "prompt": "Request durations are recorded in the histogram `http_request_duration_seconds`. Which query gives the 95th percentile latency over all instances, over the last 5 minutes?",
+    "prompt": "Request durations are recorded in the classic histogram `http_request_duration_seconds`. Which query gives the 95th percentile latency over all instances, over the last 5 minutes?",
     "sections": [
       {
         "title": "Concept check (no execution)",
         "body": "Nothing runs here: the Infra Lab simulates Azure Monitor alerts but no Prometheus, Grafana or tracing backend. Answer in the file, save, and Submit; the runtime compares your answer with the pack's answer and explains it once you are right. The reference sheet (Observability: metrics, logs, traces, PromQL, Grafana, SLOs) covers the topic."
       }
     ],
-    "starter_source": "Concept check (no execution): nothing runs; the runtime checks your answer when you Submit.\n\nRequest durations are recorded in the histogram `http_request_duration_seconds`. Which query gives the 95th percentile latency over all instances, over the last 5 minutes?\n\n  a) quantile(0.95, http_request_duration_seconds_sum)\n  b) histogram_quantile(0.95, sum by (le) (rate(http_request_duration_seconds_bucket[5m])))\n  c) avg(http_request_duration_seconds_bucket) * 0.95\n  d) histogram_quantile(95, http_request_duration_seconds_count)\n\nWrite the letter of your choice after \"answer:\" (several letters separated by commas if several are right), save, then Submit.\nanswer:\n",
+    "starter_source": "Concept check (no execution): nothing runs; the runtime checks your answer when you Submit.\n\nRequest durations are recorded in the classic histogram `http_request_duration_seconds`. Which query gives the 95th percentile latency over all instances, over the last 5 minutes?\n\n  a) quantile(0.95, http_request_duration_seconds_sum)\n  b) histogram_quantile(0.95, sum by (le) (rate(http_request_duration_seconds_bucket[5m])))\n  c) avg(http_request_duration_seconds_bucket) * 0.95\n  d) histogram_quantile(95, http_request_duration_seconds_count)\n\nWrite the letter of your choice after \"answer:\" (several letters separated by commas if several are right), save, then Submit.\nanswer:\n",
     "fixtures": [
       {
         "id": "infra-concept-promql-histogram-quantile-fixtures",
@@ -553,7 +553,7 @@
     ],
     "edge_check_refs": [],
     "hints": [
-      "The buckets carry the le label; keep it when you sum.",
+      "Classic histogram buckets carry the le label; keep it when you sum.",
       "Open the reference sheet: Observability: metrics, logs, traces, PromQL, Grafana, SLOs."
     ],
     "solution": {
@@ -966,14 +966,14 @@
     "origin": "authored",
     "language": "quiz",
     "runtime": "datapass-quiz-v1",
-    "prompt": "An API has a 99.9% availability SLO over 30 days. How many minutes of full outage does its error budget allow over those 30 days? (a number)",
+    "prompt": "An API has a 99.9% time-based availability SLO over 30 days, with its entire budget available. How many minutes of full outage does that budget allow? (a number)",
     "sections": [
       {
         "title": "Concept check (no execution)",
         "body": "Nothing runs here: the Infra Lab simulates Azure Monitor alerts but no Prometheus, Grafana or tracing backend. Answer in the file, save, and Submit; the runtime compares your answer with the pack's answer and explains it once you are right. The reference sheet (Observability: metrics, logs, traces, PromQL, Grafana, SLOs) covers the topic."
       }
     ],
-    "starter_source": "Concept check (no execution): nothing runs; the runtime checks your answer when you Submit.\n\nAn API has a 99.9% availability SLO over 30 days. How many minutes of full outage does its error budget allow over those 30 days? (a number)\n\nWrite your short answer after \"answer:\", save, then Submit.\nanswer:\n",
+    "starter_source": "Concept check (no execution): nothing runs; the runtime checks your answer when you Submit.\n\nAn API has a 99.9% time-based availability SLO over 30 days, with its entire budget available. How many minutes of full outage does that budget allow? (a number)\n\nWrite your short answer after \"answer:\", save, then Submit.\nanswer:\n",
     "fixtures": [
       {
         "id": "infra-concept-slo-error-budget-fixtures",

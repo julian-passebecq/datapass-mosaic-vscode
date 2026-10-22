@@ -16,7 +16,7 @@
       "id": "shell-bash-basics",
       "version": 1,
       "title": "Bash for data files",
-      "summary": "Move, find, count and filter files from a terminal: paths, globs, pipes, grep and wc, and scripts that stop on the first error.",
+      "summary": "Move, find, count and filter files from a terminal: paths, globs, pipes, grep and wc, and scripts that report failures.",
       "minutes": 20,
       "concepts": [
         "bash",
@@ -42,7 +42,7 @@
         {
           "kind": "callout",
           "title": "Stop on failure",
-          "body": "A script carries on after a failing command unless told otherwise. Start it with set -euo pipefail: -e stops at the first failing command, -u makes an unset variable an error, pipefail makes a pipe fail when any part of it fails. Test conditions explicitly too: [ -s \"$file\" ] is true only for a file that exists and is not empty. Exit with a non-zero code and a message on stderr (>&2) so the scheduler sees the failure."
+          "body": "A script carries on after a failing command unless told otherwise. Start it with set -euo pipefail: -e exits on many command failures, with exceptions for conditionals and command lists; handle expected failures explicitly, -u makes an unset variable an error, pipefail makes a pipe fail when any part of it fails. Test conditions explicitly too: [ -s \"$file\" ] is true only for a file that exists and is not empty. Exit with a non-zero code and a message on stderr (>&2) so the scheduler sees the failure."
         },
         {
           "kind": "check",
@@ -52,7 +52,7 @@
       ],
       "code": {
         "language": "none",
-        "source": "# Read only: type these yourself in the Terminal Lab.\npwd\nls -la landing/\nmkdir -p archive/2026-10\nmv landing/*.csv archive/2026-10/\ngrep -h ERROR logs/*.log | sort | uniq -c | sort -rn | head -5\nwc -l archive/2026-10/*.csv\n\n#!/usr/bin/env bash\nset -euo pipefail\nfor file in landing/*.csv; do\n  [ -s \"$file\" ] || { echo \"empty file: $file\" >&2; exit 1; }\ndone\n"
+        "source": "#!/usr/bin/env bash\n# Example for a disposable folder containing landing/*.csv. Run it yourself.\nset -euo pipefail\npwd\nls -la landing/\n# Check every input before moving any of them. An unmatched glob fails this check too.\nfor file in landing/*.csv; do\n  [ -s \"$file\" ] || { echo \"missing or empty file: $file\" >&2; exit 1; }\ndone\nmkdir -p archive/2026-10\nmv landing/*.csv archive/2026-10/\nwc -l archive/2026-10/*.csv\n\n# Separate log-query example (run only when logs/*.log exists):\n# grep -h ERROR logs/*.log | sort | uniq -c | sort -rn | head -5\n"
       },
       "lab": "terminal",
       "visual": {
@@ -226,7 +226,7 @@
         {
           "kind": "text",
           "title": "Merge keeps history as it happened",
-          "body": "git merge feature creates a merge commit with two parents when both branches moved; when main has not moved, Git only fast-forwards the pointer. Nothing is rewritten, so merging a shared branch is always safe."
+          "body": "git merge feature creates a merge commit with two parents when both branches moved; when main has not moved, Git only fast-forwards the pointer. Merging preserves existing commits, but conflicts can occur. Start with a clean worktree, review the result and test it before sharing."
         },
         {
           "kind": "text",

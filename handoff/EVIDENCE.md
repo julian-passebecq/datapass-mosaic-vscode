@@ -1,5 +1,16 @@
 # Evidence
 
+## Current 0.4.1 candidate — 2026-10-22
+
+See [the resumed candidate report](GA-FOLLOWUP-2026-10-22.md) for current fixes and qualification, and
+[the earlier report](GA-PASS-2026-10-22.md) for preserved c3d73af evidence. **RELEASE_PASS=false**. The rows below are historical 0.4.0 evidence;
+they must not be used to qualify 0.4.1.
+
+The successor report now includes Windows CI job 17393312212 on exact source 7647a64. Its separate CI addendum
+preserves coordinator receipts and pre-CI metadata; installed acceptance still belongs to candidate 46486d84.
+
+## Historical evidence
+
 Lead fills the "pending" rows. Commit column: the commit the run was made at.
 
 | evidence_id | command or CI job | artifact path | commit | result |

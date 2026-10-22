@@ -336,16 +336,23 @@ export class RuntimeManager implements vscode.Disposable {
         const capabilities = await this.getJson<{ runtime?: { trusted_local_python?: unknown } }>(
           `${url}/api/capabilities`
         );
+        if (this.child !== child) return;
         const reported = capabilities.runtime?.trusted_local_python === true;
         if (reported !== trustedPython) {
           throw new Error(
             `Runtime reported trusted Python ${reported ? "enabled" : "disabled"}, but ${trustedPython ? "enabled" : "disabled"} was requested. The runtime was stopped.`
           );
         }
-        this.setState({ status: "running", url, detail: "Local runtime healthy.", trustedPython: reported });
-        await this.refreshCatalog();
+        // Health only proves the API is listening. The first catalog request starts the kernel and
+        // initializes DuckDB; keep Run disabled until that work finishes within the existing budget.
+        const catalog = await this.getJson<NonNullable<RuntimeViewState["catalog"]>>(
+          `${url}/api/local/catalog`, CATALOG_TIMEOUT_MS
+        );
+        if (this.child !== child) return;
+        this.setState({ status: "running", url, detail: "Local runtime ready.", trustedPython: reported, catalog });
       }
     } catch (error) {
+      if (this.child !== child) return;
       child.kill();
       this.child = undefined;
       this.output.show(true);

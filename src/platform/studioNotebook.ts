@@ -404,7 +404,9 @@ export function buildStudioNotebook(cells: readonly StudioExportCell[], exported
     if (recordedTable !== undefined && cell.kind === "jupyter") dp.outputTable = recordedTable;
     const pickNbId = (): string => {
       const wanted = [cell.nbId, cell.id].find(value => typeof value === "string" && NB_ID.test(value) && !nbIds.has(value));
-      const id = wanted ?? `cell-${index + 1}`;
+      let id = wanted ?? `cell-${index + 1}`;
+      let suffix = 2;
+      while (nbIds.has(id)) id = `cell-${index + 1}-${suffix++}`;
       nbIds.add(id);
       return id;
     };

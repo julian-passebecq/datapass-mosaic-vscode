@@ -132,7 +132,7 @@ CASES: list[dict[str, Any]] = [
         'steps': [
             {'command': 'build'},
             {'command': 'build', 'select': ['+dim_customers'], 'vars': {'min_amount': 6}},
-            {'command': 'test', 'select': ['tag:nothing']},
+            {'command': 'test', 'select': ['tag:nothing'], 'allow_empty': True},
         ],
     },
 ]
@@ -163,8 +163,13 @@ def run_dbt(dbt: list[str], folder: Path, step: dict) -> dict[str, str]:
         args.append('--full-refresh')
     if step.get('vars'):
         args += ['--vars', json.dumps(step['vars'])]
-    completed = subprocess.run(args, capture_output=True, text=True, cwd=folder, timeout=600)
     results = folder / 'target' / 'run_results.json'
+    # Each step must supply its own evidence, including commands expected to fail tests.
+    # A crashed dbt process must never reuse a preceding step's successful artifact.
+    results.unlink(missing_ok=True)
+    completed = subprocess.run(args, capture_output=True, text=True, cwd=folder, timeout=600)
+    if completed.returncode not in (0, 1):
+        raise RuntimeError(f'dbt exited unexpectedly ({completed.returncode}):\n{completed.stdout[-3000:]}\n{completed.stderr[-2000:]}')
     if not results.exists():
         raise RuntimeError(f'dbt produced no run_results.json:\n{completed.stdout[-3000:]}\n{completed.stderr[-2000:]}')
     data = json.loads(results.read_text(encoding='utf-8'))
@@ -184,23 +189,34 @@ def run_emulation(catalog: Catalog, files: dict[str, str], step: dict) -> dict[s
 
 def tables(connection) -> dict[str, dict]:
     found = {}
-    rows = connection.execute("SELECT table_schema, table_name FROM information_schema.tables "
+    rows = connection.execute("SELECT table_schema, table_name, table_type FROM information_schema.tables "
                               "WHERE table_schema IN ({}) ORDER BY 1, 2".format(', '.join(f"'{layer}'" for layer in LAYERS))).fetchall()
-    for schema, table in rows:
+    for schema, table, kind in rows:
         if table.endswith('__dbt_tmp'):
             continue
         columns = connection.execute('SELECT column_name, data_type FROM information_schema.columns WHERE table_schema = ? '
                                      'AND table_name = ? ORDER BY ordinal_position', [schema, table]).fetchall()
         data = connection.execute(f'SELECT * FROM "{schema}"."{table}"').fetchall()
-        found[f'{schema}.{table}'] = {'columns': columns, 'rows': data}
+        found[f'{schema}.{table}'] = {'columns': columns, 'rows': data, 'kind': kind}
     return found
 
 
 def comparable(table: dict, ignore: list[str]) -> tuple:
     keep = [i for i, (name, _) in enumerate(table['columns']) if name not in ignore]
     columns = [table['columns'][i] for i in keep]
-    rows = sorted((tuple(str(row[i]) for i in keep) for row in table['rows']))
-    return columns, rows
+    # Type tags distinguish SQL NULL from VARCHAR 'None', and repr preserves values
+    # without requiring heterogeneous cells to be orderable. Keep duplicate rows.
+    rows = sorted(tuple((type(row[i]).__name__, repr(row[i])) for i in keep) for row in table['rows'])
+    return columns, rows, table['kind']
+
+
+def validate_statuses(statuses: dict[str, str], allow_empty: bool = False) -> None:
+    if not statuses and not allow_empty:
+        raise RuntimeError('No nodes compared outside an explicitly empty selection')
+    unexpected = {name: status for name, status in statuses.items()
+                  if status not in {'success', 'pass', 'fail', 'warn', 'skipped'}}
+    if unexpected:
+        raise RuntimeError(f'Unexpected node errors/statuses: {unexpected}')
 
 
 def main() -> int:
@@ -236,6 +252,11 @@ def main() -> int:
                     real = run_dbt(dbt, real_dir, step)
                     emulated = run_emulation(catalog, case['files'], step)
                     label = f"{case['name']} step {index} ({step['command']})"
+                    for engine, statuses in [('dbt Core', real), ('emulation', emulated)]:
+                        try:
+                            validate_statuses(statuses, bool(step.get('allow_empty')))
+                        except RuntimeError as error:
+                            problems.append(f'{label}: {engine}: {error}')
                     if real != emulated:
                         diff = {k: (real.get(k), emulated.get(k)) for k in sorted(set(real) | set(emulated))
                                 if real.get(k) != emulated.get(k)}
@@ -254,6 +275,7 @@ def main() -> int:
                         if a != b:
                             only_real, only_emu = sorted(set(a[1]) - set(b[1]))[:5], sorted(set(b[1]) - set(a[1]))[:5]
                             problems.append(f'{label}: {name} differs'
+                                            + (f'\n    kind: {a[2]} vs {b[2]}' if a[2] != b[2] else '')
                                             + (f'\n    columns: {a[0]} vs {b[0]}' if a[0] != b[0] else '')
                                             + f'\n    rows {len(a[1])} vs {len(b[1])}; only in dbt Core: {only_real}'
                                             + f'\n    only in the emulation: {only_emu}')

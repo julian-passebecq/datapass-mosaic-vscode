@@ -9,6 +9,45 @@ Add a tranche as a new `## YYYY-MM-DD · Title` section at the top, under this p
 sections, and refer to another section by its heading, not by a position. Keep the "Checked" and "Not checked"
 notes: they say what was really run.
 
+## 2026-10-22 · Runtime readiness, reload synchronization and offline qualification
+
+Later evidence-only reconciliation: exact-source Windows pipeline 2977924510 / job 17393312212 passed canonical
+npm ci/package/test, 107 tests and 30 contract smokes. The CI VSIX has 622 matching paths, with 52 identical files
+and 570 line-ending-only differences from the selected installed candidate; all compiled bundles match. The
+selected package and installed receipts remain unchanged. No product rerun or new CI dispatch occurred here.
+
+The resumed lane fixes early runtime readiness and the native SQL response deadline, with explicit uncertain
+execution messaging and no retry. Reload waits for a new VS Code document; the unchanged previous candidate
+passes the complete 102-check module journey. Seven real dbt missions pass all references and reject their
+starters/mutants. The oracle now rejects stale evidence, false NULL matches, relation-kind mismatches and matching
+unexpected errors; four cases and twelve steps pass. Selected Git/Bash and observability corrections preserve
+graded answers. See [the follow-up report](../handoff/GA-FOLLOWUP-2026-10-22.md) for successor artifact and UI receipts.
+
+Checked: full Node source suite (40 learning, 67 suite tests plus contract smokes), nine oracle regressions,
+seven dbt missions, strict dbt oracle, corrected Bash lesson, all 89 quiz cards, successor installed V1 (10/10),
+successor module UI (102/102), 620 installed payload files in each profile and exact-source Windows CI. Not checked:
+physical native actions, complete curriculum/supported-version audit and family acceptance. RELEASE_PASS remains
+false; earlier artifacts and failures are retained.
+
+## 2026-10-22 · Candidate setup, save and interchange fixes
+
+0.4.1 candidate from main 2c87737. Bound DuckDB to 1.x after reproducing fresh-install partition analysis failure
+on 2.0.0; stop lab runs on refused saves and use post-save SQL text; preserve dataset exports and unknown metadata;
+allocate unique Studio notebook cell IDs. F08 real Docker remains excluded from V1.
+
+Also corrected three selected vendor teaching claims, reverted-input hash refresh and a Windows fixture path-case
+mismatch reproduced from CI. Packaged source is c3d73af; later report changes are excluded from the VSIX.
+
+Checked: full Node tests, package and installed-file identity, runtime and module smokes, final extension-host suite
+including real dbt Core/Charts, installed Learning UI (18/18). Installed V1 acceptance failed 9/10 (initial SQL timeout,
+successful history rerun); module UI failed 50/51 during reload. Full exercise-pack retry passed 727 references,
+727 starters and 818 mutants; earlier cleanup failure is retained.
+Current results, private GitHub delivery, exact package identity and remaining gates are in `handoff/GA-PASS-2026-10-22.md`.
+Not checked: physical native dialogs, pointer drag/save-conflict, full dbt mission/oracle suite and full vendor audit.
+Final-source Oracle CI passed npm install/package/test (102 machine-readable Node tests plus custom smoke assertions),
+pipeline 2977507321; downloaded artifact bytes verified. Linux CI VSIX and installed Windows VSIX retain distinct
+hashes. Earlier failed Windows CI and Oracle provenance bootstrap remain historical failures. No GA/public release claimed.
+
 ## 2026-10-13 · UI pass: BI Lab build waits for its files
 
 Branch `claude/bi-ui-race` from main `5b334dd`. The UI pass step "Lab controller: BI Lab builds its warehouse"

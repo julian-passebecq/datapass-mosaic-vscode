@@ -28,6 +28,22 @@ const fixtures = await Promise.all((await readdir(fixtureDir)).filter(n => n.end
   .map(async name => ({ name, text: await readFile(path.join(fixtureDir, name), 'utf8') })));
 const allKinds = () => JSON.parse(fixtures.find(f => f.name === 'studio-all-kinds.ipynb').text);
 
+test('fallback notebook ids stay unique beside existing and inert cell ids', () => {
+  const base = { kind: 'sql', title: 'SQL', content: 'select 1', dependsOn: [] };
+  const built = s.buildStudioNotebook([
+    { ...base, id: 'cell-2' },
+    { ...base, id: 'a'.repeat(80) },
+    { ...base, id: 'cell-4', kind: 'inert', content: JSON.stringify({ cell_type: 'raw', id: 'cell-4', metadata: {}, source: [] }) },
+    { ...base, id: 'b'.repeat(80) }
+  ], '2026-10-22T12:00:00Z');
+  assert.ok(built.ok, JSON.stringify(built.errors));
+  const ids = built.notebook.cells.map(cell => cell.id);
+  assert.equal(new Set(ids).size, ids.length);
+  assert.ok(ids.every(id => /^[A-Za-z0-9_-]{1,64}$/.test(id)));
+  assert.equal(ids[0], 'cell-2');
+  assert.equal(ids[2], 'cell-4');
+});
+
 function parse(doc, name = 'test.ipynb') {
   return s.parseStudioNotebook(typeof doc === 'string' ? doc : JSON.stringify(doc), name);
 }

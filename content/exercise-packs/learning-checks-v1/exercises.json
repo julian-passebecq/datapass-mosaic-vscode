@@ -680,7 +680,7 @@
     ],
     "edge_check_refs": [],
     "hints": [
-      "XComs live in Airflow's own database.",
+      "The default BaseXCom backend stores XCom values in Airflow's metadata database.",
       "Open the cheatsheet: Airflow."
     ],
     "solution": {

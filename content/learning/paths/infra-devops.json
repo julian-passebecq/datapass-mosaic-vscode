@@ -19,7 +19,7 @@
       "id": "infra-shell-basics",
       "version": 1,
       "title": "Shell habits for data work",
-      "summary": "Exit codes, permissions, disk space and scripts that stop on the first error.",
+      "summary": "Exit codes, permissions, disk space and scripts that report failures.",
       "minutes": 15,
       "concepts": [
         "bash",
@@ -34,7 +34,7 @@
         {
           "kind": "text",
           "title": "The mental model",
-          "body": "Schedulers and CI judge a script by its exit status: 0 is success, anything else is failure. A bash script carries on after a failed command unless it starts with set -euo pipefail (stop on error, on unset variables, and when any part of a pipeline fails). Permissions are three digits for owner, group and others, each summing read 4, write 2, execute 1."
+          "body": "Schedulers and CI judge a script by its exit status: 0 is success, anything else is failure. In Bash, set -e exits on many command failures, with exceptions for conditionals and command lists; handle expected failures explicitly. set -u rejects unset variables, and set -o pipefail makes a pipeline fail if any command fails. Permissions are three digits for owner, group and others, each summing read 4, write 2, execute 1."
         },
         {
           "kind": "text",
@@ -67,7 +67,7 @@
         "steps": [
           {
             "title": "Fail fast",
-            "body": "set -euo pipefail stops at the first failing command.",
+            "body": "set -euo pipefail catches many command, unset-variable and pipeline failures. The -e exceptions still require explicit handling of expected failures.",
             "lines": [
               2,
               2

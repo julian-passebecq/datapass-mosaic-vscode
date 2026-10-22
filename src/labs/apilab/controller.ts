@@ -54,7 +54,7 @@ export class ApiLabController implements LabController<ApiLabMessage> {
     if (!MISSION_ID.test(missionId)) return;
     await this.setActive(missionId);
     const root = vscode.workspace.workspaceFolders?.[0]?.uri;
-    await saveDirtyUnder(root ? vscode.Uri.joinPath(root, ...missionFolder(missionId).split("/")) : undefined);
+    if (!(await saveDirtyUnder(root ? vscode.Uri.joinPath(root, ...missionFolder(missionId).split("/")) : undefined))) return;
     const result = await vscode.window.withProgress(
       { location: vscode.ProgressLocation.Notification, title: `Running missions/${missionId}/ingest.py…` },
       () => this.host.runtime.labs.apilab.run(missionId));

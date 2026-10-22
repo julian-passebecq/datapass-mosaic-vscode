@@ -57,7 +57,7 @@
     {
       "id": "set-e",
       "front": "What does set -euo pipefail do?",
-      "back": "-e exits on the first failing command, -u treats unset variables as errors, pipefail makes a pipeline fail if any command in it fails.",
+      "back": "-e exits on many command failures, with exceptions for conditionals and command lists; handle expected failures explicitly, -u treats unset variables as errors, pipefail makes a pipeline fail if any command in it fails.",
       "lesson": "shell-bash-basics",
       "tags": [
         "bash",

@@ -92,6 +92,11 @@ a field without breaking a version 1 reader. A change that a version 1 reader wo
 `sha256` is the producer's hash: the bytes of a file; for a table, the producer's own content hash. A reader compares
 hashes from the same producer only; it never recomputes a table's hash from another engine.
 
+Workbench export refreshes an input file's hash by its workspace-relative path. File names that share a stem get
+distinct artifact IDs. If a recorded produced file now has different bytes, its historical artifact and producer
+remain unchanged; the current file is added separately without a producer claim. Unknown producer, runtime and
+provenance fields survive; the new export sets its own app, engine and source and does not claim the imported commit.
+
 ### Import (Workbench)
 
 1. The file is size-checked, parsed and validated; any error refuses the whole import and nothing is written.

@@ -17,7 +17,7 @@
     {
       "id": "set-euo",
       "front": "What does set -euo pipefail do?",
-      "back": "-e stops at the first failing command, -u fails on unset variables, pipefail makes a pipeline fail if any stage fails.",
+      "back": "-e exits on many command failures, with exceptions for conditionals and command lists; handle expected failures explicitly, -u fails on unset variables, pipefail makes a pipeline fail if any stage fails.",
       "lesson": "infra-shell-basics",
       "tags": [
         "linux"

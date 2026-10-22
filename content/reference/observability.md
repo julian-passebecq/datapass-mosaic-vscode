@@ -23,8 +23,8 @@ documentation and Google's SRE books on 2026-10-12.
 |---|---|---|---|
 | Counter | Only goes up; resets to 0 when the process restarts | `http_requests_total` | `rate()`, `increase()`, never the raw value |
 | Gauge | Goes up and down | queue depth, memory in use | the value, `avg_over_time()`, `max_over_time()` |
-| Histogram | Cumulative `_bucket{le="..."}` counters plus `_sum` and `_count` | `http_request_duration_seconds` | `histogram_quantile()` over `rate()` of the buckets |
-| Summary | Quantiles computed in the client | older client libraries | cannot be aggregated across instances |
+| Classic histogram | Cumulative `_bucket{le="..."}` counters plus `_sum` and `_count` | `http_request_duration_seconds` | `histogram_quantile()` over `rate()` of the buckets |
+| Summary | Quantiles computed in the client, plus sum and count | request latency | precomputed quantiles cannot be aggregated across instances; aggregate sum and count for an overall mean |
 
 ## PromQL basics
 
@@ -36,8 +36,8 @@ documentation and Google's SRE books on 2026-10-12.
 - Aggregate **after** `rate()`: `sum by (code) (rate(http_requests_total[5m]))` gives one series per status code;
   `without (instance)` drops one label instead of keeping some.
 - Error ratio: `sum(rate(http_requests_total{code=~"5.."}[5m])) / sum(rate(http_requests_total[5m]))`.
-- p95 latency: `histogram_quantile(0.95, sum by (le) (rate(http_request_duration_seconds_bucket[5m])))`; keep `le`
-  when you sum, and write the quantile as 0.95.
+- p95 latency from a classic histogram: `histogram_quantile(0.95, sum by (le) (rate(http_request_duration_seconds_bucket[5m])))`; keep `le`
+  when you sum, and write the quantile as 0.95. Native histograms use the base metric without `_bucket` or `le`.
 - `offset 1h` shifts a selector into the past (compare with last hour); `up == 0` lists targets Prometheus cannot
   scrape.
 
@@ -67,8 +67,8 @@ documentation and Google's SRE books on 2026-10-12.
   successfully in under 300 ms.
 - **SLO** (objective): a target for an SLI over a window, for example 99.5% over 28 days. **SLA**: a contract with
   consequences (credits) when it is missed, usually looser than the SLO.
-- **Error budget** = 100% - SLO. For 99.9% over 30 days: 30 x 24 x 60 = 43,200 minutes, x 0.001 = **43.2 minutes**
-  of full outage (4.32 minutes at 99.99%). While budget remains, ship; when it is spent, favour reliability work.
+- **Error budget** = 100% - the success target. For time-based availability of 99.9% over 30 days: 30 x 24 x 60 = 43,200 minutes, x 0.001 = **43.2 minutes**
+  of full outage (4.32 minutes at 99.99%), if the entire budget remains. A request-based budget counts bad requests, not fixed outage minutes. While budget remains, ship; when it is spent, favour reliability work.
 - **Burn rate**: how fast the budget is spent compared with exactly using it up over the window. Burn rate 1 spends
   it in 30 days (720 hours); burn rate 14.4 for 1 hour spends 14.4 / 720 = **2%**. The SRE workbook's multiwindow
   alerts: page at 14.4 over 1 h (2%) or 6 over 6 h (5%), open a ticket at 1 over 3 days (10%), each confirmed on a

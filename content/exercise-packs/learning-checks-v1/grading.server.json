@@ -381,7 +381,7 @@
             "c",
             "d"
           ],
-          "why": "XComs are stored in the metadata database: keep them small. Pass a reference to the data (a path or a table name), not the data, and never secrets.",
+          "why": "With Airflow's default BaseXCom backend, values are stored in the metadata database; custom and object-storage backends also exist. Keep XComs small. Pass a reference to the data (a path or a table name), not the data, and never secrets.",
           "correct": [
             "b"
           ]
@@ -2013,7 +2013,7 @@
             "c",
             "d"
           ],
-          "why": "Scripts and schedulers judge success by the exit status. set -e stops a script at the first failing command; set -o pipefail makes a pipeline fail when any part fails.",
+          "why": "Scripts and schedulers judge success by the exit status. set -e exits on many command failures, with exceptions for conditionals and command lists; handle expected failures explicitly; set -o pipefail makes a pipeline fail when any part fails.",
           "correct": [
             "a"
           ]
