@@ -19,7 +19,8 @@ unexpected errors; four cases and twelve steps pass. Selected Git/Bash and obser
 graded answers. See [the follow-up report](../handoff/GA-FOLLOWUP-2026-10-22.md) for successor artifact and UI receipts.
 
 Checked: full Node source suite (40 learning, 67 suite tests plus contract smokes), nine oracle regressions,
-seven dbt missions, strict dbt oracle, corrected Bash lesson. Not checked: physical native actions, complete
+seven dbt missions, strict dbt oracle, corrected Bash lesson, all 89 quiz cards, successor installed V1 (10/10),
+successor module UI (102/102) and 620 installed payload files in each profile. Not checked: physical native actions, complete
 curriculum/version audit and successor CI. RELEASE_PASS remains false; earlier artifacts and failures are retained.
 
 ## 2026-10-22 · Candidate setup, save and interchange fixes
