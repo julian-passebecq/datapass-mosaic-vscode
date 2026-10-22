@@ -11,6 +11,11 @@ notes: they say what was really run.
 
 ## 2026-10-22 · Runtime readiness, reload synchronization and offline qualification
 
+Later evidence-only reconciliation: exact-source Windows pipeline 2977924510 / job 17393312212 passed canonical
+npm ci/package/test, 107 tests and 30 contract smokes. The CI VSIX has 622 matching paths, with 52 identical files
+and 570 line-ending-only differences from the selected installed candidate; all compiled bundles match. The
+selected package and installed receipts remain unchanged. No product rerun or new CI dispatch occurred here.
+
 The resumed lane fixes early runtime readiness and the native SQL response deadline, with explicit uncertain
 execution messaging and no retry. Reload waits for a new VS Code document; the unchanged previous candidate
 passes the complete 102-check module journey. Seven real dbt missions pass all references and reject their
@@ -20,8 +25,9 @@ graded answers. See [the follow-up report](../handoff/GA-FOLLOWUP-2026-10-22.md)
 
 Checked: full Node source suite (40 learning, 67 suite tests plus contract smokes), nine oracle regressions,
 seven dbt missions, strict dbt oracle, corrected Bash lesson, all 89 quiz cards, successor installed V1 (10/10),
-successor module UI (102/102) and 620 installed payload files in each profile. Not checked: physical native actions, complete
-curriculum/version audit and successor CI. RELEASE_PASS remains false; earlier artifacts and failures are retained.
+successor module UI (102/102), 620 installed payload files in each profile and exact-source Windows CI. Not checked:
+physical native actions, complete curriculum/supported-version audit and family acceptance. RELEASE_PASS remains
+false; earlier artifacts and failures are retained.
 
 ## 2026-10-22 · Candidate setup, save and interchange fixes
 
