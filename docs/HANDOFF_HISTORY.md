@@ -24,7 +24,9 @@ successful history rerun); module UI failed 50/51 during reload. Full exercise-p
 727 starters and 818 mutants; earlier cleanup failure is retained.
 Current results, private GitHub delivery, exact package identity and remaining gates are in `handoff/GA-PASS-2026-10-22.md`.
 Not checked: physical native dialogs, pointer drag/save-conflict, full dbt mission/oracle suite and full vendor audit.
-Final-source CI requires the coordinator's receipt. No GA or public release claimed; hosted CI is unavailable.
+Final-source Oracle CI passed npm install/package/test (102 machine-readable Node tests plus custom smoke assertions),
+pipeline 2977507321; downloaded artifact bytes verified. Linux CI VSIX and installed Windows VSIX retain distinct
+hashes. Earlier failed Windows CI and Oracle provenance bootstrap remain historical failures. No GA/public release claimed.
 
 ## 2026-10-13 · UI pass: BI Lab build waits for its files
 
