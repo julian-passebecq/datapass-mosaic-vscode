@@ -1,5 +1,13 @@
 # Evidence
 
+## Current 0.4.1 candidate — 2026-10-22
+
+See [the candidate report](GA-PASS-2026-10-22.md) for packaged source c3d73af, exact VSIX identity, current passes,
+failures and private remote verification. **RELEASE_PASS=false**. The rows below are historical 0.4.0 evidence;
+they must not be used to qualify 0.4.1.
+
+## Historical evidence
+
 Lead fills the "pending" rows. Commit column: the commit the run was made at.
 
 | evidence_id | command or CI job | artifact path | commit | result |

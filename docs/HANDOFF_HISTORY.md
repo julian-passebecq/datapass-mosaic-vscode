@@ -15,9 +15,16 @@ notes: they say what was really run.
 on 2.0.0; stop lab runs on refused saves and use post-save SQL text; preserve dataset exports and unknown metadata;
 allocate unique Studio notebook cell IDs. F08 real Docker remains excluded from V1.
 
-Checked: build and focused source regressions; full Node contract suite. Current results, package identity and
-remaining gates are in `handoff/GA-PASS-2026-10-22.md`.
-Not checked: no GA or public release claimed; hosted CI is unavailable under the current execution budget.
+Also corrected three selected vendor teaching claims, reverted-input hash refresh and a Windows fixture path-case
+mismatch reproduced from CI. Packaged source is c3d73af; later report changes are excluded from the VSIX.
+
+Checked: full Node tests, package and installed-file identity, runtime and module smokes, final extension-host suite
+including real dbt Core/Charts, installed Learning UI (18/18). Installed V1 acceptance failed 9/10 (initial SQL timeout,
+successful history rerun); module UI failed 50/51 during reload. Full exercise-pack retry passed 727 references,
+727 starters and 818 mutants; earlier cleanup failure is retained.
+Current results, private GitHub delivery, exact package identity and remaining gates are in `handoff/GA-PASS-2026-10-22.md`.
+Not checked: physical native dialogs, pointer drag/save-conflict, full dbt mission/oracle suite and full vendor audit.
+Final-source CI requires the coordinator's receipt. No GA or public release claimed; hosted CI is unavailable.
 
 ## 2026-10-13 · UI pass: BI Lab build waits for its files
 
