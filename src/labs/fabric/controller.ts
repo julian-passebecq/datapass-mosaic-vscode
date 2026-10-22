@@ -207,7 +207,7 @@ export class FabricController implements LabController<FabricMessage> {
   private async simulateFactory(flavor: FactoryFlavor, name: string, scenario: FactoryScenarioInput): Promise<void> {
     if (!FACTORY_FLAVORS.includes(flavor) || !PIPELINE_NAME.test(name)) return;
     // A run uses the files as saved, like the other labs.
-    await saveDirtyUnder(factoryRoot());
+    if (!(await saveDirtyUnder(factoryRoot()))) return;
     const { files, warnings } = await collectFactoryFiles(flavor);
     const path = pipelineRelativePath(flavor, name);
     const document = files.pipelines[name];
@@ -377,14 +377,25 @@ export class FabricController implements LabController<FabricMessage> {
     let script = "";
     let label = "";
     if (source === "file") {
-      const read = path ? await readPoolScript(path) : { error: "No script selected." };
+      let read = path ? await readPoolScript(path) : { error: "No script selected." };
       if (read.error || read.text === undefined) {
         void vscode.window.showWarningMessage(read.error ?? "No script selected.");
         return;
       }
       const uri = factoryFileUri(path!)!;
       const open = vscode.workspace.textDocuments.find(document => document.uri.toString() === uri.toString());
-      if (open?.isDirty) await open.save();  // a run uses the file as saved, like the other labs
+      if (open?.isDirty) {
+        if (!(await open.save())) {
+          void vscode.window.showWarningMessage(`Save ${path} before running it. Nothing was run.`);
+          return;
+        }
+        // Saving can change the text (formatters and save participants). Run the saved version.
+        read = await readPoolScript(path!);
+        if (read.error || read.text === undefined) {
+          void vscode.window.showWarningMessage(read.error ?? "No script selected.");
+          return;
+        }
+      }
       script = read.text;
       label = path!;
       this.lastSqlPoolFile = uri;
@@ -417,7 +428,7 @@ export class FabricController implements LabController<FabricMessage> {
   /** Run a Databricks job of the Cloud Lab: the runtime simulates it; notebook and SQL tasks run on the catalog. */
   private async simulateDatabricks(name: string, scenario: DatabricksScenarioInput): Promise<void> {
     if (!JOB_NAME.test(name)) return;
-    await saveDirtyUnder(factoryRoot());
+    if (!(await saveDirtyUnder(factoryRoot()))) return;
     const { files, jobs, warnings } = await collectDatabricksFiles();
     const path = databricksJobPath(name);
     const document = jobs[name];

@@ -30,6 +30,64 @@ const examples = await Promise.all((await readdir(exampleDir)).filter(n => n.end
   .map(async name => ({ name, doc: JSON.parse(await readFile(path.join(exampleDir, name), 'utf8')) })));
 const clone = value => structuredClone(value);
 
+test('current datasets survive id collisions and refresh plain file hashes without rewriting run history', () => {
+  const doc = clone(examples[0].doc);
+  const notebook = doc.notebooks[0];
+  const old = 'a'.repeat(64), fresh = 'b'.repeat(64);
+  doc.artifacts = [
+    { id: 'dataset-orders', kind: 'file', name: 'datasets/orders.csv', sha256: old, custom: 'keep' },
+    { id: 'dataset-history', kind: 'file', name: 'datasets/history.csv', sha256: old,
+      producedBy: { notebook: notebook.id, cell: notebook.cells[0].id } }
+  ];
+  const [plan] = x.planImport(doc, 'notebooks', '2026-10-22T12:00:00Z');
+  const exported = x.buildExport({
+    producerVersion: '0.4.1', exportedAt: '2026-10-22T13:00:00Z', duckdbVersion: '1.5.5', source: 'test',
+    notebooks: [x.notebookFromRecord(plan.record.content, new Map(plan.files.map(f => [f.path, f.content])))],
+    files: [
+      { id: 'dataset-orders', name: 'datasets/orders.csv', sha256: fresh },
+      { id: 'dataset-orders', name: 'datasets/orders.json', sha256: fresh },
+      { id: 'dataset-history', name: 'datasets/history.csv', sha256: fresh }
+    ]
+  });
+  assert.equal(new Set(exported.artifacts.map(a => a.id)).size, 4);
+  const orders = exported.artifacts.find(a => a.name === 'datasets/orders.csv');
+  assert.equal(orders.sha256, fresh);
+  assert.equal(orders.custom, 'keep');
+  assert.equal(exported.artifacts.find(a => a.name === 'datasets/orders.json').sha256, fresh);
+  const history = exported.artifacts.filter(a => a.name === 'datasets/history.csv');
+  assert.equal(history.find(a => a.producedBy).sha256, old);
+  assert.equal(history.find(a => !a.producedBy).sha256, fresh);
+  assert.ok(x.validateExchange(exported).ok);
+  assert.ok(schemaValid(exported), ajv.errorsText(schemaValid.errors));
+});
+
+test('nested unknown producer, runtime and provenance fields survive a round trip', () => {
+  const doc = clone(examples[0].doc);
+  for (const name of ['producer', 'runtime', 'provenance']) doc[name].custom = { keep: name };
+  doc.provenance.commit = 'a'.repeat(40);
+  const { exported } = roundTrip(doc);
+  for (const name of ['producer', 'runtime', 'provenance']) assert.deepEqual(exported[name].custom, doc[name].custom);
+  assert.equal(exported.runtime.engine, 'duckdb-native');
+  assert.equal(exported.producer.app, 'datapass-workbench');
+  assert.equal(exported.provenance.commit, undefined, 'the new export does not claim the imported commit');
+});
+
+test('a current dataset survives deleting its historical producer cell', () => {
+  const doc = clone(examples[0].doc);
+  const notebook = doc.notebooks[0];
+  const producer = notebook.cells[0].id;
+  const file = { id: 'dataset-orders', kind: 'file', name: 'datasets/orders.csv', sha256: 'a'.repeat(64) };
+  doc.artifacts = [{ ...file, producedBy: { notebook: notebook.id, cell: producer } }];
+  const [plan] = x.planImport(doc, 'notebooks', '2026-10-22T12:00:00Z');
+  const sources = new Map(plan.files.filter(f => f.cell !== producer).map(f => [f.path, f.content]));
+  const exported = x.buildExport({
+    producerVersion: '0.4.1', exportedAt: '2026-10-22T13:00:00Z', duckdbVersion: '1.5.6', source: 'test',
+    notebooks: [x.notebookFromRecord(plan.record.content, sources)], files: [file]
+  });
+  assert.deepEqual(exported.artifacts, [file]);
+  assert.ok(x.validateExchange(exported).ok);
+});
+
 /** Import into a virtual workspace, then export from its records with the files as written. */
 function roundTrip(doc) {
   const parsed = x.validateExchange(doc);

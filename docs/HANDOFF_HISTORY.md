@@ -9,6 +9,16 @@ Add a tranche as a new `## YYYY-MM-DD · Title` section at the top, under this p
 sections, and refer to another section by its heading, not by a position. Keep the "Checked" and "Not checked"
 notes: they say what was really run.
 
+## 2026-10-22 · Candidate setup, save and interchange fixes
+
+0.4.1 candidate from main 2c87737. Bound DuckDB to 1.x after reproducing fresh-install partition analysis failure
+on 2.0.0; stop lab runs on refused saves and use post-save SQL text; preserve dataset exports and unknown metadata;
+allocate unique Studio notebook cell IDs. F08 real Docker remains excluded from V1.
+
+Checked: build and focused source regressions; full Node contract suite. Current results, package identity and
+remaining gates are in `handoff/GA-PASS-2026-10-22.md`.
+Not checked: no GA or public release claimed; hosted CI is unavailable under the current execution budget.
+
 ## 2026-10-13 · UI pass: BI Lab build waits for its files
 
 Branch `claude/bi-ui-race` from main `5b334dd`. The UI pass step "Lab controller: BI Lab builds its warehouse"

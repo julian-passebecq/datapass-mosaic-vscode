@@ -52,7 +52,7 @@ export class BiController implements LabController<BiMessage> {
    */
   private async runBiLab(mode: BiRunMode): Promise<void> {
     if (mode !== "build" && mode !== "analyze" && mode !== "active") return;
-    await saveDirtyUnder(biRoot());
+    if (!(await saveDirtyUnder(biRoot()))) return;
     let scripts: { path: string; text: string }[];
     let warnings: string[];
     let source: string;
@@ -94,7 +94,7 @@ export class BiController implements LabController<BiMessage> {
       void vscode.window.showWarningMessage(parsed.error);
       return;
     }
-    await saveDirtyUnder(biRoot());
+    if (!(await saveDirtyUnder(biRoot()))) return;
     const { files, warnings } = await collectBiDbtFiles();
     if (!("dbt_project.yml" in files)) {
       void vscode.window.showWarningMessage("No dbt project in bi/dbt. Create the BI Lab files first.");

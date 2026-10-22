@@ -446,10 +446,13 @@ export interface ExportInput {
 /** A version 1 document from this Workbench: engine duckdb-native, names and hashes only, no data. */
 export function buildExport(input: ExportInput): MosaicExchange {
   const notebooks: ExchangeNotebook[] = [];
-  const artifacts: ExchangeArtifact[] = [];
+  let artifacts: ExchangeArtifact[] = [];
   const runs: { run: ExchangeRun; notebook: string }[] = [];
   let extensions: Record<string, unknown> = {};
   let unknown: Record<string, unknown> = {};
+  let producerFields: Record<string, unknown> = {};
+  let runtimeFields: Record<string, unknown> = {};
+  let provenanceFields: Record<string, unknown> = {};
   for (const notebook of input.notebooks) {
     const header = notebook.record?.exchange.notebooks[0];
     const headerCells = new Map((header?.cells ?? []).map(cell => [cell.id, cell]));
@@ -467,6 +470,10 @@ export function buildExport(input: ExportInput): MosaicExchange {
         .filter(run => own.has(run.cell))
         .map(run => ({ run, notebook: notebook.id })));
       extensions = { ...extensions, ...notebook.record.exchange.extensions };
+      producerFields = { ...producerFields, ...notebook.record.exchange.producer };
+      runtimeFields = { ...runtimeFields, ...notebook.record.exchange.runtime };
+      const { source: _source, commit: _commit, runs: _runs, ...extraProvenance } = notebook.record.exchange.provenance;
+      provenanceFields = { ...provenanceFields, ...extraProvenance };
       const recorded = notebook.record.exchange as unknown as Record<string, unknown>;
       for (const key of Object.keys(recorded)) if (!KNOWN_TOP.has(key)) unknown = { ...unknown, [key]: recorded[key] };
     }
@@ -475,22 +482,36 @@ export function buildExport(input: ExportInput): MosaicExchange {
   const owners = (cell: string) => notebooks.filter(notebook => notebook.cells.some(candidate => candidate.id === cell)).length;
   const exportedRuns = runs.map(({ run, notebook }) =>
     run.notebook === undefined && owners(run.cell) > 1 ? { ...run, notebook } : run);
-  for (const file of input.files) {
-    if (!artifacts.some(artifact => artifact.id === file.id)) artifacts.push({ id: file.id, kind: "file", name: file.name, sha256: file.sha256 });
-  }
-  // Artifacts produced by a cell that is no longer exported would dangle: keep only those whose producer is here.
-  const kept = artifacts.filter(artifact => !artifact.producedBy || notebooks.some(notebook =>
+  // Drop deleted producers before merging current datasets, so a dangling historical artifact cannot hide a file.
+  artifacts = artifacts.filter(artifact => !artifact.producedBy || notebooks.some(notebook =>
     notebook.id === artifact.producedBy?.notebook && notebook.cells.some(cell => cell.id === artifact.producedBy?.cell)));
+  for (const file of [...input.files].sort((a, b) => a.name.localeCompare(b.name))) {
+    // Refresh a plain file's hash by path, not by an id derived from its stem. A produced artifact with changed
+    // bytes stays historical: the current file gets its own id and never inherits an unverified producer claim.
+    const existing = artifacts.findIndex(artifact => artifact.kind === "file" && artifact.name === file.name &&
+      (!artifact.producedBy || artifact.sha256 === file.sha256));
+    if (existing >= 0) {
+      artifacts[existing] = { ...artifacts[existing], sha256: file.sha256 };
+      continue;
+    }
+    let id = file.id;
+    let counter = 2;
+    while (artifacts.some(artifact => artifact.id === id)) {
+      const suffix = `-${counter++}`;
+      id = `${file.id.slice(0, 64 - suffix.length)}${suffix}`;
+    }
+    artifacts.push({ id, kind: "file", name: file.name, sha256: file.sha256 });
+  }
   return {
     ...unknown,
     format: EXCHANGE_FORMAT,
     version: EXCHANGE_VERSION,
-    producer: { app: "datapass-workbench", version: input.producerVersion },
+    producer: { ...producerFields, app: "datapass-workbench", version: input.producerVersion },
     exportedAt: input.exportedAt,
-    runtime: { engine: "duckdb-native", version: input.duckdbVersion },
+    runtime: { ...runtimeFields, engine: "duckdb-native", version: input.duckdbVersion },
     notebooks,
-    artifacts: kept,
-    provenance: { source: input.source, runs: exportedRuns },
+    artifacts,
+    provenance: { ...provenanceFields, source: input.source, runs: exportedRuns },
     extensions
   };
 }

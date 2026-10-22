@@ -96,9 +96,13 @@ export async function activeSavedDocument(
 }
 
 /** A run uses the files as saved, like the other labs: save the dirty editors under a lab folder. */
-export async function saveDirtyUnder(root: vscode.Uri | undefined): Promise<void> {
-  if (!root) return;
+export async function saveDirtyUnder(root: vscode.Uri | undefined): Promise<boolean> {
+  if (!root) return true;
   for (const document of vscode.workspace.textDocuments) {
-    if (document.isDirty && document.uri.toString().startsWith(root.toString() + "/")) await document.save();
+    if (document.isDirty && document.uri.toString().startsWith(root.toString() + "/") && !(await document.save())) {
+      void vscode.window.showWarningMessage(`Save ${vscode.workspace.asRelativePath(document.uri)} before running it. Nothing was run.`);
+      return false;
+    }
   }
+  return true;
 }
