@@ -331,7 +331,7 @@ CARDS = [
      "In bash, what does $? hold right after a command?",
      {"a": "The exit status of that command: 0 means success", "b": "The process id", "c": "The number of arguments",
       "d": "The last line of output"}, ["a"],
-     "Scripts and schedulers judge success by the exit status. set -e stops a script at the first failing command; set -o pipefail makes a pipeline fail when any part fails.",
+     "Scripts and schedulers judge success by the exit status. set -e exits on many command failures, with exceptions for conditionals and command lists; handle expected failures explicitly; set -o pipefail makes a pipeline fail when any part fails.",
      "Zero is good news."),
     ("linux-df", "linux-vm", "easy", "Is the disk full?",
      "Which command shows used and free space for each mounted filesystem?",

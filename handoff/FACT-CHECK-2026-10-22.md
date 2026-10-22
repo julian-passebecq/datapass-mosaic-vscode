@@ -1,7 +1,7 @@
 # Selected vendor fact checks — 2026-10-22
 
 **E-FACTS-P2: PARTIAL.** This is a selected review, not verification of all 89 exercises in the two packs.
-All three corrected cards retain their existing graded answers. Their authoring generators and generated content
+All corrected cards retain their existing graded answers. Their authoring generators and generated content
 are kept in sync. Pack provenance is not promoted to a blanket vendor-verification claim.
 
 | Exercise | Correction | Primary source |
@@ -25,3 +25,20 @@ Selected unchanged checks:
 
 These are documentation checks, not execution of Spark, Databricks, Airflow, Prometheus or Grafana. No provider
 credentials, external services or real infrastructure were used for this review.
+
+## Resumed review
+
+The independent review covered all 17 Infra concept cards and selected Git/Bash learning text. The complete
+72-card learning-check pack and every version of every documented platform remain outside this claim.
+
+| Scope | Correction | Primary source |
+| --- | --- | --- |
+| Structured logs | Reliable queries require consistent field names, types and meanings; JSON syntax alone does not ensure this. | [OpenTelemetry log structure](https://opentelemetry.io/docs/concepts/signals/logs/#structured-unstructured-and-semistructured-logs) |
+| SLI/SLO and outage budget | An objective can target a value/range; 43.2 minutes assumes time-based availability with the entire budget available. Request-based budgets count requests. | [Google SRE objectives](https://sre.google/sre-book/service-level-objectives/), [Embracing Risk](https://sre.google/sre-book/embracing-risk/), [availability table](https://sre.google/sre-book/availability-table/) |
+| Prometheus summaries | Precomputed quantiles cannot generally be aggregated; sum and count can produce a combined mean. | [Prometheus histograms and summaries](https://prometheus.io/docs/practices/histograms/#count-and-sum-of-observations) |
+| Bash `set -e` | It has documented conditional/command-list exceptions. Handle expected failures explicitly. The lesson now checks all inputs before moving them. | [GNU Bash set builtin](https://www.gnu.org/software/bash/manual/html_node/The-Set-Builtin.html) |
+| Git merge | Preserving commit history does not imply conflict-free operation. Start clean, review and test the result. | [git-merge](https://git-scm.com/docs/git-merge#_description) |
+
+Authoring generators and generated card explanations remain synchronized. These documentation checks do not
+execute Prometheus/Grafana or constitute a full curriculum audit. The Bash documentation was available as
+official indexed text; its direct fetch timed out during review.

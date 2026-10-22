@@ -9,6 +9,19 @@ Add a tranche as a new `## YYYY-MM-DD · Title` section at the top, under this p
 sections, and refer to another section by its heading, not by a position. Keep the "Checked" and "Not checked"
 notes: they say what was really run.
 
+## 2026-10-22 · Runtime readiness, reload synchronization and offline qualification
+
+The resumed lane fixes early runtime readiness and the native SQL response deadline, with explicit uncertain
+execution messaging and no retry. Reload waits for a new VS Code document; the unchanged previous candidate
+passes the complete 102-check module journey. Seven real dbt missions pass all references and reject their
+starters/mutants. The oracle now rejects stale evidence, false NULL matches, relation-kind mismatches and matching
+unexpected errors; four cases and twelve steps pass. Selected Git/Bash and observability corrections preserve
+graded answers. See [the follow-up report](../handoff/GA-FOLLOWUP-2026-10-22.md) for successor artifact and UI receipts.
+
+Checked: full Node source suite (40 learning, 67 suite tests plus contract smokes), nine oracle regressions,
+seven dbt missions, strict dbt oracle, corrected Bash lesson. Not checked: physical native actions, complete
+curriculum/version audit and successor CI. RELEASE_PASS remains false; earlier artifacts and failures are retained.
+
 ## 2026-10-22 · Candidate setup, save and interchange fixes
 
 0.4.1 candidate from main 2c87737. Bound DuckDB to 1.x after reproducing fresh-install partition analysis failure

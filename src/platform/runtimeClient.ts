@@ -13,6 +13,13 @@ export const RUNTIME_TOKEN_ENV = "DATAPASS_RUNTIME_TOKEN";
 export const RUNTIME_PORT_ENV = "DATAPASS_RUNTIME_PORT";
 export const RUNTIME_TOKEN_HEADER = "x-datapass-token";
 
+export class RuntimeRequestTimeoutError extends Error {
+  constructor() {
+    super("Runtime request timed out.");
+    this.name = "RuntimeRequestTimeoutError";
+  }
+}
+
 /** 32 random bytes, hex encoded. */
 export function newRuntimeToken(): string {
   return randomBytes(32).toString("hex");
@@ -43,7 +50,7 @@ export function requestJson<T>(
       },
       response => collectJson<T>(response, resolve, reject)
     );
-    request.setTimeout(timeoutMs, () => request.destroy(new Error("Runtime request timed out.")));
+    request.setTimeout(timeoutMs, () => request.destroy(new RuntimeRequestTimeoutError()));
     request.on("error", reject);
     request.end(payload);
   });
@@ -54,7 +61,7 @@ export function requestGetJson<T>(url: string, timeoutMs = 3000, token?: string)
     const request = http.get(url, { headers: runtimeAuthHeaders(token) }, response =>
       collectJson<T>(response, resolve, reject)
     );
-    request.setTimeout(timeoutMs, () => request.destroy(new Error("Runtime request timed out.")));
+    request.setTimeout(timeoutMs, () => request.destroy(new RuntimeRequestTimeoutError()));
     request.on("error", reject);
   });
 }

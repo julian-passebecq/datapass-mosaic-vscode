@@ -43,7 +43,7 @@ for file in landing/*.csv; do
 done
 ```
 
-- `-e` stops at the first failing command, `-u` rejects unset variables, `pipefail` fails a pipe when any part fails.
+- `-e` exits on many command failures, with exceptions for conditionals and command lists; handle expected failures explicitly. `-u` rejects unset variables, and `pipefail` makes a pipeline fail if any command fails.
 - `$?` is the last exit code: 0 is success.
 - Quote variables: `"$file"`.
 

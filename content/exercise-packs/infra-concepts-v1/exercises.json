@@ -966,14 +966,14 @@
     "origin": "authored",
     "language": "quiz",
     "runtime": "datapass-quiz-v1",
-    "prompt": "An API has a 99.9% availability SLO over 30 days. How many minutes of full outage does its error budget allow over those 30 days? (a number)",
+    "prompt": "An API has a 99.9% time-based availability SLO over 30 days, with its entire budget available. How many minutes of full outage does that budget allow? (a number)",
     "sections": [
       {
         "title": "Concept check (no execution)",
         "body": "Nothing runs here: the Infra Lab simulates Azure Monitor alerts but no Prometheus, Grafana or tracing backend. Answer in the file, save, and Submit; the runtime compares your answer with the pack's answer and explains it once you are right. The reference sheet (Observability: metrics, logs, traces, PromQL, Grafana, SLOs) covers the topic."
       }
     ],
-    "starter_source": "Concept check (no execution): nothing runs; the runtime checks your answer when you Submit.\n\nAn API has a 99.9% availability SLO over 30 days. How many minutes of full outage does its error budget allow over those 30 days? (a number)\n\nWrite your short answer after \"answer:\", save, then Submit.\nanswer:\n",
+    "starter_source": "Concept check (no execution): nothing runs; the runtime checks your answer when you Submit.\n\nAn API has a 99.9% time-based availability SLO over 30 days, with its entire budget available. How many minutes of full outage does that budget allow? (a number)\n\nWrite your short answer after \"answer:\", save, then Submit.\nanswer:\n",
     "fixtures": [
       {
         "id": "infra-concept-slo-error-budget-fixtures",

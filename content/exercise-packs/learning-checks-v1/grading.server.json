@@ -2013,7 +2013,7 @@
             "c",
             "d"
           ],
-          "why": "Scripts and schedulers judge success by the exit status. set -e stops a script at the first failing command; set -o pipefail makes a pipeline fail when any part fails.",
+          "why": "Scripts and schedulers judge success by the exit status. set -e exits on many command failures, with exceptions for conditionals and command lists; handle expected failures explicitly; set -o pipefail makes a pipeline fail when any part fails.",
           "correct": [
             "a"
           ]

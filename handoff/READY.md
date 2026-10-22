@@ -1,7 +1,7 @@
 # READY · Datapass Workbench 0.4.0 (Mosaic VSIX V1)
 
 **Historical 0.4.0 record.** The 2026-10-22 0.4.1 candidate has open qualification gates and is not GA-approved.
-Use [the current candidate report](GA-PASS-2026-10-22.md) for its exact source, VSIX and test results. The green
+Use [the current candidate report](GA-FOLLOWUP-2026-10-22.md) for its exact source, VSIX and test results. The green
 statements below describe the earlier 0.4.0 release only.
 
 **Status: merged to main, green, delivered privately.** Current build: main `44e8007` (after #78 Studio .ipynb interop and

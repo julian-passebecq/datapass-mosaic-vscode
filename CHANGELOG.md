@@ -8,6 +8,9 @@ Each version's section becomes the notes of its GitHub Release (see docs/RELEASE
 
 ## [0.4.1] - 2026-10-22
 
+- Keep execution unavailable until the local catalog is ready, and prevent stopped launches from publishing stale readiness.
+- Allow SQL responses to cover the existing worker execution deadline; report uncertain execution after a transport timeout without retrying.
+- Clarify selected SLO, structured-log, Prometheus summary, Bash failure and Git merge lessons; validate inputs before the Bash example moves them.
 - Keep fresh runtime installations on DuckDB 1.x: DuckDB 2 changes the SQL syntax tree used for partition analysis.
 - Stop Cloud, BI and API Lab runs when an editor refuses to save; SQL pool runs use the text after save actions finish.
 - Preserve every dataset on exchange export when file names share a stem; refresh input-file hashes without attributing changed files to historical runs.

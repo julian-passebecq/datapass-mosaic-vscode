@@ -1,7 +1,12 @@
-import { runtimeErrorDetail } from "../../platform/runtimeClient";
+import { RuntimeRequestTimeoutError, runtimeErrorDetail } from "../../platform/runtimeClient";
 import type { TranslatedDialectId } from "../../platform/sqlDialect";
 import type { CsvImportView, LocalCellRunView, QueryPlanView, TableProfileView } from "../../webview/contracts";
 import type { RuntimeConnection } from "../runtimeConnection";
+
+// The runtime caps kernel execution at 20 s; stopping a timed-out worker can take two 2 s waits.
+// Preserve the existing translated-SQL response allowance for native SQL too, including response overhead.
+// Queue waits are outside the kernel timer: a transport timeout is still an uncertain outcome, never a retry.
+const SQL_RESPONSE_TIMEOUT_MS = 30_000;
 
 /** Mosaic: SQL and trusted Python on the local catalog, file imports, profiles and query plans. */
 export class MosaicClient {
@@ -43,17 +48,25 @@ export class MosaicClient {
   async runSql(code: string, dialect?: TranslatedDialectId): Promise<LocalCellRunView> {
     const url = this.runtime.runningUrl();
     if (!url) throw new Error("Start the Datapass runtime before running SQL.");
-    const lastRun = await this.runtime.postJson<LocalCellRunView>(
-      `${url}/api/local/execute`,
-      {
-        language: "sql",
-        code,
-        notebook_id: "vscode-sql",
-        cell_id: "active-sql",
-        ...(dialect ? { dialect } : {})
-      },
-      dialect ? 30000 : 10000
-    );
+    let lastRun: LocalCellRunView;
+    try {
+      lastRun = await this.runtime.postJson<LocalCellRunView>(
+        `${url}/api/local/execute`,
+        {
+          language: "sql",
+          code,
+          notebook_id: "vscode-sql",
+          cell_id: "active-sql",
+          ...(dialect ? { dialect } : {})
+        },
+        SQL_RESPONSE_TIMEOUT_MS
+      );
+    } catch (error) {
+      if (error instanceof RuntimeRequestTimeoutError) {
+        throw new Error("SQL response timed out. The query may still have completed; do not assume it was rolled back. Check the affected data before running it again.");
+      }
+      throw error;
+    }
     const translated = lastRun.dialect ? ` (${lastRun.dialect.label})` : "";
     this.runtime.update({
       detail: lastRun.status === "success"
