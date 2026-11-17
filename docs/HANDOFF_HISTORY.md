@@ -17,6 +17,8 @@ changed). Pin both to the versions in main's last green run rather than weakenin
 The npm lockfile is unchanged. Add the missing GitLab mirror job using existing compile, Node smoke
 and runtime smoke commands on the msiold runner; the GitHub jobs still cover the extension host and VSIX.
 The imac runner was backed up, so the same job uses idle msiold's verified Node 26 and Python 3.14 paths.
+Its service TEMP spelling exposed two learning-host fixture lookups that disagreed with the host's
+realpath spelling. Canonicalize the fixture folder; both unsaved-buffer/stale-source assertions stay intact.
 
 Checked: main check-runs and October green logs, plus the November failures in PR #83's run
 44096899991. Exact-head CI links and local results are recorded in this fix's PR as they finish.
