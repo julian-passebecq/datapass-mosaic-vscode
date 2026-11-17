@@ -4,7 +4,7 @@ workflow:
     - if: $CI_COMMIT_BRANCH
 
 default:
-  tags: [local-windows, imac]
+  tags: [local-windows, msiold]
   interruptible: true
 
 smoke:
@@ -12,14 +12,14 @@ smoke:
   script:
     - |
       $ErrorActionPreference = 'Stop'
-      $env:Path = 'C:\Program Files\nodejs;' + $env:Path
-      npm ci --no-audit --no-fund
+      $env:Path = 'C:\Users\julia\AppData\Local\Programs\nodejs\node-v26.13.0-win-x64;' + $env:Path
+      npm.cmd ci --no-audit --no-fund
       if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-      npm run compile
+      npm.cmd run compile
       if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-      npm test
+      npm.cmd test
       if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-      & 'C:\Users\julia\AppData\Local\Programs\Python\Python312\python.exe' -m venv .venv
+      & 'C:\Program Files\Python314\python.exe' -m venv .venv
       if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
       & .\.venv\Scripts\python.exe -m pip install ./runtime
       if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }

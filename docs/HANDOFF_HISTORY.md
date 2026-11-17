@@ -15,7 +15,8 @@ Branch `fix/main-checks` from main `2c87737`. Fresh installs had moved from Duck
 (EXPLAIN ANALYZE operator labels changed) and sqlglot 30.22.0 to 30.33.0 (SQL pool partition analysis
 changed). Pin both to the versions in main's last green run rather than weakening either assertion.
 The npm lockfile is unchanged. Add the missing GitLab mirror job using existing compile, Node smoke
-and runtime smoke commands on the imac runner; the GitHub jobs still cover the extension host and VSIX.
+and runtime smoke commands on the msiold runner; the GitHub jobs still cover the extension host and VSIX.
+The imac runner was backed up, so the same job uses idle msiold's verified Node 26 and Python 3.14 paths.
 
 Checked: main check-runs and October green logs, plus the November failures in PR #83's run
 44096899991. Exact-head CI links and local results are recorded in this fix's PR as they finish.
