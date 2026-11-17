@@ -9,6 +9,21 @@ Add a tranche as a new `## YYYY-MM-DD · Title` section at the top, under this p
 sections, and refer to another section by its heading, not by a position. Keep the "Checked" and "Not checked"
 notes: they say what was really run.
 
+## 2026-11-17 · R532: restore qualified runtime dependencies
+
+Branch `fix/main-checks` from main `2c87737`. Fresh installs had moved from DuckDB 1.5.6 to 2.0.0
+(EXPLAIN ANALYZE operator labels changed) and sqlglot 30.22.0 to 30.33.0 (SQL pool partition analysis
+changed). Pin both to the versions in main's last green run rather than weakening either assertion.
+The npm lockfile is unchanged. Add the missing GitLab mirror job using existing compile, Node smoke
+and runtime smoke commands on the imac runner; the GitHub jobs still cover the extension host and VSIX.
+
+Checked: main check-runs and October green logs, plus the November failures in PR #83's run
+44096899991. Exact-head CI links and local results are recorded in this fix's PR as they finish.
+Not checked here: compatibility with newer DuckDB/sqlglot versions; those need a separate qualification.
+PR #83 stays untouched: after the PM merges this fix, rebase it on main and rerun both CI systems.
+Rollback: revert this commit to restore the previous dependency ranges and mirror configuration.
+Problems/questions: local GitLab credentials are absent, so the mirror push uses the hub; no product questions.
+
 ## 2026-10-13 · UI pass: BI Lab build waits for its files
 
 Branch `claude/bi-ui-race` from main `5b334dd`. The UI pass step "Lab controller: BI Lab builds its warehouse"

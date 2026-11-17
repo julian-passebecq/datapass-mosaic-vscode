@@ -1,0 +1,27 @@
+# GitHub stays canonical. Run the existing build and smoke tests on the private mirror.
+workflow:
+  rules:
+    - if: $CI_COMMIT_BRANCH
+
+default:
+  tags: [local-windows, imac]
+  interruptible: true
+
+smoke:
+  timeout: 30m
+  script:
+    - |
+      $ErrorActionPreference = 'Stop'
+      $env:Path = 'C:\Program Files\nodejs;' + $env:Path
+      npm ci --no-audit --no-fund
+      if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+      npm run compile
+      if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+      npm test
+      if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+      & 'C:\Users\julia\AppData\Local\Programs\Python\Python312\python.exe' -m venv .venv
+      if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+      & .\.venv\Scripts\python.exe -m pip install ./runtime
+      if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+      & .\.venv\Scripts\python.exe scripts/runtime_smoke.py
+      if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
