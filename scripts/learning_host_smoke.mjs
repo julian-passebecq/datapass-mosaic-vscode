@@ -24,7 +24,8 @@ const practiceReview = {};
 vm.runInNewContext(reviewCompiled.outputText, { exports: practiceReview, Date, Math, Number, String }, { filename: 'practiceReview.js' });
 
 async function fixture(options = {}) {
-  const folder = await fs.mkdtemp(path.join(tmpdir(), 'mosaic-learning-host-'));
+  // Match the host's realpath spelling (Windows service TEMP can have different casing).
+  const folder = await fs.realpath(await fs.mkdtemp(path.join(tmpdir(), 'mosaic-learning-host-')));
   const saved = options.saved ?? new Map(), docs = new Map(), sent = [], calls = [];
   const uri = file => ({ scheme: 'file', fsPath: file, path: file, toString: () => `file://${file}` });
   class EventEmitter { listeners = []; event = listener => { this.listeners.push(listener); return { dispose() {} }; }; fire = value => { for (const fn of this.listeners) fn(value); }; dispose() {} }
